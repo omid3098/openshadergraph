@@ -25,3 +25,24 @@ func set_value(value: float):
 
 func get_output_value() -> float:
 	return float_value
+
+# Override from BaseNode to provide properties for the properties panel
+func get_property_list_for_panel() -> Array:
+	var properties = []
+	
+	properties.append({
+		"name": "float_value",
+		"display_name": "Value",
+		"type": "float",
+		"value": float_value
+	})
+	
+	return properties
+
+# Override from BaseNode to handle property changes
+func set_property(property_name: String, value):
+	match property_name:
+		"float_value":
+			set_value(value)
+		_:
+			super.set_property(property_name, value)

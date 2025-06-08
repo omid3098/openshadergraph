@@ -139,3 +139,83 @@ func set_constant_type(new_type: ConstantType):
     if new_type != constant_type:
         _set_slot_type(new_type)
         _update_display()
+
+# Override from BaseNode to provide properties for the properties panel
+func get_property_list_for_panel() -> Array:
+    var properties = []
+    
+    # Constant type property
+    properties.append({
+        "name": "constant_type",
+        "display_name": "Type",
+        "type": "enum",
+        "value": constant_type,
+        "options": ["Bool", "Int", "Float", "Vec2", "Vec3", "Vec4", "Mat2", "Mat3", "Mat4", "Texture", "Texture 2D", "Texture 3D", "Texture Cube", "Texture 2D Array", "Texture 3D Array", "Texture Cube Array"]
+    })
+    
+    # Value property based on current type
+    match constant_type:
+        ConstantType.BOOL:
+            properties.append({
+                "name": "bool_value",
+                "display_name": "Value",
+                "type": "bool",
+                "value": bool_value
+            })
+        ConstantType.INT:
+            properties.append({
+                "name": "int_value",
+                "display_name": "Value",
+                "type": "int",
+                "value": int_value
+            })
+        ConstantType.FLOAT:
+            properties.append({
+                "name": "float_value",
+                "display_name": "Value",
+                "type": "float",
+                "value": float_value
+            })
+        ConstantType.VEC2:
+            properties.append({
+                "name": "vec2_value",
+                "display_name": "Value",
+                "type": "vector2",
+                "value": vec2_value
+            })
+        ConstantType.VEC3:
+            properties.append({
+                "name": "vec3_value",
+                "display_name": "Value",
+                "type": "vector3",
+                "value": vec3_value
+            })
+        ConstantType.VEC4:
+            properties.append({
+                "name": "vec4_value",
+                "display_name": "Value",
+                "type": "vector4",
+                "value": vec4_value
+            })
+    
+    return properties
+
+# Override from BaseNode to handle property changes
+func set_property(property_name: String, value):
+    match property_name:
+        "constant_type":
+            set_constant_type(value)
+        "bool_value":
+            set_bool_value(value)
+        "int_value":
+            set_int_value(value)
+        "float_value":
+            set_float_value(value)
+        "vec2_value":
+            set_vec2_value(value)
+        "vec3_value":
+            set_vec3_value(value)
+        "vec4_value":
+            set_vec4_value(value)
+        _:
+            super.set_property(property_name, value)
