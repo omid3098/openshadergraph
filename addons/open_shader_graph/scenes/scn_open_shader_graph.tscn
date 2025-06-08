@@ -1,0 +1,22 @@
+[gd_scene load_steps=2 format=3 uid="uid://ca8bvl4src8x5"]
+
+[ext_resource type="Script" uid="uid://d2op6atecoihp" path="res://addons/open_shader_graph/scripts/gd_open_shader_graph.gd" id="1_f2xx0"]
+
+[node name="OpenShaderGraph" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_f2xx0")
+
+[node name="GraphEdit" type="GraphEdit" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+scroll_offset = Vector2(-40, -40)
+grid_pattern = 1
