@@ -51,6 +51,8 @@ func _setup_layout():
 	# Listen for signals
 	current_graph_edit.right_clicked.connect(_on_graph_edit_right_clicked)
 	current_graph_edit.shader_node_selected.connect(_on_node_selected)
+	current_graph_edit.nodes_connected.connect(_on_nodes_connected)
+	current_graph_edit.nodes_disconnected.connect(_on_nodes_disconnected)
 	
 	# Add graph edit to its container
 	graph_container.add_child(current_graph_edit)
@@ -76,8 +78,24 @@ func _on_node_selected(node: BaseNode):
 	if properties_panel:
 		properties_panel.set_selected_node(node)
 
+func _on_nodes_connected(from_node: String, from_port: int, to_node: String, to_port: int):
+	print("[DEBUG] Nodes connected: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
+	# Here we could update UI or trigger other events when nodes are connected
+
+func _on_nodes_disconnected(from_node: String, from_port: int, to_node: String, to_port: int):
+	print("[DEBUG] Nodes disconnected: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
+	# Here we could update UI or trigger other events when nodes are disconnected
+
 # Development helper function to refresh node registry
 func refresh_node_registry():
 	print("[DEBUG] Refreshing node registry...")
 	NodeFactory.refresh_registry()
 	NodeFactory.debug_print_registry()
+
+# Development helper function to debug connections
+func debug_connections():
+	if current_graph_edit:
+		var connections = current_graph_edit.get_connections()
+		print("[DEBUG] Current connections: ", connections)
+		return connections
+	return []
