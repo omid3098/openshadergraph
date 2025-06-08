@@ -13,7 +13,7 @@ func _ready():
 	
 	# Create a simple label to show the current value
 	var label = Label.new()
-	label.text = "Value: " + str(float_value)
+	label.text = "Value: " + BaseConstantNode.format_float(float_value)
 	add_child(label)
 
 func set_value(value: float):
@@ -22,7 +22,7 @@ func set_value(value: float):
 	if get_child_count() > 0:
 		var label = get_child(0) as Label
 		if label:
-			label.text = "Value: " + str(float_value)
+			label.text = "Value: " + BaseConstantNode.format_float(float_value)
 
 func get_output_value() -> float:
 	return float_value

@@ -18,7 +18,18 @@ func get_output_color() -> Color:
 # Virtual method for child classes to provide formatted display text
 func get_display_text() -> String:
 	# Default implementation - can be overridden by child classes
+	# Use proper float formatting if the value is a float
+	if value is float:
+		return format_float(value)
 	return str(value)
+
+# Static utility method for consistent float formatting across all nodes
+static func format_float(float_value: float) -> String:
+	# Format float with proper precision to avoid long decimal representations
+	var formatted = "%.3f" % float_value
+	# Remove trailing zeros and decimal point if not needed
+	formatted = formatted.rstrip("0").rstrip(".")
+	return formatted
 
 func _ready():
 	# Set up the node with one output slot

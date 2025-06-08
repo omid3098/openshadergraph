@@ -15,4 +15,8 @@ func get_output_color() -> Color:
 
 func get_display_text() -> String:
 	var vec3 = value as Vector3
-	return "(" + str(vec3.x) + ", " + str(vec3.y) + ", " + str(vec3.z) + ")"
+	# Use consistent float formatting from BaseConstantNode
+	var x_formatted = BaseConstantNode.format_float(vec3.x)
+	var y_formatted = BaseConstantNode.format_float(vec3.y)
+	var z_formatted = BaseConstantNode.format_float(vec3.z)
+	return "(" + x_formatted + ", " + y_formatted + ", " + z_formatted + ")"
