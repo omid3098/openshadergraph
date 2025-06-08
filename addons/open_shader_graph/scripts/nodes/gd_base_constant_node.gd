@@ -63,9 +63,9 @@ func _get_property_list() -> Array:
 		"bool": TYPE_BOOL,
 		"int": TYPE_INT,
 		"float": TYPE_FLOAT,
-		"vector2": TYPE_VECTOR2,
-		"vector3": TYPE_VECTOR3,
-		"vector4": TYPE_VECTOR4
+		"float2": TYPE_VECTOR2,
+		"float3": TYPE_VECTOR3,
+		"float4": TYPE_VECTOR4
 	}
 	
 	var property_type = type_mapping.get(get_value_type(), TYPE_NIL)

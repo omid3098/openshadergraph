@@ -76,11 +76,11 @@ class NodePropertyWrapper extends RefCounted:
 				return TYPE_FLOAT
 			"string":
 				return TYPE_STRING
-			"vector2":
+			"float2":
 				return TYPE_VECTOR2
-			"vector3":
+			"float3":
 				return TYPE_VECTOR3
-			"vector4":
+			"float4":
 				return TYPE_VECTOR4
 			"enum":
 				return TYPE_INT

@@ -1,14 +1,14 @@
 @tool
-class_name OpenShaderVector3Constant extends BaseConstantNode
+class_name OpenShaderFloat3Constant extends BaseConstantNode
 
 func _ready():
-	node_path = "Constants/Vector3 Constant"
-	title = "Vector3 Constant"
+	node_path = "Constants/Float3 Constant"
+	title = "Float3 Constant"
 	value = Vector3.ZERO
 	super._ready()
 
 func get_value_type() -> String:
-	return "vector3"
+	return "float3"
 
 func get_output_color() -> Color:
 	return Color.YELLOW
