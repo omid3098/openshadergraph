@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://dj83x3h6jqcf0"]
+
+[ext_resource type="Script" uid="uid://dcyo1t7ev7c55" path="res://addons/open_shader_graph/scripts/nodes/gd_base_node.gd" id="1_87m4c"]
+
+[node name="GraphNode" type="GraphNode"]
+offset_right = 100.0
+offset_bottom = 55.0
+title = "Node Name"
+script = ExtResource("1_87m4c")

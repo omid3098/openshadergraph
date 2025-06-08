@@ -1,5 +1,5 @@
 @tool
-class_name BaseNode extends Control
+class_name BaseNode extends GraphNode
 
 # node path in the list of all available nodes
 # "" means the node is in the root
