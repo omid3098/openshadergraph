@@ -1,52 +1,18 @@
 @tool
-class_name OpenShaderVector4Constant
-extends BaseNode
-
-var vec4_value: Vector4 = Vector4.ZERO
+class_name OpenShaderVector4Constant extends BaseConstantNode
 
 func _ready():
 	node_path = "Constants/Vector4 Constant"
 	title = "Vector4 Constant"
-	
-	# Set up the node with one output slot for Vector4
-	set_slot(0, false, 0, Color.WHITE, true, 0, Color.MAGENTA, null, null, true)
-	
-	# Create a simple label to show the current value
-	_update_display()
+	value = Vector4.ZERO
+	super._ready()
 
-func _update_display():
-	# Clear existing children
-	for child in get_children():
-		child.queue_free()
-	
-	var label = Label.new()
-	label.text = "(" + str(vec4_value.x) + ", " + str(vec4_value.y) + ", " + str(vec4_value.z) + ", " + str(vec4_value.w) + ")"
-	add_child(label)
+func get_value_type() -> String:
+	return "vector4"
 
-func set_value(value: Vector4):
-	vec4_value = value
-	_update_display()
+func get_output_color() -> Color:
+	return Color.MAGENTA
 
-func get_output_value() -> Vector4:
-	return vec4_value
-
-# Override from BaseNode to provide properties for the properties panel
-func get_property_list_for_panel() -> Array:
-	var properties = []
-	
-	properties.append({
-		"name": "vec4_value",
-		"display_name": "Value",
-		"type": "vector4",
-		"value": vec4_value
-	})
-	
-	return properties
-
-# Override from BaseNode to handle property changes
-func set_property(property_name: String, value):
-	match property_name:
-		"vec4_value":
-			set_value(value)
-		_:
-			super.set_property(property_name, value)
+func get_display_text() -> String:
+	var vec4 = value as Vector4
+	return "(" + str(vec4.x) + ", " + str(vec4.y) + ", " + str(vec4.z) + ", " + str(vec4.w) + ")"

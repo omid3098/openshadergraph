@@ -15,7 +15,7 @@ static func _initialize():
 	_node_registry = {}
 	
 	var nodes_base_path = "res://addons/open_shader_graph/scripts/nodes"
-	var excluded_files = ["gd_base_node.gd"] # Files to exclude from registration
+	var excluded_files = ["gd_base_node.gd", "gd_base_constant_node.gd", "gd_base_math_node.gd"] # Files to exclude from registration
 	
 	# Dynamically discover category folders
 	var categories = _discover_categories(nodes_base_path)
