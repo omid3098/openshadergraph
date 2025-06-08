@@ -9,6 +9,9 @@ signal nodes_disconnected(from_node: String, from_port: int, to_node: String, to
 # Connection tracking
 var node_connections: Array[Dictionary] = []
 
+# Node index management for shader code generation
+var next_node_index: int = 0
+
 # We use the _gui_input function to detect mouse clicks on this specific node.
 func _gui_input(event: InputEvent) -> void:
 	# Check for a right mouse button click.
@@ -18,17 +21,29 @@ func _gui_input(event: InputEvent) -> void:
 		emit_signal("right_clicked", get_global_mouse_position())
 		accept_event()
 
-# When a child node is added, connect to its selection signal
+# When a child node is added, connect to its selection signal and assign index
 func _on_child_entered_tree(node):
 	if node is BaseNode:
 		node.node_selection_changed.connect(_on_node_selection_changed)
+		# Assign a unique index to the node
+		node.set_node_index(next_node_index)
+		next_node_index += 1
+		print("[DEBUG] Assigned index ", node.get_node_index(), " to node: ", node.name)
+
+# When a child node is removed, we may need to recompact indices (optional)
+func _on_child_exiting_tree(node):
+	if node is BaseNode:
+		print("[DEBUG] Node with index ", node.get_node_index(), " is being removed: ", node.name)
+		# Note: We could recompact indices here, but for shader generation
+		# it might be better to keep stable indices until a full reindex is needed
 
 func _on_node_selection_changed(selected_node: BaseNode):
 	emit_signal("shader_node_selected", selected_node)
 
 func _ready():
-	# Connect to child entered tree signal
+	# Connect to child management signals
 	child_entered_tree.connect(_on_child_entered_tree)
+	child_exiting_tree.connect(_on_child_exiting_tree)
 	
 	# Connect to GraphEdit's connection signals
 	connection_request.connect(_on_connection_request)
@@ -37,7 +52,7 @@ func _ready():
 	# Enable right-click on background to delete connections
 	delete_nodes_request.connect(_on_delete_nodes_request)
 	
-	print("[DEBUG] GraphEdit: Connection signals connected")
+	print("[DEBUG] GraphEdit: Connection signals connected and node index management initialized")
 
 func _on_connection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int):
 	print("[DEBUG] Connection request: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
@@ -199,15 +214,32 @@ func _disconnect_all_node_connections(node_name: String):
 func get_connections() -> Array[Dictionary]:
 	return node_connections.duplicate()
 
-func get_node_connections(node_name: String) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for conn in node_connections:
-		if conn.from_node == node_name or conn.to_node == node_name:
-			result.append(conn)
-	return result
+# Get all nodes sorted by their index (useful for shader code generation)
+func get_nodes_by_index() -> Array[BaseNode]:
+	var nodes: Array[BaseNode] = []
+	
+	# Collect all BaseNode children
+	for child in get_children():
+		if child is BaseNode:
+			nodes.append(child)
+	
+	# Sort by index
+	nodes.sort_custom(func(a, b): return a.get_node_index() < b.get_node_index())
+	
+	return nodes
 
-func has_connection(from_node: String, from_port: int, to_node: String, to_port: int) -> bool:
-	for conn in node_connections:
-		if conn.from_node == from_node and conn.from_port == from_port and conn.to_node == to_node and conn.to_port == to_port:
-			return true
-	return false
+# Recompact node indices (removes gaps in numbering)
+func recompact_node_indices():
+	var nodes = get_nodes_by_index()
+	next_node_index = 0
+	
+	for node in nodes:
+		node.set_node_index(next_node_index)
+		next_node_index += 1
+		print("[DEBUG] Recompacted node index: ", node.get_node_index(), " for node: ", node.name)
+	
+	print("[DEBUG] Node indices recompacted. Next index will be: ", next_node_index)
+
+# Get the current next index (useful for external components)
+func get_next_node_index() -> int:
+	return next_node_index

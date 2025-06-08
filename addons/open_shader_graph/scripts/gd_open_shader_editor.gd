@@ -99,3 +99,26 @@ func debug_connections():
 		print("[DEBUG] Current connections: ", connections)
 		return connections
 	return []
+
+# Development helper function to debug node indices
+func debug_node_indices():
+	if current_graph_edit:
+		var nodes = current_graph_edit.get_nodes_by_index()
+		print("[DEBUG] Nodes by index:")
+		for node in nodes:
+			print("  Index ", node.get_node_index(), ": ", node.name, " (", node.get_script().get_global_name() if node.get_script() else "no script", ")")
+		print("[DEBUG] Next node index will be: ", current_graph_edit.get_next_node_index())
+		return nodes
+	return []
+
+# Recompact node indices (removes gaps in numbering)
+func recompact_node_indices():
+	if current_graph_edit:
+		current_graph_edit.recompact_node_indices()
+		print("[DEBUG] Node indices recompacted")
+
+# Get nodes sorted by their index (useful for shader code generation)
+func get_nodes_by_index() -> Array[BaseNode]:
+	if current_graph_edit:
+		return current_graph_edit.get_nodes_by_index()
+	return []

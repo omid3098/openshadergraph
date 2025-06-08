@@ -8,6 +8,10 @@ const PinTypeColors = preload("res://addons/open_shader_graph/scripts/core/gd_pi
 # "" means the node is in the root
 var node_path: String = ""
 
+# Index in the graph for shader code generation
+# This helps determine the order of nodes when generating final shader code
+var node_index: int = -1
+
 signal node_selection_changed(node: BaseNode)
 
 func _ready():
@@ -26,3 +30,11 @@ func set_property(property_name: String, value):
     # Simple property setting
     if property_name in self:
         set(property_name, value)
+
+# Get the node's index in the graph
+func get_node_index() -> int:
+    return node_index
+
+# Set the node's index in the graph
+func set_node_index(index: int):
+    node_index = index
