@@ -11,4 +11,4 @@ func get_value_type() -> String:
 	return "int"
 
 func get_output_color() -> Color:
-	return Color.BLUE
+	return PinTypeColors.get_color_for_type("int")

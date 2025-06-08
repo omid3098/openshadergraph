@@ -1,6 +1,9 @@
 @tool
 class_name BaseNode extends GraphNode
 
+# Centralized pin color management - available to all node types
+const PinTypeColors = preload("res://addons/open_shader_graph/scripts/core/gd_pin_type_colors.gd")
+
 # node path in the list of all available nodes
 # "" means the node is in the root
 var node_path: String = ""

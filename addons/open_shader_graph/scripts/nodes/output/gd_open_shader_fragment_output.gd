@@ -10,10 +10,10 @@ func _ready():
 	title = "Fragment Output"
 	
 	# Set up slots: inputs only, no outputs for output nodes
-	# Albedo Input (slot 0)
-	set_slot(0, true, 0, Color.YELLOW, false, 0, Color.WHITE, null, null, true)
-	# Alpha Input (slot 1) 
-	set_slot(1, true, 0, Color.CYAN, false, 0, Color.WHITE, null, null, true)
+	# Albedo Input (slot 0) - using float3 for RGB color
+	set_slot(0, true, 0, PinTypeColors.get_color_for_type("float3"), false, 0, PinTypeColors.get_default_color(), null, null, true)
+	# Alpha Input (slot 1) - using float for alpha channel
+	set_slot(1, true, 0, PinTypeColors.get_color_for_type("float"), false, 0, PinTypeColors.get_default_color(), null, null, true)
 	
 	# Create labels for the inputs
 	var label_albedo = Label.new()

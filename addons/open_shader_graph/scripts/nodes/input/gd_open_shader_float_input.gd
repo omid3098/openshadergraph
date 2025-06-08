@@ -9,7 +9,7 @@ func _ready():
 	title = "Float Input"
 	# Set up the node with one output slot for float
 	# set_slot(slot_index, enable_input, input_type, input_color, enable_output, output_type, output_color, input_icon, output_icon, draw_stylebox)
-	set_slot(0, false, 0, Color.WHITE, true, 0, Color.CYAN, null, null, true)
+	set_slot(0, false, 0, PinTypeColors.get_default_color(), true, 0, PinTypeColors.get_color_for_type("float"), null, null, true)
 	
 	# Create a simple label to show the current value
 	var label = Label.new()

@@ -13,7 +13,7 @@ func get_value_type() -> String:
 # Virtual method for child classes to provide their specific output color
 func get_output_color() -> Color:
 	# Must be overridden by child classes
-	return Color.WHITE
+	return PinTypeColors.get_default_color()
 
 # Virtual method for child classes to provide formatted display text
 func get_display_text() -> String:

@@ -12,13 +12,13 @@ func _ready():
 	
 	# Set up slots: three inputs and one output
 	# Input Value (slot 0)
-	set_slot(0, true, 0, Color.CYAN, false, 0, Color.WHITE, null, null, true)
+	set_slot(0, true, 0, PinTypeColors.get_color_for_type("float"), false, 0, PinTypeColors.get_default_color(), null, null, true)
 	# Min Value (slot 1) 
-	set_slot(1, true, 0, Color.CYAN, false, 0, Color.WHITE, null, null, true)
+	set_slot(1, true, 0, PinTypeColors.get_color_for_type("float"), false, 0, PinTypeColors.get_default_color(), null, null, true)
 	# Max Value (slot 2)
-	set_slot(2, true, 0, Color.CYAN, false, 0, Color.WHITE, null, null, true)
+	set_slot(2, true, 0, PinTypeColors.get_color_for_type("float"), false, 0, PinTypeColors.get_default_color(), null, null, true)
 	# Output (slot 3)
-	set_slot(3, false, 0, Color.WHITE, true, 0, Color.CYAN, null, null, true)
+	set_slot(3, false, 0, PinTypeColors.get_default_color(), true, 0, PinTypeColors.get_color_for_type("float"), null, null, true)
 	
 	# Create labels for the inputs and output
 	var label_value = Label.new()

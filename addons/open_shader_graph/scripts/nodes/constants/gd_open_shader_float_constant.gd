@@ -11,4 +11,4 @@ func get_value_type() -> String:
 	return "float"
 
 func get_output_color() -> Color:
-	return Color.CYAN
+	return PinTypeColors.get_color_for_type("float")

@@ -11,4 +11,4 @@ func get_value_type() -> String:
 	return "bool"
 
 func get_output_color() -> Color:
-	return Color.RED
+	return PinTypeColors.get_color_for_type("bool")

@@ -11,7 +11,7 @@ func get_value_type() -> String:
 	return "float4"
 
 func get_output_color() -> Color:
-	return Color.MAGENTA
+	return PinTypeColors.get_color_for_type("float4")
 
 func get_display_text() -> String:
 	var vec4 = value as Vector4

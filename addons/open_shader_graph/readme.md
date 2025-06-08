@@ -16,4 +16,3 @@ TODO:
 - Fix the node execution functionality. nodes should have an equivalent to a shader code block or a function. so the "add" node should not actually add input pins and return a value. it should just return a shader code block that can be used to generate the final shader code. same as all other nodes.
 - Map a resource to a graph to be able to save a graph as a resource correctly serialized.
 - Generate the shader code from the graph.
-- Define one single class to set colors for each pin type instead of manually setting the color for each pin type in each node.
