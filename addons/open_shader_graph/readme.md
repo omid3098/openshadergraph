@@ -1,11 +1,12 @@
-# Open Shader Graph
+# Open Shader Graph Plugin
 
-This addon is a tool for creating and editing shader graphs in Godot. Why? Because:
+A node-based shader editor for Godot 4.3+ that provides a visual interface for creating shaders.
 
-- Working with shader graphs in Godot is not fun.
-- Current shader graph editor does not support groups, sub-graphs, or other features that are present in other shader graph editors.
+## Development Notes
 
-## Naming Conventions
-
+The plugin follows the naming conventions:
 - "scn_" prefix for scene assets
 - "gd_" prefix for script assets
+
+Main plugin entry point: `gd_plugin.gd`
+Main editor interface: `scripts/gd_open_shader_editor.gd`
