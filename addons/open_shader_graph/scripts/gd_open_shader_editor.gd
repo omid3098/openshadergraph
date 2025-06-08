@@ -28,3 +28,12 @@ func _on_graph_edit_right_clicked(global_mouse_position: Vector2):
 
 func _on_node_type_selected(node_type: String):
 	print("[DEBUG] Node type selected: ", node_type)
+	var new_node = NodeFactory.create_node(node_type)
+	if new_node:
+		current_graph_edit.add_child(new_node)
+		# Position the node at the right-click location (convert global to local)
+		var local_position = current_graph_edit.get_local_mouse_position()
+		new_node.position_offset = local_position
+		print("[DEBUG] Node created and added at position: ", local_position)
+	else:
+		print("[ERROR] Failed to create node: ", node_type)

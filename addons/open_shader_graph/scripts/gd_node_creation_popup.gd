@@ -6,14 +6,8 @@ class_name NodeCreationPopup
 # Signal emitted when a node type is selected
 signal node_type_selected(node_type: String)
 
-# Available node types and their IDs
-var node_types = {
-	0: "Constant",
-	1: "Float",
-	2: "Int",
-	3: "Bool",
-	4: "Vector2"
-}
+# Available node types organized by categories
+var node_categories = {}
 
 # Reference to the parent node to add the popup as child
 var parent_node: Node
@@ -24,6 +18,16 @@ var filtered_node_types: Dictionary = {}
 
 func _init(parent: Node):
 	parent_node = parent
+	_load_node_categories()
+
+func _load_node_categories():
+	# Get categories from the NodeFactory
+	var categories = NodeFactory.get_categories()
+	node_categories = {}
+	
+	for category in categories:
+		var nodes_in_category = NodeFactory.get_nodes_in_category(category)
+		node_categories[category] = nodes_in_category
 
 func show_popup(global_position: Vector2):
 	# Create the popup window
@@ -34,15 +38,15 @@ func show_popup(global_position: Vector2):
 	# Create a VBoxContainer for layout
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("separation", 3)
 	
 	# Add some padding to the container
 	var margin_container = MarginContainer.new()
 	margin_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin_container.add_theme_constant_override("margin_left", 10)
-	margin_container.add_theme_constant_override("margin_right", 10)
-	margin_container.add_theme_constant_override("margin_top", 10)
-	margin_container.add_theme_constant_override("margin_bottom", 10)
+	margin_container.add_theme_constant_override("margin_left", 2)
+	margin_container.add_theme_constant_override("margin_right", 2)
+	margin_container.add_theme_constant_override("margin_top", 2)
+	margin_container.add_theme_constant_override("margin_bottom", 2)
 	
 	# Create search input
 	search_input = LineEdit.new()
@@ -87,14 +91,16 @@ func _update_filtered_items(search_text: String):
 	filtered_node_types.clear()
 	
 	var index = 0
-	for id in node_types.keys():
-		var node_name = node_types[id]
-		
-		# Filter based on search text (case insensitive)
-		if search_text.is_empty() or node_name.to_lower().contains(search_text.to_lower()):
-			item_list.add_item(node_name)
-			filtered_node_types[index] = node_types[id]
-			index += 1
+	# Iterate through categories and nodes
+	for category in node_categories:
+		for node_name in node_categories[category]:
+			# Filter based on search text (case insensitive)
+			if search_text.is_empty() or node_name.to_lower().contains(search_text.to_lower()) or category.to_lower().contains(search_text.to_lower()):
+				# Add category prefix for better organization
+				var display_name = category + " > " + node_name
+				item_list.add_item(display_name)
+				filtered_node_types[index] = node_name
+				index += 1
 	
 	# Select first item if available
 	if item_list.get_item_count() > 0:
