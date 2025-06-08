@@ -1,12 +1,13 @@
 @tool
+class_name OpenShaderMultiply
 extends BaseNode
 
-var input_a: float = 0.0
-var input_b: float = 0.0
+var input_a: float = 1.0
+var input_b: float = 1.0
 
 func _ready():
-	node_path = "Add"
-	title = "Add"
+	node_path = "Math/Multiply"
+	title = "Multiply"
 	
 	# Set up slots: two inputs and one output
 	# Input A (slot 0)
@@ -24,6 +25,10 @@ func _ready():
 	var label_b = Label.new()
 	label_b.text = "B"
 	add_child(label_b)
+	
+	var label_result = Label.new()
+	label_result.text = "Result"
+	add_child(label_result)
 
 func set_input_a(value: float):
 	input_a = value
@@ -32,4 +37,4 @@ func set_input_b(value: float):
 	input_b = value
 
 func get_output_value() -> float:
-	return input_a + input_b
+	return input_a * input_b

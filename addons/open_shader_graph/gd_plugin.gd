@@ -4,6 +4,12 @@ extends EditorPlugin
 var dock
 
 func _enter_tree():
+	# Initialize the NodeFactory with automatic node discovery
+	print("[DEBUG] Plugin: Initializing NodeFactory...")
+	var NodeFactory = preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
+	NodeFactory._initialize()
+	# NodeFactory.debug_print_registry()
+	
 	# Load the main interface scene
 	var scene = preload("res://addons/open_shader_graph/scenes/scn_open_shader_graph.tscn")
 	dock = scene.instantiate()

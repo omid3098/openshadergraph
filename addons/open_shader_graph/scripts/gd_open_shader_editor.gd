@@ -75,3 +75,9 @@ func _on_node_selected(node: BaseNode):
 	print("[DEBUG] Node selected: ", node.title if node else "None")
 	if properties_panel:
 		properties_panel.set_selected_node(node)
+
+# Development helper function to refresh node registry
+func refresh_node_registry():
+	print("[DEBUG] Refreshing node registry...")
+	NodeFactory.refresh_registry()
+	NodeFactory.debug_print_registry()
