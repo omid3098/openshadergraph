@@ -4,7 +4,8 @@ class_name OpenShaderFloat2Constant extends BaseConstantNode
 func _ready():
 	node_path = "Constants/Float2 Constant"
 	title = "Float2 Constant"
-	value = Vector2.ZERO
+	if value == null:
+		value = Vector2.ZERO
 	super._ready()
 
 func get_value_type() -> String:
