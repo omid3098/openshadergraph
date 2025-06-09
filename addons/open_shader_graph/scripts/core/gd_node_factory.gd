@@ -162,10 +162,6 @@ static func create_node(node_name: String) -> BaseNode:
 	var node = BaseNode.new()
 	node.set_script(script)
 	
-	# Initialize the node
-	if node.has_method("_ready"):
-		node._ready()
-	
 	return node
 
 # Register a new node type manually (for future extensibility)
