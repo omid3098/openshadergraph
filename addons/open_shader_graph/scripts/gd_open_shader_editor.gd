@@ -6,7 +6,7 @@ class_name OpenShaderEditor
 const NodeCreationPopup = preload("res://addons/open_shader_graph/scripts/gd_node_creation_popup.gd")
 const PropertiesPanel = preload("res://addons/open_shader_graph/scripts/gd_properties_panel.gd")
 
-var graph_edit_path: String = "res://addons/open_shader_graph/scenes/graph_edit.tscn"
+var graph_edit_path: String = "res://addons/open_shader_graph/scenes/scn_graph_edit.tscn"
 var current_graph_edit: GraphEdit
 var node_creation_popup: NodeCreationPopup
 var properties_panel: PropertiesPanel

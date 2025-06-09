@@ -2,20 +2,6 @@
 
 A node-based shader editor for Godot 4.3+ that provides a visual interface for creating shaders.
 
-## Features
-
-### Node Indexing System
-Each node in the graph is automatically assigned a unique incremental index when added. This indexing system helps with:
-- Shader code generation by providing a consistent order for nodes
-- Node dependency tracking and evaluation order
-- Debugging and development workflows
-
-The indexing system provides:
-- Automatic index assignment when nodes are added to the graph
-- Index tracking and persistence throughout the node's lifetime
-- Utility functions to get nodes sorted by index
-- Optional index recompaction to remove gaps after node deletion
-
 ## Development Notes
 
 The plugin follows the naming conventions:
@@ -27,12 +13,11 @@ Main editor interface: `scripts/gd_open_shader_editor.gd`
 
 
 ## TODO:
-- ✅ Base node should have index in the graph and each node adding to the graph should have an incremented index. this will help code generation for the final shader.
 - Fix the node execution functionality. nodes should have an equivalent to a shader code block or a function. so the "add" node should not actually add input pins and return a value. it should just return a shader code block that can be used to generate the final shader code. same as all other nodes.
 - Map a resource to a graph to be able to save a graph as a resource correctly serialized.
 - Generate the shader code from the graph.
 - Node arrangement feature.
-- Deleting nodes.
+- right click on nodes for custom popup menu for tasks like deleting nodes or duplicating nodes.
 - Right-click on connections to remove them
 - Type Conversion for input pins like "add" node to auto detect the pin type based on the input type and update the pin type. we should be able to add vector3 and a float and it should automatically convert the float to a vector3.
 - If a new connection is requested, we should disconnect the previous connection if it exists.
