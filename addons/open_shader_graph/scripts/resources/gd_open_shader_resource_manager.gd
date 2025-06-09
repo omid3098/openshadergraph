@@ -1,3 +1,4 @@
+@tool
 class_name OpenShaderResourceManager extends RefCounted
 
 ## Resource manager for OpenShaderGraph assets

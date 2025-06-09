@@ -10,7 +10,7 @@ func _enter_tree():
 		"OpenShaderGraphAsset",
 		"Resource",
 		preload("res://addons/open_shader_graph/scripts/resources/gd_open_shader_graph_asset.gd"),
-		EditorInterface.get_editor_theme().get_icon("Resource", "EditorIcons")
+		EditorInterface.get_editor_theme().get_icon("Script", "EditorIcons")
 	)
 	add_custom_type(
 		"OpenShaderMainAsset",

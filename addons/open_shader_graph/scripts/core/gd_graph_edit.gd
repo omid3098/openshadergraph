@@ -1,6 +1,10 @@
 @tool
 extends GraphEdit
 
+# Preload required classes
+const OpenShaderResourceManager = preload("res://addons/open_shader_graph/scripts/resources/gd_open_shader_resource_manager.gd")
+const NodeFactory = preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
+
 signal right_clicked(global_mouse_position)
 signal shader_node_selected(node)
 signal nodes_connected(from_node: String, from_port: int, to_node: String, to_port: int)
@@ -11,6 +15,13 @@ var node_connections: Array[Dictionary] = []
 
 # Node index management for shader code generation
 var next_node_index: int = 0
+
+# Resource management
+var current_resource: OpenShaderGraphAsset = null
+var resource_file_path: String = ""
+
+# Signal emitted when resource is loaded or changed
+signal resource_changed(resource: OpenShaderGraphAsset)
 
 # We use the _gui_input function to detect mouse clicks on this specific node.
 func _gui_input(event: InputEvent) -> void:
@@ -243,3 +254,281 @@ func recompact_node_indices():
 # Get the current next index (useful for external components)
 func get_next_node_index() -> int:
 	return next_node_index
+
+# Resource Management API
+
+## Sets the current resource for this graph
+func set_current_resource(resource: OpenShaderGraphAsset, file_path: String = ""):
+	current_resource = resource
+	resource_file_path = file_path
+	
+	if current_resource:
+		# Load the graph from the resource
+		_load_graph_from_resource()
+		emit_signal("resource_changed", current_resource)
+		print("[DEBUG] GraphEdit: Resource set and loaded - ", file_path if file_path else "unsaved")
+	else:
+		print("[DEBUG] GraphEdit: Resource cleared")
+
+## Gets the current resource
+func get_current_resource() -> OpenShaderGraphAsset:
+	return current_resource
+
+## Gets the current resource file path
+func get_resource_file_path() -> String:
+	return resource_file_path
+
+## Saves the current graph state to the resource
+func save_graph_to_resource() -> bool:
+	if not current_resource:
+		push_error("GraphEdit: No resource to save to")
+		return false
+	
+	# Clear existing data
+	current_resource.clear()
+	
+	# Save nodes
+	for child in get_children():
+		if child is BaseNode:
+			var node_data = _serialize_node(child)
+			current_resource.add_node(node_data.id, node_data.type, node_data.properties, node_data.position)
+	
+	# Save connections
+	for connection in node_connections:
+		current_resource.add_connection(connection.from_node, connection.from_port, connection.to_node, connection.to_port)
+	
+	print("[DEBUG] GraphEdit: Graph saved to resource (", current_resource.nodes.size(), " nodes, ", current_resource.connections.size(), " connections)")
+	return true
+
+## Saves the current resource to disk
+func save_resource_to_disk(file_path: String = "") -> bool:
+	if not current_resource:
+		push_error("GraphEdit: No resource to save")
+		return false
+	
+	# Use provided path or current path
+	var save_path = file_path if file_path else resource_file_path
+	if save_path.is_empty():
+		push_error("GraphEdit: No file path provided for saving")
+		return false
+	
+	# Save graph state to resource first
+	if not save_graph_to_resource():
+		return false
+	
+	# Save resource to disk
+	if OpenShaderResourceManager.save_graph_resource(current_resource, save_path):
+		resource_file_path = save_path
+		print("[DEBUG] GraphEdit: Resource saved to disk - ", save_path)
+		return true
+	else:
+		push_error("GraphEdit: Failed to save resource - " + OpenShaderResourceManager.get_last_error())
+		return false
+
+## Loads a resource from disk
+func load_resource_from_disk(file_path: String) -> bool:
+	var loaded_resource = OpenShaderResourceManager.load_graph_resource(file_path)
+	if loaded_resource:
+		set_current_resource(loaded_resource, file_path)
+		return true
+	else:
+		push_error("GraphEdit: Failed to load resource - " + OpenShaderResourceManager.get_last_error())
+		return false
+
+## Creates a new resource and sets it as current
+func create_new_resource(resource_type: String = "main_shader") -> bool:
+	var new_resource: OpenShaderGraphAsset
+	
+	match resource_type:
+		"main_shader":
+			new_resource = OpenShaderResourceManager.create_main_shader_resource()
+		"subgraph":
+			new_resource = OpenShaderResourceManager.create_subgraph_resource()
+		_:
+			push_error("GraphEdit: Unknown resource type - " + resource_type)
+			return false
+	
+	set_current_resource(new_resource, "")
+	return true
+
+## Internal method to serialize a node to data format
+func _serialize_node(node: BaseNode) -> Dictionary:
+	# Get the node type from NodeFactory using the script path (more reliable)
+	var node_type = NodeFactory.get_node_type_from_instance(node)
+	if node_type.is_empty():
+		node_type = node.title if node.title else "Unknown"
+	
+	var node_data = {
+		"id": node.name,
+		"type": node_type,
+		"properties": {},
+		"position": {"x": node.position_offset.x, "y": node.position_offset.y}
+	}
+	
+	# Get node properties - this will depend on the specific node implementation
+	# For now, we'll get basic properties that can be serialized
+	var property_list = node.get_property_list()
+	for property in property_list:
+		var prop_name = property.name
+		# Skip built-in properties that shouldn't be serialized
+		if prop_name.begins_with("_") or prop_name in ["script", "name", "owner", "scene_file_path"]:
+			continue
+		
+		var value = node.get(prop_name)
+		# Only serialize serializable types
+		if _is_serializable_type(value):
+			node_data.properties[prop_name] = value
+	
+	return node_data
+
+## Helper method to check if a value can be serialized
+func _is_serializable_type(value) -> bool:
+	return value == null or value is bool or value is int or value is float or \
+	       value is String or value is Vector2 or value is Vector3 or value is Vector4 or \
+	       value is Color or value is Array or value is Dictionary
+
+## Internal method to load graph from current resource
+func _load_graph_from_resource():
+	if not current_resource:
+		return
+	
+	# Clear current graph
+	_clear_graph()
+	
+	# Load nodes
+	for node_data in current_resource.nodes:
+		var node = _deserialize_node(node_data)
+		if node:
+			add_child(node)
+			# Position will be set during deserialization
+	
+	# Wait a frame for nodes to be fully added, then load connections
+	await get_tree().process_frame
+	
+	# Load connections
+	for connection_data in current_resource.connections:
+		var from_parts = connection_data.from.split(":")
+		var to_parts = connection_data.to.split(":")
+		
+		if from_parts.size() == 2 and to_parts.size() == 2:
+			var from_node = from_parts[0]
+			var from_port = from_parts[1].to_int()
+			var to_node = to_parts[0]
+			var to_port = to_parts[1].to_int()
+			
+			# Create visual connection
+			if has_node(NodePath(from_node)) and has_node(NodePath(to_node)):
+				connect_node(from_node, from_port, to_node, to_port)
+				
+				# Update tracking
+				var connection_tracking = {
+					"from_node": from_node,
+					"from_port": from_port,
+					"to_node": to_node,
+					"to_port": to_port
+				}
+				node_connections.append(connection_tracking)
+				
+				# Update receiving node input
+				_update_node_input(to_node, to_port, from_node, from_port)
+	
+	print("[DEBUG] GraphEdit: Graph loaded from resource (", current_resource.nodes.size(), " nodes, ", current_resource.connections.size(), " connections)")
+
+## Internal method to deserialize a node from data format
+func _deserialize_node(node_data: Dictionary) -> BaseNode:
+	var node_type = node_data.get("type", "")
+	var node_id = node_data.get("id", "")
+	var properties = node_data.get("properties", {})
+	var position = node_data.get("position", {"x": 0, "y": 0})
+	
+	# Create node using NodeFactory
+	var node = NodeFactory.create_node(node_type)
+	if not node:
+		push_error("GraphEdit: Failed to create node of type: " + node_type)
+		return null
+	
+	# Set node name (ensure uniqueness)
+	node.name = node_id
+	# If name already exists, make it unique
+	var existing_node = get_node_or_null(NodePath(node_id))
+	if existing_node and existing_node != node:
+		var counter = 1
+		while get_node_or_null(NodePath(node_id +"_"+ str(counter))):
+			counter += 1
+		node.name = node_id + "_" + str(counter)
+	
+	# Set position
+	node.position_offset = Vector2(position.x, position.y)
+	
+	# Set properties
+	for prop_name in properties:
+		var value = properties[prop_name]
+		if prop_name in node:
+			node.set(prop_name, value)
+	
+	return node
+
+## Internal method to clear the current graph
+func _clear_graph():
+	# Clear connections tracking
+	node_connections.clear()
+	
+	# Remove all BaseNode children
+	for child in get_children():
+		if child is BaseNode:
+			child.queue_free()
+	
+	# Reset node index
+	next_node_index = 0
+	
+	print("[DEBUG] GraphEdit: Graph cleared")
+
+## Checks if the graph has unsaved changes
+func has_unsaved_changes() -> bool:
+	if not current_resource:
+		# If we have nodes but no resource, we have unsaved changes
+		for child in get_children():
+			if child is BaseNode:
+				return true
+		return false
+	
+	# Create a temporary resource and compare
+	var temp_resource = current_resource.duplicate_graph()
+	if not temp_resource:
+		return true # If we can't duplicate, assume changes exist
+	temp_resource.clear()
+	
+	# Save current state to temp resource
+	for child in get_children():
+		if child is BaseNode:
+			var node_data = _serialize_node(child)
+			temp_resource.add_node(node_data.id, node_data.type, node_data.properties, node_data.position)
+	
+	for connection in node_connections:
+		temp_resource.add_connection(connection.from_node, connection.from_port, connection.to_node, connection.to_port)
+	
+	# Compare node count and connection count as a simple check
+	return temp_resource.nodes.size() != current_resource.nodes.size() or \
+	       temp_resource.connections.size() != current_resource.connections.size()
+
+## Gets information about the current resource
+func get_resource_info() -> Dictionary:
+	var info = {
+		"has_resource": current_resource != null,
+		"file_path": resource_file_path,
+		"resource_type": "",
+		"is_saved": false,
+		"has_unsaved_changes": has_unsaved_changes()
+	}
+	
+	if current_resource:
+		if current_resource is OpenShaderMainAsset:
+			info.resource_type = "main_shader"
+		elif current_resource is OpenShaderSubgraphAsset:
+			info.resource_type = "subgraph"
+		else:
+			info.resource_type = "base_graph"
+		
+		info.is_saved = not resource_file_path.is_empty()
+	
+	return info

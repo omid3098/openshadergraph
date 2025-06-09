@@ -1,3 +1,4 @@
+@tool
 class_name OpenShaderGraphAsset extends Resource
 
 ## Base class for all graph resources in OpenShaderGraph
@@ -152,10 +153,12 @@ func duplicate_graph() -> OpenShaderGraphAsset:
 	var duplicate = OpenShaderGraphAsset.new()
 	
 	# Deep copy nodes
+	duplicate.nodes.clear()
 	for node in nodes:
 		duplicate.nodes.append(node.duplicate(true))
 	
 	# Deep copy connections
+	duplicate.connections.clear()
 	for connection in connections:
 		duplicate.connections.append(connection.duplicate(true))
 	

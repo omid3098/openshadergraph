@@ -1,3 +1,4 @@
+@tool
 class_name OpenShaderSubgraphAsset extends OpenShaderGraphAsset
 
 ## Subgraph resource class for groups, local subgraphs, and normal subgraphs
@@ -197,11 +198,11 @@ func duplicate_graph() -> OpenShaderSubgraphAsset:
 	var duplicate = OpenShaderSubgraphAsset.new()
 	
 	# Copy base properties
-	duplicate.nodes = []
+	duplicate.nodes.clear()
 	for node in nodes:
 		duplicate.nodes.append(node.duplicate(true))
 	
-	duplicate.connections = []
+	duplicate.connections.clear()
 	for connection in connections:
 		duplicate.connections.append(connection.duplicate(true))
 	

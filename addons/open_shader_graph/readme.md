@@ -49,3 +49,4 @@ But I am looking for a way to encapsulate the graph functionality with the shade
 - Undo/Redo for the whole plugin (nodes, properties, connections, etc.)
 - Add a console to the editor to see errors and warnings.
 - Add another tab near the console to see the generated shader code.
+- Add a list of all opened graphs in the editor at the top of the properties panel and the current openned graph should be selected by default.

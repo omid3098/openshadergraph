@@ -1,3 +1,4 @@
+@tool
 class_name OpenShaderMainAsset extends OpenShaderGraphAsset
 
 ## Main shader graph resource class
@@ -142,11 +143,11 @@ func duplicate_graph() -> OpenShaderMainAsset:
 	var duplicate = OpenShaderMainAsset.new()
 	
 	# Copy base properties
-	duplicate.nodes = []
+	duplicate.nodes.clear()
 	for node in nodes:
 		duplicate.nodes.append(node.duplicate(true))
 	
-	duplicate.connections = []
+	duplicate.connections.clear()
 	for connection in connections:
 		duplicate.connections.append(connection.duplicate(true))
 	

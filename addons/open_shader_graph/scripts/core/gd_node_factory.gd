@@ -162,6 +162,10 @@ static func create_node(node_name: String) -> BaseNode:
 	var node = BaseNode.new()
 	node.set_script(script)
 	
+	# Initialize the node
+	if node.has_method("_ready"):
+		node._ready()
+	
 	return node
 
 # Register a new node type manually (for future extensibility)
@@ -175,6 +179,23 @@ static func register_node(category: String, node_name: String, script_path: Stri
 static func refresh_registry():
 	_initialized = false
 	_initialize()
+
+# Get node type name from script path (reverse lookup)
+static func get_node_type_from_script_path(script_path: String) -> String:
+	_initialize()
+	for category in _node_registry:
+		for node_name in _node_registry[category]:
+			if _node_registry[category][node_name] == script_path:
+				return node_name
+	return ""
+
+# Get node type name from a node instance
+static func get_node_type_from_instance(node: BaseNode) -> String:
+	if not node or not node.get_script():
+		return ""
+	
+	var script_path = node.get_script().resource_path
+	return get_node_type_from_script_path(script_path)
 
 # Debug function to print the current registry
 static func debug_print_registry():
