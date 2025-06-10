@@ -26,28 +26,28 @@ func get_display_text() -> String:
 # Static utility method for consistent float formatting across all nodes
 static func format_float(float_value: float) -> String:
 	# Format float with proper precision to avoid long decimal representations
-	var formatted = "%.3f" % float_value
+	var formatted := "%.3f" % float_value
 	# Remove trailing zeros and decimal point if not needed
 	formatted = formatted.rstrip("0").rstrip(".")
 	return formatted
 
-func _ready():
+func _ready() -> void:
 	# Set up the node with one output slot
 	set_slot(0, false, 0, Color.WHITE, true, 0, get_output_color(), null, null, true)
 	
 	# Create initial display
 	_update_display()
 
-func _update_display():
+func _update_display() -> void:
 	# Clear existing children
 	for child in get_children():
 		child.queue_free()
 	
-	var label = Label.new()
+	var label := Label.new()
 	label.text = get_display_text()
 	add_child(label)
 
-func set_value(new_value: Variant):
+func set_value(new_value: Variant) -> void:
 	value = new_value
 	_update_display()
 
@@ -56,10 +56,10 @@ func get_output_value() -> Variant:
 
 # Provide property list for Godot's property system
 func _get_property_list() -> Array:
-	var properties = []
-	var property_name = get_value_type() + "_value"
+	var properties: Array = []
+	var property_name: String = get_value_type() + "_value"
 	
-	var type_mapping = {
+	var type_mapping := {
 		"bool": TYPE_BOOL,
 		"int": TYPE_INT,
 		"float": TYPE_FLOAT,
@@ -68,7 +68,7 @@ func _get_property_list() -> Array:
 		"float4": TYPE_VECTOR4
 	}
 	
-	var property_type = type_mapping.get(get_value_type(), TYPE_NIL)
+	var property_type := type_mapping.get(get_value_type(), TYPE_NIL)
 	
 	properties.append({
 		"name": property_name,
@@ -80,13 +80,13 @@ func _get_property_list() -> Array:
 
 # Handle dynamic property access for the properties panel
 func _get(property: StringName) -> Variant:
-	var expected_property_name = get_value_type() + "_value"
+	var expected_property_name := get_value_type() + "_value"
 	if property == expected_property_name:
 		return value
 	return null
 
 func _set(property: StringName, new_value: Variant) -> bool:
-	var expected_property_name = get_value_type() + "_value"
+	var expected_property_name := get_value_type() + "_value"
 	if property == expected_property_name:
 		set_value(new_value)
 		return true
@@ -94,9 +94,9 @@ func _set(property: StringName, new_value: Variant) -> bool:
 
 # Override from BaseNode to provide properties for the properties panel
 func get_property_list_for_panel() -> Array:
-	var properties = []
+	var properties: Array = []
 	
-	var property_name = get_value_type() + "_value"
+	var property_name := get_value_type() + "_value"
 	properties.append({
 		"name": property_name,
 		"display_name": "Value",
@@ -107,8 +107,8 @@ func get_property_list_for_panel() -> Array:
 	return properties
 
 # Override from BaseNode to handle property changes
-func set_property(property_name: String, new_value):
-	var expected_property_name = get_value_type() + "_value"
+func set_property(property_name: String, new_value: Variant) -> void:
+	var expected_property_name := get_value_type() + "_value"
 	if property_name == expected_property_name:
 		set_value(new_value)
 	else:

@@ -14,19 +14,19 @@ var node_index: int = -1
 
 signal node_selection_changed(node: BaseNode)
 
-func _ready():
+func _ready() -> void:
     pass
 
-func _gui_input(event: InputEvent):
+func _gui_input(event: InputEvent) -> void:
     if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.is_pressed():
-        emit_signal("node_selection_changed", self)
+        node_selection_changed.emit(self)
 
 # Virtual method for nodes to provide custom properties for the properties panel
 func get_property_list_for_panel() -> Array:
     return []
 
 # Virtual method for nodes to handle property changes
-func set_property(property_name: String, value):
+func set_property(property_name: String, value: Variant) -> void:
     # Simple property setting
     if property_name in self:
         set(property_name, value)
@@ -36,5 +36,5 @@ func get_node_index() -> int:
     return node_index
 
 # Set the node's index in the graph
-func set_node_index(index: int):
+func set_node_index(index: int) -> void:
     node_index = index

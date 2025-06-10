@@ -11,7 +11,6 @@ This plan outlines the implementation of Groups, Local Subgraphs, and Normal Sub
 
 ### 1.2 GDScript Modernization
 - Adopt static typing across all scripts (`var foo: Type`, typed function signatures)
-- Replace dynamic property methods (`_get_property_list`, `_get`, `_set`) with `@export` variables and custom inspectors
 - Use `@signal` annotations with typed arguments for all signals
 - Guard or remove debug `print()` statements; use `push_error()` or a logging utility
 

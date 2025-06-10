@@ -1,11 +1,12 @@
 @tool
 extends EditorPlugin
 
-var dock
+var dock: Control
 
-func _enter_tree():
+func _enter_tree() -> void:
 	# Register custom resource types
-	print("[DEBUG] Plugin: Registering resource types...")
+	if OS.is_debug_build():
+		print("[DEBUG] Plugin: Registering resource types...")
 	add_custom_type(
 		"OpenShaderGraphAsset",
 		"Resource",
@@ -26,19 +27,20 @@ func _enter_tree():
 	)
 	
 	# Initialize the NodeFactory with automatic node discovery
-	print("[DEBUG] Plugin: Initializing NodeFactory...")
-	var NodeFactory = preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
-	NodeFactory._initialize()
-	# NodeFactory.debug_print_registry()
+	if OS.is_debug_build():
+		print("[DEBUG] Plugin: Initializing NodeFactory...")
+	var node_factory := preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
+	node_factory._initialize()
+	# node_factory.debug_print_registry()
 	
 	# Load the main interface scene
-	var scene = preload("res://addons/open_shader_graph/scenes/scn_open_shader_graph.tscn")
+	var scene := preload("res://addons/open_shader_graph/scenes/scn_open_shader_graph.tscn")
 	dock = scene.instantiate()
 	
 	# Add the dock to the top left panel beside the import tab
 	add_control_to_dock(DOCK_SLOT_LEFT_UL, dock)
 
-func _exit_tree():
+func _exit_tree() -> void:
 	# Remove custom resource types
 	remove_custom_type("OpenShaderGraphAsset")
 	remove_custom_type("OpenShaderMainAsset")

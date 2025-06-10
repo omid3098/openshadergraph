@@ -7,7 +7,7 @@ class_name NodeCreationPopup
 signal node_type_selected(node_type: String)
 
 # Available node types organized by categories
-var node_categories = {}
+var node_categories: Dictionary = {}
 
 # Reference to the parent node to add the popup as child
 var parent_node: Node
@@ -28,28 +28,28 @@ var is_searching: bool = false
 var node_cache: Dictionary = {}
 var tree_categories: Dictionary = {}
 
-func _init(parent: Node):
+func _init(parent: Node) -> void:
 	parent_node = parent
 	_load_node_categories()
 	_build_node_cache()
 
-func _load_node_categories():
+func _load_node_categories() -> void:
 	# Get categories from the NodeFactory
-	var categories = NodeFactory.get_categories()
+	var categories := NodeFactory.get_categories()
 	node_categories = {}
 	
 	for category in categories:
-		var nodes_in_category = NodeFactory.get_nodes_in_category(category)
+		var nodes_in_category := NodeFactory.get_nodes_in_category(category)
 		node_categories[category] = nodes_in_category
 
-func _build_node_cache():
+func _build_node_cache() -> void:
 	"""Build a flattened cache of all nodes for search functionality"""
 	all_nodes_flat.clear()
 	node_cache.clear()
 	
 	for category in node_categories:
 		for node_name in node_categories[category]:
-			var node_data = {
+			var node_data := {
 				"name": node_name,
 				"category": category,
 				"display_name": category + " > " + node_name,
@@ -58,7 +58,7 @@ func _build_node_cache():
 			all_nodes_flat.append(node_data)
 			node_cache[node_name] = node_data
 
-func show_popup(global_position: Vector2):
+func show_at_position(global_position: Vector2) -> void:
 	# Create the popup window
 	popup_window = PopupPanel.new()
 	popup_window.size = Vector2(350, 450)
@@ -70,7 +70,7 @@ func show_popup(global_position: Vector2):
 	main_container.add_theme_constant_override("separation", 3)
 	
 	# Add padding
-	var margin_container = MarginContainer.new()
+	var margin_container := MarginContainer.new()
 	margin_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin_container.add_theme_constant_override("margin_left", 4)
 	margin_container.add_theme_constant_override("margin_right", 4)
@@ -115,7 +115,7 @@ func show_popup(global_position: Vector2):
 	# Focus on search input
 	search_input.grab_focus()
 
-func _create_tree_view():
+func _create_tree_view() -> void:
 	"""Create the hierarchical Tree with category folders"""
 	tree_view = Tree.new()
 	tree_view.custom_minimum_size = Vector2(320, 380)
@@ -127,16 +127,16 @@ func _create_tree_view():
 	tree_view.item_selected.connect(_on_tree_item_selected)
 	
 	# Create root
-	var root = tree_view.create_item()
+	var root := tree_view.create_item()
 	tree_categories.clear()
 	
 	# Sort categories for consistent ordering
-	var sorted_categories = node_categories.keys()
+	var sorted_categories := node_categories.keys()
 	sorted_categories.sort()
 	
 	# Add categories as expandable items
 	for category in sorted_categories:
-		var category_item = tree_view.create_item(root)
+		var category_item := tree_view.create_item(root)
 		category_item.set_text(0, category)
 		category_item.set_icon(0, null) # You can add category icons here if desired
 		category_item.set_metadata(0, {"type": "category", "name": category})
@@ -152,12 +152,12 @@ func _create_tree_view():
 		
 		# Add nodes as children
 		for node_name in sorted_nodes:
-			var node_item = tree_view.create_item(category_item)
+			var node_item := tree_view.create_item(category_item)
 			node_item.set_text(0, node_name)
 			node_item.set_metadata(0, {"type": "node", "name": node_name, "category": category})
 			# You can add node-specific icons here if desired
 
-func _create_search_results_list():
+func _create_search_results_list() -> void:
 	"""Create the search results ItemList"""
 	search_results_list = ItemList.new()
 	search_results_list.custom_minimum_size = Vector2(320, 380)
@@ -166,9 +166,9 @@ func _create_search_results_list():
 	search_results_list.item_selected.connect(_on_search_result_selected)
 	search_results_list.item_activated.connect(_on_search_result_activated)
 
-func _on_search_text_changed(new_text: String):
+func _on_search_text_changed(new_text: String) -> void:
 	"""Handle search input changes"""
-	var search_text = new_text.strip_edges()
+	var search_text := new_text.strip_edges()
 	
 	if search_text.is_empty():
 		# Switch back to tree view
@@ -177,13 +177,13 @@ func _on_search_text_changed(new_text: String):
 		# Switch to search mode
 		_switch_to_search_mode(search_text)
 
-func _switch_to_tree_mode():
+func _switch_to_tree_mode() -> void:
 	"""Switch to hierarchical tree display"""
 	tree_view.visible = true
 	search_results_list.visible = false
 	is_searching = false
 
-func _switch_to_search_mode(search_text: String):
+func _switch_to_search_mode(search_text: String) -> void:
 	"""Switch to search results display"""
 	tree_view.visible = false
 	search_results_list.visible = true
@@ -192,12 +192,12 @@ func _switch_to_search_mode(search_text: String):
 	# Update search results
 	_update_search_results(search_text)
 
-func _update_search_results(search_text: String):
+func _update_search_results(search_text: String) -> void:
 	"""Update search results based on search text"""
 	search_results_list.clear()
 	filtered_nodes.clear()
 	
-	var search_lower = search_text.to_lower()
+	var search_lower := search_text.to_lower()
 	var exact_matches = []
 	var partial_matches = []
 	
@@ -283,13 +283,13 @@ func _on_search_input_gui_event(event: InputEvent):
 					_close_popup()
 				search_input.accept_event()
 
-func _navigate_search_list(direction: int):
+func _navigate_search_list(direction: int) -> void:
 	"""Navigate search results list"""
 	if not is_searching or search_results_list.get_item_count() == 0:
 		return
 		
-	var current_selected = search_results_list.get_selected_items()
-	var new_index = 0
+	var current_selected := search_results_list.get_selected_items()
+	var new_index := 0
 	
 	if current_selected.size() > 0:
 		new_index = current_selected[0] + direction
@@ -300,24 +300,24 @@ func _navigate_search_list(direction: int):
 	search_results_list.select(new_index)
 	search_results_list.ensure_current_is_visible()
 
-func _navigate_tree(direction: int):
+func _navigate_tree(direction: int) -> void:
 	"""Navigate tree view"""
-	var selected = tree_view.get_selected()
+	var selected := tree_view.get_selected()
 	if not selected:
 		# Select first item (preferably first node, not category)
-		var root = tree_view.get_root()
+		var root := tree_view.get_root()
 		if root and root.get_child_count() > 0:
-			var first_category = root.get_child(0)
+			var first_category := root.get_child(0)
 			if first_category.get_child_count() > 0:
 				# Select first node in first category
-				var first_node = first_category.get_child(0)
+				var first_node := first_category.get_child(0)
 				first_node.select(0)
 			else:
 				# Select first category if no nodes
 				first_category.select(0)
 		return
 	
-	var next_item = null
+	var next_item: TreeItem = null
 	if direction > 0:
 		# Navigate down
 		if selected.get_child_count() > 0 and not selected.collapsed:
@@ -335,14 +335,14 @@ func _navigate_tree(direction: int):
 
 func _get_next_tree_item(item: TreeItem) -> TreeItem:
 	"""Get next item in tree traversal order"""
-	var next_sibling = item.get_next()
+	var next_sibling := item.get_next()
 	if next_sibling:
 		return next_sibling
 	
 	# No next sibling, go up to parent and find its next sibling
-	var parent = item.get_parent()
+	var parent := item.get_parent()
 	while parent and parent != tree_view.get_root():
-		var parent_next = parent.get_next()
+		var parent_next := parent.get_next()
 		if parent_next:
 			return parent_next
 		parent = parent.get_parent()
@@ -351,13 +351,13 @@ func _get_next_tree_item(item: TreeItem) -> TreeItem:
 
 func _get_previous_tree_item(item: TreeItem) -> TreeItem:
 	"""Get previous item in tree traversal order"""
-	var prev_sibling = item.get_prev()
+	var prev_sibling := item.get_prev()
 	if prev_sibling:
 		# If prev sibling has children and is expanded, go to its last descendant
 		return _get_last_visible_descendant(prev_sibling)
 	
 	# No previous sibling, go to parent (unless it's root)
-	var parent = item.get_parent()
+	var parent := item.get_parent()
 	if parent and parent != tree_view.get_root():
 		return parent
 	
@@ -368,12 +368,12 @@ func _get_last_visible_descendant(item: TreeItem) -> TreeItem:
 	if item.get_child_count() == 0 or item.collapsed:
 		return item
 	
-	var last_child = item.get_child(item.get_child_count() - 1)
+	var last_child := item.get_child(item.get_child_count() - 1)
 	return _get_last_visible_descendant(last_child)
 
-func _expand_or_enter_tree_item():
+func _expand_or_enter_tree_item() -> void:
 	"""Expand category or select node on right arrow"""
-	var selected = tree_view.get_selected()
+	var selected := tree_view.get_selected()
 	if not selected:
 		return
 	
@@ -384,15 +384,15 @@ func _expand_or_enter_tree_item():
 			selected.collapsed = false
 		elif selected.get_child_count() > 0:
 			# Move to first child
-			var first_child = selected.get_child(0)
+			var first_child := selected.get_child(0)
 			first_child.select(0)
 	# If it's a node, activate it
 	elif metadata and metadata.type == "node":
 		_on_tree_item_activated()
 
-func _collapse_or_exit_tree_item():
+func _collapse_or_exit_tree_item() -> void:
 	"""Collapse category or move to parent on left arrow"""
-	var selected = tree_view.get_selected()
+	var selected := tree_view.get_selected()
 	if not selected:
 		return
 	
@@ -406,35 +406,35 @@ func _collapse_or_exit_tree_item():
 			pass
 	elif metadata and metadata.type == "node":
 		# Move to parent category
-		var parent = selected.get_parent()
+		var parent := selected.get_parent()
 		if parent and parent != tree_view.get_root():
 			parent.select(0)
 
-func _select_current_search_item():
+func _select_current_search_item() -> void:
 	"""Select currently highlighted search result"""
 	if not is_searching:
 		return
 		
-	var selected_items = search_results_list.get_selected_items()
+	var selected_items := search_results_list.get_selected_items()
 	if selected_items.size() > 0:
 		_on_search_result_selected(selected_items[0])
 
-func _select_current_tree_item():
+func _select_current_tree_item() -> void:
 	"""Select currently highlighted tree item"""
 	if is_searching:
 		return
 	
-	var selected = tree_view.get_selected()
+	var selected := tree_view.get_selected()
 	if selected:
 		_on_tree_item_activated()
 
-func _on_tree_item_selected():
+func _on_tree_item_selected() -> void:
 	"""Handle tree item selection (single click)"""
 	# We can add preview functionality here if needed
 
-func _on_tree_item_activated():
+func _on_tree_item_activated() -> void:
 	"""Handle tree item activation (double-click or Enter)"""
-	var selected = tree_view.get_selected()
+	var selected := tree_view.get_selected()
 	if not selected:
 		return
 	
@@ -445,29 +445,31 @@ func _on_tree_item_activated():
 			selected.collapsed = !selected.collapsed
 		return
 	
-	var node_name = metadata.name
-	print("[DEBUG] Tree item activated: ", node_name)
+	var node_name: String = metadata.name
+	if OS.is_debug_build():
+		print("[DEBUG] Tree item activated: ", node_name)
 	_emit_node_selected(node_name)
 
-func _on_search_result_selected(index: int):
+func _on_search_result_selected(index: int) -> void:
 	"""Handle selection from search results"""
 	if index < 0 or index >= filtered_nodes.size():
 		return
 		
 	var node_data = filtered_nodes[index]
-	print("[DEBUG] Search result selected: ", node_data.name)
+	if OS.is_debug_build():
+		print("[DEBUG] Search result selected: ", node_data.name)
 	_emit_node_selected(node_data.name)
 
-func _on_search_result_activated(index: int):
+func _on_search_result_activated(index: int) -> void:
 	"""Handle activation (double-click) from search results"""
 	_on_search_result_selected(index)
 
-func _emit_node_selected(node_name: String):
+func _emit_node_selected(node_name: String) -> void:
 	"""Emit the node selection signal and close popup"""
 	node_type_selected.emit(node_name)
 	_close_popup.call_deferred()
 
-func _on_popup_closed():
+func _on_popup_closed() -> void:
 	"""Clean up when popup is closed"""
 	if popup_window and is_instance_valid(popup_window):
 		if popup_window.get_parent():
@@ -475,7 +477,7 @@ func _on_popup_closed():
 		popup_window.queue_free()
 		popup_window = null
 
-func _close_popup():
+func _close_popup() -> void:
 	"""Close the popup"""
 	if popup_window and is_instance_valid(popup_window):
 		popup_window.hide()

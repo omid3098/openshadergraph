@@ -3,7 +3,7 @@ extends Panel
 
 class_name PropertiesPanel
 
-signal property_changed(property_name: String, new_value)
+signal property_changed(property_name: String, new_value: Variant)
 
 var current_node: BaseNode = null
 
@@ -19,24 +19,24 @@ class NodePropertyWrapper extends RefCounted:
 	var _target_node: BaseNode
 	var _properties_cache: Array = []
 	
-	func _init(target_node: BaseNode = null):
+	func _init(target_node: BaseNode = null) -> void:
 		_target_node = target_node
 		if _target_node:
 			_update_properties_cache()
 	
-	func _update_properties_cache():
+	func _update_properties_cache() -> void:
 		if _target_node and _target_node.has_method("get_property_list_for_panel"):
 			_properties_cache = _target_node.get_property_list_for_panel()
 	
 	func _get_property_list() -> Array:
-		var properties = []
+		var properties: Array = []
 		
 		# Only add our custom properties, not the Resource properties
 		for prop in _properties_cache:
-			var property_name = prop.get("name", "")
-			var property_type = prop.get("type", "")
+			var property_name: String = prop.get("name", "")
+			var property_type: String = prop.get("type", "")
 			
-			var property_dict = {
+			var property_dict := {
 				"name": property_name,
 				"type": _convert_type_string_to_variant_type(property_type),
 				"usage": PROPERTY_USAGE_DEFAULT
@@ -45,7 +45,7 @@ class NodePropertyWrapper extends RefCounted:
 			# Add enum hint if it's an enum property
 			if property_type == "enum" and prop.has("options"):
 				property_dict["hint"] = PROPERTY_HINT_ENUM
-				var options = prop.get("options", [])
+				var options: Array = prop.get("options", [])
 				property_dict["hint_string"] = ",".join(options)
 			
 			properties.append(property_dict)
@@ -87,9 +87,9 @@ class NodePropertyWrapper extends RefCounted:
 			_:
 				return TYPE_NIL
 
-func _ready():
+func _ready() -> void:
 	# Create the main layout
-	var vbox = VBoxContainer.new()
+	var vbox := VBoxContainer.new()
 	add_child(vbox)
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	
@@ -100,7 +100,7 @@ func _ready():
 	vbox.add_child(title_label)
 	
 	# Add separator
-	var separator = HSeparator.new()
+	var separator := HSeparator.new()
 	vbox.add_child(separator)
 	
 	# Scroll container for inspector
@@ -128,14 +128,14 @@ func _ready():
 	# Initially show "No node selected"
 	_show_no_selection()
 
-func set_selected_node(node: BaseNode):
+func set_selected_node(node: BaseNode) -> void:
 	if current_node == node:
 		return
 		
 	current_node = node
 	_update_inspector()
 
-func _show_no_selection():
+func _show_no_selection() -> void:
 	title_label.text = "Properties"
 	
 	# Hide inspector and show no selection label
@@ -145,7 +145,7 @@ func _show_no_selection():
 	if not no_selection_label.get_parent():
 		scroll_container.add_child(no_selection_label)
 
-func _update_inspector():
+func _update_inspector() -> void:
 	if not current_node:
 		_show_no_selection()
 		return
@@ -166,9 +166,9 @@ func _update_inspector():
 	# Set the inspector to edit our wrapper instead of the node directly
 	editor_inspector.edit(property_wrapper)
 
-func _on_inspector_property_edited(property_path: String):
+func _on_inspector_property_edited(property_path: String) -> void:
 	# The wrapper automatically handles property changes
 	# We just emit our signal for any listeners
 	if current_node:
-		var property_value = current_node.get(property_path)
-		emit_signal("property_changed", property_path, property_value)
+		var property_value := current_node.get(property_path)
+		property_changed.emit(property_path, property_value)

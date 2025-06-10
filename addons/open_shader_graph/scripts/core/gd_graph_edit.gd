@@ -5,8 +5,8 @@ extends GraphEdit
 const OpenShaderResourceManager = preload("res://addons/open_shader_graph/scripts/resources/gd_open_shader_resource_manager.gd")
 const NodeFactory = preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
 
-signal right_clicked(global_mouse_position)
-signal shader_node_selected(node)
+signal right_clicked(global_mouse_position: Vector2)
+signal shader_node_selected(node: BaseNode)
 signal nodes_connected(from_node: String, from_port: int, to_node: String, to_port: int)
 signal nodes_disconnected(from_node: String, from_port: int, to_node: String, to_port: int)
 
@@ -29,29 +29,31 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.is_pressed():
 		# Emit the signal, providing the current global mouse position.
 		# The main plugin will listen for this.
-		emit_signal("right_clicked", get_global_mouse_position())
+		right_clicked.emit(get_global_mouse_position())
 		accept_event()
 
 # When a child node is added, connect to its selection signal and assign index
-func _on_child_entered_tree(node):
+func _on_child_entered_tree(node: Node) -> void:
 	if node is BaseNode:
 		node.node_selection_changed.connect(_on_node_selection_changed)
 		# Assign a unique index to the node
 		node.set_node_index(next_node_index)
 		next_node_index += 1
-		print("[DEBUG] Assigned index ", node.get_node_index(), " to node: ", node.name)
+		if OS.is_debug_build():
+			print("[DEBUG] Assigned index ", node.get_node_index(), " to node: ", node.name)
 
 # When a child node is removed, we may need to recompact indices (optional)
-func _on_child_exiting_tree(node):
+func _on_child_exiting_tree(node: Node) -> void:
 	if node is BaseNode:
-		print("[DEBUG] Node with index ", node.get_node_index(), " is being removed: ", node.name)
+		if OS.is_debug_build():
+			print("[DEBUG] Node with index ", node.get_node_index(), " is being removed: ", node.name)
 		# Note: We could recompact indices here, but for shader generation
 		# it might be better to keep stable indices until a full reindex is needed
 
-func _on_node_selection_changed(selected_node: BaseNode):
-	emit_signal("shader_node_selected", selected_node)
+func _on_node_selection_changed(selected_node: BaseNode) -> void:
+	shader_node_selected.emit(selected_node)
 
-func _ready():
+func _ready() -> void:
 	# Connect to child management signals
 	child_entered_tree.connect(_on_child_entered_tree)
 	child_exiting_tree.connect(_on_child_exiting_tree)
@@ -63,10 +65,12 @@ func _ready():
 	# Enable right-click on background to delete connections
 	delete_nodes_request.connect(_on_delete_nodes_request)
 	
-	print("[DEBUG] GraphEdit: Connection signals connected and node index management initialized")
+	if OS.is_debug_build():
+		print("[DEBUG] GraphEdit: Connection signals connected and node index management initialized")
 
-func _on_connection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int):
-	print("[DEBUG] Connection request: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
+func _on_connection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> void:
+	if OS.is_debug_build():
+		print("[DEBUG] Connection request: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
 	
 	# Validate the connection
 	if _is_valid_connection(from_node, from_port, to_node, to_port):
@@ -74,7 +78,7 @@ func _on_connection_request(from_node: StringName, from_port: int, to_node: Stri
 		connect_node(from_node, from_port, to_node, to_port)
 		
 		# Track the connection
-		var connection_data = {
+		var connection_data := {
 			"from_node": str(from_node),
 			"from_port": from_port,
 			"to_node": str(to_node),
@@ -86,22 +90,25 @@ func _on_connection_request(from_node: StringName, from_port: int, to_node: Stri
 		_update_node_input(to_node, to_port, from_node, from_port)
 		
 		# Emit signal for external listeners
-		emit_signal("nodes_connected", str(from_node), from_port, str(to_node), to_port)
+		nodes_connected.emit(str(from_node), from_port, str(to_node), to_port)
 		
-		print("[DEBUG] Connection created successfully")
+		if OS.is_debug_build():
+			print("[DEBUG] Connection created successfully")
 	else:
-		print("[DEBUG] Connection rejected - validation failed")
+		if OS.is_debug_build():
+			print("[DEBUG] Connection rejected - validation failed")
 
-func _on_disconnection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int):
-	print("[DEBUG] Disconnection request: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
+func _on_disconnection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> void:
+	if OS.is_debug_build():
+		print("[DEBUG] Disconnection request: ", from_node, ":", from_port, " -> ", to_node, ":", to_port)
 	
 	# Remove the connection visually
 	disconnect_node(from_node, from_port, to_node, to_port)
 	
 	# Remove from tracking
-	var connection_found = false
+	var connection_found := false
 	for i in range(node_connections.size() - 1, -1, -1):
-		var conn = node_connections[i]
+		var conn := node_connections[i]
 		if conn.from_node == str(from_node) and conn.from_port == from_port and conn.to_node == str(to_node) and conn.to_port == to_port:
 			node_connections.remove_at(i)
 			connection_found = true
@@ -111,12 +118,14 @@ func _on_disconnection_request(from_node: StringName, from_port: int, to_node: S
 	_reset_node_input(to_node, to_port)
 	
 	# Emit signal for external listeners
-	emit_signal("nodes_disconnected", str(from_node), from_port, str(to_node), to_port)
+	nodes_disconnected.emit(str(from_node), from_port, str(to_node), to_port)
 	
-	print("[DEBUG] Connection removed successfully")
+	if OS.is_debug_build():
+		print("[DEBUG] Connection removed successfully")
 
-func _on_delete_nodes_request(nodes: Array):
-	print("[DEBUG] Delete nodes request: ", nodes)
+func _on_delete_nodes_request(nodes: Array) -> void:
+	if OS.is_debug_build():
+		print("[DEBUG] Delete nodes request: ", nodes)
 	# Handle node deletion - disconnect all connections to/from deleted nodes
 	for node_name in nodes:
 		_disconnect_all_node_connections(node_name)
@@ -124,26 +133,30 @@ func _on_delete_nodes_request(nodes: Array):
 func _is_valid_connection(from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> bool:
 	# Don't allow self-connections
 	if from_node == to_node:
-		print("[DEBUG] Connection validation failed: self-connection not allowed")
+		if OS.is_debug_build():
+			print("[DEBUG] Connection validation failed: self-connection not allowed")
 		return false
 	
 	# Get the actual node objects
-	var from_node_obj = get_node_or_null(NodePath(from_node))
-	var to_node_obj = get_node_or_null(NodePath(to_node))
+	var from_node_obj := get_node_or_null(NodePath(from_node))
+	var to_node_obj := get_node_or_null(NodePath(to_node))
 	
 	if not from_node_obj or not to_node_obj:
-		print("[DEBUG] Connection validation failed: node not found")
+		if OS.is_debug_build():
+			print("[DEBUG] Connection validation failed: node not found")
 		return false
 	
 	# Check if both nodes inherit from BaseNode
 	if not (from_node_obj is BaseNode and to_node_obj is BaseNode):
-		print("[DEBUG] Connection validation failed: not BaseNode instances")
+		if OS.is_debug_build():
+			print("[DEBUG] Connection validation failed: not BaseNode instances")
 		return false
 	
 	# Check if target port already has a connection (only one input per port)
 	for conn in node_connections:
 		if conn.to_node == str(to_node) and conn.to_port == to_port:
-			print("[DEBUG] Connection validation failed: target port already connected")
+			if OS.is_debug_build():
+				print("[DEBUG] Connection validation failed: target port already connected")
 			return false
 	
 	# Type validation would go here - for now, allow all connections
@@ -151,25 +164,26 @@ func _is_valid_connection(from_node: StringName, from_port: int, to_node: String
 	
 	return true
 
-func _update_node_input(to_node: StringName, to_port: int, from_node: StringName, from_port: int):
-	var to_node_obj = get_node_or_null(NodePath(to_node))
-	var from_node_obj = get_node_or_null(NodePath(from_node))
+func _update_node_input(to_node: StringName, to_port: int, from_node: StringName, from_port: int) -> void:
+	var to_node_obj := get_node_or_null(NodePath(to_node))
+	var from_node_obj := get_node_or_null(NodePath(from_node))
 	
 	if not to_node_obj or not from_node_obj:
 		return
 	
 	# Update input based on node type and port
 	if to_node_obj is BaseMathNode:
-		var output_value = _get_node_output_value(from_node_obj, from_port)
+		var output_value := _get_node_output_value(from_node_obj, from_port)
 		if to_port == 0: # Input A
 			to_node_obj.set_input_a(output_value)
 		elif to_port == 1: # Input B
 			to_node_obj.set_input_b(output_value)
 	
-	print("[DEBUG] Updated node input: ", to_node, " port ", to_port, " with value from ", from_node)
+	if OS.is_debug_build():
+		print("[DEBUG] Updated node input: ", to_node, " port ", to_port, " with value from ", from_node)
 
-func _reset_node_input(to_node: StringName, to_port: int):
-	var to_node_obj = get_node_or_null(NodePath(to_node))
+func _reset_node_input(to_node: StringName, to_port: int) -> void:
+	var to_node_obj := get_node_or_null(NodePath(to_node))
 	
 	if not to_node_obj:
 		return
@@ -181,7 +195,8 @@ func _reset_node_input(to_node: StringName, to_port: int):
 		elif to_port == 1: # Input B
 			to_node_obj.set_input_b(to_node_obj.get_default_input_b())
 	
-	print("[DEBUG] Reset node input: ", to_node, " port ", to_port, " to default")
+	if OS.is_debug_build():
+		print("[DEBUG] Reset node input: ", to_node, " port ", to_port, " to default")
 
 func _get_node_output_value(node: BaseNode, port: int) -> float:
 	# Get output value from a node based on its type
@@ -219,7 +234,8 @@ func _disconnect_all_node_connections(node_name: String):
 	for i in connections_to_remove:
 		node_connections.remove_at(i)
 	
-	print("[DEBUG] Disconnected all connections for node: ", node_name)
+	if OS.is_debug_build():
+		print("[DEBUG] Disconnected all connections for node: ", node_name)
 
 # Public API for external access
 func get_connections() -> Array[Dictionary]:
@@ -247,9 +263,11 @@ func recompact_node_indices():
 	for node in nodes:
 		node.set_node_index(next_node_index)
 		next_node_index += 1
-		print("[DEBUG] Recompacted node index: ", node.get_node_index(), " for node: ", node.name)
+		if OS.is_debug_build():
+			print("[DEBUG] Recompacted node index: ", node.get_node_index(), " for node: ", node.name)
 	
-	print("[DEBUG] Node indices recompacted. Next index will be: ", next_node_index)
+	if OS.is_debug_build():
+		print("[DEBUG] Node indices recompacted. Next index will be: ", next_node_index)
 
 # Get the current next index (useful for external components)
 func get_next_node_index() -> int:
@@ -258,17 +276,19 @@ func get_next_node_index() -> int:
 # Resource Management API
 
 ## Sets the current resource for this graph
-func set_current_resource(resource: OpenShaderGraphAsset, file_path: String = ""):
+func set_current_resource(resource: OpenShaderGraphAsset, file_path: String = "") -> void:
 	current_resource = resource
 	resource_file_path = file_path
 	
 	if current_resource:
 		# Load the graph from the resource
 		_load_graph_from_resource()
-		emit_signal("resource_changed", current_resource)
-		print("[DEBUG] GraphEdit: Resource set and loaded - ", file_path if file_path else "unsaved")
+		resource_changed.emit(current_resource)
+		if OS.is_debug_build():
+			print("[DEBUG] GraphEdit: Resource set and loaded - ", file_path if file_path else "unsaved")
 	else:
-		print("[DEBUG] GraphEdit: Resource cleared")
+		if OS.is_debug_build():
+			print("[DEBUG] GraphEdit: Resource cleared")
 
 ## Gets the current resource
 func get_current_resource() -> OpenShaderGraphAsset:
@@ -297,7 +317,8 @@ func save_graph_to_resource() -> bool:
 	for connection in node_connections:
 		current_resource.add_connection(connection.from_node, connection.from_port, connection.to_node, connection.to_port)
 	
-	print("[DEBUG] GraphEdit: Graph saved to resource (", current_resource.nodes.size(), " nodes, ", current_resource.connections.size(), " connections)")
+	if OS.is_debug_build():
+		print("[DEBUG] GraphEdit: Graph saved to resource (", current_resource.nodes.size(), " nodes, ", current_resource.connections.size(), " connections)")
 	return true
 
 ## Saves the current resource to disk
@@ -319,7 +340,8 @@ func save_resource_to_disk(file_path: String = "") -> bool:
 	# Save resource to disk
 	if OpenShaderResourceManager.save_graph_resource(current_resource, save_path):
 		resource_file_path = save_path
-		print("[DEBUG] GraphEdit: Resource saved to disk - ", save_path)
+		if OS.is_debug_build():
+			print("[DEBUG] GraphEdit: Resource saved to disk - ", save_path)
 		return true
 	else:
 		push_error("GraphEdit: Failed to save resource - " + OpenShaderResourceManager.get_last_error())
@@ -432,7 +454,8 @@ func _load_graph_from_resource():
 				# Update receiving node input
 				_update_node_input(to_node, to_port, from_node, from_port)
 	
-	print("[DEBUG] GraphEdit: Graph loaded from resource (", current_resource.nodes.size(), " nodes, ", current_resource.connections.size(), " connections)")
+	if OS.is_debug_build():
+		print("[DEBUG] GraphEdit: Graph loaded from resource (", current_resource.nodes.size(), " nodes, ", current_resource.connections.size(), " connections)")
 
 ## Internal method to deserialize a node from data format
 func _deserialize_node(node_data: Dictionary) -> BaseNode:
@@ -481,7 +504,8 @@ func _clear_graph():
 	# Reset node index
 	next_node_index = 0
 	
-	print("[DEBUG] GraphEdit: Graph cleared")
+	if OS.is_debug_build():
+		print("[DEBUG] GraphEdit: Graph cleared")
 
 ## Checks if the graph has unsaved changes
 func has_unsaved_changes() -> bool:

@@ -17,7 +17,7 @@ func get_default_input_a() -> float:
 func get_default_input_b() -> float:
 	return 0.0
 
-func _ready():
+func _ready() -> void:
 	# Initialize default values
 	input_a = get_default_input_a()
 	input_b = get_default_input_b()
@@ -31,22 +31,22 @@ func _ready():
 	set_slot(2, false, 0, PinTypeColors.get_default_color(), true, 0, PinTypeColors.get_color_for_type("float"), null, null, true)
 	
 	# Create labels for the inputs and output
-	var label_a = Label.new()
+	var label_a := Label.new()
 	label_a.text = "A"
 	add_child(label_a)
 	
-	var label_b = Label.new()
+	var label_b := Label.new()
 	label_b.text = "B"
 	add_child(label_b)
 	
-	var label_result = Label.new()
+	var label_result := Label.new()
 	label_result.text = "Result"
 	add_child(label_result)
 
-func set_input_a(value: float):
+func set_input_a(value: float) -> void:
 	input_a = value
 
-func set_input_b(value: float):
+func set_input_b(value: float) -> void:
 	input_b = value
 
 func get_output_value() -> float:
