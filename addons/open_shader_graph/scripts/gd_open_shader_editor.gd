@@ -4,30 +4,32 @@ extends Control
 class_name OpenShaderEditor
 
 const NodeCreationPopup = preload("res://addons/open_shader_graph/scripts/gd_node_creation_popup.gd")
-const PropertiesPanel = preload("res://addons/open_shader_graph/scripts/gd_properties_panel.gd")
+const EditorUI = preload("res://addons/open_shader_graph/scripts/core/gd_editor_ui.gd")
 const NodeFactory = preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
 
-var graph_edit_path: String = "res://addons/open_shader_graph/scenes/scn_graph_edit.tscn"
+# UI management
+var editor_ui: EditorUI
 var current_graph_edit: GraphEdit
 var node_creation_popup: NodeCreationPopup
-var properties_panel: PropertiesPanel
-
-# File menu references
-var menu_bar: MenuBar
-var file_menu: PopupMenu
 
 # Mouse position tracking for node creation
 var last_right_click_position: Vector2
-
-# Constants for layout
-const PROPERTIES_PANEL_RATIO: float = 0.25 # 1/4 of the total width
 
 func _ready() -> void:
 	if OS.is_debug_build():
 		print("[DEBUG] OpenShaderEditor Loaded")
 	
-	# Create the main layout
-	_setup_layout()
+	# Initialize UI manager
+	editor_ui = EditorUI.new(self)
+	
+	# Create the main layout using EditorUI
+	current_graph_edit = editor_ui.setup_layout()
+	
+	# Connect UI signals
+	editor_ui.file_menu_item_selected.connect(_on_file_menu_item_selected)
+	editor_ui.graph_edit_right_clicked.connect(_on_graph_edit_right_clicked)
+	editor_ui.node_selected.connect(_on_node_selected)
+	editor_ui.resource_changed.connect(_on_resource_changed)
 	
 	# Initialize the node creation popup
 	node_creation_popup = NodeCreationPopup.new(self)
@@ -42,72 +44,6 @@ func _initialize_default_shader() -> void:
 		current_graph_edit.create_new_resource("main_shader")
 		if OS.is_debug_build():
 			print("[DEBUG] Default shader initialized")
-
-func _setup_layout() -> void:
-	# Create the main VBoxContainer to hold menu and content
-	var main_vbox := VBoxContainer.new()
-	add_child(main_vbox)
-	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	
-	# Create and setup the menu bar
-	_setup_menu_bar(main_vbox)
-	
-	# Create a HSplitContainer for the main layout below the menu
-	var hsplit := HSplitContainer.new()
-	main_vbox.add_child(hsplit)
-	hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	
-	# Create properties panel on the left
-	properties_panel = PropertiesPanel.new()
-	properties_panel.custom_minimum_size.x = 200 # Minimum width to ensure usability
-	properties_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	properties_panel.size_flags_stretch_ratio = PROPERTIES_PANEL_RATIO
-	hsplit.add_child(properties_panel)
-	
-	# Create a container for the graph edit (to add top margin)
-	var graph_container := Control.new()
-	graph_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	graph_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	graph_container.size_flags_stretch_ratio = 1.0 - PROPERTIES_PANEL_RATIO
-	hsplit.add_child(graph_container)
-	
-	# Create a new graph_edit
-	current_graph_edit = load(graph_edit_path).instantiate()
-	current_graph_edit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	
-	# Listen for signals
-	current_graph_edit.right_clicked.connect(_on_graph_edit_right_clicked)
-	current_graph_edit.shader_node_selected.connect(_on_node_selected)
-	current_graph_edit.nodes_connected.connect(_on_nodes_connected)
-	current_graph_edit.nodes_disconnected.connect(_on_nodes_disconnected)
-	current_graph_edit.resource_changed.connect(_on_resource_changed)
-	
-	# Add graph edit to its container
-	graph_container.add_child(current_graph_edit)
-
-func _setup_menu_bar(parent: Control) -> void:
-	# Create menu bar
-	menu_bar = MenuBar.new()
-	parent.add_child(menu_bar)
-	
-	# Create File menu
-	file_menu = PopupMenu.new()
-	file_menu.name = "File"
-	
-	# Add File menu items
-	file_menu.add_item("New Shader", 0)
-	file_menu.add_item("New SubGraph", 1)
-	file_menu.add_separator()
-	file_menu.add_item("Open...", 2)
-	file_menu.add_item("Save", 3)
-	file_menu.add_item("Save As...", 4)
-	
-	# Connect File menu signals
-	file_menu.id_pressed.connect(_on_file_menu_item_selected)
-	
-	# Add the File menu to the menu bar
-	menu_bar.add_child(file_menu)
-	menu_bar.set_menu_title(0, "File")
 
 func _on_file_menu_item_selected(id: int) -> void:
 	match id:
@@ -167,19 +103,12 @@ func _open_file() -> void:
 		if not _confirm_unsaved_changes():
 			return
 	
-	# Create file dialog
-	var file_dialog := FileDialog.new()
-	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	file_dialog.access = FileDialog.ACCESS_RESOURCES
-	file_dialog.add_filter("*.tres", "Godot Resource Files")
-	file_dialog.current_dir = "res://"
-	
-	# Connect signal
-	file_dialog.file_selected.connect(_on_file_selected_for_open)
-	
-	# Add to scene and show
-	add_child(file_dialog)
-	file_dialog.popup_centered(Vector2i(800, 600))
+	# Use EditorUI to show file dialog
+	if editor_ui:
+		editor_ui.show_open_file_dialog()
+		var file_dialog: FileDialog = editor_ui.get_current_file_dialog()
+		if file_dialog:
+			file_dialog.file_selected.connect(_on_file_selected_for_open)
 
 func _on_file_selected_for_open(file_path: String) -> void:
 	if OS.is_debug_build():
@@ -191,10 +120,9 @@ func _on_file_selected_for_open(file_path: String) -> void:
 	else:
 		push_error("Failed to open file: " + file_path)
 	
-	# Clean up file dialog
-	var file_dialog := get_children().filter(func(child): return child is FileDialog)[0] as FileDialog
-	if file_dialog:
-		file_dialog.queue_free()
+	# Clean up file dialog using EditorUI
+	if editor_ui:
+		editor_ui.cleanup_file_dialog()
 
 func _save_file() -> void:
 	if OS.is_debug_build():
@@ -217,29 +145,15 @@ func _save_file_as() -> void:
 	if OS.is_debug_build():
 		print("[DEBUG] Save As...")
 	
-	var resource_info = current_graph_edit.get_resource_info()
+	var resource_info: Dictionary = current_graph_edit.get_resource_info()
+	var resource_type: String = resource_info.get("resource_type", "main_shader")
 	
-	# Create file dialog for save
-	var file_dialog := FileDialog.new()
-	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	file_dialog.access = FileDialog.ACCESS_RESOURCES
-	file_dialog.add_filter("*.tres", "Godot Resource Files")
-	file_dialog.current_dir = "res://"
-	
-	# Set default filename based on resource type
-	if resource_info.resource_type == "main_shader":
-		file_dialog.current_file = "shader.tres"
-	elif resource_info.resource_type == "subgraph":
-		file_dialog.current_file = "subgraph.tres"
-	else:
-		file_dialog.current_file = "graph.tres"
-	
-	# Connect signal
-	file_dialog.file_selected.connect(_on_file_selected_for_save)
-	
-	# Add to scene and show
-	add_child(file_dialog)
-	file_dialog.popup_centered(Vector2i(800, 600))
+	# Use EditorUI to show save dialog
+	if editor_ui:
+		editor_ui.show_save_file_dialog(resource_type)
+		var file_dialog: FileDialog = editor_ui.get_current_file_dialog()
+		if file_dialog:
+			file_dialog.file_selected.connect(_on_file_selected_for_save)
 
 func _on_file_selected_for_save(file_path: String) -> void:
 	if OS.is_debug_build():
@@ -251,14 +165,16 @@ func _on_file_selected_for_save(file_path: String) -> void:
 	else:
 		push_error("Failed to save file: " + file_path)
 	
-	# Clean up file dialog
-	var file_dialog := get_children().filter(func(child): return child is FileDialog)[0] as FileDialog
-	if file_dialog:
-		file_dialog.queue_free()
+	# Clean up file dialog using EditorUI
+	if editor_ui:
+		editor_ui.cleanup_file_dialog()
 
 func _confirm_unsaved_changes() -> bool:
-	# TODO: Implement a proper confirmation dialog
-	# For now, just return true (discard changes)
+	# Use EditorUI for confirmation dialog
+	if editor_ui:
+		return editor_ui.show_unsaved_changes_dialog()
+	
+	# Fallback: just return true (discard changes)
 	if OS.is_debug_build():
 		print("[DEBUG] Warning: Discarding unsaved changes")
 	return true
@@ -315,7 +231,8 @@ func _on_node_selected(node: BaseNode) -> void:
 		print("[DEBUG] Node selected: ", node.title if node else "None")
 	
 	# Update the properties panel with the selected node
-	properties_panel.set_selected_node(node)
+	if editor_ui:
+		editor_ui.update_properties_panel(node)
 
 func _on_nodes_connected(from_node: String, from_port: int, to_node: String, to_port: int) -> void:
 	if OS.is_debug_build():
