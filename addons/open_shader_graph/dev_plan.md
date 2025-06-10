@@ -19,10 +19,19 @@ This plan outlines the implementation of Groups, Local Subgraphs, and Normal Sub
 - Consolidate duplicated methods (e.g., duplicated `create_new_resource`) and remove dead code
 - Centralize YAML serialization/deserialization in `gd_yaml_serializer.gd`
 
-### 1.4 NodeFactory Improvements
-- Refactor scanning logic to use Godot's `Directory` API with recursive directory scanning
-- Implement caching and robust error handling for performance
-- Provide manual registration hooks for plugin extensibility
+### 1.4 NodeFactory Improvements ✅ COMPLETED
+- ✅ Refactor scanning logic to use Godot's `Directory` API with recursive directory scanning
+- ✅ Implement caching and robust error handling for performance
+- ✅ Provide manual registration hooks for plugin extensibility
+
+**Implementation Details:**
+- Replaced basic directory scanning with recursive `DirAccess` API usage
+- Added intelligent caching system with configurable timeout for development
+- Implemented comprehensive error handling for missing files, invalid scripts, etc.
+- Added optional manual registration system that doesn't break existing functionality
+- Improved script validation without instantiating nodes (performance improvement)
+- Added configuration methods for extensibility (base path, excluded files, cache timeout)
+- Maintained full backward compatibility with existing plugin functionality
 
 ### 1.5 UI and Scene Refactoring
 - Refactor scenes (`.tscn`) to use `onready var` for control references and minimize code-based UI setup
