@@ -3,56 +3,43 @@
 ## Overview
 This plan outlines the implementation of Groups, Local Subgraphs, and Normal Subgraphs for the OpenShaderGraph plugin. The system will allow collapsing multiple nodes into single nodes while preserving connections and enabling reusability.
 
-## Phase 1: Resource System Foundation
+## Phase 1: Project-Wide Refactoring for Best Practices
 
-### 1.1 Base Resource Classes
-Create a hierarchy of resource classes to handle different graph types:
+### 1.1 Repository Cleanup
+- Relocate or remove `example_usage.gd` and other demo scripts into documentation
+- Standardize file and directory naming (PascalCase for classes, snake_case for files)
 
-```gdscript
-# Base class for all graph resources
-class_name OpenShaderGraphAsset extends Resource
-- Contains: nodes[], connections[], graph_properties{}
-- Minimal serialization (no visual representation data)
-- YAML-compatible structure for easy recreation
+### 1.2 GDScript Modernization
+- Adopt static typing across all scripts (`var foo: Type`, typed function signatures)
+- Replace dynamic property methods (`_get_property_list`, `_get`, `_set`) with `@export` variables and custom inspectors
+- Use `@signal` annotations with typed arguments for all signals
+- Guard or remove debug `print()` statements; use `push_error()` or a logging utility
 
-# Main shader graph resource
-class_name OpenShaderMainAsset extends OpenShaderGraphAsset
-- Additional: shader_type, render_mode, blend_mode properties
-- Used for main shader graphs
+### 1.3 Code Organization and Modularity
+- Split large monolithic scripts (e.g., `gd_graph_edit.gd`, `gd_open_shader_editor.gd`) into dedicated modules: ConnectionManager, ResourceManager, NodeIndexManager, EditorUI, etc.
+- Consolidate duplicated methods (e.g., duplicated `create_new_resource`) and remove dead code
+- Centralize YAML serialization/deserialization in `gd_yaml_serializer.gd`
 
-# Subgraph resource (for groups and subgraphs)
-class_name OpenShaderSubgraphAsset extends OpenShaderGraphAsset
-- Additional: input_definitions[], output_definitions[]
-- Used for groups, local subgraphs, and normal subgraphs
-- No shader-specific properties
-```
+### 1.4 NodeFactory Improvements
+- Refactor scanning logic to use Godot's `Directory` API with recursive directory scanning
+- Implement caching and robust error handling for performance
+- Provide manual registration hooks for plugin extensibility
 
-### 1.2 Data Structure Design
-Design minimal serialization format:
+### 1.5 UI and Scene Refactoring
+- Refactor scenes (`.tscn`) to use `onready var` for control references and minimize code-based UI setup
+- Rename scenes and controls for clarity; extract reusable UI components into separate scenes/scripts
 
-```yaml
-# Example structure
-graph_data:
-  nodes:
-    - id: "node_1"
-      type: "OpenShaderFloatConstant"
-      properties: {value: 1.0}
-      position: {x: 100, y: 200}
-    - id: "node_2"
-      type: "OpenShaderAdd"
-      position: {x: 300, y: 200}
-  connections:
-    - from: "node_1:0"
-      to: "node_2:0"
-  graph_properties:
-    shader_type: "spatial"
-    render_mode: "blend_mix"
-```
+### 1.6 Resource and Asset Class Consolidation
+- Consolidate `duplicate_graph` implementations into a shared base class or mixin
+- Standardize exported properties and metadata across `OpenShaderGraphAsset`, `OpenShaderMainAsset`, and `OpenShaderSubgraphAsset`
+- Add versioning and migration helpers for resource schemas
 
-### 1.3 Resource Management
-- Implement resource loading/saving with proper .tres format
-- Add validation for resource integrity
-- Handle missing subgraph references gracefully
+### 1.7 Testing and Documentation
+- Add unit tests for core modules, nodes, and resource serialization
+- Integrate CI for linting, static analysis, and test execution
+- Update README, inline documentation, and developer guide to reflect the new structure
+
+After Phase 1, the codebase will adhere to Godot 4.x best practices—fully typed, modular, well-documented, and maintainable—providing a solid foundation for subsequent phases.
 
 ## Phase 2: Right-Click Context Menu Refactoring
 
