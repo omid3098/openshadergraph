@@ -48,6 +48,10 @@ class NodePropertyWrapper extends RefCounted:
 				var options: Array = prop.get("options", [])
 				property_dict["hint_string"] = ",".join(options)
 			
+			# Add class_name for Color properties
+			if property_type == "color":
+				property_dict["class_name"] = "Color"
+			
 			properties.append(property_dict)
 		
 		return properties
@@ -76,6 +80,8 @@ class NodePropertyWrapper extends RefCounted:
 				return TYPE_FLOAT
 			"string":
 				return TYPE_STRING
+			"color":
+				return TYPE_COLOR
 			"float2":
 				return TYPE_VECTOR2
 			"float3":

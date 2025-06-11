@@ -14,7 +14,7 @@ static var _manual_registrations: Dictionary = {} # For optional manual registra
 
 # Configuration
 static var _nodes_base_path: String = "res://addons/open_shader_graph/scripts/nodes"
-static var _excluded_files: Array[String] = ["gd_base_node.gd", "gd_base_constant_node.gd", "gd_base_math_node.gd"]
+static var _excluded_files: Array[String] = ["gd_base_node.gd", "gd_base_constant_node.gd", "gd_base_math_node.gd", "gd_open_shader_group_input.gd", "gd_open_shader_group_output.gd"]
 static var _cache_timeout: float = 10.0 # Cache timeout in seconds for development
 static var _suppress_warnings: bool = false # For testing purposes
 
