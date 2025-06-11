@@ -16,6 +16,7 @@ static var _manual_registrations: Dictionary = {} # For optional manual registra
 static var _nodes_base_path: String = "res://addons/open_shader_graph/scripts/nodes"
 static var _excluded_files: Array[String] = ["gd_base_node.gd", "gd_base_constant_node.gd", "gd_base_math_node.gd"]
 static var _cache_timeout: float = 10.0 # Cache timeout in seconds for development
+static var _suppress_warnings: bool = false # For testing purposes
 
 ## Initialize the node registry with improved scanning logic
 static func _initialize() -> void:
@@ -59,7 +60,8 @@ static func _recursive_scan_directory(base_path: String, relative_path: String) 
 	var dir := DirAccess.open(full_path)
 	
 	if not dir:
-		push_warning("NodeFactory: Cannot access directory: " + full_path)
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Cannot access directory: " + full_path)
 		return
 	
 	var error := dir.list_dir_begin()
@@ -117,13 +119,15 @@ static func _extract_category_from_path(relative_path: String) -> String:
 static func _register_node_from_file_safe(category: String, script_path: String) -> void:
 	# Validate file exists
 	if not FileAccess.file_exists(script_path):
-		push_warning("NodeFactory: Script file does not exist: " + script_path)
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Script file does not exist: " + script_path)
 		return
 	
 	# Load the script with error handling
 	var script: GDScript = load(script_path)
 	if not script:
-		push_warning("NodeFactory: Failed to load node script: " + script_path)
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Failed to load node script: " + script_path)
 		return
 	
 	# Validate script is a BaseNode
@@ -134,14 +138,16 @@ static func _register_node_from_file_safe(category: String, script_path: String)
 	
 	var display_name := _extract_display_name_safe(script, script_path)
 	if display_name.is_empty():
-		push_warning("NodeFactory: Could not determine display name for: " + script_path)
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Could not determine display name for: " + script_path)
 		return
 	
 	# Check for duplicate registration
 	if _node_registry.has(category) and _node_registry[category].has(display_name):
 		# Allow manual registrations to override automatic ones
 		if not _is_manual_registration(category, display_name):
-			push_warning("NodeFactory: Duplicate node name '" + display_name + "' in category '" + category + "'. Using first occurrence.")
+			if not _suppress_warnings:
+				push_warning("NodeFactory: Duplicate node name '" + display_name + "' in category '" + category + "'. Using first occurrence.")
 			return
 	
 	# Register the node
@@ -321,17 +327,20 @@ static func create_node(node_name: String) -> BaseNode:
 ## This allows plugins or external scripts to register additional nodes
 static func register_node_manual(category: String, node_name: String, script_path: String) -> bool:
 	if category.is_empty() or node_name.is_empty() or script_path.is_empty():
-		push_error("NodeFactory: Invalid parameters for manual registration")
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Invalid parameters for manual registration")
 		return false
 	
 	# Validate script exists and is valid
 	if not FileAccess.file_exists(script_path):
-		push_error("NodeFactory: Cannot manually register non-existent script: " + script_path)
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Cannot manually register non-existent script: " + script_path)
 		return false
 	
 	var script: GDScript = load(script_path)
 	if not script or not _is_base_node_script(script):
-		push_error("NodeFactory: Cannot manually register non-BaseNode script: " + script_path)
+		if not _suppress_warnings:
+			push_warning("NodeFactory: Cannot manually register non-BaseNode script: " + script_path)
 		return false
 	
 	# Add to manual registrations
@@ -444,3 +453,7 @@ static func add_excluded_files(files: Array[String]) -> void:
 ## Set cache timeout for development
 static func set_cache_timeout(timeout_seconds: float) -> void:
 	_cache_timeout = max(0.0, timeout_seconds)
+
+## Control warning suppression (useful for testing)
+static func set_suppress_warnings(suppress: bool) -> void:
+	_suppress_warnings = suppress

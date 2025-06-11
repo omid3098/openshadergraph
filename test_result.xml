@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="GutTests" failures="0" tests="83" >
+  <testsuite name="test/unit/test_base_node.gd" tests="18" failures="0" skipped="0" time="0.001733" >
+      <testcase name="test_base_node_initialization" assertions="3" status="pass" classname="test/unit/test_base_node.gd" time="0.000309" >
+      </testcase>
+      <testcase name="test_node_index_management" assertions="3" status="pass" classname="test/unit/test_base_node.gd" time="0.00011" >
+      </testcase>
+      <testcase name="test_property_list_for_panel" assertions="2" status="pass" classname="test/unit/test_base_node.gd" time="0.000085" >
+      </testcase>
+      <testcase name="test_set_property" assertions="1" status="pass" classname="test/unit/test_base_node.gd" time="0.000066" >
+      </testcase>
+      <testcase name="test_node_selection_signal" assertions="1" status="pass" classname="test/unit/test_base_node.gd" time="0.000049" >
+      </testcase>
+      <testcase name="test_base_constant_node_initialization" assertions="2" status="pass" classname="test/unit/test_base_node.gd" time="0.000089" >
+      </testcase>
+      <testcase name="test_base_constant_node_type_handling" assertions="3" status="pass" classname="test/unit/test_base_node.gd" time="0.000074" >
+      </testcase>
+      <testcase name="test_base_constant_node_property_types" assertions="0" status="no asserts" classname="test/unit/test_base_node.gd" time="0.000094" >
+      </testcase>
+      <testcase name="test_base_constant_node_value_properties" assertions="5" status="pass" classname="test/unit/test_base_node.gd" time="0.000084" >
+      </testcase>
+      <testcase name="test_base_math_node_initialization" assertions="2" status="pass" classname="test/unit/test_base_node.gd" time="0.00008" >
+      </testcase>
+      <testcase name="test_base_math_node_has_operation" assertions="0" status="no asserts" classname="test/unit/test_base_node.gd" time="0.000099" >
+      </testcase>
+      <testcase name="test_pin_type_colors_available" assertions="1" status="pass" classname="test/unit/test_base_node.gd" time="0.000058" >
+      </testcase>
+      <testcase name="test_inheritance_chain" assertions="4" status="pass" classname="test/unit/test_base_node.gd" time="0.0001" >
+      </testcase>
+      <testcase name="test_node_indexing_system" assertions="3" status="pass" classname="test/unit/test_base_node.gd" time="0.000145" >
+      </testcase>
+      <testcase name="test_node_path_property" assertions="2" status="pass" classname="test/unit/test_base_node.gd" time="0.000087" >
+      </testcase>
+      <testcase name="test_property_panel_integration" assertions="2" status="pass" classname="test/unit/test_base_node.gd" time="0.000062" >
+      </testcase>
+      <testcase name="test_node_cleanup" assertions="1" status="pass" classname="test/unit/test_base_node.gd" time="0.000068" >
+      </testcase>
+      <testcase name="test_constant_node_float_types" assertions="4" status="pass" classname="test/unit/test_base_node.gd" time="0.000074" >
+      </testcase>
+      </testsuite>
+  <testsuite name="test/unit/test_core_modules.gd" tests="17" failures="0" skipped="0" time="0.002467" >
+      <testcase name="test_pin_type_colors_initialization" assertions="3" status="pass" classname="test/unit/test_core_modules.gd" time="0.000055" >
+      </testcase>
+      <testcase name="test_pin_type_colors_has_required_types" assertions="22" status="pass" classname="test/unit/test_core_modules.gd" time="0.000062" >
+      </testcase>
+      <testcase name="test_get_color_for_type" assertions="5" status="pass" classname="test/unit/test_core_modules.gd" time="0.000142" >
+      </testcase>
+      <testcase name="test_get_color_for_invalid_type" assertions="2" status="pass" classname="test/unit/test_core_modules.gd" time="0.000068" >
+      </testcase>
+      <testcase name="test_get_all_types" assertions="13" status="pass" classname="test/unit/test_core_modules.gd" time="0.000048" >
+      </testcase>
+      <testcase name="test_is_valid_type" assertions="5" status="pass" classname="test/unit/test_core_modules.gd" time="0.000035" >
+      </testcase>
+      <testcase name="test_get_default_color" assertions="2" status="pass" classname="test/unit/test_core_modules.gd" time="0.000068" >
+      </testcase>
+      <testcase name="test_unity_shader_graph_compatibility" assertions="5" status="pass" classname="test/unit/test_core_modules.gd" time="0.000135" >
+      </testcase>
+      <testcase name="test_vector_type_renaming_from_memory" assertions="6" status="pass" classname="test/unit/test_core_modules.gd" time="0.000098" >
+      </testcase>
+      <testcase name="test_connection_manager_initialization" assertions="1" status="pass" classname="test/unit/test_core_modules.gd" time="0.000792" >
+      </testcase>
+      <testcase name="test_connection_manager_is_refcounted" assertions="1" status="pass" classname="test/unit/test_core_modules.gd" time="0.000571" >
+      </testcase>
+      <testcase name="test_pin_colors_accessible_from_base_node" assertions="2" status="pass" classname="test/unit/test_core_modules.gd" time="0.000063" >
+      </testcase>
+      <testcase name="test_centralized_pin_color_management" assertions="7" status="pass" classname="test/unit/test_core_modules.gd" time="0.000099" >
+      </testcase>
+      <testcase name="test_color_consistency" assertions="1" status="pass" classname="test/unit/test_core_modules.gd" time="0.000046" >
+      </testcase>
+      <testcase name="test_case_sensitivity" assertions="2" status="pass" classname="test/unit/test_core_modules.gd" time="0.000068" >
+      </testcase>
+      <testcase name="test_pin_colors_immutability" assertions="1" status="pass" classname="test/unit/test_core_modules.gd" time="0.000047" >
+      </testcase>
+      <testcase name="test_edge_cases" assertions="3" status="pass" classname="test/unit/test_core_modules.gd" time="0.00007" >
+      </testcase>
+      </testsuite>
+  <testsuite name="test/unit/test_node_factory.gd" tests="12" failures="0" skipped="0" time="0.078417" >
+      <testcase name="test_initialization" assertions="3" status="pass" classname="test/unit/test_node_factory.gd" time="0.01981" >
+      </testcase>
+      <testcase name="test_manual_registration" assertions="4" status="pass" classname="test/unit/test_node_factory.gd" time="0.001749" >
+      </testcase>
+      <testcase name="test_manual_registration_error_handling" assertions="2" status="pass" classname="test/unit/test_node_factory.gd" time="0.001652" >
+      </testcase>
+      <testcase name="test_get_available_categories" assertions="2" status="pass" classname="test/unit/test_node_factory.gd" time="0.001655" >
+      </testcase>
+      <testcase name="test_get_nodes_in_category" assertions="1" status="pass" classname="test/unit/test_node_factory.gd" time="0.001626" >
+      </testcase>
+      <testcase name="test_get_node_script_path" assertions="2" status="pass" classname="test/unit/test_node_factory.gd" time="0.001646" >
+      </testcase>
+      <testcase name="test_cache_invalidation" assertions="2" status="pass" classname="test/unit/test_node_factory.gd" time="0.008275" >
+      </testcase>
+      <testcase name="test_excluded_files_are_ignored" assertions="14" status="pass" classname="test/unit/test_node_factory.gd" time="0.033843" >
+      </testcase>
+      <testcase name="test_recursive_directory_scanning" assertions="1" status="pass" classname="test/unit/test_node_factory.gd" time="0.003219" >
+      </testcase>
+      <testcase name="test_performance_improvement" assertions="1" status="pass" classname="test/unit/test_node_factory.gd" time="0.003254" >
+      </testcase>
+      <testcase name="test_error_handling_invalid_directory" assertions="1" status="pass" classname="test/unit/test_node_factory.gd" time="0.000078" >
+      </testcase>
+      <testcase name="test_node_counting" assertions="2" status="pass" classname="test/unit/test_node_factory.gd" time="0.00161" >
+      </testcase>
+      </testsuite>
+  <testsuite name="test/unit/test_open_shader_graph_asset.gd" tests="17" failures="0" skipped="0" time="0.001156" >
+      <testcase name="test_initialization" assertions="7" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000102" >
+      </testcase>
+      <testcase name="test_add_node" assertions="6" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000109" >
+      </testcase>
+      <testcase name="test_add_node_with_defaults" assertions="7" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000105" >
+      </testcase>
+      <testcase name="test_remove_node" assertions="3" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000064" >
+      </testcase>
+      <testcase name="test_remove_node_with_connections" assertions="2" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000051" >
+      </testcase>
+      <testcase name="test_get_node" assertions="4" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000052" >
+      </testcase>
+      <testcase name="test_add_connection" assertions="3" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000065" >
+      </testcase>
+      <testcase name="test_remove_connection" assertions="3" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000066" >
+      </testcase>
+      <testcase name="test_get_node_connections" assertions="3" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000078" >
+      </testcase>
+      <testcase name="test_graph_properties" assertions="4" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000083" >
+      </testcase>
+      <testcase name="test_validation_valid_graph" assertions="1" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000027" >
+      </testcase>
+      <testcase name="test_validation_invalid_node_structure" assertions="1" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000035" >
+      </testcase>
+      <testcase name="test_validation_invalid_connection_structure" assertions="1" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.00003" >
+      </testcase>
+      <testcase name="test_validation_invalid_connection_format" assertions="1" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000038" >
+      </testcase>
+      <testcase name="test_clear" assertions="3" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000062" >
+      </testcase>
+      <testcase name="test_duplicate_graph" assertions="6" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000156" >
+      </testcase>
+      <testcase name="test_connection_reference_validation" assertions="6" status="pass" classname="test/unit/test_open_shader_graph_asset.gd" time="0.000033" >
+      </testcase>
+      </testsuite>
+  <testsuite name="test/unit/test_verification.gd" tests="5" failures="0" skipped="0" time="0.000394" >
+      <testcase name="test_gut_is_working" assertions="2" status="pass" classname="test/unit/test_verification.gd" time="0.000032" >
+      </testcase>
+      <testcase name="test_strings" assertions="2" status="pass" classname="test/unit/test_verification.gd" time="0.000046" >
+      </testcase>
+      <testcase name="test_arrays" assertions="2" status="pass" classname="test/unit/test_verification.gd" time="0.000196" >
+      </testcase>
+      <testcase name="test_node_creation" assertions="2" status="pass" classname="test/unit/test_verification.gd" time="0.000048" >
+      </testcase>
+      <testcase name="test_with_inner_class" assertions="1" status="pass" classname="test/unit/test_verification.gd" time="0.000072" >
+      </testcase>
+      </testsuite>
+  <testsuite name="test/unit/test_verification.gd.TestInnerClass" tests="1" failures="0" skipped="0" time="0.000035" >
+      <testcase name="test_inner_functionality" assertions="2" status="pass" classname="test/unit/test_verification.gd.TestInnerClass" time="0.000035" >
+      </testcase>
+      </testsuite>
+  <testsuite name="test/unit/test_yaml_serializer.gd" tests="13" failures="0" skipped="0" time="0.014732" >
+      <testcase name="test_serialize_node" assertions="6" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.002997" >
+      </testcase>
+      <testcase name="test_serialize_node_null" assertions="1" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000693" >
+      </testcase>
+      <testcase name="test_serialize_connection" assertions="6" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000633" >
+      </testcase>
+      <testcase name="test_deserialize_connection" assertions="6" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000659" >
+      </testcase>
+      <testcase name="test_deserialize_connection_invalid" assertions="1" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000586" >
+      </testcase>
+      <testcase name="test_serialize_graph_metadata" assertions="6" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000593" >
+      </testcase>
+      <testcase name="test_serialize_graph_metadata_null" assertions="3" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000631" >
+      </testcase>
+      <testcase name="test_serialize_graph_empty" assertions="7" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000663" >
+      </testcase>
+      <testcase name="test_serialize_graph_null" assertions="3" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000626" >
+      </testcase>
+      <testcase name="test_connection_format" assertions="2" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000597" >
+      </testcase>
+      <testcase name="test_node_serialization_preserves_name" assertions="1" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.002644" >
+      </testcase>
+      <testcase name="test_node_serialization_includes_position" assertions="3" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.002704" >
+      </testcase>
+      <testcase name="test_round_trip_connection" assertions="4" status="pass" classname="test/unit/test_yaml_serializer.gd" time="0.000706" >
+      </testcase>
+      </testsuite>
+  </testsuites>

@@ -5,47 +5,8 @@ This plan outlines the implementation of Groups, Local Subgraphs, and Normal Sub
 
 ## Phase 1: Project-Wide Refactoring for Best Practices
 
-### 1.1 Repository Cleanup
-- Relocate or remove `example_usage.gd` and other demo scripts into documentation
-- Standardize file and directory naming (PascalCase for classes, snake_case for files)
-
-### 1.2 GDScript Modernization
-- Adopt static typing across all scripts (`var foo: Type`, typed function signatures)
-- Use `@signal` annotations with typed arguments for all signals
-- Guard or remove debug `print()` statements; use `push_error()` or a logging utility
-
-### 1.3 Code Organization and Modularity
-- Split large monolithic scripts (e.g., `gd_graph_edit.gd`, `gd_open_shader_editor.gd`) into dedicated modules: ConnectionManager, ResourceManager, NodeIndexManager, EditorUI, etc.
-- Consolidate duplicated methods (e.g., duplicated `create_new_resource`) and remove dead code
-- Centralize YAML serialization/deserialization in `gd_yaml_serializer.gd`
-
-### 1.4 NodeFactory Improvements ✅ COMPLETED
-- ✅ Refactor scanning logic to use Godot's `Directory` API with recursive directory scanning
-- ✅ Implement caching and robust error handling for performance
-- ✅ Provide manual registration hooks for plugin extensibility
-
-**Implementation Details:**
-- Replaced basic directory scanning with recursive `DirAccess` API usage
-- Added intelligent caching system with configurable timeout for development
-- Implemented comprehensive error handling for missing files, invalid scripts, etc.
-- Added optional manual registration system that doesn't break existing functionality
-- Improved script validation without instantiating nodes (performance improvement)
-- Added configuration methods for extensibility (base path, excluded files, cache timeout)
-- Maintained full backward compatibility with existing plugin functionality
-
-### 1.5 UI and Scene Refactoring
-- Refactor scenes (`.tscn`) to use `onready var` for control references and minimize code-based UI setup
-- Rename scenes and controls for clarity; extract reusable UI components into separate scenes/scripts
-
-### 1.6 Resource and Asset Class Consolidation
-- Consolidate `duplicate_graph` implementations into a shared base class or mixin
-- Standardize exported properties and metadata across `OpenShaderGraphAsset`, `OpenShaderMainAsset`, and `OpenShaderSubgraphAsset`
-- Add versioning and migration helpers for resource schemas
-
-### 1.7 Testing and Documentation
-- Add unit tests for core modules, nodes, and resource serialization
-- Integrate CI for linting, static analysis, and test execution
-- Update README, inline documentation, and developer guide to reflect the new structure
+### 1.1 Testing
+- Add unit tests for core modules, nodes, and resource serialization using GUT framework (for latest documentation, use Context7 MCP Server) the gut framework is already installed in the project.
 
 After Phase 1, the codebase will adhere to Godot 4.x best practices—fully typed, modular, well-documented, and maintainable—providing a solid foundation for subsequent phases.
 
