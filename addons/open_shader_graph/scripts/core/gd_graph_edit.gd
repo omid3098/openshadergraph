@@ -241,7 +241,6 @@ func _emit_selection_changed() -> void:
 ## Node lifecycle management
 func _on_child_entered_tree(node: Node) -> void:
 	if node is BaseNode:
-		node.node_selection_changed.connect(_on_node_selection_changed)
 		# Use node index manager to assign index
 		if node_index_manager:
 			node_index_manager.handle_node_added(node)
@@ -255,10 +254,6 @@ func _on_child_exiting_tree(node: Node) -> void:
 		# Use node index manager to handle removal
 		if node_index_manager:
 			node_index_manager.handle_node_removed(node)
-
-func _on_node_selection_changed(selected_node: BaseNode) -> void:
-	# This handles programmatic selection from nodes themselves
-	_select_single_node(selected_node)
 
 ## Connection handling with validation
 func _on_connection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> void:

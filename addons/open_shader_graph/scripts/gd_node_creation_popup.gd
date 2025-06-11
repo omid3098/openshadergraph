@@ -3,7 +3,13 @@ extends RefCounted
 
 class_name NodeCreationPopup
 
-# Signal emitted when a node type is selected
+# How blender does it:
+# - Pressing shift+a opens the node creation popup with a list of all categories only
+# - Hovering over a category opens a new popup with the list of nodes in that category beside the category popup.This popup is reused between all categories.
+# - As soon as the user starts typing, a new popup is opened with the list of nodes that match the search query within the node names and node categories.
+# TODO: Implement this behavior instead of the current one.
+
+# Signal emitted when a node type is selected from the popup
 signal node_type_selected(node_type: String)
 
 # Available node types organized by categories
