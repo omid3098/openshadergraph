@@ -12,7 +12,7 @@ var is_subgraph_context: bool = false
 
 func _ready():
 	node_path = "" # Excluded from creation menu - internal node only
-	title = "Group Output"
+	display_name = "Subgraph Output"
 	
 	# Set visual appearance
 	add_theme_color_override("title_color", Color.MAGENTA)

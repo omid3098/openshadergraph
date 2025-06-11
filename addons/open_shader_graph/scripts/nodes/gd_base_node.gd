@@ -8,6 +8,8 @@ const PinTypeColors = preload("res://addons/open_shader_graph/scripts/core/gd_pi
 # "" means the node is in the root
 var node_path: String = ""
 
+var display_name: String = ""
+
 # Index in the graph for shader code generation
 # This helps determine the order of nodes when generating final shader code
 var node_index: int = -1
@@ -32,6 +34,13 @@ func apply_node_title_color(new_color: Color) -> void:
     node_title_color = new_color
     titlebar_stylebox.bg_color = node_title_color
     add_theme_stylebox_override("titlebar", titlebar_stylebox)
+
+func _update_title() -> void:
+    title = display_name if not display_name.is_empty() else "Node"
+
+func set_display_name(new_name: String) -> void:
+    display_name = new_name
+    _update_title()
 
 # Virtual method for nodes to provide custom properties for the properties panel
 func get_property_list_for_panel() -> Array:

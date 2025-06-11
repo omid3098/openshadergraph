@@ -53,7 +53,7 @@ func _load_external_subgraph():
 	
 	# Extract name from file path
 	var file_name = subgraph_file_path.get_file().get_basename()
-	group_name = file_name
+	display_name = file_name
 	_update_title()
 
 func _set_error_state(message: String):
@@ -73,13 +73,6 @@ func _clear_error_state():
 	error_message = ""
 	node_title_color = subgraph_initial_color
 	add_theme_color_override("title_color", Color.GREEN)
-
-func _update_title():
-	if is_error_state:
-		title = "External Subgraph (ERROR)"
-	else:
-		var file_name = subgraph_file_path.get_file().get_basename() if not subgraph_file_path.is_empty() else "External Subgraph"
-		title = file_name + " (ExternalGraph)"
 
 # File management
 func set_subgraph_file_path(new_path: String):

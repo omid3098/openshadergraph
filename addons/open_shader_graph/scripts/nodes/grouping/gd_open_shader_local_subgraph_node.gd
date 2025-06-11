@@ -56,7 +56,7 @@ func set_shared_subgraph_name(new_name: String):
 	
 	# Set new name
 	shared_subgraph_name = new_name
-	group_name = new_name
+	display_name = new_name
 	
 	# Register with new name
 	_register_instance()
