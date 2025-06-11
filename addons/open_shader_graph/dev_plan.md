@@ -3,42 +3,38 @@
 ## Overview
 This plan outlines the implementation of Groups, Local Subgraphs, and Normal Subgraphs for the OpenShaderGraph plugin. The system will allow collapsing multiple nodes into single nodes while preserving connections and enabling reusability.
 
-## Phase 1: Project-Wide Refactoring for Best Practices
+## ✅ Phase 1: Right-Click Context Menu Refactoring (COMPLETED)
 
-### 1.1 Testing
-- Add unit tests for core modules, nodes, and resource serialization using GUT framework (for latest documentation, use Context7 MCP Server) the gut framework is already installed in the project.
+### ✅ 1.1 Context Menu System
+~~Current issue: GraphEdit captures all right-clicks for node creation.~~
 
-After Phase 1, the codebase will adhere to Godot 4.x best practices—fully typed, modular, well-documented, and maintainable—providing a solid foundation for subsequent phases.
+**✅ IMPLEMENTED**: Multi-layered context menu system:
+- ✅ Detect right-click target (background vs node vs selection)
+- ✅ Show appropriate context menu based on target  
+- ✅ Preserve existing node creation functionality for background clicks
+- ✅ Context menu manager with proper action handling
 
-## Phase 2: Right-Click Context Menu Refactoring
+### ✅ 1.2 Selection Management
+- ✅ Implement proper multi-node selection handling
+- ✅ Add visual feedback for selected nodes
+- ✅ Track selection state in GraphEdit
+- ✅ Rectangle selection with drag
+- ✅ Ctrl+click multi-selection
 
-### 2.1 Context Menu System
-Current issue: GraphEdit captures all right-clicks for node creation.
-
-**Solution**: Implement a multi-layered context menu system:
-- Detect right-click target (background vs node vs selection)
-- Show appropriate context menu based on target
-- Preserve existing node creation functionality for background clicks
-
-### 2.2 Selection Management
-- Implement proper multi-node selection handling
-- Add visual feedback for selected nodes
-- Track selection state in GraphEdit
-
-### 2.3 Context Menu Options
+### ✅ 1.3 Context Menu Options
 For selected nodes:
-- **Grouping** submenu:
-  - Create Group
-  - Create Local Subgraph
-  - Create Normal Subgraph
+- **Grouping** submenu (prepared for Phase 2):
+  - Create Group (disabled, ready for Phase 2)
+  - Create Local Subgraph (disabled, ready for Phase 2)
+  - Create Normal Subgraph (disabled, ready for Phase 2)
 - **Node operations**:
-  - Delete
-  - Duplicate
-  - Copy/Paste
+  - ✅ Delete (working)
+  - Duplicate (placeholder)
+  - Copy (placeholder)
 
-## Phase 3: Node Group System
+## Phase 2: Node Group System
 
-### 3.1 Group Node Implementation
+### 2.1 Group Node Implementation
 Create base group node class:
 
 ```gdscript
@@ -49,7 +45,7 @@ class_name OpenShaderGroupNode extends BaseNode
 - Visual representation showing group name and pins
 ```
 
-### 3.2 Group Creation Workflow
+### 2.2 Group Creation Workflow
 1. **Selection Analysis**: Analyze selected nodes to determine:
    - Input connections (from outside to selection)
    - Output connections (from selection to outside)
@@ -71,7 +67,7 @@ class_name OpenShaderGroupNode extends BaseNode
    - Connect external connections to group pins
    - Set group properties (name, color, description)
 
-### 3.3 Input/Output Node System
+### 2.3 Input/Output Node System
 Special nodes for group interfaces:
 
 ```gdscript
@@ -88,9 +84,9 @@ class_name OpenShaderGroupOutput extends BaseNode
 - Properties panel allows adding/removing pins
 ```
 
-## Phase 4: Local Subgraph System
+## Phase 3: Local Subgraph System
 
-### 4.1 Local Subgraph Implementation
+### 3.1 Local Subgraph Implementation
 Local subgraphs are identical to groups but with shared instances:
 
 ```gdscript
@@ -100,20 +96,20 @@ class_name OpenShaderLocalSubgraphNode extends OpenShaderGroupNode
 - Visual indicator to distinguish from regular groups
 ```
 
-### 4.2 Instance Synchronization
+### 3.2 Instance Synchronization
 - Implement observer pattern for subgraph changes
 - Update all instances when one is modified
 - Handle concurrent edits gracefully
 - Preserve individual instance positions and names
 
-### 4.3 Local Subgraph Registry
+### 3.3 Local Subgraph Registry
 - Track all local subgraph definitions in main graph
 - Prevent name conflicts
 - Manage instance references
 
-## Phase 5: Normal Subgraph System
+## Phase 4: Normal Subgraph System
 
-### 5.1 External Subgraph References
+### 4.1 External Subgraph References
 ```gdscript
 class_name OpenShaderExternalSubgraphNode extends OpenShaderGroupNode
 - File path reference to external .tres file
@@ -121,20 +117,20 @@ class_name OpenShaderExternalSubgraphNode extends OpenShaderGroupNode
 - Error handling for missing files
 ```
 
-### 5.2 Error Handling
+### 4.2 Error Handling
 - Red node visualization for missing subgraphs
 - Error message display
 - Graceful degradation when subgraph unavailable
 - Refresh mechanism when file becomes available
 
-### 5.3 Asset Management
+### 4.3 Asset Management
 - Track external dependencies
 - Relative path resolution
 - Asset validation on load
 
-## Phase 6: Graph Editor Enhancement
+## Phase 5: Graph Editor Enhancement
 
-### 6.1 Multi-Level Graph Editing
+### 5.1 Multi-Level Graph Editing
 Implement hierarchical graph editing:
 
 ```gdscript
@@ -144,55 +140,55 @@ class_name OpenShaderGraphManager
 - Maintains editing history for undo/redo
 ```
 
-### 6.2 Navigation System
+### 5.2 Navigation System
 - Double-click to enter subgraph editing
 - Breadcrumb navigation for nested contexts
 - Back/forward navigation buttons
 - Visual indicators for current editing level
 
-### 6.3 Editor UI Enhancements
+### 5.3 Editor UI Enhancements
 - Tab system for multiple open graphs
 - Context-aware properties panel
 - Subgraph-specific toolbar options
 - Preview window for subgraph contents
 
-## Phase 7: Properties Panel Integration
+## Phase 6: Properties Panel Integration
 
-### 7.1 Group Properties
+### 6.1 Group Properties
 When group/subgraph node selected:
 - Name (editable, updates node title)
 - Color (affects node appearance)
 - Description (tooltip/help text)
 - Pin management (add/remove/rename pins)
 
-### 7.2 Input/Output Node Properties
+### 6.2 Input/Output Node Properties
 When Input/Output node selected in subgraph:
 - Pin management interface
 - Type selection for each pin
 - Name assignment for pins
 - Validation of pin configurations
 
-### 7.3 Dynamic Property Updates
+### 6.3 Dynamic Property Updates
 - Real-time updates to node appearance
 - Automatic pin reconfiguration
 - Connection validation after changes
 
-## Phase 8: YAML Serialization System
+## Phase 7: YAML Serialization System
 
-### 8.1 Minimal Data Format
+### 7.1 Minimal Data Format
 Design efficient serialization:
 - Node definitions (type, properties, position)
 - Connection definitions (from/to references)
 - Graph metadata (properties, settings)
 - Exclude visual-only data (colors, UI state)
 
-### 8.2 Recreation System
+### 7.2 Recreation System
 - Build GraphEdit from YAML data
 - Restore node positions and properties
 - Rebuild connections after all nodes created
 - Handle missing node types gracefully
 
-### 8.3 Version Compatibility
+### 7.3 Version Compatibility
 - Schema versioning for future updates
 - Migration system for older formats
 - Backward compatibility maintenance

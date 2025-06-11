@@ -31,6 +31,10 @@ func _ready() -> void:
 	editor_ui.node_selected.connect(_on_node_selected)
 	editor_ui.resource_changed.connect(_on_resource_changed)
 	
+	# Connect to the new Phase 1 context menu system
+	if current_graph_edit.has_signal("context_menu_requested"):
+		current_graph_edit.context_menu_requested.connect(_on_context_menu_requested)
+	
 	# Initialize the node creation popup
 	node_creation_popup = NodeCreationPopup.new(self)
 	node_creation_popup.node_type_selected.connect(_on_node_type_selected)
@@ -183,16 +187,33 @@ func _on_resource_changed(resource: OpenShaderGraphAsset) -> void:
 	if OS.is_debug_build():
 		print("[DEBUG] Resource changed: ", resource.get_graph_property("asset_type", "unknown") if resource else "null")
 
+func _on_context_menu_requested(target_type: String, context_data: Dictionary) -> void:
+	# Handle the new Phase 1 context menu system
+	if OS.is_debug_build():
+		print("[DEBUG] Context menu requested: ", target_type)
+	
+	# For background context menu "Create Node" actions, we need to also listen
+	# to the context action to handle when user selects "Create Node" from the menu
+	if target_type == "background":
+		# Store the click position for potential node creation
+		var global_pos: Vector2 = context_data.get("global_position", Vector2.ZERO)
+		var graph_rect := current_graph_edit.get_rect()
+		var local_pos: Vector2 = global_pos - current_graph_edit.global_position
+		local_pos = (local_pos + current_graph_edit.scroll_offset) / current_graph_edit.zoom
+		last_right_click_position = local_pos
+
 func _on_graph_edit_right_clicked(global_mouse_position: Vector2) -> void:
+	# This method handles backward compatibility for background right-clicks
+	# Only show node creation popup for background clicks (not node clicks)
+	# The context menu system handles node clicks now
 	# Convert global position to GraphEdit's local coordinate space
-	# Account for GraphEdit's scroll offset and zoom
 	var graph_rect := current_graph_edit.get_rect()
 	var local_pos := global_mouse_position - current_graph_edit.global_position
 	local_pos = (local_pos + current_graph_edit.scroll_offset) / current_graph_edit.zoom
 	last_right_click_position = local_pos
 	
 	if OS.is_debug_build():
-		print("[DEBUG] Right-click at global: ", global_mouse_position, " local: ", last_right_click_position)
+		print("[DEBUG] Background right-click at global: ", global_mouse_position, " local: ", last_right_click_position)
 	
 	# Show the node creation popup at the mouse position
 	node_creation_popup.show_at_position(global_mouse_position)

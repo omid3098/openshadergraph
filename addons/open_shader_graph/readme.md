@@ -13,7 +13,10 @@ Main editor interface: `scripts/gd_open_shader_editor.gd`
 
 
 ## TODO:
-- Implement Group, local subgraphs and sub-graphs. groups should be able to be nested and should be able to be used as a node in the graph. it basically packs a set of nodes into a single node preserving the connections between the nodes. a local subgraph is basically a group that changing one instance will change all instances of the subgraph. like a local function in a programming language. and a normal subgraph is a separate graph that can be used as a node in multiple shader graphs.
+- re-openning the same graph will hide all connections but nodes will be visible.
+- Not selecting any node should show the properties panel with the current graph properties instead of loading the last selected node properties.
+
+- Implement actual Group, local subgraphs and sub-graphs functionality (Phase 2+). groups should be able to be nested and should be able to be used as a node in the graph. it basically packs a set of nodes into a single node preserving the connections between the nodes. a local subgraph is basically a group that changing one instance will change all instances of the subgraph. like a local function in a programming language. and a normal subgraph is a separate graph that can be used as a node in multiple shader graphs.
 - Fix the node execution functionality. nodes should have an equivalent to a shader code block or a function. so the "add" node should not actually add input pins and return a value. it should just return a shader code block that can be used to generate the final shader code. same as all other nodes. the code generation should start from the output node and work its way back to the input nodes. for exammple if the node struction is like this:
 ```
 Color, float3 > Add > Output_ALBEDO

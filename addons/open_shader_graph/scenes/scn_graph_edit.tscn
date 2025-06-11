@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://eslgoxn3hp7e"]
 
-[ext_resource type="Script" uid="uid://ccs5oytjkhndx" path="res://addons/open_shader_graph/scripts/core/gd_graph_edit.gd" id="1_237am"]
+[ext_resource type="Script" uid="uid://cpq1bxwls5brb" path="res://addons/open_shader_graph/scripts/core/gd_graph_edit.gd" id="1_237am"]
 
 [node name="GraphEdit" type="GraphEdit"]
 anchors_preset = 15

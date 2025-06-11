@@ -96,8 +96,8 @@ func _setup_graph_edit(parent: Control) -> GraphEdit:
 	graph_container.size_flags_stretch_ratio = 1.0 - PROPERTIES_PANEL_RATIO
 	parent.add_child(graph_container)
 	
-	# Create a new graph_edit using the refactored version
-	var graph_edit_script = preload("res://addons/open_shader_graph/scripts/core/gd_graph_edit_refactored.gd")
+	# Create a new graph_edit using the enhanced version
+	var graph_edit_script = preload("res://addons/open_shader_graph/scripts/core/gd_graph_edit.gd")
 	var graph_edit: GraphEdit = GraphEdit.new()
 	graph_edit.set_script(graph_edit_script)
 	graph_edit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
