@@ -4,6 +4,7 @@ class_name OpenShaderLocalSubgraphNode extends OpenShaderGroupNode
 # Local subgraph specific properties
 var instance_id: String = ""
 var shared_subgraph_name: String = ""
+var local_subgraph_initial_color: Color = Color.ORANGE
 
 # Registry of all instances (static for sharing)
 static var local_subgraph_registry: Dictionary = {}
@@ -19,7 +20,7 @@ func _ready():
 		instance_id = "local_subgraph_" + str(instance_counter)
 	
 	# Add visual indicator for local subgraph
-	group_color = Color.ORANGE
+	node_title_color = local_subgraph_initial_color
 	
 	super._ready()
 	
@@ -79,7 +80,7 @@ func synchronize_with_instances():
 	for instance in instances:
 		if instance != self and is_instance_valid(instance):
 			# Sync properties and structure
-			instance.group_color = group_color
+			instance.node_title_color = local_subgraph_initial_color
 			instance.description = description
 			# More synchronization logic will be added in Phase 3
 

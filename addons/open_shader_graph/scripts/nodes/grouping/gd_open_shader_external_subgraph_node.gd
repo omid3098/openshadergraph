@@ -9,13 +9,14 @@ class_name OpenShaderExternalSubgraphNode extends OpenShaderGroupNode
 var is_error_state: bool = false
 var error_message: String = ""
 var last_modified_time: int = 0
+var subgraph_initial_color: Color = Color.GREEN
 
 func _ready():
 	node_path = "Grouping/External Subgraph"
 	title = "External Subgraph"
 	
 	# Add visual indicator for external subgraph
-	group_color = Color.GREEN
+	node_title_color = subgraph_initial_color
 	
 	super._ready()
 	
@@ -59,7 +60,7 @@ func _set_error_state(message: String):
 	"""Set the node to error state with visual feedback"""
 	is_error_state = true
 	error_message = message
-	group_color = Color.RED
+	node_title_color = Color.RED
 	add_theme_color_override("title_color", Color.RED)
 	title = "External Subgraph (ERROR)"
 	
@@ -70,7 +71,7 @@ func _clear_error_state():
 	"""Clear error state and restore normal appearance"""
 	is_error_state = false
 	error_message = ""
-	group_color = Color.GREEN
+	node_title_color = subgraph_initial_color
 	add_theme_color_override("title_color", Color.GREEN)
 
 func _update_title():

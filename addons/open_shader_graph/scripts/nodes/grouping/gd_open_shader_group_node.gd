@@ -4,7 +4,6 @@ class_name OpenShaderGroupNode extends BaseNode
 # Group properties
 @export var group_name: String = "New Group"
 @export var description: String = ""
-@export var group_color: Color = Color.BLUE
 
 # Reference to the subgraph asset that contains the grouped nodes
 var subgraph_asset: Resource = null
@@ -33,7 +32,7 @@ func _setup_default_pins():
 	# This will be implemented in Phase 2 when we have the subgraph system
 	# For now, just add placeholder pins
 	# TODO: Phase 2 - Automatically create Group Input and Group Output nodes internally
-	add_theme_color_override("title_color", group_color)
+	super.apply_node_title_color(node_title_color)
 
 # Group management methods (to be implemented in Phase 2)
 func set_group_name(new_name: String):
@@ -43,8 +42,9 @@ func set_group_name(new_name: String):
 func set_group_color(new_color):
 	# Debug log to inspect the type and value of the passed-in new_color
 	print("[DEBUG] set_group_color called with new_color type:", typeof(new_color), "value:", new_color)
-	group_color = new_color
-	add_theme_color_override("title_color", group_color)
+	node_title_color = new_color
+	
+	super.apply_node_title_color(node_title_color)
 
 func set_description(new_desc: String):
 	description = new_desc
@@ -71,7 +71,7 @@ func get_property_list_for_panel() -> Array:
 	return [
 		{"name": "group_name", "type": "string"},
 		{"name": "description", "type": "string"},
-		{"name": "group_color", "type": "color"}
+		{"name": "node_title_color", "type": "color"}
 	]
 
 func set_property(property_name: String, value: Variant) -> void:
@@ -80,7 +80,7 @@ func set_property(property_name: String, value: Variant) -> void:
 			set_group_name(value)
 		"description":
 			set_description(value)
-		"group_color":
-			set_group_color(value)
+		"node_title_color":
+			apply_node_title_color(value)
 		_:
 			super.set_property(property_name, value)

@@ -1,9 +1,29 @@
-[gd_scene load_steps=2 format=3 uid="uid://dj83x3h6jqcf0"]
+[gd_scene load_steps=4 format=3 uid="uid://dj83x3h6jqcf0"]
 
 [ext_resource type="Script" uid="uid://dcyo1t7ev7c55" path="res://addons/open_shader_graph/scripts/nodes/gd_base_node.gd" id="1_87m4c"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_87m4c"]
+content_margin_left = 3.0
+bg_color = Color(0.149475, 0.149475, 0.149475, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+anti_aliasing = false
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kf1d4"]
+content_margin_left = 3.0
+bg_color = Color(0.181798, 0.181798, 0.181798, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+anti_aliasing = false
 
 [node name="GraphNode" type="GraphNode"]
 offset_right = 100.0
 offset_bottom = 55.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_87m4c")
+theme_override_styles/titlebar = SubResource("StyleBoxFlat_kf1d4")
 title = "Node Name"
 script = ExtResource("1_87m4c")
