@@ -2,50 +2,17 @@
 extends EditorPlugin
 
 var dock: Control
+var dock_slot: int = DOCK_SLOT_LEFT_UL
 
 func _enter_tree() -> void:
-	# Register custom resource types
-	if OS.is_debug_build():
-		print("[DEBUG] Plugin: Registering resource types...")
-	add_custom_type(
-		"OpenShaderGraphAsset",
-		"Resource",
-		preload("res://addons/open_shader_graph/scripts/resources/gd_open_shader_graph_asset.gd"),
-		EditorInterface.get_editor_theme().get_icon("Script", "EditorIcons")
-	)
-	add_custom_type(
-		"OpenShaderMainAsset",
-		"Resource",
-		preload("res://addons/open_shader_graph/scripts/resources/gd_open_shader_main_asset.gd"),
-		EditorInterface.get_editor_theme().get_icon("Shader", "EditorIcons")
-	)
-	add_custom_type(
-		"OpenShaderSubgraphAsset",
-		"Resource",
-		preload("res://addons/open_shader_graph/scripts/resources/gd_open_shader_subgraph_asset.gd"),
-		EditorInterface.get_editor_theme().get_icon("GraphNode", "EditorIcons")
-	)
-	
-	# Initialize the NodeFactory with automatic node discovery
-	if OS.is_debug_build():
-		print("[DEBUG] Plugin: Initializing NodeFactory...")
-	var node_factory := preload("res://addons/open_shader_graph/scripts/core/gd_node_factory.gd")
-	node_factory._initialize()
-	# node_factory.debug_print_registry()
-	
-	# Load the main interface scene
-	var scene := preload("res://addons/open_shader_graph/scenes/scn_open_shader_graph.tscn")
-	dock = scene.instantiate()
-	
-	# Add the dock to the top left panel beside the import tab
-	add_control_to_dock(DOCK_SLOT_LEFT_UL, dock)
+	var OpenShaderGraphEditor = OpenShaderGraphEditor.new()
+	dock = OpenShaderGraphEditor.get_main_scene()
+	# To create a standalone editor, we only need to add the main scene to the root node of an empty scene
+	dock.name = "OpenShaderGraph"
+	add_control_to_dock(dock_slot, dock)
+	pass
 
 func _exit_tree() -> void:
-	# Remove custom resource types
-	remove_custom_type("OpenShaderGraphAsset")
-	remove_custom_type("OpenShaderMainAsset")
-	remove_custom_type("OpenShaderSubgraphAsset")
-	
 	# Clean up when the plugin is disabled
 	if dock:
 		remove_control_from_docks(dock)
