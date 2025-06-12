@@ -1,7 +1,9 @@
 class_name EventBus
 extends Node
 
-signal graph_selected(graph_name: String)
+# Menu items
+signal menu_item_selected(menu_name: String, item_id: int, item_text: String)
+
 
 static var _instance: EventBus = null
 
@@ -12,6 +14,3 @@ static func get_instance() -> EventBus:
 
 func _init() -> void:
 	print("[EventBus] init")
-
-func emit_graph_selected(graph_name: String) -> void:
-	graph_selected.emit(graph_name)

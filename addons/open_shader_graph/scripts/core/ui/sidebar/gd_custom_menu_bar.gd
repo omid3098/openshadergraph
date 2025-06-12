@@ -1,16 +1,39 @@
-class_name CustomMenuBar extends HBoxContainer
+class_name CustomMenuBar extends PanelContainer
 
-signal menu_item_selected(menu_name: String, item_id: int, item_text: String)
+# signal menu_item_selected(menu_name: String, item_id: int, item_text: String)
 
 var _menus: Dictionary = {}
+# Internal HBoxContainer that actually hosts the menu buttons. Using a PanelContainer
+# as the root node lets us style the background via a StyleBox without manually drawing.
+var _hbox: HBoxContainer
 
 func _init() -> void:
 	print("[CustomMenuBar] init")
+
+	# Create the internal HBoxContainer that will hold the menu buttons.
+	_hbox = HBoxContainer.new()
+	_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	add_child(_hbox)
+
 	_setup_styling()
+	_setup_default_menus()
+
+func _setup_default_menus() -> void:
+	# Add standard menus to the custom menu bar
+	add_file_menu()
+	# add_edit_menu()
+	# add_help_menu()
+
 
 func _setup_styling() -> void:
-	# Add some padding and styling to make it look like a proper menu bar
-	add_theme_constant_override("separation", 0)
+	# Create a StyleBoxFlat to serve as the dark background for the menu bar.
+	var stylebox := StyleBoxFlat.new()
+	stylebox.bg_color = Color(0.13, 0.13, 0.13, 1) # Darker background colour
+	# Optional: Uncomment to give rounded corners in the future
+	stylebox.set_corner_radius_all(6)
+
+	add_theme_stylebox_override("panel", stylebox)
 
 func add_menu(menu_name: String, items: Array) -> void:
 	"""
@@ -48,8 +71,8 @@ func add_menu(menu_name: String, items: Array) -> void:
 	menu_button.pressed.connect(_on_menu_button_pressed.bind(menu_name))
 	popup_menu.id_pressed.connect(_on_popup_item_selected.bind(menu_name))
 	
-	# Add to scene
-	add_child(menu_button)
+	# Add to internal HBoxContainer so layout remains horizontal
+	_hbox.add_child(menu_button)
 	menu_button.add_child(popup_menu)
 	
 	# Store reference
@@ -105,7 +128,8 @@ func _on_menu_item_selected(menu_name: String, item_id: int) -> void:
 	if popup:
 		var item_index = popup.get_item_index(item_id)
 		var item_text = popup.get_item_text(item_index)
-		menu_item_selected.emit(menu_name, item_id, item_text)
+		# menu_item_selected.emit(menu_name, item_id, item_text)
+		EventBus.get_instance().menu_item_selected.emit(menu_name, item_id, item_text)
 
 # Convenience methods for common menu operations
 func add_file_menu() -> void:

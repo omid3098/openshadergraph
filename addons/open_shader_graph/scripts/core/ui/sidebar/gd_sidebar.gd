@@ -41,23 +41,3 @@ func _init() -> void:
 	# Add the menu bar and the split container to the VBox container
 	vbox_container.add_child(custom_menu_bar)
 	vbox_container.add_child(vsplit_container)
-
-	# Add default menus to make the menu bar visible
-	_setup_default_menus()
-
-func _setup_default_menus() -> void:
-	# Add standard menus to the custom menu bar
-	custom_menu_bar.add_file_menu()
-	custom_menu_bar.add_edit_menu()
-	custom_menu_bar.add_help_menu()
-	
-	# Connect to menu signals
-	custom_menu_bar.menu_item_selected.connect(_on_menu_item_selected_wrapper)
-
-func _on_menu_item_selected_wrapper(menu_name: String, item_id: int, item_text: String) -> void:
-	# Wrapper function to handle the signal with 3 parameters and call our function with 2
-	_on_menu_item_selected(menu_name, item_text)
-
-func _on_menu_item_selected(menu_name: String, item_text: String) -> void:
-	print("[Sidebar] Menu item selected: " + menu_name + " > " + item_text)
-	# TODO: Implement actual menu actions
