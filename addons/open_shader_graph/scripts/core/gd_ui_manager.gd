@@ -1,15 +1,12 @@
 class_name UIManager extends Node
 
-var graph_edit: GraphEdit
+var graph_edit: ShaderGraphEdit
 var context_menu_manager: ContextMenuManager
 var bottom_panel: BottomPanel
 var sidebar: Sidebar
 
 const SIDEBAR_WIDTH: int = 250
 const BOTTOM_PANEL_HEIGHT: int = 250
-
-# Preload the custom GraphEdit script to avoid unknown identifier errors during static analysis.
-const ShaderGraphEdit := preload("res://addons/open_shader_graph/scripts/core/ui/gd_shader_graph_edit.gd")
 
 func _init() -> void:
 	print("[UIManager] init")
