@@ -1,6 +1,7 @@
 class_name CustomMenuBar extends PanelContainer
 
-# signal menu_item_selected(menu_name: String, item_id: int, item_text: String)
+# Reference to the enum defined in MenuEnums for cleaner access.
+const FileMenuItem = MenuEnums.FileMenuItem
 
 var _menus: Dictionary = {}
 # Internal HBoxContainer that actually hosts the menu buttons. Using a PanelContainer
@@ -20,11 +21,8 @@ func _init() -> void:
 	_setup_default_menus()
 
 func _setup_default_menus() -> void:
-	# Add standard menus to the custom menu bar
+	# Only File menu is required for now
 	add_file_menu()
-	# add_edit_menu()
-	# add_help_menu()
-
 
 func _setup_styling() -> void:
 	# Create a StyleBoxFlat to serve as the dark background for the menu bar.
@@ -119,64 +117,23 @@ func _on_menu_button_pressed(menu_name: String) -> void:
 		popup.position = Vector2i(button_global_pos.x, button_global_pos.y + button_size.y)
 		popup.popup()
 
-func _on_popup_item_selected(item_id: int, menu_name: String) -> void:
-	# Wrapper function to handle the correct parameter order from bind
-	_on_menu_item_selected(menu_name, item_id)
-
-func _on_menu_item_selected(menu_name: String, item_id: int) -> void:
-	var popup = get_menu(menu_name)
-	if popup:
-		var item_index = popup.get_item_index(item_id)
-		var item_text = popup.get_item_text(item_index)
-		# menu_item_selected.emit(menu_name, item_id, item_text)
-		EventBus.get_instance().menu_item_selected.emit(menu_name, item_id, item_text)
+func _on_popup_item_selected(item_id: int, _menu_name: String) -> void:
+	# Forward the enum value directly; only File menu exists so menu_name is irrelevant.
+	EventBus.get_instance().file_menu_item_selected.emit(item_id)
 
 # Convenience methods for common menu operations
 func add_file_menu() -> void:
-	"""Add a standard File menu"""
+	"""Add a standard File menu leveraging enum ids for readability"""
 	var file_items = [
-		{"text": "New Graph", "id": 0},
-		{"text": "Open Graph", "id": 1},
+		{"text": "New Graph", "id": FileMenuItem.NEW_GRAPH},
+		{"text": "Open Graph", "id": FileMenuItem.OPEN_GRAPH},
 		{"separator": true},
-		{"text": "Save", "id": 2},
-		{"text": "Save As", "id": 3},
+		{"text": "Save", "id": FileMenuItem.SAVE},
+		{"text": "Save As", "id": FileMenuItem.SAVE_AS},
 		{"separator": true},
-		{"text": "Export", "id": 4}
+		{"text": "Export", "id": FileMenuItem.EXPORT}
 	]
 	add_menu("File", file_items)
 
-func add_edit_menu() -> void:
-	"""Add a standard Edit menu"""
-	var edit_items = [
-		{"text": "Undo", "id": 10},
-		{"text": "Redo", "id": 11},
-		{"separator": true},
-		{"text": "Cut", "id": 12},
-		{"text": "Copy", "id": 13},
-		{"text": "Paste", "id": 14},
-		{"separator": true},
-		{"text": "Select All", "id": 15},
-		{"text": "Deselect All", "id": 16}
-	]
-	add_menu("Edit", edit_items)
-
-func add_view_menu() -> void:
-	"""Add a standard View menu"""
-	var view_items = [
-		{"text": "Zoom In", "id": 20},
-		{"text": "Zoom Out", "id": 21},
-		{"text": "Zoom to Fit", "id": 22},
-		{"text": "Reset Zoom", "id": 23},
-		{"separator": true},
-		{"text": "Show Grid", "id": 24},
-		{"text": "Show Minimap", "id": 25}
-	]
-	add_menu("View", view_items)
-
-func add_help_menu() -> void:
-	"""Add a standard Help menu"""
-	var help_items = [
-		{"text": "Documentation", "id": 30},
-		{"text": "About", "id": 31}
-	]
-	add_menu("Help", help_items)
+# The Edit, View, and Help menus are intentionally omitted for now based on
+# current requirements.

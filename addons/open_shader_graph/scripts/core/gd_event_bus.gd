@@ -1,9 +1,13 @@
 class_name EventBus
 extends Node
 
-# Menu items
-signal menu_item_selected(menu_name: String, item_id: int, item_text: String)
+# Emits whenever a File-menu item is selected. The integer corresponds to a
+# value from MenuEnums.FileMenuItem (see gd_menu_enums.gd).
+signal file_menu_item_selected(item_id: int)
 
+#------------------------------------------
+#  Singleton pattern
+#------------------------------------------
 
 static var _instance: EventBus = null
 
