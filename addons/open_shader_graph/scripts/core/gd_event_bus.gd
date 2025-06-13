@@ -5,6 +5,9 @@ extends Node
 # value from MenuEnums.FileMenuItem (see gd_menu_enums.gd).
 signal file_menu_item_selected(item_id: int)
 
+# Emits whenever a new graph is created.
+signal graph_created(graph: BaseGraphData)
+
 #------------------------------------------
 #  Singleton pattern
 #------------------------------------------

@@ -21,6 +21,7 @@ func _on_file_menu_item_selected(item_id: int) -> void:
 	match item_id:
 		MenuEnums.FileMenuItem.NEW_GRAPH:
 			print("[OpenShaderGraphEditor] File > New Graph")
+			graph_manager.create_new_graph()
 		MenuEnums.FileMenuItem.OPEN_GRAPH:
 			print("[OpenShaderGraphEditor] File > Open Graph")
 		MenuEnums.FileMenuItem.SAVE:
