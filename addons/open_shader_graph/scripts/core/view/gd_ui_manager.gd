@@ -1,31 +1,31 @@
 class_name UIManager extends Node
 
-var graph_edit: ShaderGraphEdit
+var graph_tabs: TabContainer
 var context_menu_manager: ContextMenuManager
 var bottom_panel: BottomPanel
 var sidebar: Sidebar
+var graph_manager: GraphManager # Reference to logic layer
 
 const SIDEBAR_WIDTH: int = 250
 const BOTTOM_PANEL_HEIGHT: int = 250
 
-func _init() -> void:
+func _init(graph_manager_ref: GraphManager) -> void:
 	print("[UIManager] init")
-	# MenuBar
-	# GraphEdit
-	# ContextMenuManager
-		# Creation Popup
-		# Node Context Menu
-		# Grouping Context Menu
-	# BottomPanel
-		# Console
-		# Shader Code
-	# Sidebar
-		# Graphs List
-		# Properties Panel
-	graph_edit = ShaderGraphEdit.new()
+	graph_manager = graph_manager_ref
+	
+	# Set up UI components
+	graph_tabs = TabContainer.new()
 	context_menu_manager = ContextMenuManager.new()
 	bottom_panel = BottomPanel.new()
 	sidebar = Sidebar.new()
+	
+	# Connect to logic layer events
+	EventBus.get_instance().graph_created.connect(_on_graph_created)
+	EventBus.get_instance().graph_deleted.connect(_on_graph_deleted)
+	EventBus.get_instance().graph_selected.connect(_on_graph_selected)
+	
+	# Connect to view layer events
+	graph_tabs.connect("tab_changed", Callable(self, "_on_tab_changed"))
 
 func get_main_scene() -> Control:
 	# A main control node that will contain all the other nodes
@@ -57,9 +57,9 @@ func get_main_scene() -> Control:
 
 	
 	# Set up graph edit
-	graph_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	graph_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main_hsplit.add_child(graph_edit)
+	graph_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graph_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_hsplit.add_child(graph_tabs)
 	
 	# Add the horizontal split to the vertical split
 	main_vsplit.add_child(main_hsplit)
@@ -84,3 +84,41 @@ func get_main_scene() -> Control:
 # 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 # 	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 # 	_parent_control.add_child(label)
+
+# Tab management - orchestrates between logic and view
+func _on_graph_created(graph: BaseGraphData) -> void:
+	print("[UIManager] Adding graph tab: " + graph.name)
+	_create_or_switch_to_tab(graph)
+
+func _on_graph_selected(graph: BaseGraphData) -> void:
+	print("[UIManager] Switching to graph: " + graph.name)
+	_create_or_switch_to_tab(graph)
+
+func _create_or_switch_to_tab(graph: BaseGraphData) -> void:
+	# Check if tab already exists
+	for i in range(graph_tabs.get_child_count()):
+		var child = graph_tabs.get_child(i)
+		if child is ShaderGraphEdit and child.graph_data == graph:
+			graph_tabs.current_tab = i
+			return
+	
+	# Create new tab
+	var edit = ShaderGraphEdit.new()
+	edit.set_graph(graph)
+	graph_tabs.add_child(edit)
+	graph_tabs.set_tab_title(graph_tabs.get_child_count() - 1, graph.name)
+	graph_tabs.current_tab = graph_tabs.get_child_count() - 1
+
+func _on_graph_deleted(graph: BaseGraphData) -> void:
+	for i in range(graph_tabs.get_child_count()):
+		var child = graph_tabs.get_child(i)
+		if child is ShaderGraphEdit and child.graph_data == graph:
+			graph_tabs.remove_child(child)
+			child.queue_free()
+			break
+
+func _on_tab_changed(tab_index: int) -> void:
+	var child = graph_tabs.get_child(tab_index)
+	if child is ShaderGraphEdit and child.graph_data:
+		# Tell logic layer about the selection (don't emit directly)
+		graph_manager.select_graph(child.graph_data)

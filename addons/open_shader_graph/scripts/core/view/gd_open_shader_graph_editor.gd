@@ -8,7 +8,7 @@ var preferences_manager: PreferencesManager
 func _init() -> void:
 	print("[OpenShaderGraphEditor] init")
 	graph_manager = GraphManager.new()
-	ui_manager = UIManager.new()
+	ui_manager = UIManager.new(graph_manager)
 	preferences_manager = PreferencesManager.new()
 	EventBus.get_instance().file_menu_item_selected.connect(_on_file_menu_item_selected)
 

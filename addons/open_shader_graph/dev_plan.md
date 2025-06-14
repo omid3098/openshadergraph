@@ -1,10 +1,56 @@
 # OpenShaderGraph - Grouping and Subgraph Implementation Plan
 
-## Structure graph
+## Architecture Overview
+
+The project follows a clean 3-layer architecture pattern:
+
+### **Data Layer** (`scripts/core/data/`)
+Pure data structures with no dependencies on UI or business logic:
+- **BaseGraphData**: Graph container with nodes and connections
+- **BaseNodeData**: Individual node data with inputs/outputs  
+- **ConnectionData**: Connection between two nodes
+- **PinData**: Input/output pin information
+
+### **Logic Layer** (`scripts/core/logic/`)
+Business logic and coordination without UI dependencies:
+- **EventBus**: Central communication hub (singleton pattern)
+- **GraphManager**: Core graph operations and state management
+- **PreferencesManager**: User settings and plugin configuration
+
+### **View Layer** (`scripts/core/view/` and `scripts/core/view/ui/`)
+UI components that respond to logic layer events:
+- **OpenShaderGraphEditor**: Main coordinator between logic and view
+- **UIManager**: Orchestrates UI updates based on logic events
+- **ShaderGraphEdit**: Pure view component for graph editing
+- **All UI Components**: Sidebar, BottomPanel, ContextMenus, etc.
+
+## Current Implementation Status
+
+### ✅ **Completed Features**
+- **Multi-tab graph system**: Each graph opens in its own tab
+- **Event-driven architecture**: Clean separation using EventBus
+- **Graph management**: Create, select, delete graphs with proper state management
+- **Tab orchestration**: UIManager coordinates between logic events and UI updates
+- **Clean architecture**: Proper separation of Data → Logic → View layers
+
+### 🚧 **In Progress**
+- **Visual node rendering**: ShaderGraphEdit.set_graph() needs node instantiation
+- **Node-connection visualization**: Display nodes and connections from BaseGraphData
+
+### 📋 **Planned Features**
+- **Node creation system**: Context menu → node instantiation
+- **Connection system**: Visual connection creation and validation
+- **Subgraph navigation**: Enter/exit subgraphs in new tabs
+- **Code generation**: Convert graph data to shader code
+- **Save/Load system**: Persist graphs to files
+- **Undo/Redo system**: Action history management
+
+## Structure Graph
+
 - Plugin Entry: The entry point of the plugin. -> gd_plugin.gd
-   - Open Shader Graph Editor: The main editor interface.
+   - Open Shader Graph Editor: The main editor interface and coordinator.
       - Event Bus: Global signal hub for decoupled communication.
-      - Graph Manager: Manages the graph.
+      - Graph Manager: Core graph operations and state management.
          - Node Manager: Manages the creation and deletion of nodes.
          - Connection Manager: Manages the creation and deletion of connections.
          - Resource Manager: Manages the resources.
@@ -15,11 +61,10 @@
          - Type Conversion Manager: Provides implicit casting between pin types (float to float3, etc.)
          - Code Generation Manager: Generates shader code from the graph.
          - Graph Layout Manager: Arranges nodes, horizontally or vertically or stacked.
-      - UI Manager: Manages the UI like Properties Panel, MenuBar, GraphEdit, Popup Context Menu, etc.
+      - UI Manager: Orchestrates between logic events and UI updates.
          - MenuBar: Manages the menu bar.
-         - GraphEdit: Manages the graph edit.
+         - GraphTabs (TabContainer): Hosts one tab per open graph, each containing a ShaderGraphEdit.
          - Sidebar: Manages the sidebar.
-            - Graphs List: List of all opened graphs.
             - Properties Panel: Manages the properties panel.
          - Bottom Panel: Manages the bottom panel.
             - Console: To see errors and warnings.
@@ -37,6 +82,24 @@
          - Input nodes
          - Output nodes
    - Preferences Manager: Stores user and plugin settings.
+
+## Signal Flow Architecture
+
+```
+User Action → OpenShaderGraphEditor → GraphManager (Logic)
+                                          ↓
+                                    EventBus.emit()
+                                          ↓
+                                    UIManager (View)
+                                          ↓
+                                  Update UI Components
+```
+
+**Key Principles:**
+- **View → Logic**: UI events call logic methods directly
+- **Logic → View**: Logic emits events, UI listens and responds
+- **No Logic in Views**: UI components are pure and stateless
+- **Single Source of Truth**: GraphManager owns all graph state
 
 ```mermaid
 graph TD;
@@ -73,22 +136,20 @@ graph TD;
     editor --> uiMgr["UI Manager"];
     subgraph "UI Manager"
         menubar["MenuBar"]
-        graphEdit["GraphEdit"]
+        graphTabs["GraphTabs (TabContainer)"]
         sidebar["Sidebar"]
         bottomPanel["Bottom Panel"]
         contextMenuMgr["Context Menu Manager"]
     end
     uiMgr --> menubar;
-    uiMgr --> graphEdit;
+    uiMgr --> graphTabs;
     uiMgr --> sidebar;
     uiMgr --> bottomPanel;
     uiMgr --> contextMenuMgr;
 
     subgraph "Sidebar"
-        graphsList["Graphs List"]
         propertiesPanel["Properties Panel"]
     end
-    sidebar --> graphsList;
     sidebar --> propertiesPanel;
 
     subgraph "Bottom Panel"
