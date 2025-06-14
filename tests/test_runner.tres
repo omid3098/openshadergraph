@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TestFramework" load_steps=2 format=3 uid="uid://5im8dcf3wwt1"]
+
+[ext_resource type="Script" uid="uid://c00gewx7c2v30" path="res://addons/test_framework/gd_test_framework.gd" id="1_pmmri"]
+
+[resource]
+script = ExtResource("1_pmmri")
+run_tests = false
+show_detailed_output = true
+stop_on_first_failure = false
+test_directories = Array[String](["res://tests/"])
+metadata/_custom_type_script = "uid://c00gewx7c2v30"
