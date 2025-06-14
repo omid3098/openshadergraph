@@ -5,7 +5,7 @@ var node_context_menu: NodeContextMenu
 var grouping_context_menu: GroupingContextMenu
 
 func _init() -> void:
-	print("[ContextMenuManager] init")
+	Logger.log("[ContextMenuManager] init")
 
 	creation_popup = CreationPopup.new()
 	node_context_menu = NodeContextMenu.new()

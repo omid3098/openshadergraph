@@ -9,7 +9,7 @@ var _menus: Dictionary = {}
 var _hbox: HBoxContainer
 
 func _init() -> void:
-	print("[CustomMenuBar] init")
+	Logger.log("[CustomMenuBar] init")
 
 	# Create the internal HBoxContainer that will hold the menu buttons.
 	_hbox = HBoxContainer.new()

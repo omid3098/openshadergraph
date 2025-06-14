@@ -3,7 +3,7 @@ class_name ShaderGraphEdit extends GraphEdit
 # var graph_edit: GraphEdit
 
 func _init() -> void:
-	print("[ShaderGraphEdit] init")
+	Logger.log("[ShaderGraphEdit] init")
 	# graph_edit = GraphEdit.new()
 	# graph_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# graph_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -28,7 +28,7 @@ func set_graph(graph: BaseGraphData) -> void:
 	graph_data = graph
 	_clear_graph()
 	# TODO: instantiate nodes & connections based on graph_data
-	print("[ShaderGraphEdit] Loaded graph: " + graph.name)
+	Logger.log("[ShaderGraphEdit] Loaded graph: " + graph.name)
 	_active_graph_edit()
 
 func _clear_graph() -> void:

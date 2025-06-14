@@ -1,7 +1,7 @@
 class_name PropertiesPanel extends PanelContainer
 
 func _init() -> void:
-	print("[PropertiesPanel] init")
+	Logger.log("[PropertiesPanel] init")
 	# A lable for the properties panel
 	var label = Label.new()
 	label.text = "Properties"

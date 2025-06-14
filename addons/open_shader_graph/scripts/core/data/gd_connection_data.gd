@@ -10,4 +10,4 @@ func _init(from_node: BaseNodeData, from_pin: PinData, to_node: BaseNodeData, to
     self.from_pin = from_pin
     self.to_node = to_node
     self.to_pin = to_pin
-    print("ConnectionData: " + from_node.name + ": " + from_pin.name + " -> " + to_node.name + ": " + to_pin.name)
+    Logger.log("[ConnectionData]: " + from_node.name + ": " + from_pin.name + " -> " + to_node.name + ": " + to_pin.name)

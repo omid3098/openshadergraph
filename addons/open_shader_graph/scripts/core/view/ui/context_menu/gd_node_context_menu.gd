@@ -1,4 +1,4 @@
 class_name NodeContextMenu extends PopupMenu
 
 func _init() -> void:
-	print("[NodeContextMenu] init")
+	Logger.log("[NodeContextMenu] init")

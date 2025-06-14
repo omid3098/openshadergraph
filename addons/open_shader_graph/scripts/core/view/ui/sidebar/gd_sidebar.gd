@@ -4,7 +4,7 @@ var custom_menu_bar: CustomMenuBar
 var properties_panel: PropertiesPanel
 
 func _init() -> void:
-	print("[Sidebar] init")
+	Logger.log("[Sidebar] init")
 	# Sidebar contents:
 	# A custom menu bar to show in this editor, not in the default godot editor. Like the menu bar in the default godot shader editor.
 	# Properties Panel (GraphsList removed - using tabs now)

@@ -26,4 +26,4 @@ static func get_instance() -> EventBus:
 	return _instance
 
 func _init() -> void:
-	print("[EventBus] init")
+	Logger.log("[EventBus] init")
