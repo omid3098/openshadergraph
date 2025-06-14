@@ -3,6 +3,7 @@ extends EditorPlugin
 
 var dock: Control
 var dock_slot: int = DOCK_SLOT_LEFT_UL
+var test_framework: TestFramework = TestFramework.new()
 
 func _enter_tree() -> void:
 	var OpenShaderGraphEditor = OpenShaderGraphEditor.new()

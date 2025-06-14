@@ -16,4 +16,4 @@ config/icon="res://icon.svg"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/open_shader_graph/plugin.cfg", "res://addons/test_framework/plugin.cfg")
+enabled=PackedStringArray("res://addons/open_shader_graph/plugin.cfg")

@@ -62,3 +62,6 @@ func test_array_operations():
 		doubled.append(num * 2)
 	
 	assert_equal([2, 4, 6, 8, 10], doubled, "Doubled array should be correct")
+
+func test_failing_test():
+	assert_true(false, "This test should fail")
