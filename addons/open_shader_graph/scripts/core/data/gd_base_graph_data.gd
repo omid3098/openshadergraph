@@ -11,6 +11,9 @@ var name: String = ""
 var graph_type: GraphType = GraphType.SHADER_GRAPH
 var nodes: Array[BaseNodeData] = []
 var connections: Array[ConnectionData] = []
+var file_path: String = "" # asset path used for saving and loading
+var version: String = "1.0" # version identifier for the graph asset
+var properties: Dictionary = {} # custom graph properties
 
 func _init(_name: String, _graph_type: GraphType, _nodes: Array[BaseNodeData], _connections: Array[ConnectionData]) -> void:
     name = _name
