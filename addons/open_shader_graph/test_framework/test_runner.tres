@@ -7,5 +7,5 @@ script = ExtResource("1_nxqa8")
 run_tests = false
 show_detailed_output = true
 stop_on_first_failure = false
-test_directories = Array[String](["res://tests/"])
+test_directories = Array[String](["res://addons/open_shader_graph/tests/"])
 metadata/_custom_type_script = "uid://c00gewx7c2v30"

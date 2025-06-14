@@ -9,7 +9,9 @@ func _init() -> void:
 	EventBus.get_instance().graph_selected.connect(_on_graph_selected)
 
 func create_new_graph() -> void:
-	current_graph_data = BaseGraphData.new("New Graph", BaseGraphData.GraphType.SHADER_GRAPH, [], [])
+	var empty_nodes: Array[BaseNodeData] = []
+	var empty_connections: Array[ConnectionData] = []
+	current_graph_data = BaseGraphData.new("New Graph", BaseGraphData.GraphType.SHADER_GRAPH, empty_nodes, empty_connections)
 	all_graphs_data.append(current_graph_data)
 	Logger.log("[GraphManager] Created new graph: " + current_graph_data.name)
 
