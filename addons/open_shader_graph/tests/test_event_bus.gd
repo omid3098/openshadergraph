@@ -12,15 +12,8 @@ func before_all():
 func before_each():
 	received_signals.clear()
 	
-	# Ensure clean state - disconnect first if connected
-	if event_bus.file_menu_item_selected.is_connected(_on_file_menu_item_selected):
-		event_bus.file_menu_item_selected.disconnect(_on_file_menu_item_selected)
-	if event_bus.graph_created.is_connected(_on_graph_created):
-		event_bus.graph_created.disconnect(_on_graph_created)
-	if event_bus.graph_selected.is_connected(_on_graph_selected):
-		event_bus.graph_selected.disconnect(_on_graph_selected)
-	if event_bus.graph_deleted.is_connected(_on_graph_deleted):
-		event_bus.graph_deleted.disconnect(_on_graph_deleted)
+	# Ensure clean state - disconnect all connections first
+	_disconnect_all_signals()
 	
 	# Connect to all signals for testing
 	event_bus.file_menu_item_selected.connect(_on_file_menu_item_selected)
@@ -30,16 +23,13 @@ func before_each():
 
 func after_each():
 	# Clean up signal connections
-	if event_bus.file_menu_item_selected.is_connected(_on_file_menu_item_selected):
-		event_bus.file_menu_item_selected.disconnect(_on_file_menu_item_selected)
-	if event_bus.graph_created.is_connected(_on_graph_created):
-		event_bus.graph_created.disconnect(_on_graph_created)
-	if event_bus.graph_selected.is_connected(_on_graph_selected):
-		event_bus.graph_selected.disconnect(_on_graph_selected)
-	if event_bus.graph_deleted.is_connected(_on_graph_deleted):
-		event_bus.graph_deleted.disconnect(_on_graph_deleted)
-	
+	_disconnect_all_signals()
 	received_signals.clear()
+
+# Helper function to ensure all signals are properly disconnected
+func _disconnect_all_signals():
+	# Force disconnect ALL connections from EventBus to ensure clean state
+	event_bus.disconnect_all_signals()
 
 # Signal handlers for testing
 func _on_file_menu_item_selected(item_id: int):

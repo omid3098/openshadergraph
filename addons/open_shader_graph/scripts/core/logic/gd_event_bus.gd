@@ -27,3 +27,15 @@ static func get_instance() -> EventBus:
 
 func _init() -> void:
 	Logger.log("[EventBus] init")
+
+# Method to disconnect all signal connections - useful for testing
+func disconnect_all_signals() -> void:
+	# Disconnect all connections from all signals
+	for connection in file_menu_item_selected.get_connections():
+		file_menu_item_selected.disconnect(connection["callable"])
+	for connection in graph_created.get_connections():
+		graph_created.disconnect(connection["callable"])
+	for connection in graph_selected.get_connections():
+		graph_selected.disconnect(connection["callable"])
+	for connection in graph_deleted.get_connections():
+		graph_deleted.disconnect(connection["callable"])

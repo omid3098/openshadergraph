@@ -8,6 +8,11 @@ func _init() -> void:
 	# Listen for graph selection events to keep current_graph_data in sync
 	EventBus.get_instance().graph_selected.connect(_on_graph_selected)
 
+# Clean up signal connections when the GraphManager is freed
+func cleanup() -> void:
+	if EventBus.get_instance().graph_selected.is_connected(_on_graph_selected):
+		EventBus.get_instance().graph_selected.disconnect(_on_graph_selected)
+
 func create_new_graph() -> void:
 	var empty_nodes: Array[BaseNodeData] = []
 	var empty_connections: Array[ConnectionData] = []

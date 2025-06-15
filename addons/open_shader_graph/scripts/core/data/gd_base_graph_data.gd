@@ -23,14 +23,24 @@ func _init(_name: String, _graph_type: GraphType, _nodes: Array[BaseNodeData], _
     Logger.log("[BaseGraphData]: " + name)
 
 func add_node(node: BaseNodeData) -> void:
+    if node == null:
+        return # Silently ignore null nodes
     nodes.append(node)
 
 func add_connection(connection: ConnectionData) -> void:
+    if connection == null:
+        return # Silently ignore null connections
     var valid: bool = validate_connection(connection)
     if valid:
         connections.append(connection)
 
 func validate_connection(connection: ConnectionData) -> bool:
+    # Handle null connection
+    if connection == null:
+        return false
+    # Handle null nodes or pins
+    if connection.from_node == null or connection.to_node == null or connection.from_pin == null or connection.to_pin == null:
+        return false
     # Connection from and to the same node
     if connection.from_node == connection.to_node:
         Logger.log("[BaseGraphData] Connection from and to the same node: " + connection.from_node.name)

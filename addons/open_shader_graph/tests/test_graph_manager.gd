@@ -14,25 +14,26 @@ func before_each():
 	graph_manager = GraphManager.new()
 	received_signals.clear()
 	
+	# Ensure clean state - disconnect all connections first
+	_disconnect_all_signals()
+	
 	# Connect to signals to track them
-	if not event_bus.graph_created.is_connected(_on_graph_created):
-		event_bus.graph_created.connect(_on_graph_created)
-	if not event_bus.graph_selected.is_connected(_on_graph_selected):
-		event_bus.graph_selected.connect(_on_graph_selected)
-	if not event_bus.graph_deleted.is_connected(_on_graph_deleted):
-		event_bus.graph_deleted.connect(_on_graph_deleted)
+	event_bus.graph_created.connect(_on_graph_created)
+	event_bus.graph_selected.connect(_on_graph_selected)
+	event_bus.graph_deleted.connect(_on_graph_deleted)
 
 func after_each():
 	# Clean up signal connections
-	if event_bus.graph_created.is_connected(_on_graph_created):
-		event_bus.graph_created.disconnect(_on_graph_created)
-	if event_bus.graph_selected.is_connected(_on_graph_selected):
-		event_bus.graph_selected.disconnect(_on_graph_selected)
-	if event_bus.graph_deleted.is_connected(_on_graph_deleted):
-		event_bus.graph_deleted.disconnect(_on_graph_deleted)
-	
+	_disconnect_all_signals()
+	if graph_manager:
+		graph_manager.cleanup()
 	graph_manager = null
 	received_signals.clear()
+
+# Helper function to ensure all signals are properly disconnected
+func _disconnect_all_signals():
+	# Force disconnect ALL connections from EventBus to ensure clean state
+	event_bus.disconnect_all_signals()
 
 # Signal handlers for testing
 func _on_graph_created(graph: BaseGraphData):
