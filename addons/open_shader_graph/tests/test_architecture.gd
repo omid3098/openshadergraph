@@ -26,7 +26,6 @@ func test_signal_flow_architecture():
 	var menu_signals = []
 	var sidebar_signals = []
 	var ui_signals = []
-	var editor_signals = []
 	
 	menu_bar.file_menu_item_selected.connect(func(item_id): menu_signals.append(item_id))
 	sidebar.file_menu_item_selected.connect(func(item_id): sidebar_signals.append(item_id))
@@ -47,69 +46,56 @@ func test_graph_creation_signal_flow():
 	var ui_manager = editor.ui_manager
 	
 	var graph_manager_signals = []
-	var ui_manager_calls = []
 	
 	graph_manager.graph_created.connect(func(graph): graph_manager_signals.append(graph))
-	
-	# Override the UIManager method to track calls
-	var original_method = ui_manager.on_graph_created
-	ui_manager.on_graph_created = func(graph):
-		ui_manager_calls.append(graph)
-		original_method.call(graph)
 	
 	# Create a graph
 	graph_manager.create_new_graph()
 	
-	# Verify signal flow
+	# Verify signal flow - the orchestrator should handle this automatically
 	assert_equal(1, graph_manager_signals.size(), "GraphManager should emit signal")
-	assert_equal(1, ui_manager_calls.size(), "UIManager should receive call from orchestrator")
-	assert_equal(graph_manager_signals[0], ui_manager_calls[0], "Same graph object should flow through")
+	assert_not_null(graph_manager_signals[0], "Created graph should not be null")
+	
+	# Verify UI was updated (tabs should be created)
+	assert_equal(1, ui_manager.graph_tabs.get_child_count(), "UI should have one tab after graph creation")
 
 # Test tab selection signal flow: UIManager -> OpenShaderGraphEditor -> GraphManager
 func test_tab_selection_signal_flow():
 	var graph_manager = editor.graph_manager
 	var ui_manager = editor.ui_manager
 	
-	# Create a test graph
+	# Create a test graph first
 	graph_manager.create_new_graph()
 	var test_graph = graph_manager.get_current_graph()
 	
 	var ui_signals = []
-	var graph_manager_calls = []
-	
 	ui_manager.graph_tab_selected.connect(func(graph): ui_signals.append(graph))
-	
-	# Track calls to graph manager
-	var original_select = graph_manager.select_graph
-	graph_manager.select_graph = func(graph):
-		graph_manager_calls.append(graph)
-		original_select.call(graph)
 	
 	# Simulate tab selection
 	ui_manager.graph_tab_selected.emit(test_graph)
 	
-	# Verify signal flow
+	# Verify signal was emitted
 	assert_equal(1, ui_signals.size(), "UIManager should emit signal")
-	# Note: The orchestrator should handle this, but we need to manually trigger it in test
+	
+	# The orchestrator in the editor should handle this automatically
+	# We can verify by checking if the graph manager's current graph changes
+	var original_graph = graph_manager.get_current_graph()
 	editor._on_graph_tab_selected(test_graph)
-	assert_equal(1, graph_manager_calls.size(), "GraphManager should receive call from orchestrator")
+	assert_equal(test_graph, graph_manager.get_current_graph(), "GraphManager should receive selection through orchestrator")
 
 # Test that components don't directly call siblings
 func test_no_sibling_communication():
 	var ui_manager = editor.ui_manager
 	
-	# UIManager should not have direct reference to GraphManager
-	assert_false(ui_manager.has_method("graph_manager"), "UIManager should not have direct GraphManager reference")
-	
 	# Check that UIManager doesn't have a graph_manager property
 	var ui_manager_script = ui_manager.get_script()
-	var source_code = ui_manager_script.source_code if ui_manager_script else ""
-	assert_false("graph_manager" in source_code, "UIManager source should not reference graph_manager directly")
+	if ui_manager_script and ui_manager_script.source_code:
+		var source_code = ui_manager_script.source_code
+		assert_false("graph_manager" in source_code, "UIManager source should not reference graph_manager directly")
 
 # Test proper cleanup
 func test_signal_cleanup():
 	var graph_manager = editor.graph_manager
-	var ui_manager = editor.ui_manager
 	
 	# Verify that components can be cleaned up without errors
 	var signal_count_before = graph_manager.graph_created.get_connections().size()
@@ -135,3 +121,27 @@ func test_architecture_compliance():
 	# Test that UIManager has its own signals
 	assert_true(editor.ui_manager.has_signal("graph_tab_selected"), "UIManager should have graph_tab_selected signal")
 	assert_true(editor.ui_manager.has_signal("file_menu_item_selected"), "UIManager should have file_menu_item_selected signal")
+
+# Test end-to-end workflow
+func test_complete_workflow():
+	var graph_manager = editor.graph_manager
+	var ui_manager = editor.ui_manager
+	
+	# Track all signals
+	var all_signals = []
+	
+	graph_manager.graph_created.connect(func(graph): all_signals.append("graph_created"))
+	graph_manager.graph_selected.connect(func(graph): all_signals.append("graph_selected"))
+	ui_manager.file_menu_item_selected.connect(func(item_id): all_signals.append("file_menu_selected"))
+	
+	# Simulate complete workflow: File > New Graph
+	ui_manager.file_menu_item_selected.emit(MenuEnums.FileMenuItem.NEW_GRAPH)
+	
+	# This should trigger the orchestrator to create a new graph
+	editor._on_file_menu_item_selected(MenuEnums.FileMenuItem.NEW_GRAPH)
+	
+	# Verify the workflow worked
+	assert_equal(1, all_signals.count("file_menu_selected"), "File menu signal should be emitted")
+	assert_equal(1, all_signals.count("graph_created"), "Graph creation signal should be emitted")
+	assert_equal(1, graph_manager.get_all_graphs().size(), "Should have one graph after creation")
+	assert_equal(1, ui_manager.graph_tabs.get_child_count(), "Should have one tab after creation")
