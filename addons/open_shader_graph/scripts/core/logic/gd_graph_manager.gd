@@ -1,17 +1,20 @@
 class_name GraphManager extends Node
 
+# Direct signals instead of using EventBus
+signal graph_created(graph: BaseGraphData)
+signal graph_selected(graph: BaseGraphData)
+signal graph_deleted(graph: BaseGraphData)
+
 var all_graphs_data: Array[BaseGraphData] = []
 var current_graph_data: BaseGraphData
 
 func _init() -> void:
 	Logger.log("[GraphManager] init")
-	# Listen for graph selection events to keep current_graph_data in sync
-	EventBus.get_instance().graph_selected.connect(_on_graph_selected)
 
 # Clean up signal connections when the GraphManager is freed
 func cleanup() -> void:
-	if EventBus.get_instance().graph_selected.is_connected(_on_graph_selected):
-		EventBus.get_instance().graph_selected.disconnect(_on_graph_selected)
+	# No longer need to disconnect from EventBus
+	pass
 
 func create_new_graph() -> void:
 	var empty_nodes: Array[BaseNodeData] = []
@@ -20,7 +23,8 @@ func create_new_graph() -> void:
 	all_graphs_data.append(current_graph_data)
 	Logger.log("[GraphManager] Created new graph: " + current_graph_data.name)
 
-	EventBus.get_instance().graph_created.emit(current_graph_data)
+	# Emit direct signal instead of using EventBus
+	graph_created.emit(current_graph_data)
 
 func get_current_graph() -> BaseGraphData:
 	return current_graph_data
@@ -35,18 +39,15 @@ func select_graph(graph: BaseGraphData) -> void:
 		Logger.log("[GraphManager] Selected graph: " + current_graph_data.name)
 	else:
 		Logger.log("[GraphManager] Attempted to select null graph")
-	EventBus.get_instance().graph_selected.emit(current_graph_data)
+	# Emit direct signal instead of using EventBus
+	graph_selected.emit(current_graph_data)
 
 # Delete a graph and emit a signal; auto-select first graph if any remain
 func delete_graph(graph: BaseGraphData) -> void:
 	if all_graphs_data.has(graph):
 		all_graphs_data.erase(graph)
 		Logger.log("[GraphManager] Deleted graph: " + graph.name)
-		EventBus.get_instance().graph_deleted.emit(graph)
+		# Emit direct signal instead of using EventBus
+		graph_deleted.emit(graph)
 		if all_graphs_data.size() > 0:
 			select_graph(all_graphs_data[0])
-
-# Handle external graph_selected events
-func _on_graph_selected(graph: BaseGraphData) -> void:
-	current_graph_data = graph
-	Logger.log("[GraphManager] Current graph set to " + graph.name)

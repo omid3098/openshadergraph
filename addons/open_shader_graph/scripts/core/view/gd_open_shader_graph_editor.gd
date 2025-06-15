@@ -10,15 +10,37 @@ var root_control: Control # root UI scene returned by get_main_scene
 func _init() -> void:
 	Logger.log("[OpenShaderGraphEditor] init")
 	graph_manager = GraphManager.new()
-	ui_manager = UIManager.new(graph_manager)
+	ui_manager = UIManager.new()
 	preferences_manager = PreferencesManager.new()
-	EventBus.get_instance().file_menu_item_selected.connect(_on_file_menu_item_selected)
+	
+	# Connect GraphManager signals
+	graph_manager.graph_created.connect(_on_graph_created)
+	graph_manager.graph_selected.connect(_on_graph_selected)
+	graph_manager.graph_deleted.connect(_on_graph_deleted)
+	
+	# Connect UIManager signals
+	ui_manager.file_menu_item_selected.connect(_on_file_menu_item_selected)
+	ui_manager.graph_tab_selected.connect(_on_graph_tab_selected)
 
 func get_main_scene() -> Control:
 	Logger.log("[OpenShaderGraphEditor] get_main_scene")
 	root_control = ui_manager.get_main_scene()
 	_init_file_dialog()
 	return root_control
+
+# Graph management signal handlers
+func _on_graph_created(graph: BaseGraphData) -> void:
+	ui_manager.on_graph_created(graph)
+
+func _on_graph_selected(graph: BaseGraphData) -> void:
+	ui_manager.on_graph_selected(graph)
+
+func _on_graph_deleted(graph: BaseGraphData) -> void:
+	ui_manager.on_graph_deleted(graph)
+
+# UI signal handlers
+func _on_graph_tab_selected(graph: BaseGraphData) -> void:
+	graph_manager.select_graph(graph)
 
 func _on_file_menu_item_selected(item_id: int) -> void:
 	# Handle actions based on the selected File menu item enum.

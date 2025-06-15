@@ -1,5 +1,8 @@
 class_name CustomMenuBar extends PanelContainer
 
+# Direct signal for parent communication
+signal file_menu_item_selected(item_id: int)
+
 # Reference to the enum defined in MenuEnums for cleaner access.
 const FileMenuItem = MenuEnums.FileMenuItem
 
@@ -118,8 +121,8 @@ func _on_menu_button_pressed(menu_name: String) -> void:
 		popup.popup()
 
 func _on_popup_item_selected(item_id: int, _menu_name: String) -> void:
-	# Forward the enum value directly; only File menu exists so menu_name is irrelevant.
-	EventBus.get_instance().file_menu_item_selected.emit(item_id)
+	# Emit signal to parent instead of using EventBus
+	file_menu_item_selected.emit(item_id)
 
 # Convenience methods for common menu operations
 func add_file_menu() -> void:

@@ -3,37 +3,30 @@ extends BaseTest
 class_name TestGraphManager
 
 var graph_manager: GraphManager
-var event_bus: EventBus
 var received_signals: Array = []
-
-func before_all():
-	# Get EventBus instance to connect to signals
-	event_bus = EventBus.get_instance()
 
 func before_each():
 	graph_manager = GraphManager.new()
 	received_signals.clear()
 	
-	# Ensure clean state - disconnect all connections first
-	_disconnect_all_signals()
-	
-	# Connect to signals to track them
-	event_bus.graph_created.connect(_on_graph_created)
-	event_bus.graph_selected.connect(_on_graph_selected)
-	event_bus.graph_deleted.connect(_on_graph_deleted)
+	# Connect to GraphManager's direct signals
+	graph_manager.graph_created.connect(_on_graph_created)
+	graph_manager.graph_selected.connect(_on_graph_selected)
+	graph_manager.graph_deleted.connect(_on_graph_deleted)
 
 func after_each():
 	# Clean up signal connections
-	_disconnect_all_signals()
+	if graph_manager.graph_created.is_connected(_on_graph_created):
+		graph_manager.graph_created.disconnect(_on_graph_created)
+	if graph_manager.graph_selected.is_connected(_on_graph_selected):
+		graph_manager.graph_selected.disconnect(_on_graph_selected)
+	if graph_manager.graph_deleted.is_connected(_on_graph_deleted):
+		graph_manager.graph_deleted.disconnect(_on_graph_deleted)
+	
 	if graph_manager:
 		graph_manager.cleanup()
 	graph_manager = null
 	received_signals.clear()
-
-# Helper function to ensure all signals are properly disconnected
-func _disconnect_all_signals():
-	# Force disconnect ALL connections from EventBus to ensure clean state
-	event_bus.disconnect_all_signals()
 
 # Signal handlers for testing
 func _on_graph_created(graph: BaseGraphData):
@@ -182,21 +175,22 @@ func test_delete_nonexistent_graph():
 	assert_equal(1, graph_manager.get_all_graphs().size(), "Should still have original graph")
 	assert_equal(existing_graph, graph_manager.get_current_graph(), "Current graph should be unchanged")
 
-# Test external graph_selected signal handling
-func test_external_graph_selected_signal():
+# Test that GraphManager maintains its own state properly
+func test_graph_manager_state_consistency():
 	graph_manager.create_new_graph()
-	var graph = graph_manager.get_current_graph()
+	var graph1 = graph_manager.get_current_graph()
 	
-	# Create another graph manager instance to simulate external selection
-	var empty_nodes: Array[BaseNodeData] = []
-	var empty_connections: Array[ConnectionData] = []
-	var external_graph = BaseGraphData.new("External Graph", BaseGraphData.GraphType.SHADER_GRAPH, empty_nodes, empty_connections)
+	graph_manager.create_new_graph()
+	var graph2 = graph_manager.get_current_graph()
 	
-	# Simulate external graph selection by emitting signal directly
-	event_bus.graph_selected.emit(external_graph)
+	# Select first graph
+	graph_manager.select_graph(graph1)
+	assert_equal(graph1, graph_manager.get_current_graph(), "Should maintain selected graph state")
 	
-	# The graph_manager should update its current_graph
-	assert_equal(external_graph, graph_manager.get_current_graph(), "Current graph should be updated by external signal")
+	# Create another graph
+	graph_manager.create_new_graph()
+	var graph3 = graph_manager.get_current_graph()
+	assert_equal(graph3, graph_manager.get_current_graph(), "Should update to newly created graph")
 
 # Test get_all_graphs returns copy vs reference
 func test_get_all_graphs_array():

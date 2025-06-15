@@ -86,20 +86,46 @@ UI components that respond to logic layer events:
 ## Signal Flow Architecture
 
 ```
-User Action → OpenShaderGraphEditor → GraphManager (Logic)
-                                          ↓
-                                    EventBus.emit()
-                                          ↓
-                                    UIManager (View)
-                                          ↓
-                                  Update UI Components
+User Action → OpenShaderGraphEditor (Orchestrator)
+                     ↓ (direct calls)
+               GraphManager (Logic)
+                     ↓ (signals)
+          OpenShaderGraphEditor (Orchestrator)
+                     ↓ (direct calls)
+               UIManager (View)
 ```
 
 **Key Principles:**
-- **View → Logic**: UI events call logic methods directly
-- **Logic → View**: Logic emits events, UI listens and responds
-- **No Logic in Views**: UI components are pure and stateless
-- **Single Source of Truth**: GraphManager owns all graph state
+- **View → Parent**: UI components emit signals to their parent
+- **Parent → Child**: Parents call child methods directly
+- **Orchestrator Pattern**: OpenShaderGraphEditor acts as the central orchestrator
+- **No Sibling Communication**: Components never call methods on siblings directly
+- **Signal Chain**: Signals bubble up through the parent hierarchy
+
+**Signal Flow Examples:**
+
+1. **Menu Selection:**
+   ```
+   MenuBar.signal → Sidebar.signal → UIManager.signal → OpenShaderGraphEditor
+   ```
+
+2. **Graph Creation:**
+   ```
+   OpenShaderGraphEditor → GraphManager.create_new_graph()
+   GraphManager.signal → OpenShaderGraphEditor → UIManager.on_graph_created()
+   ```
+
+3. **Tab Selection:**
+   ```
+   TabContainer.signal → UIManager.signal → OpenShaderGraphEditor → GraphManager.select_graph()
+   ```
+
+**Architecture Benefits:**
+- Clear separation of concerns
+- Testable components (no global dependencies)
+- Predictable signal flow
+- Easy to debug and maintain
+- Follows Godot best practices
 
 ```mermaid
 graph TD;

@@ -1,17 +1,19 @@
 class_name UIManager extends Node
 
+# Direct signals for parent communication
+signal graph_tab_selected(graph: BaseGraphData)
+signal file_menu_item_selected(item_id: int)
+
 var graph_tabs: TabContainer
 var context_menu_manager: ContextMenuManager
 var bottom_panel: BottomPanel
 var sidebar: Sidebar
-var graph_manager: GraphManager # Reference to logic layer
 
 const SIDEBAR_WIDTH: int = 250
 const BOTTOM_PANEL_HEIGHT: int = 250
 
-func _init(graph_manager_ref: GraphManager) -> void:
+func _init() -> void:
 	Logger.log("[UIManager] init")
-	graph_manager = graph_manager_ref
 	
 	# Set up UI components
 	graph_tabs = TabContainer.new()
@@ -19,13 +21,9 @@ func _init(graph_manager_ref: GraphManager) -> void:
 	bottom_panel = BottomPanel.new()
 	sidebar = Sidebar.new()
 	
-	# Connect to logic layer events
-	EventBus.get_instance().graph_created.connect(_on_graph_created)
-	EventBus.get_instance().graph_deleted.connect(_on_graph_deleted)
-	EventBus.get_instance().graph_selected.connect(_on_graph_selected)
-	
 	# Connect to view layer events
 	graph_tabs.connect("tab_changed", Callable(self, "_on_tab_changed"))
+	sidebar.file_menu_item_selected.connect(_on_file_menu_item_selected)
 
 func get_main_scene() -> Control:
 	# A main control node that will contain all the other nodes
@@ -85,12 +83,12 @@ func get_main_scene() -> Control:
 # 	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 # 	_parent_control.add_child(label)
 
-# Tab management - orchestrates between logic and view
-func _on_graph_created(graph: BaseGraphData) -> void:
+# Tab management - orchestrates UI updates based on graph operations
+func on_graph_created(graph: BaseGraphData) -> void:
 	Logger.log("[UIManager] Adding graph tab: " + graph.name)
 	_create_or_switch_to_tab(graph)
 
-func _on_graph_selected(graph: BaseGraphData) -> void:
+func on_graph_selected(graph: BaseGraphData) -> void:
 	Logger.log("[UIManager] Switching to graph: " + graph.name)
 	_create_or_switch_to_tab(graph)
 
@@ -109,7 +107,7 @@ func _create_or_switch_to_tab(graph: BaseGraphData) -> void:
 	graph_tabs.set_tab_title(graph_tabs.get_child_count() - 1, graph.name)
 	graph_tabs.current_tab = graph_tabs.get_child_count() - 1
 
-func _on_graph_deleted(graph: BaseGraphData) -> void:
+func on_graph_deleted(graph: BaseGraphData) -> void:
 	for i in range(graph_tabs.get_child_count()):
 		var child = graph_tabs.get_child(i)
 		if child is ShaderGraphEdit and child.graph_data == graph:
@@ -120,5 +118,9 @@ func _on_graph_deleted(graph: BaseGraphData) -> void:
 func _on_tab_changed(tab_index: int) -> void:
 	var child = graph_tabs.get_child(tab_index)
 	if child is ShaderGraphEdit and child.graph_data:
-		# Tell logic layer about the selection (don't emit directly)
-		graph_manager.select_graph(child.graph_data)
+		# Emit signal to parent instead of direct call to GraphManager
+		graph_tab_selected.emit(child.graph_data)
+
+func _on_file_menu_item_selected(item_id: int) -> void:
+	# Forward signal to parent
+	file_menu_item_selected.emit(item_id)

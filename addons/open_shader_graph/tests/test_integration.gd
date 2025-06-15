@@ -3,38 +3,32 @@ extends BaseTest
 class_name TestIntegration
 
 var graph_manager: GraphManager
-var event_bus: EventBus
 var test_graph: BaseGraphData
 var received_signals: Array = []
-
-func before_all():
-	event_bus = EventBus.get_instance()
 
 func before_each():
 	graph_manager = GraphManager.new()
 	received_signals.clear()
 	
-	# Ensure clean state - disconnect all connections first
-	_disconnect_all_signals()
-	
-	# Connect to signals
-	event_bus.graph_created.connect(_on_graph_created)
-	event_bus.graph_selected.connect(_on_graph_selected)
-	event_bus.graph_deleted.connect(_on_graph_deleted)
+	# Connect to GraphManager's direct signals
+	graph_manager.graph_created.connect(_on_graph_created)
+	graph_manager.graph_selected.connect(_on_graph_selected)
+	graph_manager.graph_deleted.connect(_on_graph_deleted)
 
 func after_each():
 	# Clean up
-	_disconnect_all_signals()
+	if graph_manager.graph_created.is_connected(_on_graph_created):
+		graph_manager.graph_created.disconnect(_on_graph_created)
+	if graph_manager.graph_selected.is_connected(_on_graph_selected):
+		graph_manager.graph_selected.disconnect(_on_graph_selected)
+	if graph_manager.graph_deleted.is_connected(_on_graph_deleted):
+		graph_manager.graph_deleted.disconnect(_on_graph_deleted)
+	
 	if graph_manager:
 		graph_manager.cleanup()
 	graph_manager = null
 	test_graph = null
 	received_signals.clear()
-
-# Helper function to ensure all signals are properly disconnected
-func _disconnect_all_signals():
-	# Force disconnect ALL connections from EventBus to ensure clean state
-	event_bus.disconnect_all_signals()
 
 # Signal handlers
 func _on_graph_created(graph: BaseGraphData):
@@ -212,7 +206,7 @@ func test_event_driven_architecture():
 	var external_handler = func(graph: BaseGraphData):
 		external_listener_calls.append(graph.name)
 	
-	event_bus.graph_created.connect(external_handler)
+	graph_manager.graph_created.connect(external_handler)
 	
 	# Perform operations that should trigger events
 	# The external listener will receive "New Graph" since that's the name at creation time
@@ -233,7 +227,7 @@ func test_event_driven_architecture():
 	assert_equal("New Graph", external_listener_calls[1], "Second creation should be tracked")
 	
 	# Clean up
-	event_bus.graph_created.disconnect(external_handler)
+	graph_manager.graph_created.disconnect(external_handler)
 
 # Test error recovery and edge cases
 func test_error_recovery():
