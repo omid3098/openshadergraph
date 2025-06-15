@@ -137,9 +137,6 @@ func test_complete_workflow():
 	# Simulate complete workflow: File > New Graph
 	ui_manager.file_menu_item_selected.emit(MenuEnums.FileMenuItem.NEW_GRAPH)
 	
-	# This should trigger the orchestrator to create a new graph
-	editor._on_file_menu_item_selected(MenuEnums.FileMenuItem.NEW_GRAPH)
-	
 	# Verify the workflow worked
 	assert_equal(1, all_signals.count("file_menu_selected"), "File menu signal should be emitted")
 	assert_equal(1, all_signals.count("graph_created"), "Graph creation signal should be emitted")
