@@ -31,8 +31,11 @@ func get_all_graphs() -> Array[BaseGraphData]:
 # Select a graph for editing
 func select_graph(graph: BaseGraphData) -> void:
 	current_graph_data = graph
-	Logger.log("[GraphManager] Selected graph: " + graph.name)
-	EventBus.get_instance().graph_selected.emit(graph)
+	if graph != null:
+		Logger.log("[GraphManager] Selected graph: " + current_graph_data.name)
+	else:
+		Logger.log("[GraphManager] Attempted to select null graph")
+	EventBus.get_instance().graph_selected.emit(current_graph_data)
 
 # Delete a graph and emit a signal; auto-select first graph if any remain
 func delete_graph(graph: BaseGraphData) -> void:

@@ -289,7 +289,7 @@ func test_larger_dataset_performance():
 
 # Test different graph types
 func test_different_graph_types():
-	# Test all graph types - create fresh empty arrays for each graph
+	# Test all graph types - create separate arrays for each graph to avoid sharing
 	var shader_graph = BaseGraphData.new("Shader", BaseGraphData.GraphType.SHADER_GRAPH, [], [])
 	var group_graph = BaseGraphData.new("Group", BaseGraphData.GraphType.GROUP_GRAPH, [], [])
 	var local_subgraph = BaseGraphData.new("Local", BaseGraphData.GraphType.LOCAL_SUBGRAPH, [], [])
@@ -299,20 +299,15 @@ func test_different_graph_types():
 	var graphs = [shader_graph, group_graph, local_subgraph, global_subgraph]
 	
 	for graph in graphs:
-		# Ensure the graph starts empty
+		# Verify graph starts empty
 		assert_equal(0, graph.nodes.size(), "Graph should start empty")
 		
+		# Create separate test nodes for each graph to avoid interference
 		var test_node = BaseNodeData.new("TestNode", "Test", Vector2.ZERO, [], [])
 		graph.add_node(test_node)
-		assert_equal(1, graph.nodes.size(), "All graph types should support adding nodes")
+		assert_equal(1, graph.nodes.size(), "Each graph type should support adding nodes")
 		
-		assert_not_null(graph.name, "All graph types should have names")
-		assert_not_null(graph.properties, "All graph types should have properties")
-
-# Helper function to assert_less_than (if not in base test)
-func assert_less_than(actual, expected, message: String = ""):
-	if actual >= expected:
-		var error_msg = "Expected '%s' to be less than '%s'" % [str(actual), str(expected)]
-		if message != "":
-			error_msg += ": " + message
-		_assertion_failures.append(error_msg)
+		# Test basic properties
+		assert_not_null(graph.name, "Graph should have a name")
+		assert_not_null(graph.graph_type, "Graph should have a type")
+		assert_equal(0, graph.connections.size(), "New graph should have no connections")

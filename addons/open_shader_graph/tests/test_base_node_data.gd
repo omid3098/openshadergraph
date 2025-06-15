@@ -143,19 +143,3 @@ func test_pin_data_integrity():
 	assert_equal("output", test_node.outputs[0].name, "Output pin name should be preserved")
 	assert_equal("float", test_node.outputs[0].data_type, "Output pin type should be preserved")
 	assert_equal(PinData.PinType.OUTPUT, test_node.outputs[0].direction, "Output pin direction should be preserved")
-
-# Helper function for assert_not_contains (not in base test)
-func assert_not_contains(container, item, message: String = ""):
-	var contains = false
-	if container is Array:
-		contains = item in container
-	elif container is String:
-		contains = container.find(str(item)) != -1
-	elif container is Dictionary:
-		contains = container.has(item)
-	
-	if contains:
-		var error_msg = "Expected container to NOT contain '%s'" % str(item)
-		if message != "":
-			error_msg += ": " + message
-		_assertion_failures.append(error_msg)

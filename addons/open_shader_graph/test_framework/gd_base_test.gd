@@ -16,8 +16,9 @@ func get_test_methods() -> Array:
 	var methods = []
 	var script = get_script()
 	if script:
-		for method in script.get_script_method_list():
-			var method_name = method.name
+		var method_list = script.get_script_method_list()
+		for method in method_list:
+			var method_name = method["name"] if method is Dictionary else str(method)
 			if method_name.begins_with("test_"):
 				methods.append(method_name)
 	return methods
@@ -114,6 +115,21 @@ func assert_contains(container, item, message: String = ""):
 	
 	if not contains:
 		var error_msg = "Expected container to contain '%s'" % str(item)
+		if message != "":
+			error_msg += ": " + message
+		_assertion_failures.append(error_msg)
+
+func assert_not_contains(container, item, message: String = ""):
+	var contains = false
+	if container is Array:
+		contains = item in container
+	elif container is String:
+		contains = container.find(str(item)) != -1
+	elif container is Dictionary:
+		contains = container.has(item)
+	
+	if contains:
+		var error_msg = "Expected container to NOT contain '%s'" % str(item)
 		if message != "":
 			error_msg += ": " + message
 		_assertion_failures.append(error_msg)

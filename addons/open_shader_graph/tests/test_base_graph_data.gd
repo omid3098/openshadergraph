@@ -181,12 +181,11 @@ func test_graph_version():
 
 # Test all graph types
 func test_all_graph_types():
-	var empty_nodes: Array[BaseNodeData] = []
-	var empty_connections: Array[ConnectionData] = []
-	var shader_graph = BaseGraphData.new("Shader", BaseGraphData.GraphType.SHADER_GRAPH, empty_nodes, empty_connections)
-	var group_graph = BaseGraphData.new("Group", BaseGraphData.GraphType.GROUP_GRAPH, empty_nodes, empty_connections)
-	var local_subgraph = BaseGraphData.new("Local", BaseGraphData.GraphType.LOCAL_SUBGRAPH, empty_nodes, empty_connections)
-	var global_subgraph = BaseGraphData.new("Global", BaseGraphData.GraphType.GLOBAL_SUBGRAPH, empty_nodes, empty_connections)
+	# Create separate arrays for each graph to avoid sharing
+	var shader_graph = BaseGraphData.new("Shader", BaseGraphData.GraphType.SHADER_GRAPH, [], [])
+	var group_graph = BaseGraphData.new("Group", BaseGraphData.GraphType.GROUP_GRAPH, [], [])
+	var local_subgraph = BaseGraphData.new("Local", BaseGraphData.GraphType.LOCAL_SUBGRAPH, [], [])
+	var global_subgraph = BaseGraphData.new("Global", BaseGraphData.GraphType.GLOBAL_SUBGRAPH, [], [])
 	
 	assert_equal(BaseGraphData.GraphType.SHADER_GRAPH, shader_graph.graph_type, "Shader graph type should be set")
 	assert_equal(BaseGraphData.GraphType.GROUP_GRAPH, group_graph.graph_type, "Group graph type should be set")

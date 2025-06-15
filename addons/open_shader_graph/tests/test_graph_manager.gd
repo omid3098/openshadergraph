@@ -256,19 +256,3 @@ func test_create_select_delete_signal_sequence():
 	
 	# Last signal should be selection of remaining graph
 	assert_equal("selected", signal_types[-1], "Last signal should be auto-selection")
-
-# Helper function for assert_not_contains (if not in base test)
-func assert_not_contains(container, item, message: String = ""):
-	var contains = false
-	if container is Array:
-		contains = item in container
-	elif container is String:
-		contains = container.find(str(item)) != -1
-	elif container is Dictionary:
-		contains = container.has(item)
-	
-	if contains:
-		var error_msg = "Expected container to NOT contain '%s'" % str(item)
-		if message != "":
-			error_msg += ": " + message
-		_assertion_failures.append(error_msg)
