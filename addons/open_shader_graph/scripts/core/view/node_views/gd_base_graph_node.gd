@@ -38,21 +38,26 @@ func _on_dragged(_from: Vector2, _to: Vector2) -> void:
     node_moved.emit(data, position)
     # Use built-in dragged signal externally to handle node movement
 
-func get_data() -> BaseNodeData:
+func get_node_data() -> BaseNodeData:
     return data
 
-func get_position() -> Vector2:
+func get_node_position() -> Vector2:
     return position
 
-func set_position(value: Vector2, _keep_offset: bool = true) -> void:
+func set_node_position(value: Vector2, _keep_offset: bool = true) -> void:
+    Logger.log("[BaseGraphNode] set_position called with value: %s, data_before: %s" % [value, data.get_position()])
     position = value
     if data:
         data.set_position(value)
+        Logger.log("[BaseGraphNode] data position after set_position: %s" % data.get_position())
 
-func get_title() -> String:
+func get_node_title() -> String:
     return title
 
-func set_title(value: String) -> void:
+func set_node_title(value: String) -> void:
+    Logger.log("[BaseGraphNode] set_node_title called")
+    Logger.log("[BaseGraphNode] set_node_title called with value: %s, data_before: %s" % [value, data.get_name()])
     title = value
     if data:
         data.set_name(value)
+        Logger.log("[BaseGraphNode] data name after set_node_title: %s" % data.get_name())

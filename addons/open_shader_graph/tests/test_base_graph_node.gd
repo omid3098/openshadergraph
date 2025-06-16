@@ -70,7 +70,7 @@ func test_graph_node_creation():
 	assert_true(test_graph_node is GraphNode, "BaseGraphNode should inherit from GraphNode")
 	assert_true(test_graph_node is BaseGraphNode, "Should be instance of BaseGraphNode")
 	assert_equal(test_node_data, test_graph_node.data, "Node data should be assigned")
-	assert_equal("TestNode", test_graph_node.get_title(), "Node title should be set from data name")
+	assert_equal("TestNode", test_graph_node.get_node_title(), "Node title should be set from data name")
 	assert_equal(Vector2(100, 200), test_graph_node.get_position(), "Node position should be set from data")
 
 # Test focus mode setting
@@ -194,7 +194,7 @@ func test_multiple_setup_calls():
 	
 	var second_node = BaseGraphNode.new(second_data)
 	assert_equal(second_data, second_node.data, "Second setup should override first")
-	assert_equal("Second", second_node.get_title(), "Title should update with second setup")
+	assert_equal("Second", second_node.get_node_title(), "Title should update with second setup")
 	assert_equal(Vector2(30, 40), second_node.get_position(), "Position should update with second setup")
 	
 	first_node.queue_free()

@@ -185,7 +185,7 @@ func test_graph_data_integrity():
 	assert_equal(Vector2(30, 40), graph.get_nodes()[1].get_position(), "Second node position should be preserved")
 	
 	# Modify nodes and verify changes persist
-	var node_to_modify = graph.get_nodes()[0]
+	var node_to_modify: BaseNodeData = graph.get_nodes()[0]
 	node_to_modify.set_name("Modified Node1")
 	node_to_modify.set_position(Vector2(100, 200))
 

@@ -58,29 +58,29 @@ func test_data_view_binding():
 	assert_equal(node_data2, graph_node2.data, "Graph node 2 should be bound to node data 2")
 	
 	# Test that view properties reflect data properties
-	assert_equal("ConstantNode", graph_node1.get_title(), "Graph node 1 title should match data name")
-	assert_equal("MathNode", graph_node2.get_title(), "Graph node 2 title should match data name")
+	assert_equal("ConstantNode", graph_node1.get_node_title(), "Graph node 1 title should match data name")
+	assert_equal("MathNode", graph_node2.get_node_title(), "Graph node 2 title should match data name")
 	assert_equal(Vector2(50, 100), graph_node1.get_position(), "Graph node 1 position should match data")
 	assert_equal(Vector2(200, 150), graph_node2.get_position(), "Graph node 2 position should match data")
 
 # Test pin value access through view
 func test_pin_value_access():
 	# Access pin values through the view's data reference
-	assert_equal(2.5, graph_node1.get_data().get_inputs()[0].get_value(), "Should access input pin value through view")
-	assert_equal(0.0, graph_node1.get_data().get_outputs()[0].get_value(), "Should access output pin value through view")
+	assert_equal(2.5, graph_node1.get_node_data().get_inputs()[0].get_value(), "Should access input pin value through view")
+	assert_equal(0.0, graph_node1.get_node_data().get_outputs()[0].get_value(), "Should access output pin value through view")
 	
 	# Modify pin values through view
-	graph_node1.get_data().get_inputs()[0].set_value(5.0)
+	graph_node1.get_node_data().get_inputs()[0].set_value(5.0)
 	assert_equal(5.0, node_data1.get_inputs()[0].get_value(), "Pin value modification through view should affect original data")
 
 # Test view synchronization with data changes
 func test_view_data_synchronization():
 	# Test that changing view properties updates the data
-	graph_node1.set_title("ViewModified")
-	graph_node1.set_position(Vector2(90, 140))
+	graph_node1.set_node_title("ViewModified")
+	graph_node1.set_node_position(Vector2(90, 140))
 
-	assert_equal("ViewModified", graph_node1.get_title(), "View title should be updated")
-	assert_equal(Vector2(90, 140), graph_node1.get_position(), "View position should be updated")
+	assert_equal("ViewModified", graph_node1.get_node_title(), "View title should be updated")
+	assert_equal(Vector2(90, 140), graph_node1.get_node_position(), "View position should be updated")
 	assert_equal("ViewModified", node_data1.get_name(), "Data name should update when view title changes")
 	assert_equal(Vector2(90, 140), node_data1.get_position(), "Data position should update when view position changes")
 
@@ -94,27 +94,27 @@ func test_movement_synchronization():
 	graph_node1._on_dragged(original_position, new_position)
 	
 	# Both view and original data should be updated
-	assert_equal(new_position, graph_node1.data.get_position(), "View data position should be updated")
+	assert_equal(new_position, graph_node1.get_node_data().get_position(), "View data position should be updated")
 	assert_equal(new_position, node_data1.get_position(), "Original data position should be updated")
-	assert_equal(new_position, graph_node1.get_position(), "View position should be updated")
+	assert_equal(new_position, graph_node1.get_node_position(), "View position should be updated")
 
 # Test multiple view nodes with same data type
 func test_multiple_view_nodes():
 	# Both nodes should be independently functional
 	assert_not_equal(graph_node1.data, graph_node2.data, "View nodes should have different data")
-	assert_equal("ConstantNode", graph_node1.get_title(), "First node should have correct title")
-	assert_equal("MathNode", graph_node2.get_title(), "Second node should have correct title")
+	assert_equal("ConstantNode", graph_node1.get_node_title(), "First node should have correct title")
+	assert_equal("MathNode", graph_node2.get_node_title(), "Second node should have correct title")
 	
 	# Move one node, other should be unaffected
 	var original_pos2 = node_data2.get_position()
-	graph_node1._on_dragged(graph_node1.get_position(), graph_node1.get_position() + Vector2(10, 10))
+	graph_node1._on_dragged(graph_node1.get_node_position(), graph_node1.get_node_position() + Vector2(10, 10))
 	
 	assert_equal(original_pos2, node_data2.get_position(), "Second node position should be unaffected")
 
 # Test pin value modification scenarios
 func test_pin_value_modification_scenarios():
-	var input_pin = graph_node1.get_data().get_inputs()[0]
-	var output_pin = graph_node1.get_data().get_outputs()[0]
+	var input_pin = graph_node1.get_node_data().get_inputs()[0]
+	var output_pin = graph_node1.get_node_data().get_outputs()[0]
 	
 	# Test different value types
 	input_pin.set_value(10.5)
@@ -125,7 +125,7 @@ func test_pin_value_modification_scenarios():
 	
 	# Test complex value types
 	var complex_pin = PinData.new("complex", "color", PinData.PinType.INPUT, Color.RED)
-	graph_node1.get_data().get_inputs().append(complex_pin)
+	graph_node1.get_node_data().get_inputs().append(complex_pin)
 	
 	complex_pin.set_value(Color.BLUE)
 	assert_equal(Color.BLUE, complex_pin.get_value(), "Complex value types should be modifiable")
@@ -133,14 +133,14 @@ func test_pin_value_modification_scenarios():
 # Test view-data consistency during operations
 func test_view_data_consistency():
 	# Perform multiple operations
-	graph_node1._on_dragged(graph_node1.get_position(), graph_node1.get_position() + Vector2(5, 5))
-	graph_node1.get_data().get_inputs()[0].set_value(3.14)
-	graph_node1.get_data().set_name("UpdatedNode")
+	graph_node1._on_dragged(graph_node1.get_node_position(), graph_node1.get_node_position() + Vector2(5, 5))
+	graph_node1.get_node_data().get_inputs()[0].set_value(3.14)
+	graph_node1.get_node_data().set_name("UpdatedNode")
 	
 	# Check consistency
-	assert_equal(node_data1.get_position(), graph_node1.get_data().get_position(), "Position should be consistent")
-	assert_equal(node_data1.get_inputs()[0].get_value(), graph_node1.get_data().get_inputs()[0].get_value(), "Pin values should be consistent")
-	assert_equal(node_data1.get_name(), graph_node1.get_data().get_name(), "Name should be consistent")
+	assert_equal(node_data1.get_position(), graph_node1.get_node_data().get_position(), "Position should be consistent")
+	assert_equal(node_data1.get_inputs()[0].get_value(), graph_node1.get_node_data().get_inputs()[0].get_value(), "Pin values should be consistent")
+	assert_equal(node_data1.get_name(), graph_node1.get_node_data().get_name(), "Name should be consistent")
 
 # Test graph-level operations with views
 func test_graph_level_operations():
@@ -149,8 +149,8 @@ func test_graph_level_operations():
 	assert_contains(graph_data.get_nodes(), node_data2, "Graph should contain node data 2")
 	
 	# Modify nodes through views
-	graph_node1.get_data().get_inputs()[0].set_value(100.0)
-	graph_node2.get_data().get_inputs()[0].set_value(Vector2(10.0, 20.0))
+	graph_node1.get_node_data().get_inputs()[0].set_value(100.0)
+	graph_node2.get_node_data().get_inputs()[0].set_value(Vector2(10.0, 20.0))
 	
 	# Changes should be reflected in graph data
 	assert_equal(100.0, graph_data.get_nodes()[0].get_inputs()[0].get_value(), "Graph data should reflect view changes")
@@ -158,7 +158,7 @@ func test_graph_level_operations():
 
 # Test pin type and value consistency
 func test_pin_type_value_consistency():
-	var float_pin = graph_node1.get_data().get_inputs()[0]
+	var float_pin = graph_node1.get_node_data().get_inputs()[0]
 	assert_equal("float", float_pin.get_data_type(), "Pin should have correct data type")
 	assert_equal(2.5, float_pin.get_value(), "Pin should have correct initial value")
 	
@@ -170,7 +170,7 @@ func test_pin_type_value_consistency():
 # Test view cleanup and memory management
 func test_view_cleanup():
 	# Store reference to data
-	var data_ref = graph_node1.get_data()
+	var data_ref = graph_node1.get_node_data()
 	assert_equal(node_data1, data_ref, "Data reference should be correct")
 	
 	# Clear view reference
@@ -188,7 +188,7 @@ func test_signal_data_integration():
 	# Connect to the built-in signal from GraphNode
 	graph_node1.node_selected.connect(func():
 		signal_received = true
-		received_data = graph_node1.get_data()
+		received_data = graph_node1.get_node_data()
 	)
 	
 	# Set selected to true to trigger the signal
@@ -207,14 +207,14 @@ func test_edge_cases():
 	var node_with_null = BaseNodeData.new("NullNode", "test", Vector2.ZERO, [null_pin], [])
 	var graph_node_null = BaseGraphNode.new(node_with_null)
 	
-	assert_null(graph_node_null.get_data().get_inputs()[0].get_value(), "Should handle null pin values")
+	assert_null(graph_node_null.get_node_data().get_inputs()[0].get_value(), "Should handle null pin values")
 	
 	# Test with empty arrays
 	var empty_node = BaseNodeData.new("EmptyNode", "test", Vector2.ZERO, [], [])
 	var graph_node_empty = BaseGraphNode.new(empty_node)
 	
-	assert_equal(0, graph_node_empty.get_data().get_inputs().size(), "Should handle empty input arrays")
-	assert_equal(0, graph_node_empty.get_data().get_outputs().size(), "Should handle empty output arrays")
+	assert_equal(0, graph_node_empty.get_node_data().get_inputs().size(), "Should handle empty input arrays")
+	assert_equal(0, graph_node_empty.get_node_data().get_outputs().size(), "Should handle empty output arrays")
 	
 	graph_node_null.queue_free()
 	graph_node_empty.queue_free()
@@ -233,12 +233,12 @@ func test_performance_multiple_pins():
 	var graph_node_complex = BaseGraphNode.new(complex_node)
 	
 	# Test that all pins are accessible
-	assert_equal(10, graph_node_complex.get_data().get_inputs().size(), "Should handle multiple input pins")
-	assert_equal(10, graph_node_complex.get_data().get_outputs().size(), "Should handle multiple output pins")
+	assert_equal(10, graph_node_complex.get_node_data().get_inputs().size(), "Should handle multiple input pins")
+	assert_equal(10, graph_node_complex.get_node_data().get_outputs().size(), "Should handle multiple output pins")
 	
 	# Test value access
 	for i in range(10):
-		assert_equal(float(i), graph_node_complex.get_data().get_inputs()[i].get_value(), "Input pin %d should have correct value" % i)
-		assert_equal(float(i * 2), graph_node_complex.get_data().get_outputs()[i].get_value(), "Output pin %d should have correct value" % i)
+		assert_equal(float(i), graph_node_complex.get_node_data().get_inputs()[i].get_value(), "Input pin %d should have correct value" % i)
+		assert_equal(float(i * 2), graph_node_complex.get_node_data().get_outputs()[i].get_value(), "Output pin %d should have correct value" % i)
 
 	graph_node_complex.queue_free()
