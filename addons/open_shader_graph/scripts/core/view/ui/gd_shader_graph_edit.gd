@@ -28,7 +28,7 @@ func set_graph(graph: BaseGraphData) -> void:
 	graph_data = graph
 	_clear_graph()
 	# TODO: instantiate nodes & connections based on graph_data
-	Logger.log("[ShaderGraphEdit] Loaded graph: " + graph.name)
+	Logger.log("[ShaderGraphEdit] Loaded graph: " + graph.get_name())
 	_active_graph_edit()
 
 func _clear_graph() -> void:

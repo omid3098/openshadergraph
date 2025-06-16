@@ -85,11 +85,11 @@ func get_main_scene() -> Control:
 
 # Tab management - orchestrates UI updates based on graph operations
 func on_graph_created(graph: BaseGraphData) -> void:
-	Logger.log("[UIManager] Adding graph tab: " + graph.name)
+	Logger.log("[UIManager] Adding graph tab: " + graph.get_name())
 	_create_or_switch_to_tab(graph)
 
 func on_graph_selected(graph: BaseGraphData) -> void:
-	Logger.log("[UIManager] Switching to graph: " + graph.name)
+	Logger.log("[UIManager] Switching to graph: " + graph.get_name())
 	_create_or_switch_to_tab(graph)
 
 func _create_or_switch_to_tab(graph: BaseGraphData) -> void:
@@ -104,7 +104,7 @@ func _create_or_switch_to_tab(graph: BaseGraphData) -> void:
 	var edit = ShaderGraphEdit.new()
 	edit.set_graph(graph)
 	graph_tabs.add_child(edit)
-	graph_tabs.set_tab_title(graph_tabs.get_child_count() - 1, graph.name)
+	graph_tabs.set_tab_title(graph_tabs.get_child_count() - 1, graph.get_name())
 	graph_tabs.current_tab = graph_tabs.get_child_count() - 1
 
 func on_graph_deleted(graph: BaseGraphData) -> void:

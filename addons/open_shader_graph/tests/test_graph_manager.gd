@@ -53,15 +53,15 @@ func test_create_new_graph():
 	
 	assert_equal(1, all_graphs.size(), "Should have one graph after creation")
 	assert_not_null(current_graph, "Should have a current graph after creation")
-	assert_equal("New Graph", current_graph.name, "Default name should be 'New Graph'")
-	assert_equal(BaseGraphData.GraphType.SHADER_GRAPH, current_graph.graph_type, "Default type should be SHADER_GRAPH")
+	assert_equal("New Graph", current_graph.get_name(), "Default name should be 'New Graph'")
+	assert_equal(BaseGraphData.GraphType.SHADER_GRAPH, current_graph.get_graph_type(), "Default type should be SHADER_GRAPH")
 
 func test_create_new_graph_emits_signal():
 	graph_manager.create_new_graph()
 	
 	assert_equal(1, received_signals.size(), "Should emit one signal")
 	assert_equal("created", received_signals[0]["type"], "Should emit graph_created signal")
-	assert_equal("New Graph", received_signals[0]["graph"].name, "Signal should contain the created graph")
+	assert_equal("New Graph", received_signals[0]["graph"].get_name(), "Signal should contain the created graph")
 
 # Test multiple graph creation
 func test_create_multiple_graphs():
@@ -80,7 +80,7 @@ func test_current_graph_updates_on_creation():
 	var second_graph = graph_manager.get_current_graph()
 	
 	assert_not_equal(first_graph, second_graph, "Current graph should update on new creation")
-	assert_equal("New Graph", second_graph.name, "Second graph should also have default name")
+	assert_equal("New Graph", second_graph.get_name(), "Second graph should also have default name")
 
 # Test graph selection
 func test_select_graph():

@@ -16,15 +16,16 @@ func cleanup() -> void:
 	# No longer need to disconnect from EventBus
 	pass
 
-func create_new_graph() -> void:
+func create_new_graph(_name: String = "New Graph", _graph_type: BaseGraphData.GraphType = BaseGraphData.GraphType.SHADER_GRAPH) -> BaseGraphData:
 	var empty_nodes: Array[BaseNodeData] = []
 	var empty_connections: Array[ConnectionData] = []
-	current_graph_data = BaseGraphData.new("New Graph", BaseGraphData.GraphType.SHADER_GRAPH, empty_nodes, empty_connections)
+	current_graph_data = BaseGraphData.new(_name, _graph_type, empty_nodes, empty_connections)
 	all_graphs_data.append(current_graph_data)
-	Logger.log("[GraphManager] Created new graph: " + current_graph_data.name)
+	Logger.log("[GraphManager] Created new graph: " + current_graph_data.get_name())
 
 	# Emit direct signal instead of using EventBus
 	graph_created.emit(current_graph_data)
+	return current_graph_data
 
 func get_current_graph() -> BaseGraphData:
 	return current_graph_data
@@ -36,7 +37,7 @@ func get_all_graphs() -> Array[BaseGraphData]:
 func select_graph(graph: BaseGraphData) -> void:
 	current_graph_data = graph
 	if graph != null:
-		Logger.log("[GraphManager] Selected graph: " + current_graph_data.name)
+		Logger.log("[GraphManager] Selected graph: " + current_graph_data.get_name())
 	else:
 		Logger.log("[GraphManager] Attempted to select null graph")
 	# Emit direct signal instead of using EventBus
@@ -46,7 +47,7 @@ func select_graph(graph: BaseGraphData) -> void:
 func delete_graph(graph: BaseGraphData) -> void:
 	if all_graphs_data.has(graph):
 		all_graphs_data.erase(graph)
-		Logger.log("[GraphManager] Deleted graph: " + graph.name)
+		Logger.log("[GraphManager] Deleted graph: " + graph.get_name())
 		# Emit direct signal instead of using EventBus
 		graph_deleted.emit(graph)
 		if all_graphs_data.size() > 0:

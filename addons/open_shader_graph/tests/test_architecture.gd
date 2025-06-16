@@ -7,6 +7,7 @@ var received_signals: Array = []
 
 func before_each():
 	editor = OpenShaderGraphEditor.new()
+	Engine.get_main_loop().root.add_child(editor)
 	received_signals.clear()
 
 func after_each():
