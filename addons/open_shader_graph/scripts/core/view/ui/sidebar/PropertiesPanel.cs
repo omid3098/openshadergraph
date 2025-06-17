@@ -11,7 +11,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
 
             // A label for the properties panel
             var label = new Label();
-            label.Text = "Properties";
+            // label.Text = "Properties";
             label.HorizontalAlignment = HorizontalAlignment.Left;
             label.VerticalAlignment = VerticalAlignment.Top;
             label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;

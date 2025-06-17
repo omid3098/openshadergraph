@@ -3,20 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
+using System;
 
 namespace OpenShaderGraph.Core.Logic
 {
     public partial class GraphManager : Node
     {
         // Direct signals instead of using EventBus
-        [Signal]
-        public delegate void GraphCreatedEventHandler(BaseGraphData graph);
+        public Action<BaseGraphData> GraphCreated;
 
-        [Signal]
-        public delegate void GraphSelectedEventHandler(BaseGraphData? graph);
+        public Action<BaseGraphData?> GraphSelected;
 
-        [Signal]
-        public delegate void GraphDeletedEventHandler(BaseGraphData graph);
+        public Action<BaseGraphData> GraphDeleted;
 
         private List<BaseGraphData> _allGraphsData = new();
         private BaseGraphData? _currentGraphData;
@@ -34,8 +32,7 @@ namespace OpenShaderGraph.Core.Logic
             _allGraphsData.Add(_currentGraphData);
             Logger.Log($"[GraphManager] Created new graph: {_currentGraphData.GetName()}");
 
-            // Emit direct signal instead of using EventBus
-            EmitSignal(SignalName.GraphCreated, _currentGraphData);
+            GraphCreated?.Invoke(_currentGraphData);
             return _currentGraphData;
         }
 
@@ -56,12 +53,12 @@ namespace OpenShaderGraph.Core.Logic
             if (graph != null)
             {
                 Logger.Log($"[GraphManager] Selected graph: {graph.GetName()}");
-                EmitSignal(SignalName.GraphSelected, graph);
+                GraphSelected?.Invoke(graph);
             }
             else
             {
                 Logger.Log("[GraphManager] Attempted to select null graph");
-                EmitSignal(SignalName.GraphSelected, null);
+                GraphSelected?.Invoke(null);
             }
         }
 
@@ -72,8 +69,7 @@ namespace OpenShaderGraph.Core.Logic
             {
                 _allGraphsData.Remove(graph);
                 Logger.Log($"[GraphManager] Deleted graph: {graph.GetName()}");
-                // Emit direct signal instead of using EventBus
-                EmitSignal(SignalName.GraphDeleted, graph);
+                GraphDeleted?.Invoke(graph);
                 if (_allGraphsData.Count > 0)
                 {
                     SelectGraph(_allGraphsData[0]);

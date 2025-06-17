@@ -2,6 +2,8 @@
 
 A node-based shader editor for Godot 4.3+ that provides a visual interface for creating shaders.
 
+## OUTDATED - DO NOT RELY ON THIS DOCUMENTATION
+
 ## Development Notes
 
 The plugin follows the naming conventions:
