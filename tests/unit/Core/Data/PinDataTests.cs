@@ -57,7 +57,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             _testPin.SetName("new_name");
 
             // Assert
-            Assert.That(_testPin.GetName(), Is.EqualTo("new_name"));
+            Assert.That(_testPin?.GetName(), Is.EqualTo("new_name"));
         }
 
         [Test]
@@ -67,7 +67,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             _testPin.SetDataType("vector2");
 
             // Assert
-            Assert.That(_testPin.GetDataType(), Is.EqualTo("vector2"));
+            Assert.That(_testPin?.GetDataType(), Is.EqualTo("vector2"));
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             _testPin.SetDirection(PinType.Output);
 
             // Assert
-            Assert.That(_testPin.GetDirection(), Is.EqualTo(PinType.Output));
+            Assert.That(_testPin?.GetDirection(), Is.EqualTo(PinType.Output));
         }
 
         [Test]
@@ -87,7 +87,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             _testPin.SetValue(new Variant(10.0f));
 
             // Assert
-            Assert.That(_testPin.GetValue().AsSingle(), Is.EqualTo(10.0f));
+            Assert.That(_testPin?.GetValue().AsSingle(), Is.EqualTo(10.0f));
         }
         #endregion
 

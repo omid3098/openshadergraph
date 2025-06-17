@@ -17,10 +17,10 @@ namespace OpenShaderGraph.Core.View
         [Signal]
         public delegate void FileMenuItemSelectedEventHandler(int itemId);
 
-        private TabContainer _graphTabs;
-        private ContextMenuManager _contextMenuManager;
-        private BottomPanel _bottomPanel;
-        private Sidebar _sidebar;
+        private TabContainer _graphTabs = default!;
+        private ContextMenuManager _contextMenuManager = default!;
+        private BottomPanel _bottomPanel = default!;
+        private Sidebar _sidebar = default!;
 
         private const int SidebarWidth = 250;
         private const int BottomPanelHeight = 250;

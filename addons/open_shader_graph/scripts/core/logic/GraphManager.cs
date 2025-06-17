@@ -13,23 +13,17 @@ namespace OpenShaderGraph.Core.Logic
         public delegate void GraphCreatedEventHandler(BaseGraphData graph);
 
         [Signal]
-        public delegate void GraphSelectedEventHandler(BaseGraphData graph);
+        public delegate void GraphSelectedEventHandler(BaseGraphData? graph);
 
         [Signal]
         public delegate void GraphDeletedEventHandler(BaseGraphData graph);
 
         private List<BaseGraphData> _allGraphsData = new();
-        private BaseGraphData _currentGraphData;
+        private BaseGraphData? _currentGraphData;
 
         public GraphManager()
         {
             Logger.Log("[GraphManager] init");
-        }
-
-        // Clean up signal connections when the GraphManager is freed
-        public void Cleanup()
-        {
-            // No longer need to disconnect from EventBus
         }
 
         public BaseGraphData CreateNewGraph(string name = "New Graph", GraphType graphType = GraphType.ShaderGraph)
@@ -45,7 +39,7 @@ namespace OpenShaderGraph.Core.Logic
             return _currentGraphData;
         }
 
-        public BaseGraphData GetCurrentGraph()
+        public BaseGraphData? GetCurrentGraph()
         {
             return _currentGraphData;
         }
@@ -56,19 +50,19 @@ namespace OpenShaderGraph.Core.Logic
         }
 
         // Select a graph for editing
-        public void SelectGraph(BaseGraphData graph)
+        public void SelectGraph(BaseGraphData? graph)
         {
             _currentGraphData = graph;
             if (graph != null)
             {
-                Logger.Log($"[GraphManager] Selected graph: {_currentGraphData.GetName()}");
+                Logger.Log($"[GraphManager] Selected graph: {graph.GetName()}");
+                EmitSignal(SignalName.GraphSelected, graph);
             }
             else
             {
                 Logger.Log("[GraphManager] Attempted to select null graph");
+                EmitSignal(SignalName.GraphSelected, null);
             }
-            // Emit direct signal instead of using EventBus
-            EmitSignal(SignalName.GraphSelected, _currentGraphData);
         }
 
         // Delete a graph and emit a signal; auto-select first graph if any remain
@@ -83,6 +77,10 @@ namespace OpenShaderGraph.Core.Logic
                 if (_allGraphsData.Count > 0)
                 {
                     SelectGraph(_allGraphsData[0]);
+                }
+                else
+                {
+                    SelectGraph(null);
                 }
             }
         }

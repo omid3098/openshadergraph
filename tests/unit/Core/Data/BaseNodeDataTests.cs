@@ -35,7 +35,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         {
             // Act & Assert
             Assert.That(_node.GetName(), Is.EqualTo("TestNode"));
-            Assert.That(_node.GetType(), Is.EqualTo("MathNode"));
+            Assert.That(_node.GetNodeType(), Is.EqualTo("MathNode"));
             Assert.That(_node.GetPosition(), Is.EqualTo(new Vector2(100, 200)));
             Assert.That(_node.GetInputs().Count, Is.EqualTo(2));
             Assert.That(_node.GetOutputs().Count, Is.EqualTo(1));
@@ -81,10 +81,10 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void SetType_UpdatesTypeCorrectly()
         {
             // Act
-            _node.SetType("NewNodeType");
+            _node.SetNodeType("NewNodeType");
 
             // Assert
-            Assert.That(_node.GetType(), Is.EqualTo("NewNodeType"));
+            Assert.That(_node.GetNodeType(), Is.EqualTo("NewNodeType"));
         }
 
         [Test]

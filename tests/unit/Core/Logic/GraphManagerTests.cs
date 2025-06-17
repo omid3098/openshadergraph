@@ -160,9 +160,8 @@ namespace OpenShaderGraph.Tests.Core.Logic
 
             // Assert
             Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(0));
-            // Note: Current implementation doesn't set current graph to null when all graphs are deleted
-            // This could be improved in future versions
-            Assert.That(_graphManager.GetCurrentGraph(), Is.EqualTo(graph2));
+            // Current graph should be null when all graphs are deleted
+            Assert.That(_graphManager.GetCurrentGraph(), Is.Null);
         }
     }
 }

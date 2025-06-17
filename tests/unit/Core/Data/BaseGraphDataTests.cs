@@ -77,7 +77,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void AddNode_NullNode_IgnoresGracefully()
         {
             // Act
-            _graph.AddNode(null);
+            _graph.AddNode(null!);
 
             // Assert
             Assert.That(_graph.GetNodes().Count, Is.EqualTo(0));
@@ -103,7 +103,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void AddConnection_NullConnection_IgnoresGracefully()
         {
             // Act
-            _graph.AddConnection(null);
+            _graph.AddConnection(null!);
 
             // Assert
             Assert.That(_graph.GetConnections().Count, Is.EqualTo(0));
@@ -113,7 +113,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void ValidateConnection_NullConnection_ReturnsFalse()
         {
             // Act & Assert
-            Assert.That(_graph.ValidateConnection(null), Is.False);
+            Assert.That(_graph.ValidateConnection(null!), Is.False);
         }
 
         [Test]

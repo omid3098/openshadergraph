@@ -166,11 +166,11 @@ namespace OpenShaderGraph.Tests.Core.Integration
 
             // Assert - Verify data integrity
             Assert.That(graph.GetNodes()[0].GetName(), Is.EqualTo("Node1"));
-            Assert.That(graph.GetNodes()[0].GetType(), Is.EqualTo("Type1"));
+            Assert.That(graph.GetNodes()[0].GetNodeType(), Is.EqualTo("Type1"));
             Assert.That(graph.GetNodes()[0].GetPosition(), Is.EqualTo(new Vector2(10, 20)));
 
             Assert.That(graph.GetNodes()[1].GetName(), Is.EqualTo("Node2"));
-            Assert.That(graph.GetNodes()[1].GetType(), Is.EqualTo("Type2"));
+            Assert.That(graph.GetNodes()[1].GetNodeType(), Is.EqualTo("Type2"));
             Assert.That(graph.GetNodes()[1].GetPosition(), Is.EqualTo(new Vector2(30, 40)));
 
             // Act - Modify nodes and verify changes persist
@@ -373,14 +373,9 @@ namespace OpenShaderGraph.Tests.Core.Integration
         [Test]
         public void GraphOperations_NullInputs_HandleGracefully()
         {
-            // Arrange
-            var graph = _graphManager.CreateNewGraph();
-
-            // Act & Assert - Null operations should be handled gracefully
-            Assert.That(() => graph.AddNode(null), Throws.Nothing);
-            Assert.That(() => graph.AddConnection(null), Throws.Nothing);
-            Assert.That(graph.GetNodes().Count, Is.EqualTo(0));
-            Assert.That(graph.GetConnections().Count, Is.EqualTo(0));
+            // Act & Assert
+            Assert.That(() => _graphManager.SelectGraph(null), Throws.Nothing);
+            Assert.That(() => _graphManager.DeleteGraph(null!), Throws.Nothing);
         }
 
         [Test]
