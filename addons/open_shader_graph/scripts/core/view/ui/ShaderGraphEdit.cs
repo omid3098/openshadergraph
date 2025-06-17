@@ -55,16 +55,7 @@ namespace OpenShaderGraph.Core.View.UI
             }
 
             // Remove all connections
-            foreach (var conn in GetConnectionList())
-            {
-                var connDict = conn.AsGodotDictionary();
-                DisconnectNode(
-                    connDict["from"].AsStringName(),
-                    connDict["from_port"].AsInt32(),
-                    connDict["to"].AsStringName(),
-                    connDict["to_port"].AsInt32()
-                );
-            }
+            ClearConnections();
         }
     }
 }

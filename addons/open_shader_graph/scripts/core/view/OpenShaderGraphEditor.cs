@@ -144,14 +144,14 @@ namespace OpenShaderGraph.Core.View
             graph.SetFilePath(path);
 
             // Prepare data structure for serialization
-            var data = new Dictionary<string, Variant>();
+            var data = new Godot.Collections.Dictionary<string, Variant>();
 
-            var metadata = new Dictionary<string, Variant>
+            var metadata = new Godot.Collections.Dictionary<string, Variant>
             {
                 ["name"] = graph.GetName(),
                 ["version"] = graph.GetVersion(),
                 ["type"] = GraphTypeToString(graph.GetGraphType()),
-                ["properties"] = graph.GetProperties()
+                ["properties"] = new Godot.Collections.Dictionary<string, Variant>(graph.GetProperties())
             };
             data["metadata"] = metadata;
 
@@ -159,10 +159,10 @@ namespace OpenShaderGraph.Core.View
             var nodesArray = new Godot.Collections.Array();
             foreach (var node in graph.GetNodes())
             {
-                var nodeEntry = new Dictionary<string, Variant>
+                var nodeEntry = new Godot.Collections.Dictionary<string, Variant>
                 {
                     ["name"] = node.GetName(),
-                    ["type"] = node.GetType(),
+                    ["type"] = node.GetNodeType(),
                     ["position"] = new Godot.Collections.Array { node.GetPosition().X, node.GetPosition().Y },
                     ["inputs"] = new Godot.Collections.Array(),
                     ["outputs"] = new Godot.Collections.Array()
@@ -171,7 +171,7 @@ namespace OpenShaderGraph.Core.View
                 var inputs = (Godot.Collections.Array)nodeEntry["inputs"];
                 foreach (var pin in node.GetInputs())
                 {
-                    inputs.Add(new Dictionary<string, Variant>
+                    inputs.Add(new Godot.Collections.Dictionary<string, Variant>
                     {
                         ["name"] = pin.GetName(),
                         ["type"] = pin.GetDataType()
@@ -181,7 +181,7 @@ namespace OpenShaderGraph.Core.View
                 var outputs = (Godot.Collections.Array)nodeEntry["outputs"];
                 foreach (var pin in node.GetOutputs())
                 {
-                    outputs.Add(new Dictionary<string, Variant>
+                    outputs.Add(new Godot.Collections.Dictionary<string, Variant>
                     {
                         ["name"] = pin.GetName(),
                         ["type"] = pin.GetDataType()
@@ -198,7 +198,7 @@ namespace OpenShaderGraph.Core.View
             {
                 var from = connection.GetFrom();
                 var to = connection.GetTo();
-                connectionsArray.Add(new Dictionary<string, Variant>
+                connectionsArray.Add(new Godot.Collections.Dictionary<string, Variant>
                 {
                     ["from_node"] = from.Node.GetName(),
                     ["from_pin"] = from.Pin.GetName(),

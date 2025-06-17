@@ -23,7 +23,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
 
             // Create a VBoxContainer to properly organize the sidebar components vertically
             var vboxContainer = new VBoxContainer();
-            vboxContainer.SetAnchorsPreset(Control.Preset.FullRect);
+            vboxContainer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
             AddChild(vboxContainer);
 
             _customMenuBar = new CustomMenuBar();

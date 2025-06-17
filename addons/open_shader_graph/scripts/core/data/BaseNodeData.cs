@@ -21,14 +21,14 @@ namespace OpenShaderGraph.Core.Data
         }
 
         public string GetName() => _name;
-        public string GetType() => _type;
+        public string GetNodeType() => _type;
         public Vector2 GetPosition() => _position;
         public List<PinData> GetInputs() => _inputs;
         public List<PinData> GetOutputs() => _outputs;
 
         public void SetPosition(Vector2 value) => _position = value;
         public void SetName(string value) => _name = value;
-        public void SetType(string value) => _type = value;
+        public void SetNodeType(string value) => _type = value;
         public void SetInputs(List<PinData> value) => _inputs = value;
         public void SetOutputs(List<PinData> value) => _outputs = value;
     }

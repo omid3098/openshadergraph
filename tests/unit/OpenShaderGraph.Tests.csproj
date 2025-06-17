@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+    <PackageReference Include="NUnit" Version="3.13.3" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.4.2" />
+    <PackageReference Include="NUnit.Analyzers" Version="3.6.1" />
+    <PackageReference Include="coverlet.collector" Version="3.2.0" />
+    <PackageReference Include="Moq" Version="4.20.69" />
+  </ItemGroup>
+
+  <!-- Reference only the data layer classes that don't depend on Godot types -->
+  <ItemGroup>
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/PinData.cs" Link="Source/PinData.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/ConnectionData.cs" Link="Source/ConnectionData.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/BaseNodeData.cs" Link="Source/BaseNodeData.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/BaseGraphData.cs" Link="Source/BaseGraphData.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GraphManager.cs" Link="Source/GraphManager.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/Logger.cs" Link="Source/Logger.cs" />
+  </ItemGroup>
+
+</Project> 

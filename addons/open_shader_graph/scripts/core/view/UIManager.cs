@@ -47,7 +47,7 @@ namespace OpenShaderGraph.Core.View
 
             // A VBoxContainer that will contain the menu bar and the main split container
             var vboxContainer = new VBoxContainer();
-            vboxContainer.SetAnchorsPreset(Control.Preset.FullRect);
+            vboxContainer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 
             // VSplitContainer to separate main content from bottom panel (resizable vertically)
             var mainVsplit = new VSplitContainer();
