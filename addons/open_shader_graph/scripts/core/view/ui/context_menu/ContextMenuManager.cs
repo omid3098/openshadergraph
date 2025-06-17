@@ -9,22 +9,21 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private NodeContextMenu _nodeContextMenu;
         private GroupingContextMenu _groupingContextMenu;
 
-        public ContextMenuManager()
+        public override void _Ready()
         {
             Logger.Log("[ContextMenuManager] init");
 
-            _creationPopup = new CreationPopup();
-            _nodeContextMenu = new NodeContextMenu();
-            _groupingContextMenu = new GroupingContextMenu();
+            _creationPopup = new CreationPopup { Name = "CreationPopup" };
+            AddChild(_creationPopup);
+            _nodeContextMenu = new NodeContextMenu { Name = "NodeContextMenu" };
+            AddChild(_nodeContextMenu);
+            _groupingContextMenu = new GroupingContextMenu { Name = "GroupingContextMenu" };
+            AddChild(_groupingContextMenu);
         }
-    }
 
-    // Placeholder classes for context menu components
-    public partial class CreationPopup : Node
-    {
-        public CreationPopup()
+        public void ShowCreationMenu(Vector2 position)
         {
-            Logger.Log("[CreationPopup] init");
+            _creationPopup.ShowMenu(position);
         }
     }
 

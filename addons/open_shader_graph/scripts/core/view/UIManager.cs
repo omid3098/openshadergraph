@@ -85,6 +85,7 @@ namespace OpenShaderGraph.Core.View
 
             vboxContainer.AddChild(mainVsplit);
             mainScene.AddChild(vboxContainer);
+            mainScene.AddChild(_contextMenuManager);
             return mainScene;
         }
 
@@ -116,7 +117,7 @@ namespace OpenShaderGraph.Core.View
 
             // Create new tab
             var newEdit = new ShaderGraphEdit();
-            newEdit.SetGraph(graph);
+            newEdit.Initialize(graph, _contextMenuManager);
             _graphTabs.AddChild(newEdit);
             _graphTabs.SetTabTitle(_graphTabs.GetChildCount() - 1, graph.GetName());
             _graphTabs.CurrentTab = _graphTabs.GetChildCount() - 1;

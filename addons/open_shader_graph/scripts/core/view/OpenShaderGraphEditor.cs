@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.View.NodeViews;
 using OpenShaderGraph.Core.View.UI.Sidebar.MenuBar;
 
 namespace OpenShaderGraph.Core.View
@@ -12,6 +13,7 @@ namespace OpenShaderGraph.Core.View
         private GraphManager _graphManager;
         private UIManager _uiManager;
         private PreferencesManager _preferencesManager;
+        private NodeRegistry _nodeRegistry;
         private FileDialog _fileDialog; // for save dialog
         private Control _rootControl; // root UI scene returned by GetMainScene
 
@@ -21,6 +23,7 @@ namespace OpenShaderGraph.Core.View
             _graphManager = new GraphManager();
             _uiManager = new UIManager();
             _preferencesManager = new PreferencesManager();
+            _nodeRegistry = new NodeRegistry();
 
             // Connect GraphManager signals
             _graphManager.GraphCreated += OnGraphCreated;
@@ -36,6 +39,7 @@ namespace OpenShaderGraph.Core.View
         {
             Logger.Log("[OpenShaderGraphEditor] get_main_scene");
             _rootControl = _uiManager.GetMainScene();
+            _rootControl.AddChild(_nodeRegistry);
             InitFileDialog();
             return _rootControl;
         }
