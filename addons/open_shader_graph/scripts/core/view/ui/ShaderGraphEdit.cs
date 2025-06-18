@@ -86,8 +86,8 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort - fromNodeView.Data.GetInputs().Count);
-            var toPin = toNodeView.Data.GetInputBySlot((int)toPort);
+            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort);
+            var toPin = toNodeView.Data.GetInputByIndex((int)toPort);
 
 
             if (fromPin != null && toPin != null)
@@ -132,8 +132,8 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort - fromNodeView.Data.GetInputs().Count);
-            var toPin = toNodeView.Data.GetInputBySlot((int)toPort);
+            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort);
+            var toPin = toNodeView.Data.GetInputByIndex((int)toPort);
 
 
             if (fromPin != null && toPin != null)

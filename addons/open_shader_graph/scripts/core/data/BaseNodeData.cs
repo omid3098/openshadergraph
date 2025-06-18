@@ -49,7 +49,7 @@ public partial class BaseNodeData : RefCounted
         }
     }
 
-    public PinData? GetInputBySlot(int slot)
+    public PinData? GetInputByIndex(int slot)
     {
         if (slot >= 0 && slot < _inputs.Count)
         {

@@ -59,7 +59,14 @@ public partial class BaseGraphData : RefCounted
 
         bool valid = ValidateConnection(connection);
         if (valid)
+        {
             _connections.Add(connection);
+            Logger.Log($"[BaseGraphData] Connection added. Total connections: {_connections.Count}");
+        }
+        else
+        {
+            Logger.Log("[BaseGraphData] WARNING: Connection validation failed. Connection not added.");
+        }
     }
 
     public void RemoveConnection(ConnectionData connection)
