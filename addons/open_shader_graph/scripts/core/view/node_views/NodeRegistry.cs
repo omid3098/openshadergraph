@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Godot;
 using OpenShaderGraph.Core.Utils;
 
 namespace OpenShaderGraph.Core.View.NodeViews
@@ -19,19 +18,13 @@ namespace OpenShaderGraph.Core.View.NodeViews
         }
     }
 
-    public partial class NodeRegistry : Node
+    public class NodeRegistry : IInitializable
     {
-        private static NodeRegistry _instance;
-        public static NodeRegistry Instance => _instance;
-
+        // Holds all registered node types by category
         private readonly Dictionary<string, List<RegisteredNode>> _registeredNodes = new();
 
-        public override void _EnterTree()
-        {
-            _instance = this;
-        }
-
-        public override void _Ready()
+        // Called by the DI container to scan for and register nodes
+        public void Init()
         {
             ScanForNodes();
         }

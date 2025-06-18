@@ -1,5 +1,8 @@
 using Godot;
 using OpenShaderGraph.Core.View;
+using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.Logic;
+using OpenShaderGraph.Core.View.NodeViews;
 
 namespace OpenShaderGraph
 {
@@ -13,6 +16,14 @@ namespace OpenShaderGraph
 
         public override void _EnterTree()
         {
+            // Register core services and perform initialization
+            Services.Register<GraphManager>(new GraphManager());
+            Services.Register<PreferencesManager>(new PreferencesManager());
+            Services.Register<UIManager>(new UIManager());
+            Services.Register<NodeRegistry>(new NodeRegistry());
+            Services.InitAll();
+
+            // Build the editor UI
             var openShaderGraphEditor = new OpenShaderGraphEditor();
             _dock = openShaderGraphEditor.GetMainScene();
             // To create a standalone editor, we only need to add the main scene to the root node of an empty scene

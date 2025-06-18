@@ -10,25 +10,23 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
     {
         private LineEdit _searchBox;
         private Dictionary<string, PopupMenu> _subMenus = new();
+        private List<Node> _popupItems = new();
+        private Dictionary<string, List<RegisteredNode>> _registeredNodes = new();
 
         public Action<string, Vector2> NodeCreationRequested;
 
-        public CreationPopup()
+        public override void _Ready()
         {
             // Constructor should do minimal work.
             // Defer population until _Ready.
             HideOnItemSelection = false;
             IdPressed += OnIdPressed;
-        }
 
-        public override void _Ready()
-        {
-            base._Ready();
-
-            // Search box setup
             _searchBox = new LineEdit { PlaceholderText = "Search..." };
             AddChild(_searchBox);
             _searchBox.TextChanged += OnSearchTextChanged;
+
+            _registeredNodes = Services.Get<NodeRegistry>().GetRegisteredNodes();
 
             PopulateMenu();
         }
@@ -42,35 +40,29 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         private void PopulateMenu()
         {
-            // Clear everything except the search box
-            while (ItemCount > 1)
+            Logger.Log($"[CreationPopup] Populating menu with {_registeredNodes.Count} categories");
+            // Clear all existing items
+            for (int i = 0; i < _popupItems.Count; i++)
             {
-                RemoveItem(1);
+                Node item = _popupItems[i];
+                RemoveChild(item);
+                item.QueueFree();
             }
-            foreach (var child in GetChildren())
-            {
-                if (child is PopupMenu)
-                {
-                    child.QueueFree();
-                }
-            }
-            _subMenus.Clear();
+            _popupItems.Clear();
 
-
-            var registeredNodes = NodeRegistry.Instance.GetRegisteredNodes();
-
-            foreach (var category in registeredNodes.Keys)
+            // Populate the menu with the registered nodes
+            foreach (string category in _registeredNodes.Keys)
             {
                 var subMenu = new PopupMenu();
-                subMenu.Name = category + "SubMenu";
-                AddSubmenuItem(category, subMenu.Name);
+                subMenu.Name = category + " > ";
                 AddChild(subMenu);
+                AddSubmenuNodeItem(category, subMenu);
                 _subMenus[category] = subMenu;
-
-                foreach (var node in registeredNodes[category])
+                foreach (var node in _registeredNodes[category])
                 {
                     subMenu.AddItem(node.Attribute.Name);
                     subMenu.IdPressed += (id) => OnSubMenuIdPressed(subMenu, id);
+                    Logger.Log($"[CreationPopup] Added submenu for {category} with {node.Attribute.Name}");
                 }
             }
         }
@@ -102,7 +94,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             }
             _subMenus.Clear();
 
-            var registeredNodes = NodeRegistry.Instance.GetRegisteredNodes();
+            var registeredNodes = Services.Get<NodeRegistry>().GetRegisteredNodes();
 
             if (string.IsNullOrEmpty(searchText))
             {

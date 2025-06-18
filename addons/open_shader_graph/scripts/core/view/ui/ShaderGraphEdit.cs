@@ -39,7 +39,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (GraphData != null)
                 {
-                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition());
+                    _contextMenuManager.ShowCreationMenu(GetLocalMousePosition());
                     AcceptEvent();
                 }
             }
@@ -48,7 +48,7 @@ namespace OpenShaderGraph.Core.View.UI
         private void OnNodeCreationRequested(string nodeName, Vector2 position)
         {
             Logger.Log($"Node creation requested: {nodeName} at {position}");
-            var registeredNode = NodeRegistry.Instance.FindRegisteredNode(nodeName);
+            var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeName);
 
             if (registeredNode != null)
             {

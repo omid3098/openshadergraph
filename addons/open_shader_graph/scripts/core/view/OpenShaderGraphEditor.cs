@@ -20,10 +20,11 @@ namespace OpenShaderGraph.Core.View
         public OpenShaderGraphEditor()
         {
             Logger.Log("[OpenShaderGraphEditor] init");
-            _graphManager = new GraphManager();
-            _uiManager = new UIManager();
-            _preferencesManager = new PreferencesManager();
-            _nodeRegistry = new NodeRegistry();
+            // Retrieve shared service instances from the DI container
+            _graphManager = Services.Get<GraphManager>();
+            _uiManager = Services.Get<UIManager>();
+            _preferencesManager = Services.Get<PreferencesManager>();
+            _nodeRegistry = Services.Get<NodeRegistry>();
 
             // Connect GraphManager signals
             _graphManager.GraphCreated += OnGraphCreated;
@@ -39,7 +40,7 @@ namespace OpenShaderGraph.Core.View
         {
             Logger.Log("[OpenShaderGraphEditor] get_main_scene");
             _rootControl = _uiManager.GetMainScene();
-            _rootControl.AddChild(_nodeRegistry);
+            // NodeRegistry is now a pure C# service and does not need to be added to the scene
             InitFileDialog();
             return _rootControl;
         }

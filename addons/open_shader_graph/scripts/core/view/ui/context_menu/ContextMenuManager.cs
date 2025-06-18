@@ -15,10 +15,10 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
             _creationPopup = new CreationPopup { Name = "CreationPopup" };
             AddChild(_creationPopup);
-            _nodeContextMenu = new NodeContextMenu { Name = "NodeContextMenu" };
-            AddChild(_nodeContextMenu);
-            _groupingContextMenu = new GroupingContextMenu { Name = "GroupingContextMenu" };
-            AddChild(_groupingContextMenu);
+            // _nodeContextMenu = new NodeContextMenu { Name = "NodeContextMenu" };
+            // AddChild(_nodeContextMenu);
+            // _groupingContextMenu = new GroupingContextMenu { Name = "GroupingContextMenu" };
+            // AddChild(_groupingContextMenu);
         }
 
         public void ShowCreationMenu(Vector2 position)
