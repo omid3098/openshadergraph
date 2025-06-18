@@ -21,9 +21,9 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             // AddChild(_groupingContextMenu);
         }
 
-        public void ShowCreationMenu(Vector2 position)
+        public void ShowCreationMenu(Vector2 globalPosition, Vector2 localPosition)
         {
-            _creationPopup.ShowMenu(position);
+            _creationPopup.ShowMenu(globalPosition, localPosition);
         }
     }
 

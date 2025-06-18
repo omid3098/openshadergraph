@@ -53,12 +53,33 @@ public partial class BaseGraphData : RefCounted
 
     public void AddConnection(ConnectionData connection)
     {
+        Logger.Log($"[BaseGraphData] Adding connection: {connection.GetFrom().Node.GetName()} -> {connection.GetTo().Node.GetName()}");
         if (connection == null)
             return; // Silently ignore null connections
 
         bool valid = ValidateConnection(connection);
         if (valid)
             _connections.Add(connection);
+    }
+
+    public void RemoveConnection(ConnectionData connection)
+    {
+        _connections.Remove(connection);
+    }
+
+    public ConnectionData? FindConnection(BaseNodeData fromNode, PinData fromPin, BaseNodeData toNode, PinData toPin)
+    {
+        foreach (var connection in _connections)
+        {
+            if (connection.GetFrom().Node == fromNode &&
+                connection.GetFrom().Pin == fromPin &&
+                connection.GetTo().Node == toNode &&
+                connection.GetTo().Pin == toPin)
+            {
+                return connection;
+            }
+        }
+        return null;
     }
 
     public bool ValidateConnection(ConnectionData connection)

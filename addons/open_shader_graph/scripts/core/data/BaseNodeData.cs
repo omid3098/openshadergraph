@@ -48,4 +48,22 @@ public partial class BaseNodeData : RefCounted
             _outputs.Add(pin);
         }
     }
+
+    public PinData? GetInputBySlot(int slot)
+    {
+        if (slot >= 0 && slot < _inputs.Count)
+        {
+            return _inputs[slot];
+        }
+        return null;
+    }
+
+    public PinData? GetOutputByIndex(int index)
+    {
+        if (index >= 0 && index < _outputs.Count)
+        {
+            return _outputs[index];
+        }
+        return null;
+    }
 }

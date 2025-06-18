@@ -28,7 +28,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
         {
             Data = nodeData;
             Title = Data.GetName();
-            Position = Data.GetPosition();
+            PositionOffset = Data.GetPosition();
             FocusMode = Control.FocusModeEnum.All;
 
             Logger.Log("[BaseGraphNode] Initialize");
@@ -80,12 +80,11 @@ namespace OpenShaderGraph.Core.View.NodeViews
         private void OnDragged(Vector2 from, Vector2 to)
         {
             Logger.Log($"[BaseGraphNode] dragged from {from} to {to}");
-            Position = to;
             if (Data != null)
             {
-                Data.SetPosition(to);
+                Data.SetPosition(PositionOffset);
             }
-            NodeMoved?.Invoke(Data, Position);
+            NodeMoved?.Invoke(Data, PositionOffset);
             // Use built-in dragged signal externally to handle node movement
         }
 
@@ -96,13 +95,13 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public Vector2 GetNodePosition()
         {
-            return Position;
+            return PositionOffset;
         }
 
         public void SetNodePosition(Vector2 value, bool keepOffset = true)
         {
             Logger.Log($"[BaseGraphNode] set_position called with value: {value}, data_before: {Data?.GetPosition()}");
-            Position = value;
+            PositionOffset = value;
             if (Data != null)
             {
                 Data.SetPosition(value);

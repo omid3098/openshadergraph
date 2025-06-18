@@ -31,6 +31,9 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 creationPopup.NodeCreationRequested += OnNodeCreationRequested;
             }
+
+            ConnectionRequest += OnConnectionRequest;
+            DisconnectionRequest += OnDisconnectionRequest;
         }
 
         public override void _GuiInput(InputEvent @event)
@@ -39,7 +42,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (GraphData != null)
                 {
-                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition());
+                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), GetLocalMousePosition());
                     AcceptEvent();
                 }
             }
@@ -54,7 +57,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 // 1. Create Node Data using the static method on the node's type
                 var createNodeDataMethod = registeredNode.NodeType.GetMethod("CreateNodeData");
-                var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, ScrollOffset + position / Zoom });
+                var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
 
                 // 2. Add to Graph Data
                 GraphData.AddNode(nodeData);
@@ -65,6 +68,82 @@ namespace OpenShaderGraph.Core.View.UI
 
                 // 4. Add to scene
                 AddChild(nodeView);
+            }
+        }
+
+        private void OnConnectionRequest(StringName fromNode, long fromPort, StringName toNode, long toPort)
+        {
+            if (GraphData == null)
+            {
+                return;
+            }
+
+            var fromNodeView = GetNode<BaseGraphNode>(new NodePath(fromNode));
+            var toNodeView = GetNode<BaseGraphNode>(new NodePath(toNode));
+
+            if (fromNodeView == null || toNodeView == null)
+            {
+                return;
+            }
+
+            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort - fromNodeView.Data.GetInputs().Count);
+            var toPin = toNodeView.Data.GetInputBySlot((int)toPort);
+
+
+            if (fromPin != null && toPin != null)
+            {
+                if (IsConnectionValid(fromPin, toPin))
+                {
+                    var connection = new ConnectionData(fromNodeView.Data, fromPin, toNodeView.Data, toPin);
+                    GraphData.AddConnection(connection);
+                    ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
+                }
+            }
+        }
+
+        private bool IsConnectionValid(PinData fromPin, PinData toPin)
+        {
+            if (fromPin.GetDirection() == toPin.GetDirection())
+            {
+                return false;
+            }
+
+            if (fromPin.GetDataType() != toPin.GetDataType())
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+
+        private void OnDisconnectionRequest(StringName fromNode, long fromPort, StringName toNode, long toPort)
+        {
+            if (GraphData == null)
+            {
+                return;
+            }
+
+            var fromNodeView = GetNode<BaseGraphNode>(new NodePath(fromNode));
+            var toNodeView = GetNode<BaseGraphNode>(new NodePath(toNode));
+
+            if (fromNodeView == null || toNodeView == null)
+            {
+                return;
+            }
+
+            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort - fromNodeView.Data.GetInputs().Count);
+            var toPin = toNodeView.Data.GetInputBySlot((int)toPort);
+
+
+            if (fromPin != null && toPin != null)
+            {
+                var connection = GraphData.FindConnection(fromNodeView.Data, fromPin, toNodeView.Data, toPin);
+                if (connection != null)
+                {
+                    GraphData.RemoveConnection(connection);
+                    DisconnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
+                }
             }
         }
 
