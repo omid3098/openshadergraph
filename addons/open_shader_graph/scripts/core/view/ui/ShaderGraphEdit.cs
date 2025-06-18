@@ -8,6 +8,12 @@ namespace OpenShaderGraph.Core.View.UI
 {
     public partial class ShaderGraphEdit : GraphEdit
     {
+        [Signal]
+        public delegate void NodeSelectedInGraphEventHandler(BaseGraphNode node);
+
+        [Signal]
+        public delegate void NodeDeselectedInGraphEventHandler();
+
         public BaseGraphData GraphData { get; private set; }
         private ContextMenuManager _contextMenuManager;
 
@@ -34,6 +40,8 @@ namespace OpenShaderGraph.Core.View.UI
 
             ConnectionRequest += OnConnectionRequest;
             DisconnectionRequest += OnDisconnectionRequest;
+            NodeSelected += OnNodeSelected;
+            NodeDeselected += (Node node) => { EmitSignal(SignalName.NodeDeselectedInGraph); };
         }
 
         public override void _GuiInput(InputEvent @event)
@@ -145,6 +153,19 @@ namespace OpenShaderGraph.Core.View.UI
                     DisconnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
                 }
             }
+        }
+
+        private void OnNodeSelected(Node node)
+        {
+            if (node is BaseGraphNode selectedNode)
+            {
+                EmitSignal(SignalName.NodeSelectedInGraph, selectedNode);
+            }
+        }
+
+        private void OnNodeDeselected()
+        {
+            EmitSignal(SignalName.NodeDeselectedInGraph);
         }
 
         private void DeactivateGraphEdit()

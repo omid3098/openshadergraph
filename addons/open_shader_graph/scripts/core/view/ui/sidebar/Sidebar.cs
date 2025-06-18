@@ -49,5 +49,10 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             // Forward signal to parent
             FileMenuItemSelected?.Invoke(itemId);
         }
+
+        public PropertiesPanel GetPropertiesPanel()
+        {
+            return _propertiesPanel;
+        }
     }
 }

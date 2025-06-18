@@ -15,8 +15,8 @@ namespace OpenShaderGraph.Core.View
         private UIManager _uiManager;
         private PreferencesManager _preferencesManager;
         private NodeRegistry _nodeRegistry;
-        private FileDialog _fileDialog; // for save dialog
-        private Control _rootControl; // root UI scene returned by GetMainScene
+        private FileDialog _fileDialog = default!; // for save dialog
+        private Control _rootControl = default!; // root UI scene returned by GetMainScene
 
         public OpenShaderGraphEditor()
         {
@@ -52,9 +52,12 @@ namespace OpenShaderGraph.Core.View
             _uiManager.OnGraphCreated(graph);
         }
 
-        private void OnGraphSelected(BaseGraphData graph)
+        private void OnGraphSelected(BaseGraphData? graph)
         {
-            _uiManager.OnGraphSelected(graph);
+            if (graph != null)
+            {
+                _uiManager.OnGraphSelected(graph);
+            }
         }
 
         private void OnGraphDeleted(BaseGraphData graph)
@@ -180,7 +183,8 @@ namespace OpenShaderGraph.Core.View
                     inputs.Add(new Godot.Collections.Dictionary<string, Variant>
                     {
                         ["name"] = pin.GetName(),
-                        ["type"] = PinDataTypeToString(pin.GetDataType())
+                        ["type"] = PinDataTypeToString(pin.GetDataType()),
+                        ["value"] = pin.GetValue()
                     });
                 }
 
@@ -190,7 +194,8 @@ namespace OpenShaderGraph.Core.View
                     outputs.Add(new Godot.Collections.Dictionary<string, Variant>
                     {
                         ["name"] = pin.GetName(),
-                        ["type"] = PinDataTypeToString(pin.GetDataType())
+                        ["type"] = PinDataTypeToString(pin.GetDataType()),
+                        ["value"] = pin.GetValue()
                     });
                 }
 

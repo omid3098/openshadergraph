@@ -15,6 +15,9 @@ public enum GraphType
 
 public partial class BaseGraphData : RefCounted
 {
+    [Signal]
+    public delegate void NameChangedEventHandler(string newName);
+
     private string _name = "";
     private GraphType _graphType = GraphType.ShaderGraph;
     private List<BaseNodeData> _nodes = new();
@@ -40,6 +43,14 @@ public partial class BaseGraphData : RefCounted
     public string GetFilePath() => _filePath;
     public Dictionary<string, Variant> GetProperties() => _properties;
 
+    public void SetName(string name)
+    {
+        if (_name != name)
+        {
+            _name = name;
+            EmitSignal(SignalName.NameChanged, name);
+        }
+    }
     public void SetVersion(string version) => _version = version;
     public void SetFilePath(string filePath) => _filePath = filePath;
     public void SetProperties(Dictionary<string, Variant> properties) => _properties = properties;
@@ -156,5 +167,17 @@ public partial class BaseGraphData : RefCounted
         }
 
         return true;
+    }
+
+    public bool IsPinConnected(PinData pin)
+    {
+        if (pin.GetDirection() == DirectionType.Input)
+        {
+            return _connections.Exists(c => c.GetTo().Pin == pin);
+        }
+        else
+        {
+            return _connections.Exists(c => c.GetFrom().Pin == pin);
+        }
     }
 }

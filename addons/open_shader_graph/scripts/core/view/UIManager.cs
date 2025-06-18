@@ -5,6 +5,7 @@ using OpenShaderGraph.Core.View.UI;
 using OpenShaderGraph.Core.View.UI.Sidebar;
 using OpenShaderGraph.Core.View.UI.BottomPanel;
 using OpenShaderGraph.Core.View.UI.ContextMenu;
+using OpenShaderGraph.Core.View.NodeViews;
 using System;
 
 namespace OpenShaderGraph.Core.View
@@ -19,6 +20,7 @@ namespace OpenShaderGraph.Core.View
         private ContextMenuManager _contextMenuManager = default!;
         private BottomPanel _bottomPanel = default!;
         private Sidebar _sidebar = default!;
+        private ShaderGraphEdit _currentGraphEdit;
 
         private const int SidebarWidth = 250;
         private const int BottomPanelHeight = 250;
@@ -91,6 +93,7 @@ namespace OpenShaderGraph.Core.View
         public void OnGraphCreated(BaseGraphData graph)
         {
             Logger.Log($"[UIManager] Adding graph tab: {graph.GetName()}");
+            graph.NameChanged += (newName) => OnGraphNameChanged(graph, newName);
             CreateOrSwitchToTab(graph);
         }
 
@@ -109,6 +112,8 @@ namespace OpenShaderGraph.Core.View
                 if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
                 {
                     _graphTabs.CurrentTab = i;
+                    // No new tab created, but we need to ensure signals are connected
+                    // which is handled by OnTabChanged
                     return;
                 }
             }
@@ -119,6 +124,7 @@ namespace OpenShaderGraph.Core.View
             _graphTabs.AddChild(newEdit);
             _graphTabs.SetTabTitle(_graphTabs.GetChildCount() - 1, graph.GetName());
             _graphTabs.CurrentTab = _graphTabs.GetChildCount() - 1;
+            // OnTabChanged will handle connecting signals
         }
 
         public void OnGraphDeleted(BaseGraphData graph)
@@ -129,6 +135,7 @@ namespace OpenShaderGraph.Core.View
                 if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
                 {
                     _graphTabs.RemoveChild(child);
+                    graph.NameChanged -= (newName) => OnGraphNameChanged(graph, newName);
                     child.QueueFree();
                     break;
                 }
@@ -140,8 +147,20 @@ namespace OpenShaderGraph.Core.View
             var child = _graphTabs.GetChild((int)tabIndex);
             if (child is ShaderGraphEdit edit && edit.GetGraphData() != null)
             {
+                if (_currentGraphEdit != null)
+                {
+                    _currentGraphEdit.NodeSelectedInGraph -= OnNodeSelectedInGraph;
+                    _currentGraphEdit.NodeDeselectedInGraph -= OnNodeDeselectedInGraph;
+                }
+
+                _currentGraphEdit = edit;
+                _currentGraphEdit.NodeSelectedInGraph += OnNodeSelectedInGraph;
+                _currentGraphEdit.NodeDeselectedInGraph += OnNodeDeselectedInGraph;
+
                 // Emit signal to parent instead of direct call to GraphManager
                 GraphTabSelected?.Invoke(edit.GetGraphData());
+                // Update properties panel to show graph properties
+                OnNodeDeselectedInGraph();
             }
         }
 
@@ -149,6 +168,33 @@ namespace OpenShaderGraph.Core.View
         {
             // Forward signal to parent
             FileMenuItemSelected?.Invoke(itemId);
+        }
+
+        private void OnGraphNameChanged(BaseGraphData graph, string newName)
+        {
+            for (int i = 0; i < _graphTabs.GetTabCount(); i++)
+            {
+                if (_graphTabs.GetTabControl(i) is ShaderGraphEdit edit && edit.GraphData == graph)
+                {
+                    _graphTabs.SetTabTitle(i, newName);
+                    break;
+                }
+            }
+        }
+
+        private void OnNodeSelectedInGraph(BaseGraphNode node)
+        {
+            var propertiesPanel = _sidebar.GetPropertiesPanel();
+            propertiesPanel.DisplayNodeProperties(node, _currentGraphEdit.GraphData);
+        }
+
+        private void OnNodeDeselectedInGraph()
+        {
+            var propertiesPanel = _sidebar.GetPropertiesPanel();
+            if (_currentGraphEdit != null)
+            {
+                propertiesPanel.DisplayGraphProperties(_currentGraphEdit.GraphData);
+            }
         }
     }
 }

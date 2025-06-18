@@ -11,11 +11,11 @@ namespace OpenShaderGraph.Core.Logic
     public partial class GraphManager : Node
     {
         // Direct signals instead of using EventBus
-        public Action<BaseGraphData> GraphCreated;
+        public Action<BaseGraphData> GraphCreated = delegate { };
 
-        public Action<BaseGraphData?> GraphSelected;
+        public Action<BaseGraphData?> GraphSelected = delegate { };
 
-        public Action<BaseGraphData> GraphDeleted;
+        public Action<BaseGraphData> GraphDeleted = delegate { };
 
         private List<BaseGraphData> _allGraphsData = new();
         private BaseGraphData? _currentGraphData;
