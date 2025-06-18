@@ -39,7 +39,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (GraphData != null)
                 {
-                    _contextMenuManager.ShowCreationMenu(GetLocalMousePosition());
+                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition());
                     AcceptEvent();
                 }
             }

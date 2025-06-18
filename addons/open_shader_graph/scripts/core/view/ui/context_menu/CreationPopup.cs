@@ -10,59 +10,120 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
     {
         private LineEdit _searchBox;
         private Dictionary<string, PopupMenu> _subMenus = new();
-        private List<Node> _popupItems = new();
         private Dictionary<string, List<RegisteredNode>> _registeredNodes = new();
 
         public Action<string, Vector2> NodeCreationRequested;
 
         public override void _Ready()
         {
-            // Constructor should do minimal work.
-            // Defer population until _Ready.
             HideOnItemSelection = false;
             IdPressed += OnIdPressed;
+            AboutToPopup += OnAboutToPopup;
+            SizeChanged += PositionSearchBox;
 
             _searchBox = new LineEdit { PlaceholderText = "Search..." };
             AddChild(_searchBox);
             _searchBox.TextChanged += OnSearchTextChanged;
 
             _registeredNodes = Services.Get<NodeRegistry>().GetRegisteredNodes();
+        }
 
-            PopulateMenu();
+        private void OnAboutToPopup()
+        {
+            // Repopulate menu each time it's shown to ensure it's fresh.
+            PopulateMenu(_searchBox.Text);
+
+            // Defer positioning to allow the popup to calculate its size.
+            Callable.From(PositionSearchBox).CallDeferred();
+
+            _searchBox.GrabFocus();
+            _searchBox.SelectAll();
         }
 
         public void ShowMenu(Vector2 position)
         {
             Position = (Vector2I)position;
             Popup();
-            _searchBox.GrabFocus();
         }
 
-        private void PopulateMenu()
+        private void PositionSearchBox()
         {
-            Logger.Log($"[CreationPopup] Populating menu with {_registeredNodes.Count} categories");
-            // Clear all existing items
-            for (int i = 0; i < _popupItems.Count; i++)
+            if (ItemCount == 0)
             {
-                Node item = _popupItems[i];
-                RemoveChild(item);
-                item.QueueFree();
+                return;
             }
-            _popupItems.Clear();
 
-            // Populate the menu with the registered nodes
-            foreach (string category in _registeredNodes.Keys)
+            var panelStyle = GetThemeStylebox("panel");
+            if (panelStyle == null) return;
+
+            var leftMargin = panelStyle.GetContentMargin(Side.Left);
+            var topMargin = panelStyle.GetContentMargin(Side.Top);
+            var rightMargin = panelStyle.GetContentMargin(Side.Right);
+
+            _searchBox.Position = new Vector2(leftMargin, topMargin);
+            _searchBox.Size = new Vector2(Size.X - leftMargin - rightMargin, 0); // Height will be set next
+
+            var font = GetThemeFont("font");
+            var fontSize = GetThemeFontSize("font_size");
+            var fontHeight = font.GetHeight(fontSize);
+
+            var searchBoxStyle = new StyleBoxFlat
             {
-                var subMenu = new PopupMenu();
-                subMenu.Name = category + " > ";
-                AddChild(subMenu);
-                AddSubmenuNodeItem(category, subMenu);
-                _subMenus[category] = subMenu;
-                foreach (var node in _registeredNodes[category])
+                BgColor = GetThemeColor("dark_color_2", "Editor"),
+                ContentMarginLeft = 4,
+                ContentMarginRight = 4,
+                ContentMarginTop = 4,
+                ContentMarginBottom = 4,
+                BorderWidthBottom = 2,
+                BorderColor = GetThemeColor("dark_color_1", "Editor")
+            };
+            _searchBox.AddThemeStyleboxOverride("normal", searchBoxStyle);
+            _searchBox.Size = new Vector2(_searchBox.Size.X, fontHeight + searchBoxStyle.GetMinimumSize().Y);
+        }
+
+        private void PopulateMenu(string searchText = "")
+        {
+            searchText = searchText.Trim().ToLower();
+
+            Clear();
+            foreach (var sub in _subMenus.Values)
+            {
+                sub.QueueFree();
+            }
+            _subMenus.Clear();
+
+            // This placeholder item reserves space for the search box.
+            // It is covered by the search box, which gets a proper background.
+            AddItem("");
+            SetItemDisabled(0, true);
+
+            if (string.IsNullOrEmpty(searchText))
+            {
+                foreach (string category in _registeredNodes.Keys)
                 {
-                    subMenu.AddItem(node.Attribute.Name);
-                    subMenu.IdPressed += (id) => OnSubMenuIdPressed(subMenu, id);
-                    Logger.Log($"[CreationPopup] Added submenu for {category} with {node.Attribute.Name}");
+                    var subMenu = new PopupMenu();
+                    subMenu.Name = category + " > ";
+                    AddSubmenuNodeItem(category, subMenu);
+                    _subMenus[category] = subMenu;
+                    foreach (var node in _registeredNodes[category])
+                    {
+                        subMenu.AddItem(node.Attribute.Name);
+                        subMenu.IdPressed += (id) => OnSubMenuIdPressed(subMenu, id);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var category in _registeredNodes.Keys)
+                {
+                    foreach (var node in _registeredNodes[category])
+                    {
+                        if (node.Attribute.Name.ToLower().Contains(searchText) || category.ToLower().Contains(searchText))
+                        {
+                            var itemText = $"{category} > {node.Attribute.Name}";
+                            AddItem(itemText);
+                        }
+                    }
                 }
             }
         }
@@ -77,51 +138,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         private void OnSearchTextChanged(string newText)
         {
-            var searchText = newText.Trim().ToLower();
-
-            // Clear everything except the search box itself
-            while (ItemCount > 1)
-            {
-                RemoveItem(1);
-            }
-            foreach (var child in GetChildren())
-            {
-                if (child is PopupMenu)
-                {
-                    RemoveChild(child);
-                    child.QueueFree();
-                }
-            }
-            _subMenus.Clear();
-
-            var registeredNodes = Services.Get<NodeRegistry>().GetRegisteredNodes();
-
-            if (string.IsNullOrEmpty(searchText))
-            {
-                // If search is cleared, repopulate the full menu
-                PopulateMenu();
-            }
-            else
-            {
-                // Re-add search box if it was removed
-                if (_searchBox.GetParent() == null)
-                {
-                    AddChild(_searchBox);
-                }
-
-                // If there is search text, show a flat list
-                foreach (var category in registeredNodes.Keys)
-                {
-                    foreach (var node in registeredNodes[category])
-                    {
-                        var itemText = $"{node.Attribute.Category} > {node.Attribute.Name}";
-                        if (itemText.ToLower().Contains(searchText))
-                        {
-                            AddItem(itemText);
-                        }
-                    }
-                }
-            }
+            PopulateMenu(newText);
         }
 
         private void OnIdPressed(long id)
@@ -129,11 +146,10 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             var searchText = _searchBox.Text.Trim();
             if (!string.IsNullOrEmpty(searchText))
             {
-                if (id >= ItemCount || id < 0) return;
+                if (id >= ItemCount || id < 1) return; // item 0 is placeholder
                 var itemText = GetItemText((int)id);
                 if (string.IsNullOrEmpty(itemText)) return;
 
-                // Extract node name from "Category > Node Name"
                 var parts = itemText.Split(" > ");
                 if (parts.Length > 1)
                 {
