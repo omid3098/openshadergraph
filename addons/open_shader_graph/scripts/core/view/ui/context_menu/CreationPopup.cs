@@ -11,6 +11,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private LineEdit _searchBox;
         private Dictionary<string, PopupMenu> _subMenus = new();
         private Dictionary<string, List<RegisteredNode>> _registeredNodes = new();
+        private Vector2 _creationPosition;
 
         public Action<string, Vector2> NodeCreationRequested;
 
@@ -42,6 +43,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         public void ShowMenu(Vector2 position)
         {
+            _creationPosition = position;
             Position = (Vector2I)position;
             Popup();
         }
@@ -131,7 +133,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private void OnSubMenuIdPressed(PopupMenu menu, long id)
         {
             var nodeName = menu.GetItemText((int)id);
-            NodeCreationRequested?.Invoke(nodeName, Position);
+            NodeCreationRequested?.Invoke(nodeName, _creationPosition);
             Hide();
         }
 
@@ -154,7 +156,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                 if (parts.Length > 1)
                 {
                     var nodeName = parts[1];
-                    NodeCreationRequested?.Invoke(nodeName, Position);
+                    NodeCreationRequested?.Invoke(nodeName, _creationPosition);
                     Hide();
                 }
             }

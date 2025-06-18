@@ -1,25 +1,18 @@
 using Godot;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.View.NodeViews.Constants;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
     [RegisterNode(name: "Float", category: "Constants")]
-    public partial class FloatConstantNode : BaseGraphNode
+    public partial class FloatConstantNode : BaseConstantNode
     {
-        public override void _Ready()
+        public new static BaseNodeData CreateNodeData(string name, string type, Vector2 position)
         {
-            base._Ready();
-            // Custom logic for the float constant node can go here.
-            // For now, we rely on the BaseGraphNode's initialization.
-        }
-
-        public void SetValue(float value)
-        {
-            if (Data.GetOutputs().Count > 0)
-            {
-                var pin = Data.GetOutputs()[0];
-                pin.SetValue(Variant.From(value));
-            }
+            var nodeData = new BaseNodeData(name, type, position);
+            nodeData.AddInput(new PinData("value", PinDataType.Float, DirectionType.Input, 0f));
+            nodeData.AddOutput(new PinData("out", PinDataType.Float, DirectionType.Output));
+            return nodeData;
         }
     }
 }

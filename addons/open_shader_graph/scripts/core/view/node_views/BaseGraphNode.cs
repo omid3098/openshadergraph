@@ -2,16 +2,22 @@ using System;
 using Godot;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.View.Utils;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
-    public partial class BaseGraphNode : GraphNode
+    public abstract partial class BaseGraphNode : GraphNode
     {
         public Action<BaseNodeData, Vector2> NodeMoved;
 
         public BaseNodeData Data { get; private set; }
 
         private static readonly Color DefaultPinColor = new Color(1, 1, 1, 0.8f);
+
+        public static BaseNodeData CreateNodeData(string name, string type, Vector2 position)
+        {
+            return new BaseNodeData(name, type, position);
+        }
 
         public BaseGraphNode() : base()
         {
@@ -32,7 +38,31 @@ namespace OpenShaderGraph.Core.View.NodeViews
             FocusExited += OnFocusExited;
             Dragged += OnDragged;
 
-            // TODO: add pin slots here
+            DrawPins();
+        }
+
+        private void DrawPins()
+        {
+            ClearAllSlots();
+            int slotIndex = 0;
+
+            foreach (var pin in Data.GetInputs())
+            {
+                var label = new Label { Text = pin.GetName() };
+                AddChild(label);
+                var color = PinTypeColors.GetColorForType(pin.GetDataType());
+                SetSlot(slotIndex, true, (int)pin.GetDataType(), color, false, 0, Colors.Transparent);
+                slotIndex++;
+            }
+
+            foreach (var pin in Data.GetOutputs())
+            {
+                var label = new Label { Text = pin.GetName(), HorizontalAlignment = HorizontalAlignment.Right };
+                AddChild(label);
+                var color = PinTypeColors.GetColorForType(pin.GetDataType());
+                SetSlot(slotIndex, false, 0, Colors.Transparent, true, (int)pin.GetDataType(), color);
+                slotIndex++;
+            }
         }
 
         private void OnFocusEntered()

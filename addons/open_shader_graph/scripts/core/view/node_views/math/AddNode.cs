@@ -1,14 +1,19 @@
 using Godot;
+using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.View.NodeViews.Math;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
     [RegisterNode(name: "Add", category: "Math")]
-    public partial class AddNode : BaseGraphNode
+    public partial class AddNode : BaseMathNode
     {
-        public override void _Ready()
+        public new static BaseNodeData CreateNodeData(string name, string type, Vector2 position)
         {
-            base._Ready();
-            // Custom logic for the Add node
+            var nodeData = new BaseNodeData(name, type, position);
+            nodeData.AddInput(new PinData("a", PinDataType.Float, DirectionType.Input));
+            nodeData.AddInput(new PinData("b", PinDataType.Float, DirectionType.Input));
+            nodeData.AddOutput(new PinData("out", PinDataType.Float, DirectionType.Output));
+            return nodeData;
         }
     }
 }

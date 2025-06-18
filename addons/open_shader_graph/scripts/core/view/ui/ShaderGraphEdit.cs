@@ -52,9 +52,9 @@ namespace OpenShaderGraph.Core.View.UI
 
             if (registeredNode != null)
             {
-                // 1. Create Node Data
-                var nodeData = new BaseNodeData(registeredNode.Attribute.Name, registeredNode.Attribute.Name, ScrollOffset + position / Zoom);
-                // TODO: Populate default pins from a definition
+                // 1. Create Node Data using the static method on the node's type
+                var createNodeDataMethod = registeredNode.NodeType.GetMethod("CreateNodeData");
+                var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, ScrollOffset + position / Zoom });
 
                 // 2. Add to Graph Data
                 GraphData.AddNode(nodeData);

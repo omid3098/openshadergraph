@@ -1,3 +1,4 @@
+#nullable enable
 using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
@@ -179,7 +180,7 @@ namespace OpenShaderGraph.Core.View
                     inputs.Add(new Godot.Collections.Dictionary<string, Variant>
                     {
                         ["name"] = pin.GetName(),
-                        ["type"] = pin.GetDataType()
+                        ["type"] = PinDataTypeToString(pin.GetDataType())
                     });
                 }
 
@@ -189,7 +190,7 @@ namespace OpenShaderGraph.Core.View
                     outputs.Add(new Godot.Collections.Dictionary<string, Variant>
                     {
                         ["name"] = pin.GetName(),
-                        ["type"] = pin.GetDataType()
+                        ["type"] = PinDataTypeToString(pin.GetDataType())
                     });
                 }
 
@@ -239,6 +240,11 @@ namespace OpenShaderGraph.Core.View
                 GraphType.GlobalSubgraph => "GLOBAL_SUBGRAPH",
                 _ => "UNKNOWN"
             };
+        }
+
+        private static string PinDataTypeToString(PinDataType pinDataType)
+        {
+            return pinDataType.ToString().ToUpper();
         }
     }
 }

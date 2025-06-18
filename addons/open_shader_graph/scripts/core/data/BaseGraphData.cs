@@ -1,3 +1,4 @@
+#nullable enable
 namespace OpenShaderGraph.Core.Data;
 
 using Godot;

@@ -1,3 +1,4 @@
+#nullable enable
 namespace OpenShaderGraph.Core.Data;
 
 using Godot;
@@ -31,4 +32,20 @@ public partial class BaseNodeData : RefCounted
     public void SetNodeType(string value) => _type = value;
     public void SetInputs(List<PinData> value) => _inputs = value;
     public void SetOutputs(List<PinData> value) => _outputs = value;
+
+    public void AddInput(PinData pin)
+    {
+        if (pin.GetDirection() == DirectionType.Input)
+        {
+            _inputs.Add(pin);
+        }
+    }
+
+    public void AddOutput(PinData pin)
+    {
+        if (pin.GetDirection() == DirectionType.Output)
+        {
+            _outputs.Add(pin);
+        }
+    }
 }
