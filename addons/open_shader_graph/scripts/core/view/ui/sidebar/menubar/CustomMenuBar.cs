@@ -1,14 +1,14 @@
 using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
+using System;
 
 namespace OpenShaderGraph.Core.View.UI.Sidebar.MenuBar
 {
     public partial class CustomMenuBar : PanelContainer
     {
         // Direct signal for parent communication
-        [Signal]
-        public delegate void FileMenuItemSelectedEventHandler(int itemId);
+        public Action<int> FileMenuItemSelected;
 
         private Dictionary<string, MenuData> _menus = new();
         // Internal HBoxContainer that actually hosts the menu buttons. Using a PanelContainer
@@ -164,7 +164,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar.MenuBar
         private void OnPopupItemSelected(int itemId, string menuName)
         {
             // Emit signal to parent instead of using EventBus
-            EmitSignal(SignalName.FileMenuItemSelected, itemId);
+            FileMenuItemSelected?.Invoke(itemId);
         }
 
         // Convenience methods for common menu operations

@@ -17,20 +17,6 @@ namespace OpenShaderGraph.Core.View.UI
             DeactivateGraphEdit();
         }
 
-        public override void _Ready()
-        {
-            base._Ready();
-            _contextMenuManager = GetNode<ContextMenuManager>("/root/OpenShaderGraph/UIManager/ContextMenuManager");
-            if (_contextMenuManager != null)
-            {
-                var creationPopup = _contextMenuManager.GetNode<CreationPopup>("CreationPopup");
-                if (creationPopup != null)
-                {
-                    creationPopup.NodeCreationRequested += OnNodeCreationRequested;
-                }
-            }
-        }
-
         public void Initialize(BaseGraphData graph, ContextMenuManager contextMenuManager)
         {
             GraphData = graph;

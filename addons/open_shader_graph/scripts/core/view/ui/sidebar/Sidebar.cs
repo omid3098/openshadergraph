@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.UI.Sidebar.MenuBar;
@@ -7,8 +8,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
     public partial class Sidebar : Control
     {
         // Forward signals from child components
-        [Signal]
-        public delegate void FileMenuItemSelectedEventHandler(int itemId);
+        public Action<int> FileMenuItemSelected;
 
         private CustomMenuBar _customMenuBar;
         private PropertiesPanel _propertiesPanel;
@@ -47,7 +47,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
         private void OnFileMenuItemSelected(int itemId)
         {
             // Forward signal to parent
-            EmitSignal(SignalName.FileMenuItemSelected, itemId);
+            FileMenuItemSelected?.Invoke(itemId);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
@@ -6,8 +7,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
 {
     public partial class BaseGraphNode : GraphNode
     {
-        [Signal]
-        public delegate void NodeMovedEventHandler(BaseNodeData nodeData, Vector2 newPosition);
+        public Action<BaseNodeData, Vector2> NodeMoved;
 
         public BaseNodeData Data { get; private set; }
 
@@ -55,7 +55,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
             {
                 Data.SetPosition(to);
             }
-            EmitSignal(SignalName.NodeMoved, Data, Position);
+            NodeMoved?.Invoke(Data, Position);
             // Use built-in dragged signal externally to handle node movement
         }
 

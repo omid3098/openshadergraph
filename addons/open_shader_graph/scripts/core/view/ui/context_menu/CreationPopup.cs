@@ -1,6 +1,7 @@
 using Godot;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.NodeViews;
+using System;
 using System.Collections.Generic;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
@@ -10,8 +11,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private LineEdit _searchBox;
         private Dictionary<string, PopupMenu> _subMenus = new();
 
-        [Signal]
-        public delegate void NodeCreationRequestedEventHandler(string nodeName, Vector2 position);
+        public Action<string, Vector2> NodeCreationRequested;
 
         public CreationPopup()
         {
@@ -78,7 +78,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private void OnSubMenuIdPressed(PopupMenu menu, long id)
         {
             var nodeName = menu.GetItemText((int)id);
-            EmitSignal(SignalName.NodeCreationRequested, nodeName, Position);
+            NodeCreationRequested?.Invoke(nodeName, Position);
             Hide();
         }
 
@@ -146,7 +146,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                 if (parts.Length > 1)
                 {
                     var nodeName = parts[1];
-                    EmitSignal(SignalName.NodeCreationRequested, nodeName, Position);
+                    NodeCreationRequested?.Invoke(nodeName, Position);
                     Hide();
                 }
             }

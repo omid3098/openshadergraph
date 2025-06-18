@@ -5,17 +5,15 @@ using OpenShaderGraph.Core.View.UI;
 using OpenShaderGraph.Core.View.UI.Sidebar;
 using OpenShaderGraph.Core.View.UI.BottomPanel;
 using OpenShaderGraph.Core.View.UI.ContextMenu;
+using System;
 
 namespace OpenShaderGraph.Core.View
 {
     public partial class UIManager : Node
     {
         // Direct signals for parent communication
-        [Signal]
-        public delegate void GraphTabSelectedEventHandler(BaseGraphData graph);
-
-        [Signal]
-        public delegate void FileMenuItemSelectedEventHandler(int itemId);
+        public Action<BaseGraphData> GraphTabSelected;
+        public Action<int> FileMenuItemSelected;
 
         private TabContainer _graphTabs = default!;
         private ContextMenuManager _contextMenuManager = default!;
@@ -143,14 +141,14 @@ namespace OpenShaderGraph.Core.View
             if (child is ShaderGraphEdit edit && edit.GetGraphData() != null)
             {
                 // Emit signal to parent instead of direct call to GraphManager
-                EmitSignal(SignalName.GraphTabSelected, edit.GetGraphData());
+                GraphTabSelected?.Invoke(edit.GetGraphData());
             }
         }
 
         private void OnFileMenuItemSelected(int itemId)
         {
             // Forward signal to parent
-            EmitSignal(SignalName.FileMenuItemSelected, itemId);
+            FileMenuItemSelected?.Invoke(itemId);
         }
     }
 }
