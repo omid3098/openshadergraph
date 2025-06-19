@@ -30,11 +30,6 @@ namespace OpenShaderGraph.Core.View.UI
                 DisconnectionRequest -= OnDisconnectionRequest;
                 NodeSelected -= OnNodeSelected;
                 NodeDeselected -= OnNodeDeselected;
-                var oldCreationPopup = _contextMenuManager?.GetNode<CreationPopup>("CreationPopup");
-                if (oldCreationPopup != null)
-                {
-                    oldCreationPopup.NodeCreationRequested -= OnNodeCreationRequested;
-                }
             }
 
             GraphData = graph;
@@ -45,16 +40,19 @@ namespace OpenShaderGraph.Core.View.UI
             Logger.Log($"[ShaderGraphEdit] Loaded graph: {graph.GetName()}");
             ActivateGraphEdit();
 
-            var creationPopup = _contextMenuManager.GetNode<CreationPopup>("CreationPopup");
-            if (creationPopup != null)
-            {
-                creationPopup.NodeCreationRequested += OnNodeCreationRequested;
-            }
-
             ConnectionRequest += OnConnectionRequest;
             DisconnectionRequest += OnDisconnectionRequest;
             NodeSelected += OnNodeSelected;
             NodeDeselected += OnNodeDeselected;
+        }
+
+        public override void _ExitTree()
+        {
+            base._ExitTree();
+            ConnectionRequest -= OnConnectionRequest;
+            DisconnectionRequest -= OnDisconnectionRequest;
+            NodeSelected -= OnNodeSelected;
+            NodeDeselected -= OnNodeDeselected;
         }
 
         private void DrawGraph()
@@ -111,13 +109,13 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (GraphData != null)
                 {
-                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), GetLocalMousePosition());
+                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), GetLocalMousePosition(), this);
                     AcceptEvent();
                 }
             }
         }
 
-        private void OnNodeCreationRequested(string nodeName, Vector2 position)
+        public void CreateNodeAt(string nodeName, Vector2 position)
         {
             Logger.Log($"Node creation requested: {nodeName} at {position}");
             var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeName);

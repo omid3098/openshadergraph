@@ -12,8 +12,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private Dictionary<string, PopupMenu> _subMenus = new();
         private Dictionary<string, List<RegisteredNode>> _registeredNodes = new();
         private Vector2 _creationPositionInGraph;
-
-        public Action<string, Vector2> NodeCreationRequested;
+        private ShaderGraphEdit _targetGraphEdit;
 
         public override void _Ready()
         {
@@ -41,8 +40,9 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             _searchBox.SelectAll();
         }
 
-        public void ShowMenu(Vector2 globalPosition, Vector2 localPosition)
+        public void ShowMenu(Vector2 globalPosition, Vector2 localPosition, ShaderGraphEdit target)
         {
+            _targetGraphEdit = target;
             _creationPositionInGraph = localPosition;
             Position = (Vector2I)globalPosition;
             Popup();
@@ -133,7 +133,10 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private void OnSubMenuIdPressed(PopupMenu menu, long id)
         {
             var nodeName = menu.GetItemText((int)id);
-            NodeCreationRequested?.Invoke(nodeName, _creationPositionInGraph);
+            if (_targetGraphEdit != null && IsInstanceValid(_targetGraphEdit))
+            {
+                _targetGraphEdit.CreateNodeAt(nodeName, _creationPositionInGraph);
+            }
             Hide();
         }
 
@@ -156,7 +159,10 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                 if (parts.Length > 1)
                 {
                     var nodeName = parts[1];
-                    NodeCreationRequested?.Invoke(nodeName, _creationPositionInGraph);
+                    if (_targetGraphEdit != null && IsInstanceValid(_targetGraphEdit))
+                    {
+                        _targetGraphEdit.CreateNodeAt(nodeName, _creationPositionInGraph);
+                    }
                     Hide();
                 }
             }
