@@ -185,7 +185,7 @@ namespace OpenShaderGraph.Core.View
         private void OnNodeSelectedInGraph(BaseGraphNode node)
         {
             var propertiesPanel = _sidebar.GetPropertiesPanel();
-            propertiesPanel.DisplayNodeProperties(node, _currentGraphEdit.GraphData);
+            propertiesPanel.DisplayNodeProperties(node);
         }
 
         private void OnNodeDeselectedInGraph()
@@ -193,7 +193,7 @@ namespace OpenShaderGraph.Core.View
             var propertiesPanel = _sidebar.GetPropertiesPanel();
             if (_currentGraphEdit != null)
             {
-                propertiesPanel.DisplayGraphProperties(_currentGraphEdit.GraphData);
+                propertiesPanel.DisplayGraphProperties();
             }
         }
     }
