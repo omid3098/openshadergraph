@@ -301,6 +301,11 @@ namespace OpenShaderGraph.Core.View
                 }
 
                 var nodeData = new BaseNodeData(nodeName, nodeType, position, inputs, outputs);
+                if (nodeEntry.ContainsKey("id"))
+                {
+                    nodeData.Id = (long)nodeEntry["id"];
+                }
+
                 graph.AddNode(nodeData);
                 nodeMap[nodeData.Id] = nodeData;
             }

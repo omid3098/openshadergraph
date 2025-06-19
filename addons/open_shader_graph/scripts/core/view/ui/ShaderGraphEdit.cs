@@ -4,6 +4,7 @@ using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.UI.ContextMenu;
 using OpenShaderGraph.Core.View.NodeViews;
 using System;
+using System.Linq;
 
 namespace OpenShaderGraph.Core.View.UI
 {
@@ -30,10 +31,14 @@ namespace OpenShaderGraph.Core.View.UI
                 DisconnectionRequest -= OnDisconnectionRequest;
                 NodeSelected -= OnNodeSelected;
                 NodeDeselected -= OnNodeDeselected;
+                GraphData.NodeRemoved -= OnNodeRemoved;
+                GraphData.NodeAdded -= OnNodeAdded;
             }
 
             GraphData = graph;
             _contextMenuManager = contextMenuManager;
+            GraphData.NodeRemoved += OnNodeRemoved;
+            GraphData.NodeAdded += OnNodeAdded;
 
             ClearGraph();
             DrawGraph();
@@ -53,6 +58,10 @@ namespace OpenShaderGraph.Core.View.UI
             DisconnectionRequest -= OnDisconnectionRequest;
             NodeSelected -= OnNodeSelected;
             NodeDeselected -= OnNodeDeselected;
+            if (GraphData != null)
+            {
+                GraphData.NodeRemoved -= OnNodeRemoved;
+            }
         }
 
         private void DrawGraph()
@@ -107,7 +116,7 @@ namespace OpenShaderGraph.Core.View.UI
         {
             if (@event is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed)
             {
-                if (GraphData != null)
+                if (GraphData != null && _contextMenuManager != null)
                 {
                     var globalMousePosition = GetGlobalMousePosition();
                     BaseGraphNode topNode = null;
@@ -127,7 +136,7 @@ namespace OpenShaderGraph.Core.View.UI
 
                     if (topNode != null)
                     {
-                        _contextMenuManager.ShowNodeMenu(globalMousePosition, topNode);
+                        _contextMenuManager.ShowNodeMenu(globalMousePosition, topNode, this);
                     }
                     else
                     {
@@ -233,6 +242,29 @@ namespace OpenShaderGraph.Core.View.UI
             NodeDeselectedInGraph?.Invoke();
         }
 
+        private void OnNodeAdded(BaseNodeData nodeData)
+        {
+            var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeData.GetNodeType());
+            if (registeredNode != null)
+            {
+                var nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType);
+                nodeView.Initialize(nodeData);
+                AddChild(nodeView);
+            }
+        }
+
+        private void OnNodeRemoved(BaseNodeData nodeData)
+        {
+            foreach (var nodeView in GetChildren().OfType<BaseGraphNode>())
+            {
+                if (nodeView.Data.Id == nodeData.Id)
+                {
+                    nodeView.QueueFree();
+                    return;
+                }
+            }
+        }
+
         private void DeactivateGraphEdit()
         {
             ShowMenu = false;
@@ -266,6 +298,29 @@ namespace OpenShaderGraph.Core.View.UI
 
             // Remove all connections
             ClearConnections();
+        }
+
+        public void RequestNodeDeletion(BaseGraphNode node)
+        {
+            Services.Get<Logic.GraphManager>().RemoveNode(node.Data);
+        }
+
+        public void RequestNodeDuplication(BaseGraphNode node)
+        {
+            Services.Get<Logic.GraphManager>().DuplicateNode(node.Data);
+        }
+
+        public void RequestNodeCreation(string nodeName, Vector2 position)
+        {
+            Logger.Log($"Node creation requested: {nodeName} at {position}");
+            var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeName);
+
+            if (registeredNode != null)
+            {
+                var createNodeDataMethod = registeredNode.NodeType.GetMethod("CreateNodeData");
+                var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
+                GraphData.AddNode(nodeData);
+            }
         }
     }
 }

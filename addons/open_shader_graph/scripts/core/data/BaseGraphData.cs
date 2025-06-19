@@ -17,6 +17,8 @@ public enum GraphType
 public partial class BaseGraphData : RefCounted
 {
     public Action<string> NameChanged { get; set; }
+    public Action<BaseNodeData> NodeRemoved { get; set; }
+    public Action<BaseNodeData> NodeAdded { get; set; }
 
     private string _name = "";
     private GraphType _graphType = GraphType.ShaderGraph;
@@ -70,8 +72,35 @@ public partial class BaseGraphData : RefCounted
     {
         if (node == null)
             return; // Silently ignore null nodes
-        node.Id = _nextNodeId++;
+
+        if (node.Id == -1)
+        {
+            node.Id = _nextNodeId++;
+        }
+        else
+        {
+            if (node.Id >= _nextNodeId)
+            {
+                _nextNodeId = node.Id + 1;
+            }
+        }
+
         _nodes.Add(node);
+        NodeAdded?.Invoke(node);
+    }
+
+    public void RemoveNode(BaseNodeData node)
+    {
+        if (node == null || !_nodes.Contains(node))
+            return;
+
+        // Remove connections associated with the node
+        _connections.RemoveAll(connection =>
+            connection.GetFrom().NodeId == node.Id || connection.GetTo().NodeId == node.Id
+        );
+
+        _nodes.Remove(node);
+        NodeRemoved?.Invoke(node);
     }
 
     public bool AddConnection(ConnectionData connection)

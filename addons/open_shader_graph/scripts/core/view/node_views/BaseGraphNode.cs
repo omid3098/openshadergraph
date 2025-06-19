@@ -125,5 +125,15 @@ namespace OpenShaderGraph.Core.View.NodeViews
                 Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.GetName()}");
             }
         }
+
+        public void DeleteNode()
+        {
+            // remove all listeners
+            FocusEntered -= OnFocusEntered;
+            FocusExited -= OnFocusExited;
+            Dragged -= OnDragged;
+            NodeMoved = null;
+            QueueFree();
+        }
     }
 }

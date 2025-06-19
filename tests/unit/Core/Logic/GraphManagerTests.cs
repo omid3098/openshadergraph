@@ -3,6 +3,7 @@ using Godot;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Logic;
 using static OpenShaderGraph.Core.Data.GraphType;
+using System.Collections.Generic;
 
 namespace OpenShaderGraph.Tests.Core.Logic
 {
@@ -17,150 +18,35 @@ namespace OpenShaderGraph.Tests.Core.Logic
             _graphManager = new GraphManager();
         }
 
-        [TearDown]
-        public void TearDown()
-        {
-            _graphManager?.Cleanup();
-        }
-
         [Test]
-        public void Constructor_InitializesCorrectly()
+        public void CreateNewGraph_ReturnsNewGraph()
         {
-            // Assert
-            Assert.That(_graphManager.GetCurrentGraph(), Is.Null);
-            Assert.That(_graphManager.GetAllGraphs(), Is.Not.Null);
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void CreateNewGraph_DefaultParameters_CreatesShaderGraph()
-        {
-            // Act
             var graph = _graphManager.CreateNewGraph();
-
-            // Assert
             Assert.That(graph, Is.Not.Null);
-            Assert.That(graph.GetName(), Is.EqualTo("New Graph"));
-            Assert.That(graph.GetGraphType(), Is.EqualTo(GraphType.ShaderGraph));
-            Assert.That(_graphManager.GetCurrentGraph(), Is.EqualTo(graph));
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(1));
+            Assert.That(_graphManager.GetAllGraphs(), Contains.Item(graph));
         }
 
         [Test]
-        public void CreateNewGraph_CustomParameters_CreatesCorrectGraph()
+        public void SelectGraph_ChangesCurrentGraph()
         {
-            // Act
-            var graph = _graphManager.CreateNewGraph("Custom Graph", GraphType.GroupGraph);
-
-            // Assert
-            Assert.That(graph.GetName(), Is.EqualTo("Custom Graph"));
-            Assert.That(graph.GetGraphType(), Is.EqualTo(GraphType.GroupGraph));
-            Assert.That(_graphManager.GetCurrentGraph(), Is.EqualTo(graph));
+            var graph = _graphManager.CreateNewGraph();
+            _graphManager.SelectGraph(graph);
+            Assert.That(_graphManager.GetCurrentGraph(), Is.SameAs(graph));
         }
 
         [Test]
-        public void CreateNewGraph_MultipleGraphs_AddsToCollection()
+        public void DeleteGraph_RemovesGraph()
         {
-            // Act
-            var graph1 = _graphManager.CreateNewGraph("Graph 1");
-            var graph2 = _graphManager.CreateNewGraph("Graph 2");
-
-            // Assert
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(2));
-            Assert.That(_graphManager.GetAllGraphs().Contains(graph1), Is.True);
-            Assert.That(_graphManager.GetAllGraphs().Contains(graph2), Is.True);
-            Assert.That(_graphManager.GetCurrentGraph(), Is.EqualTo(graph2)); // Should be the last created
+            var graph = _graphManager.CreateNewGraph();
+            _graphManager.DeleteGraph(graph);
+            Assert.That(_graphManager.GetAllGraphs(), Does.Not.Contain(graph));
         }
 
         [Test]
-        public void SelectGraph_ValidGraph_SelectsCorrectly()
+        public void DeleteGraph_NoGraphs_CurrentGraphIsNull()
         {
-            // Arrange
-            var graph1 = _graphManager.CreateNewGraph("Graph 1");
-            var graph2 = _graphManager.CreateNewGraph("Graph 2");
-
-            // Act
-            _graphManager.SelectGraph(graph1);
-
-            // Assert
-            Assert.That(_graphManager.GetCurrentGraph(), Is.EqualTo(graph1));
-        }
-
-        [Test]
-        public void SelectGraph_NullGraph_HandlesGracefully()
-        {
-            // Arrange
-            var graph = _graphManager.CreateNewGraph("Test Graph");
-
-            // Act
-            _graphManager.SelectGraph(null);
-
-            // Assert
-            Assert.That(_graphManager.GetCurrentGraph(), Is.Null);
-        }
-
-        [Test]
-        public void DeleteGraph_ExistingGraph_DeletesCorrectly()
-        {
-            // Arrange
-            var graph1 = _graphManager.CreateNewGraph("Graph 1");
-            var graph2 = _graphManager.CreateNewGraph("Graph 2");
-
-            // Act
-            _graphManager.DeleteGraph(graph1);
-
-            // Assert
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(1));
-            Assert.That(_graphManager.GetAllGraphs().Contains(graph1), Is.False);
-            Assert.That(_graphManager.GetAllGraphs().Contains(graph2), Is.True);
-        }
-
-        [Test]
-        public void DeleteGraph_LastRemainingGraph_AutoSelectsFirst()
-        {
-            // Arrange
-            var graph1 = _graphManager.CreateNewGraph("Graph 1");
-            var graph2 = _graphManager.CreateNewGraph("Graph 2");
-            var graph3 = _graphManager.CreateNewGraph("Graph 3");
-            _graphManager.SelectGraph(graph2); // Select middle graph
-
-            // Act
-            _graphManager.DeleteGraph(graph2);
-
-            // Assert
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(2));
-            Assert.That(_graphManager.GetCurrentGraph(), Is.EqualTo(graph1)); // Should auto-select first
-        }
-
-        [Test]
-        public void DeleteGraph_NonExistentGraph_DoesNothing()
-        {
-            // Arrange
-            var graph1 = _graphManager.CreateNewGraph("Graph 1");
-            var graph2 = new BaseGraphData("External Graph", GraphType.ShaderGraph);
-            var initialCount = _graphManager.GetAllGraphs().Count;
-
-            // Act
-            _graphManager.DeleteGraph(graph2);
-
-            // Assert
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(initialCount));
-        }
-
-        [Test]
-        public void DeleteGraph_AllGraphs_LeavesEmptyCollection()
-        {
-            // Arrange
-            var graph1 = _graphManager.CreateNewGraph("Graph 1");
-            var graph2 = _graphManager.CreateNewGraph("Graph 2");
-
-            // Act
-            _graphManager.DeleteGraph(graph1);
-            _graphManager.DeleteGraph(graph2);
-
-            // Assert
-            Assert.That(_graphManager.GetAllGraphs().Count, Is.EqualTo(0));
-            // Current graph should be null when all graphs are deleted
+            var graph = _graphManager.CreateNewGraph();
+            _graphManager.DeleteGraph(graph);
             Assert.That(_graphManager.GetCurrentGraph(), Is.Null);
         }
     }

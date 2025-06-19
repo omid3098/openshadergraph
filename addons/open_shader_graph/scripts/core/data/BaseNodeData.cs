@@ -67,4 +67,20 @@ public partial class BaseNodeData : RefCounted
         }
         return null;
     }
+
+    public BaseNodeData Clone()
+    {
+        var inputs = new List<PinData>();
+        foreach (var pin in _inputs)
+        {
+            inputs.Add(pin.Clone());
+        }
+        var outputs = new List<PinData>();
+        foreach (var pin in _outputs)
+        {
+            outputs.Add(pin.Clone());
+        }
+        var newNode = new BaseNodeData(_name, _type, _position, inputs, outputs);
+        return newNode;
+    }
 }

@@ -135,7 +135,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             var nodeName = menu.GetItemText((int)id);
             if (_targetGraphEdit != null && IsInstanceValid(_targetGraphEdit))
             {
-                _targetGraphEdit.CreateNodeAt(nodeName, _creationPositionInGraph);
+                _targetGraphEdit.RequestNodeCreation(nodeName, _creationPositionInGraph);
             }
             Hide();
         }
@@ -161,7 +161,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                     var nodeName = parts[1];
                     if (_targetGraphEdit != null && IsInstanceValid(_targetGraphEdit))
                     {
-                        _targetGraphEdit.CreateNodeAt(nodeName, _creationPositionInGraph);
+                        _targetGraphEdit.RequestNodeCreation(nodeName, _creationPositionInGraph);
                     }
                     Hide();
                 }

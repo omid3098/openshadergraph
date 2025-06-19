@@ -27,15 +27,16 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             _creationPopup.ShowMenu(globalPosition, localPosition, target);
         }
 
-        public void ShowNodeMenu(Vector2 globalPosition, BaseGraphNode node)
+        public void ShowNodeMenu(Vector2 globalPosition, BaseGraphNode node, ShaderGraphEdit graph)
         {
-            _nodeContextMenu.ShowMenu(globalPosition, node);
+            _nodeContextMenu.ShowMenu(globalPosition, node, graph);
         }
     }
 
     public partial class NodeContextMenu : PopupMenu
     {
         private BaseGraphNode _targetNode;
+        private ShaderGraphEdit _graph;
 
         private enum MenuOptions
         {
@@ -55,9 +56,10 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             IdPressed += OnIdPressed;
         }
 
-        public void ShowMenu(Vector2 globalPosition, BaseGraphNode node)
+        public void ShowMenu(Vector2 globalPosition, BaseGraphNode node, ShaderGraphEdit graph)
         {
             _targetNode = node;
+            _graph = graph;
             Position = (Vector2I)globalPosition;
             Popup();
         }
@@ -67,10 +69,16 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             switch ((MenuOptions)id)
             {
                 case MenuOptions.Delete:
-                    _targetNode?.QueueFree();
+                    if (_targetNode != null)
+                    {
+                        _graph.RequestNodeDeletion(_targetNode);
+                    }
                     break;
                 case MenuOptions.Duplicate:
-                    GD.Print("Duplicate not implemented");
+                    if (_targetNode != null)
+                    {
+                        _graph.RequestNodeDuplication(_targetNode);
+                    }
                     break;
                 case MenuOptions.Copy:
                     GD.Print("Copy not implemented");

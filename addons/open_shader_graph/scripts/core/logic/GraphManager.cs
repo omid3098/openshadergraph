@@ -44,6 +44,22 @@ namespace OpenShaderGraph.Core.Logic
             }
         }
 
+        public void RemoveNode(BaseNodeData node)
+        {
+            _currentGraphData?.RemoveNode(node);
+        }
+
+        public void DuplicateNode(BaseNodeData node)
+        {
+            if (_currentGraphData == null)
+                return;
+
+            var newNode = node.Clone();
+            var newPosition = new Vector2(newNode.GetPosition().X + 30, newNode.GetPosition().Y + 30);
+            newNode.SetPosition(newPosition);
+            _currentGraphData.AddNode(newNode);
+        }
+
         public BaseGraphData? GetCurrentGraph()
         {
             return _currentGraphData;

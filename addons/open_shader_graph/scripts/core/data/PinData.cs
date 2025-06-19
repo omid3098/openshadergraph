@@ -32,5 +32,10 @@ namespace OpenShaderGraph.Core.Data
         public void SetName(string name) => _name = name;
         public void SetDataType(PinDataType dataType) => _dataType = dataType;
         public void SetDirection(DirectionType direction) => _direction = direction;
+
+        public PinData Clone()
+        {
+            return new PinData(_name, _dataType, _direction, _value);
+        }
     }
 }
