@@ -6,6 +6,7 @@ using System.Collections.Generic;
 
 public partial class BaseNodeData : RefCounted
 {
+    public long Id { get; set; } = -1;
     private string _name;
     private string _type;
     private Vector2 _position;

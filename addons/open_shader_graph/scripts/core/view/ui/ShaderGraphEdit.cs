@@ -25,10 +25,25 @@ namespace OpenShaderGraph.Core.View.UI
 
         public void Initialize(BaseGraphData graph, ContextMenuManager contextMenuManager)
         {
+            if (GraphData != null)
+            {
+                // Unsubscribe from old events to prevent multiple subscriptions
+                ConnectionRequest -= OnConnectionRequest;
+                DisconnectionRequest -= OnDisconnectionRequest;
+                NodeSelected -= OnNodeSelected;
+                NodeDeselected -= (Node node) => { EmitSignal(SignalName.NodeDeselectedInGraph); };
+                var oldCreationPopup = _contextMenuManager?.GetNode<CreationPopup>("CreationPopup");
+                if (oldCreationPopup != null)
+                {
+                    oldCreationPopup.NodeCreationRequested -= OnNodeCreationRequested;
+                }
+            }
+
             GraphData = graph;
             _contextMenuManager = contextMenuManager;
 
             ClearGraph();
+            DrawGraph();
             Logger.Log($"[ShaderGraphEdit] Loaded graph: {graph.GetName()}");
             ActivateGraphEdit();
 
@@ -42,6 +57,54 @@ namespace OpenShaderGraph.Core.View.UI
             DisconnectionRequest += OnDisconnectionRequest;
             NodeSelected += OnNodeSelected;
             NodeDeselected += (Node node) => { EmitSignal(SignalName.NodeDeselectedInGraph); };
+        }
+
+        private void DrawGraph()
+        {
+            // Draw nodes
+            foreach (var nodeData in GraphData.GetNodes())
+            {
+                var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeData.GetNodeType());
+                if (registeredNode != null)
+                {
+                    var nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType);
+                    nodeView.Initialize(nodeData);
+                    AddChild(nodeView);
+                }
+            }
+
+            // Draw connections
+            foreach (var connectionData in GraphData.GetConnections())
+            {
+                BaseGraphNode? fromNode = null;
+                BaseGraphNode? toNode = null;
+
+                foreach (var child in GetChildren())
+                {
+                    if (child is BaseGraphNode nodeView)
+                    {
+                        if (nodeView.Data.Id == connectionData.GetFrom().NodeId)
+                        {
+                            fromNode = nodeView;
+                        }
+                        if (nodeView.Data.Id == connectionData.GetTo().NodeId)
+                        {
+                            toNode = nodeView;
+                        }
+                    }
+                }
+
+                if (fromNode != null && toNode != null)
+                {
+                    var fromPinIndex = fromNode.Data.GetOutputs().IndexOf(connectionData.GetFrom().Pin);
+                    var toPinIndex = toNode.Data.GetInputs().IndexOf(connectionData.GetTo().Pin);
+
+                    if (fromPinIndex != -1 && toPinIndex != -1)
+                    {
+                        ConnectNode(fromNode.Name, fromPinIndex, toNode.Name, toPinIndex);
+                    }
+                }
+            }
         }
 
         public override void _GuiInput(InputEvent @event)
@@ -102,7 +165,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (IsConnectionValid(fromPin, toPin))
                 {
-                    var connection = new ConnectionData(fromNodeView.Data, fromPin, toNodeView.Data, toPin);
+                    var connection = new ConnectionData(fromNodeView.Data.Id, fromPin, toNodeView.Data.Id, toPin);
                     GraphData.AddConnection(connection);
                     ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
                 }
@@ -146,7 +209,7 @@ namespace OpenShaderGraph.Core.View.UI
 
             if (fromPin != null && toPin != null)
             {
-                var connection = GraphData.FindConnection(fromNodeView.Data, fromPin, toNodeView.Data, toPin);
+                var connection = GraphData.FindConnection(fromNodeView.Data.Id, fromPin, toNodeView.Data.Id, toPin);
                 if (connection != null)
                 {
                     GraphData.RemoveConnection(connection);

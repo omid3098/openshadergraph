@@ -71,6 +71,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Assert
             Assert.That(_graph.GetNodes().Count, Is.EqualTo(1));
             Assert.That(_graph.GetNodes()[0], Is.EqualTo(_node1));
+            Assert.That(_graph.GetNodes()[0].Id, Is.EqualTo(0));
         }
 
         [Test]
@@ -89,7 +90,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Arrange
             _graph.AddNode(_node1);
             _graph.AddNode(_node2);
-            var connection = new ConnectionData(_node1, _outputPin, _node2, _inputPin);
+            var connection = new ConnectionData(_node1.Id, _outputPin, _node2.Id, _inputPin);
 
             // Act
             _graph.AddConnection(connection);
@@ -121,7 +122,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         {
             // Arrange
             _graph.AddNode(_node1);
-            var connection = new ConnectionData(_node1, _outputPin, _node1, _inputPin);
+            var connection = new ConnectionData(_node1.Id, _outputPin, _node1.Id, _inputPin);
 
             // Act & Assert
             Assert.That(_graph.ValidateConnection(connection), Is.False);
@@ -133,7 +134,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Arrange
             _graph.AddNode(_node1);
             _graph.AddNode(_node2);
-            var connection = new ConnectionData(_node1, _outputPin, _node2, _outputPin);
+            var connection = new ConnectionData(_node1.Id, _outputPin, _node2.Id, _outputPin);
 
             // Act & Assert
             Assert.That(_graph.ValidateConnection(connection), Is.False);
@@ -143,7 +144,10 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void ValidateConnection_NodeNotInGraph_ReturnsFalse()
         {
             // Arrange
-            var connection = new ConnectionData(_node1, _outputPin, _node2, _inputPin);
+            _graph.AddNode(_node1);
+            var node3 = new BaseNodeData("Node3", "TestNode", new Vector2(200, 0), new List<PinData>(), new List<PinData>());
+            node3.Id = 99; // Manually set a fake ID
+            var connection = new ConnectionData(_node1.Id, _outputPin, node3.Id, _inputPin);
 
             // Act & Assert
             Assert.That(_graph.ValidateConnection(connection), Is.False);
@@ -156,7 +160,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             _graph.AddNode(_node1);
             _graph.AddNode(_node2);
             var intPin = new PinData("input", "int", PinType.Input, new Variant(0));
-            var connection = new ConnectionData(_node1, _outputPin, _node2, intPin);
+            var connection = new ConnectionData(_node1.Id, _outputPin, _node2.Id, intPin);
 
             // Act & Assert
             Assert.That(_graph.ValidateConnection(connection), Is.False);
@@ -168,7 +172,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Arrange
             _graph.AddNode(_node1);
             _graph.AddNode(_node2);
-            var connection = new ConnectionData(_node1, _outputPin, _node2, _inputPin);
+            var connection = new ConnectionData(_node1.Id, _outputPin, _node2.Id, _inputPin);
 
             // Act & Assert
             Assert.That(_graph.ValidateConnection(connection), Is.True);

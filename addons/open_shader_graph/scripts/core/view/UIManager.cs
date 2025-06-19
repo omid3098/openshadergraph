@@ -196,5 +196,18 @@ namespace OpenShaderGraph.Core.View
                 propertiesPanel.DisplayGraphProperties();
             }
         }
+
+        public void RefreshGraph(BaseGraphData graph)
+        {
+            for (int i = 0; i < _graphTabs.GetChildCount(); i++)
+            {
+                var child = _graphTabs.GetChild(i);
+                if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
+                {
+                    edit.Initialize(graph, _contextMenuManager); // Re-initialize with the new data
+                    break;
+                }
+            }
+        }
     }
 }

@@ -82,6 +82,8 @@ namespace OpenShaderGraph.Core.View
                     break;
                 case MenuEnums.FileMenuItem.OpenGraph:
                     Logger.Log("[OpenShaderGraphEditor] File > Open Graph");
+                    _fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile;
+                    _fileDialog.PopupCentered();
                     break;
                 case MenuEnums.FileMenuItem.Save:
                     Logger.Log("[OpenShaderGraphEditor] File > Save");
@@ -114,7 +116,14 @@ namespace OpenShaderGraph.Core.View
 
         private void OnFileDialogFileSelected(string path)
         {
-            SaveGraphToPath(path);
+            if (_fileDialog.FileMode == FileDialog.FileModeEnum.SaveFile)
+            {
+                SaveGraphToPath(path);
+            }
+            else
+            {
+                LoadGraphFromPath(path);
+            }
         }
 
         private void OnSaveMenu()
@@ -137,6 +146,7 @@ namespace OpenShaderGraph.Core.View
 
         private void OnSaveAsMenu()
         {
+            _fileDialog.FileMode = FileDialog.FileModeEnum.SaveFile;
             _fileDialog.PopupCentered();
         }
 
@@ -170,6 +180,7 @@ namespace OpenShaderGraph.Core.View
             {
                 var nodeEntry = new Godot.Collections.Dictionary<string, Variant>
                 {
+                    ["id"] = node.Id,
                     ["name"] = node.GetName(),
                     ["type"] = node.GetNodeType(),
                     ["position"] = new Godot.Collections.Array { node.GetPosition().X, node.GetPosition().Y },
@@ -211,9 +222,9 @@ namespace OpenShaderGraph.Core.View
                 var to = connection.GetTo();
                 connectionsArray.Add(new Godot.Collections.Dictionary<string, Variant>
                 {
-                    ["from_node"] = from.Node.GetName(),
+                    ["from_node_id"] = from.NodeId,
                     ["from_pin"] = from.Pin.GetName(),
-                    ["to_node"] = to.Node.GetName(),
+                    ["to_node_id"] = to.NodeId,
                     ["to_pin"] = to.Pin.GetName()
                 });
             }
@@ -235,6 +246,84 @@ namespace OpenShaderGraph.Core.View
             }
         }
 
+        private void LoadGraphFromPath(string path)
+        {
+            using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+            if (file == null)
+            {
+                Logger.Log($"[OpenShaderGraphEditor] Failed to open graph from {path}");
+                return;
+            }
+
+            var jsonString = file.GetAsText();
+            var json = new Json();
+            var error = json.Parse(jsonString);
+            if (error != Error.Ok)
+            {
+                Logger.Log($"[OpenShaderGraphEditor] Failed to parse JSON from {path}: {json.GetErrorMessage()} at line {json.GetErrorLine()}");
+                return;
+            }
+
+            var data = (Godot.Collections.Dictionary)json.Data;
+
+            // Reconstruct graph from data
+            var metadata = (Godot.Collections.Dictionary)data["metadata"];
+            var graphName = metadata["name"].ToString();
+            var graph = _graphManager.CreateNewGraph(graphName);
+            graph.SetFilePath(path);
+
+            var nodesData = (Godot.Collections.Array)data["nodes"];
+            var nodeMap = new Dictionary<long, BaseNodeData>();
+
+            foreach (Godot.Collections.Dictionary nodeEntry in nodesData)
+            {
+                var nodeName = nodeEntry["name"].ToString();
+                var nodeType = nodeEntry["type"].ToString();
+                var positionArray = (Godot.Collections.Array)nodeEntry["position"];
+                var position = new Vector2((float)positionArray[0], (float)positionArray[1]);
+
+                var inputs = new List<PinData>();
+                foreach (Godot.Collections.Dictionary pinEntry in (Godot.Collections.Array)nodeEntry["inputs"])
+                {
+                    inputs.Add(new PinData(pinEntry["name"].ToString(), StringToPinDataType(pinEntry["type"].ToString()), DirectionType.Input, pinEntry["value"]));
+                }
+
+                var outputs = new List<PinData>();
+                foreach (Godot.Collections.Dictionary pinEntry in (Godot.Collections.Array)nodeEntry["outputs"])
+                {
+                    outputs.Add(new PinData(pinEntry["name"].ToString(), StringToPinDataType(pinEntry["type"].ToString()), DirectionType.Output, pinEntry["value"]));
+                }
+
+                var nodeData = new BaseNodeData(nodeName, nodeType, position, inputs, outputs);
+                graph.AddNode(nodeData);
+                nodeMap[nodeData.Id] = nodeData;
+            }
+
+            var connectionsData = (Godot.Collections.Array)data["connections"];
+            foreach (Godot.Collections.Dictionary connectionEntry in connectionsData)
+            {
+                var fromNodeId = (long)connectionEntry["from_node_id"];
+                var fromPinName = connectionEntry["from_pin"].ToString();
+                var toNodeId = (long)connectionEntry["to_node_id"];
+                var toPinName = connectionEntry["to_pin"].ToString();
+
+                var fromNode = nodeMap[fromNodeId];
+                var toNode = nodeMap[toNodeId];
+
+                var fromPin = fromNode.GetOutputs().Find(p => p.GetName() == fromPinName);
+                var toPin = toNode.GetInputs().Find(p => p.GetName() == toPinName);
+
+                if (fromPin != null && toPin != null)
+                {
+                    var connection = new ConnectionData(fromNode.Id, fromPin, toNode.Id, toPin);
+                    graph.AddConnection(connection);
+                }
+            }
+
+            _uiManager.RefreshGraph(graph);
+            Logger.Log($"[OpenShaderGraphEditor] Loaded graph from {path}");
+        }
+
         private static string GraphTypeToString(GraphType graphType)
         {
             return graphType switch
@@ -250,6 +339,20 @@ namespace OpenShaderGraph.Core.View
         private static string PinDataTypeToString(PinDataType pinDataType)
         {
             return pinDataType.ToString().ToUpper();
+        }
+
+        private static PinDataType StringToPinDataType(string pinDataType)
+        {
+            return pinDataType switch
+            {
+                "FLOAT" => PinDataType.Float,
+                "FLOAT2" => PinDataType.Vector2,
+                "FLOAT3" => PinDataType.Vector3,
+                "FLOAT4" => PinDataType.Vector4,
+                "INT" => PinDataType.Int,
+                "BOOL" => PinDataType.Bool,
+                _ => PinDataType.Float
+            };
         }
     }
 }

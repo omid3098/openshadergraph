@@ -25,9 +25,11 @@ namespace OpenShaderGraph.Tests.Core.Data
             var inputPins = new List<PinData> { _inputPin };
 
             _fromNode = new BaseNodeData("FromNode", "TestNode", new Vector2(0, 0), new List<PinData>(), outputPins);
+            _fromNode.Id = 1;
             _toNode = new BaseNodeData("ToNode", "TestNode", new Vector2(100, 0), inputPins, new List<PinData>());
+            _toNode.Id = 2;
 
-            _connection = new ConnectionData(_fromNode, _outputPin, _toNode, _inputPin);
+            _connection = new ConnectionData(_fromNode.Id, _outputPin, _toNode.Id, _inputPin);
         }
 
         [Test]
@@ -38,9 +40,9 @@ namespace OpenShaderGraph.Tests.Core.Data
             var to = _connection.GetTo();
 
             // Assert
-            Assert.That(from.Node, Is.EqualTo(_fromNode));
+            Assert.That(from.NodeId, Is.EqualTo(_fromNode.Id));
             Assert.That(from.Pin, Is.EqualTo(_outputPin));
-            Assert.That(to.Node, Is.EqualTo(_toNode));
+            Assert.That(to.NodeId, Is.EqualTo(_toNode.Id));
             Assert.That(to.Pin, Is.EqualTo(_inputPin));
         }
 
@@ -51,7 +53,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             var from = _connection.GetFrom();
 
             // Assert
-            Assert.That(from.Node.GetName(), Is.EqualTo("FromNode"));
+            Assert.That(from.NodeId, Is.EqualTo(1));
             Assert.That(from.Pin.GetName(), Is.EqualTo("output"));
             Assert.That(from.Pin.GetDirection(), Is.EqualTo(PinType.Output));
         }
@@ -63,7 +65,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             var to = _connection.GetTo();
 
             // Assert
-            Assert.That(to.Node.GetName(), Is.EqualTo("ToNode"));
+            Assert.That(to.NodeId, Is.EqualTo(2));
             Assert.That(to.Pin.GetName(), Is.EqualTo("input"));
             Assert.That(to.Pin.GetDirection(), Is.EqualTo(PinType.Input));
         }
@@ -72,10 +74,10 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void ConnectionEndpoint_StructProperties_WorkCorrectly()
         {
             // Arrange
-            var endpoint = new ConnectionEndpoint(_fromNode, _outputPin);
+            var endpoint = new ConnectionEndpoint(_fromNode.Id, _outputPin);
 
             // Assert
-            Assert.That(endpoint.Node, Is.EqualTo(_fromNode));
+            Assert.That(endpoint.NodeId, Is.EqualTo(_fromNode.Id));
             Assert.That(endpoint.Pin, Is.EqualTo(_outputPin));
         }
 
@@ -83,7 +85,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void ConnectionEndpoint_CanBeModified()
         {
             // Arrange
-            var endpoint = new ConnectionEndpoint(_fromNode, _outputPin);
+            var endpoint = new ConnectionEndpoint(_fromNode.Id, _outputPin);
             var newPin = new PinData("newPin", "int", PinType.Output, new Variant(42));
 
             // Act
@@ -102,7 +104,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             var intInputPin = new PinData("intInput", "int", PinType.Input, new Variant(0));
 
             // Act
-            var intConnection = new ConnectionData(_fromNode, intOutputPin, _toNode, intInputPin);
+            var intConnection = new ConnectionData(_fromNode.Id, intOutputPin, _toNode.Id, intInputPin);
 
             // Assert
             var from = intConnection.GetFrom();

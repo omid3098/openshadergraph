@@ -62,9 +62,9 @@ namespace OpenShaderGraph.Tests.Core.Integration
             Assert.That(graph.GetNodes().Count, Is.EqualTo(4));
 
             // Act - Create connections
-            var connection1 = new ConnectionData(colorNode, colorPin, addNode, input1Pin);
-            var connection2 = new ConnectionData(valueNode, valuePin, addNode, input2Pin); // This will be invalid due to type mismatch
-            var connection3 = new ConnectionData(addNode, resultPin, outputNode, albedoPin);
+            var connection1 = new ConnectionData(colorNode.Id, colorPin, addNode.Id, input1Pin);
+            var connection2 = new ConnectionData(valueNode.Id, valuePin, addNode.Id, input2Pin); // This will be invalid due to type mismatch
+            var connection3 = new ConnectionData(addNode.Id, resultPin, outputNode.Id, albedoPin);
 
             // Act - Add connections (only valid ones should be added)
             graph.AddConnection(connection1); // vector3 -> vector3 (valid)
@@ -128,9 +128,9 @@ namespace OpenShaderGraph.Tests.Core.Integration
             graph.AddNode(outputNode);
 
             // Act - Test valid connection chain
-            var conn1 = new ConnectionData(inputNode, inputOut, math1Node, math1In);
-            var conn2 = new ConnectionData(math1Node, math1Out, math2Node, math2In);
-            var conn3 = new ConnectionData(math2Node, math2Out, outputNode, outputIn);
+            var conn1 = new ConnectionData(inputNode.Id, inputOut, math1Node.Id, math1In);
+            var conn2 = new ConnectionData(math1Node.Id, math1Out, math2Node.Id, math2In);
+            var conn3 = new ConnectionData(math2Node.Id, math2Out, outputNode.Id, outputIn);
 
             graph.AddConnection(conn1);
             graph.AddConnection(conn2);
@@ -140,8 +140,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             Assert.That(graph.GetConnections().Count, Is.EqualTo(3));
 
             // Act - Test invalid connections
-            var invalidConn1 = new ConnectionData(inputNode, inputOut, inputNode, inputOut); // Same node
-            var invalidConn2 = new ConnectionData(inputNode, inputOut, math1Node, math1Out); // Output to output
+            var invalidConn1 = new ConnectionData(inputNode.Id, inputOut, inputNode.Id, inputOut); // Same node
+            var invalidConn2 = new ConnectionData(inputNode.Id, inputOut, math1Node.Id, math1Out); // Output to output
 
             graph.AddConnection(invalidConn1);
             graph.AddConnection(invalidConn2);
@@ -209,14 +209,14 @@ namespace OpenShaderGraph.Tests.Core.Integration
             graph.AddNode(targetNode);
 
             // Act - Test valid type matches
-            graph.AddConnection(new ConnectionData(sourceNode, floatOut, targetNode, floatIn));
-            graph.AddConnection(new ConnectionData(sourceNode, vec2Out, targetNode, vec2In));
-            graph.AddConnection(new ConnectionData(sourceNode, vec3Out, targetNode, vec3In));
+            graph.AddConnection(new ConnectionData(sourceNode.Id, floatOut, targetNode.Id, floatIn));
+            graph.AddConnection(new ConnectionData(sourceNode.Id, vec2Out, targetNode.Id, vec2In));
+            graph.AddConnection(new ConnectionData(sourceNode.Id, vec3Out, targetNode.Id, vec3In));
 
             // Act - Test invalid type mismatches (these should be rejected)
-            graph.AddConnection(new ConnectionData(sourceNode, floatOut, targetNode, vec2In));
-            graph.AddConnection(new ConnectionData(sourceNode, vec2Out, targetNode, vec3In));
-            graph.AddConnection(new ConnectionData(sourceNode, vec3Out, targetNode, floatIn));
+            graph.AddConnection(new ConnectionData(sourceNode.Id, floatOut, targetNode.Id, vec2In));
+            graph.AddConnection(new ConnectionData(sourceNode.Id, vec2Out, targetNode.Id, vec3In));
+            graph.AddConnection(new ConnectionData(sourceNode.Id, vec3Out, targetNode.Id, floatIn));
 
             // Assert - Only valid connections should be added
             Assert.That(graph.GetConnections().Count, Is.EqualTo(3)); // Only valid connections
@@ -242,11 +242,11 @@ namespace OpenShaderGraph.Tests.Core.Integration
             graph.AddNode(node2);
 
             // Act - Valid connection (output to input)
-            graph.AddConnection(new ConnectionData(node1, outputPin1, node2, inputPin2));
+            graph.AddConnection(new ConnectionData(node1.Id, outputPin1, node2.Id, inputPin2));
 
             // Act - Invalid connections (same direction) - these will be silently rejected
-            graph.AddConnection(new ConnectionData(node1, outputPin1, node2, outputPin2)); // Output to output
-            graph.AddConnection(new ConnectionData(node1, inputPin1, node2, inputPin2)); // Input to input
+            graph.AddConnection(new ConnectionData(node1.Id, outputPin1, node2.Id, outputPin2)); // Output to output
+            graph.AddConnection(new ConnectionData(node1.Id, inputPin1, node2.Id, inputPin2)); // Input to input
 
             // Assert - Only valid connection should be added
             Assert.That(graph.GetConnections().Count, Is.EqualTo(1)); // Only one valid connection
@@ -267,7 +267,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
             graph.AddNode(node);
 
             // Act - Same node connection should be rejected
-            graph.AddConnection(new ConnectionData(node, outputPin, node, inputPin));
+            graph.AddConnection(new ConnectionData(node.Id, outputPin, node.Id, inputPin));
 
             // Assert - Connection should be rejected
             Assert.That(graph.GetConnections().Count, Is.EqualTo(0));
@@ -290,8 +290,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             graph.AddNode(existingNode); // Only add one node
 
             // Act - Connection to non-existent node should be rejected
-            graph.AddConnection(new ConnectionData(existingNode, outputPin, nonExistentNode, inputPin));
-            graph.AddConnection(new ConnectionData(nonExistentNode, outputPin, existingNode, inputPin));
+            graph.AddConnection(new ConnectionData(existingNode.Id, outputPin, nonExistentNode.Id, inputPin));
+            graph.AddConnection(new ConnectionData(nonExistentNode.Id, outputPin, existingNode.Id, inputPin));
 
             // Assert - Connections should be rejected
             Assert.That(graph.GetConnections().Count, Is.EqualTo(0));
@@ -346,8 +346,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             graph.AddNode(targetNode);
 
             // Act - Create multiple connections between same nodes
-            var conn1 = new ConnectionData(sourceNode, out1, targetNode, in1);
-            var conn2 = new ConnectionData(sourceNode, out2, targetNode, in2);
+            var conn1 = new ConnectionData(sourceNode.Id, out1, targetNode.Id, in1);
+            var conn2 = new ConnectionData(sourceNode.Id, out2, targetNode.Id, in2);
 
             // Act - Both connections should be valid
             graph.AddConnection(conn1);

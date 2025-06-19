@@ -5,12 +5,12 @@ namespace OpenShaderGraph.Core.Data
 {
     public struct ConnectionEndpoint
     {
-        public BaseNodeData Node { get; set; }
+        public long NodeId { get; set; }
         public PinData Pin { get; set; }
 
-        public ConnectionEndpoint(BaseNodeData node, PinData pin)
+        public ConnectionEndpoint(long nodeId, PinData pin)
         {
-            Node = node;
+            NodeId = nodeId;
             Pin = pin;
         }
     }
@@ -20,10 +20,10 @@ namespace OpenShaderGraph.Core.Data
         private ConnectionEndpoint _from;
         private ConnectionEndpoint _to;
 
-        public ConnectionData(BaseNodeData fromNode, PinData fromPin, BaseNodeData toNode, PinData toPin)
+        public ConnectionData(long fromNodeId, PinData fromPin, long toNodeId, PinData toPin)
         {
-            _from = new ConnectionEndpoint(fromNode, fromPin);
-            _to = new ConnectionEndpoint(toNode, toPin);
+            _from = new ConnectionEndpoint(fromNodeId, fromPin);
+            _to = new ConnectionEndpoint(toNodeId, toPin);
             Logger.Log("[ConnectionData]: _init");
         }
 

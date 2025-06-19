@@ -22,6 +22,7 @@ public partial class BaseGraphData : RefCounted
     private GraphType _graphType = GraphType.ShaderGraph;
     private List<BaseNodeData> _nodes = new();
     private List<ConnectionData> _connections = new();
+    private long _nextNodeId = 0;
     private string _filePath = ""; // asset path used for saving and loading
     private string _version = "1.0"; // version identifier for the graph asset
     private Dictionary<string, Variant> _properties = new(); // custom graph properties
@@ -55,18 +56,32 @@ public partial class BaseGraphData : RefCounted
     public void SetFilePath(string filePath) => _filePath = filePath;
     public void SetProperties(Dictionary<string, Variant> properties) => _properties = properties;
 
+    public BaseNodeData? GetNodeById(long id)
+    {
+        foreach (var node in _nodes)
+        {
+            if (node.Id == id)
+                return node;
+        }
+        return null;
+    }
+
     public void AddNode(BaseNodeData node)
     {
         if (node == null)
             return; // Silently ignore null nodes
+        node.Id = _nextNodeId++;
         _nodes.Add(node);
     }
 
     public void AddConnection(ConnectionData connection)
     {
-        Logger.Log($"[BaseGraphData] Adding connection: {connection.GetFrom().Node.GetName()} -> {connection.GetTo().Node.GetName()}");
         if (connection == null)
             return; // Silently ignore null connections
+
+        var fromNode = GetNodeById(connection.GetFrom().NodeId);
+        var toNode = GetNodeById(connection.GetTo().NodeId);
+        Logger.Log($"[BaseGraphData] Adding connection: {fromNode?.GetName()} -> {toNode?.GetName()}");
 
         bool valid = ValidateConnection(connection);
         if (valid)
@@ -85,13 +100,13 @@ public partial class BaseGraphData : RefCounted
         _connections.Remove(connection);
     }
 
-    public ConnectionData? FindConnection(BaseNodeData fromNode, PinData fromPin, BaseNodeData toNode, PinData toPin)
+    public ConnectionData? FindConnection(long fromNodeId, PinData fromPin, long toNodeId, PinData toPin)
     {
         foreach (var connection in _connections)
         {
-            if (connection.GetFrom().Node == fromNode &&
+            if (connection.GetFrom().NodeId == fromNodeId &&
                 connection.GetFrom().Pin == fromPin &&
-                connection.GetTo().Node == toNode &&
+                connection.GetTo().NodeId == toNodeId &&
                 connection.GetTo().Pin == toPin)
             {
                 return connection;
@@ -108,9 +123,9 @@ public partial class BaseGraphData : RefCounted
 
         var from = connection.GetFrom();
         var to = connection.GetTo();
-        var fromNode = from.Node;
+        var fromNode = GetNodeById(from.NodeId);
         var fromPin = from.Pin;
-        var toNode = to.Node;
+        var toNode = GetNodeById(to.NodeId);
         var toPin = to.Pin;
 
         // Handle null nodes or pins
@@ -118,7 +133,7 @@ public partial class BaseGraphData : RefCounted
             return false;
 
         // Connection from and to the same node
-        if (fromNode == toNode)
+        if (fromNode.Id == toNode.Id)
         {
             Logger.Log($"[BaseGraphData] Connection from and to the same node: {fromNode.GetName()}");
             return false;
