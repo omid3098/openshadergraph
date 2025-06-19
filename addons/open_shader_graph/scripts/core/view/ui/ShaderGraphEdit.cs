@@ -109,7 +109,30 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (GraphData != null)
                 {
-                    _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), GetLocalMousePosition(), this);
+                    var globalMousePosition = GetGlobalMousePosition();
+                    BaseGraphNode topNode = null;
+
+                    for (int i = GetChildCount() - 1; i >= 0; i--)
+                    {
+                        var child = GetChild(i);
+                        if (child is BaseGraphNode nodeView)
+                        {
+                            if (nodeView.GetGlobalRect().HasPoint(globalMousePosition))
+                            {
+                                topNode = nodeView;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (topNode != null)
+                    {
+                        _contextMenuManager.ShowNodeMenu(globalMousePosition, topNode);
+                    }
+                    else
+                    {
+                        _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), GetLocalMousePosition(), this);
+                    }
                     AcceptEvent();
                 }
             }
