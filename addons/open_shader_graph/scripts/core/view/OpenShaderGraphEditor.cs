@@ -35,6 +35,7 @@ namespace OpenShaderGraph.Core.View
             // Connect UIManager signals
             _uiManager.FileMenuItemSelected += OnFileMenuItemSelected;
             _uiManager.GraphTabSelected += OnGraphTabSelected;
+            _uiManager.GraphCloseRequested += OnGraphCloseRequested;
         }
 
         public Control GetMainScene()
@@ -69,6 +70,11 @@ namespace OpenShaderGraph.Core.View
         private void OnGraphTabSelected(BaseGraphData graph)
         {
             _graphManager.SelectGraph(graph);
+        }
+
+        private void OnGraphCloseRequested(BaseGraphData graph)
+        {
+            _graphManager.DeleteGraph(graph);
         }
 
         private void OnFileMenuItemSelected(int itemId)
@@ -269,7 +275,7 @@ namespace OpenShaderGraph.Core.View
             // Reconstruct graph from data
             var metadata = (Godot.Collections.Dictionary)data["metadata"];
             var graphName = metadata["name"].ToString();
-            var graph = _graphManager.CreateNewGraph(graphName);
+            var graph = new BaseGraphData(graphName, GraphType.ShaderGraph);
             graph.SetFilePath(path);
 
             var nodesData = (Godot.Collections.Array)data["nodes"];
@@ -320,7 +326,7 @@ namespace OpenShaderGraph.Core.View
                 }
             }
 
-            _uiManager.RefreshGraph(graph);
+            _graphManager.AddGraph(graph);
             Logger.Log($"[OpenShaderGraphEditor] Loaded graph from {path}");
         }
 

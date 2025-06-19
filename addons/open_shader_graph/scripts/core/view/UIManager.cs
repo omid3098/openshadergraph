@@ -15,6 +15,7 @@ namespace OpenShaderGraph.Core.View
         // Direct signals for parent communication
         public Action<BaseGraphData> GraphTabSelected;
         public Action<int> FileMenuItemSelected;
+        public Action<BaseGraphData> GraphCloseRequested;
 
         private TabContainer _graphTabs = default!;
         private ContextMenuManager _contextMenuManager = default!;
@@ -31,6 +32,15 @@ namespace OpenShaderGraph.Core.View
 
             // Set up UI components
             _graphTabs = new TabContainer();
+            _graphTabs.Set("tabs_closable", true);
+
+            var tabBar = _graphTabs.GetTabBar();
+            if (tabBar != null)
+            {
+                tabBar.TabClosePressed += OnTabCloseRequested;
+                tabBar.GuiInput += OnTabBarGuiInput;
+            }
+
             _contextMenuManager = new ContextMenuManager();
             _bottomPanel = new BottomPanel();
             _sidebar = new Sidebar();
@@ -86,6 +96,7 @@ namespace OpenShaderGraph.Core.View
             vboxContainer.AddChild(mainVsplit);
             mainScene.AddChild(vboxContainer);
             mainScene.AddChild(_contextMenuManager);
+
             return mainScene;
         }
 
@@ -112,8 +123,6 @@ namespace OpenShaderGraph.Core.View
                 if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
                 {
                     _graphTabs.CurrentTab = i;
-                    // No new tab created, but we need to ensure signals are connected
-                    // which is handled by OnTabChanged
                     return;
                 }
             }
@@ -123,8 +132,12 @@ namespace OpenShaderGraph.Core.View
             newEdit.Initialize(graph, _contextMenuManager);
             _graphTabs.AddChild(newEdit);
             _graphTabs.SetTabTitle(_graphTabs.GetChildCount() - 1, graph.GetName());
+
+            // Connect signals for the new tab
+            newEdit.NodeSelectedInGraph += OnNodeSelectedInGraph;
+            newEdit.NodeDeselectedInGraph += OnNodeDeselectedInGraph;
+
             _graphTabs.CurrentTab = _graphTabs.GetChildCount() - 1;
-            // OnTabChanged will handle connecting signals
         }
 
         public void OnGraphDeleted(BaseGraphData graph)
@@ -134,6 +147,10 @@ namespace OpenShaderGraph.Core.View
                 var child = _graphTabs.GetChild(i);
                 if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
                 {
+                    // Disconnect signals before removing
+                    edit.NodeSelectedInGraph -= OnNodeSelectedInGraph;
+                    edit.NodeDeselectedInGraph -= OnNodeDeselectedInGraph;
+
                     _graphTabs.RemoveChild(child);
                     graph.NameChanged -= (newName) => OnGraphNameChanged(graph, newName);
                     child.QueueFree();
@@ -147,15 +164,12 @@ namespace OpenShaderGraph.Core.View
             var child = _graphTabs.GetChild((int)tabIndex);
             if (child is ShaderGraphEdit edit && edit.GetGraphData() != null)
             {
-                if (_currentGraphEdit != null)
+                if (_currentGraphEdit == edit)
                 {
-                    _currentGraphEdit.NodeSelectedInGraph -= OnNodeSelectedInGraph;
-                    _currentGraphEdit.NodeDeselectedInGraph -= OnNodeDeselectedInGraph;
+                    return; // No change
                 }
 
                 _currentGraphEdit = edit;
-                _currentGraphEdit.NodeSelectedInGraph += OnNodeSelectedInGraph;
-                _currentGraphEdit.NodeDeselectedInGraph += OnNodeDeselectedInGraph;
 
                 // Emit signal to parent instead of direct call to GraphManager
                 GraphTabSelected?.Invoke(edit.GetGraphData());
@@ -206,6 +220,35 @@ namespace OpenShaderGraph.Core.View
                 {
                     edit.Initialize(graph, _contextMenuManager); // Re-initialize with the new data
                     break;
+                }
+            }
+        }
+
+        private void OnTabCloseRequested(long tabIndex)
+        {
+            if (_graphTabs.GetTabControl((int)tabIndex) is ShaderGraphEdit graphEdit)
+            {
+                GraphCloseRequested?.Invoke(graphEdit.GraphData);
+            }
+        }
+
+        private void OnTabBarGuiInput(InputEvent @event)
+        {
+            if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed && mouseButton.ButtonIndex == MouseButton.Middle)
+            {
+                var tabBar = _graphTabs.GetTabBar();
+                if (tabBar == null)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < tabBar.GetTabCount(); i++)
+                {
+                    if (tabBar.GetTabRect(i).HasPoint(mouseButton.Position))
+                    {
+                        OnTabCloseRequested(i);
+                        break;
+                    }
                 }
             }
         }

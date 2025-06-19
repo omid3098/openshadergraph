@@ -3,16 +3,14 @@ using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.UI.ContextMenu;
 using OpenShaderGraph.Core.View.NodeViews;
+using System;
 
 namespace OpenShaderGraph.Core.View.UI
 {
     public partial class ShaderGraphEdit : GraphEdit
     {
-        [Signal]
-        public delegate void NodeSelectedInGraphEventHandler(BaseGraphNode node);
-
-        [Signal]
-        public delegate void NodeDeselectedInGraphEventHandler();
+        public Action<BaseGraphNode> NodeSelectedInGraph { get; set; }
+        public Action NodeDeselectedInGraph { get; set; }
 
         public BaseGraphData GraphData { get; private set; }
         private ContextMenuManager _contextMenuManager;
@@ -31,7 +29,7 @@ namespace OpenShaderGraph.Core.View.UI
                 ConnectionRequest -= OnConnectionRequest;
                 DisconnectionRequest -= OnDisconnectionRequest;
                 NodeSelected -= OnNodeSelected;
-                NodeDeselected -= (Node node) => { EmitSignal(SignalName.NodeDeselectedInGraph); };
+                NodeDeselected -= OnNodeDeselected;
                 var oldCreationPopup = _contextMenuManager?.GetNode<CreationPopup>("CreationPopup");
                 if (oldCreationPopup != null)
                 {
@@ -56,7 +54,7 @@ namespace OpenShaderGraph.Core.View.UI
             ConnectionRequest += OnConnectionRequest;
             DisconnectionRequest += OnDisconnectionRequest;
             NodeSelected += OnNodeSelected;
-            NodeDeselected += (Node node) => { EmitSignal(SignalName.NodeDeselectedInGraph); };
+            NodeDeselected += OnNodeDeselected;
         }
 
         private void DrawGraph()
@@ -222,13 +220,13 @@ namespace OpenShaderGraph.Core.View.UI
         {
             if (node is BaseGraphNode selectedNode)
             {
-                EmitSignal(SignalName.NodeSelectedInGraph, selectedNode);
+                NodeSelectedInGraph?.Invoke(selectedNode);
             }
         }
 
-        private void OnNodeDeselected()
+        private void OnNodeDeselected(Node node)
         {
-            EmitSignal(SignalName.NodeDeselectedInGraph);
+            NodeDeselectedInGraph?.Invoke();
         }
 
         private void DeactivateGraphEdit()

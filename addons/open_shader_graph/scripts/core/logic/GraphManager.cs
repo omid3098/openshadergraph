@@ -29,12 +29,19 @@ namespace OpenShaderGraph.Core.Logic
         {
             var emptyNodes = new List<BaseNodeData>();
             var emptyConnections = new List<ConnectionData>();
-            _currentGraphData = new BaseGraphData(name, graphType, emptyNodes, emptyConnections);
-            _allGraphsData.Add(_currentGraphData);
-            Logger.Log($"[GraphManager] Created new graph: {_currentGraphData.GetName()}");
+            var graph = new BaseGraphData(name, graphType, emptyNodes, emptyConnections);
+            AddGraph(graph);
+            return graph;
+        }
 
-            GraphCreated?.Invoke(_currentGraphData);
-            return _currentGraphData;
+        public void AddGraph(BaseGraphData graph)
+        {
+            if (!_allGraphsData.Contains(graph))
+            {
+                _allGraphsData.Add(graph);
+                GraphCreated?.Invoke(graph);
+                SelectGraph(graph);
+            }
         }
 
         public BaseGraphData? GetCurrentGraph()

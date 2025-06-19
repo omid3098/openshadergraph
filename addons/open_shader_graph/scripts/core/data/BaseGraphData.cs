@@ -4,6 +4,7 @@ namespace OpenShaderGraph.Core.Data;
 using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
+using System;
 
 public enum GraphType
 {
@@ -15,8 +16,7 @@ public enum GraphType
 
 public partial class BaseGraphData : RefCounted
 {
-    [Signal]
-    public delegate void NameChangedEventHandler(string newName);
+    public Action<string> NameChanged { get; set; }
 
     private string _name = "";
     private GraphType _graphType = GraphType.ShaderGraph;
@@ -49,7 +49,7 @@ public partial class BaseGraphData : RefCounted
         if (_name != name)
         {
             _name = name;
-            EmitSignal(SignalName.NameChanged, name);
+            NameChanged?.Invoke(name);
         }
     }
     public void SetVersion(string version) => _version = version;
