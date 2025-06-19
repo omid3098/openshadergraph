@@ -41,8 +41,8 @@ namespace OpenShaderGraph.Core.View.UI
             GraphData.NodeAdded += OnNodeAdded;
 
             ClearGraph();
-            DrawGraph();
-            Logger.Log($"[ShaderGraphEdit] Loaded graph: {graph.GetName()}");
+            // Defer drawing until this control is in the scene tree so GraphEdit can hook up signals
+            CallDeferred(nameof(DeferredDrawGraph));
             ActivateGraphEdit();
 
             ConnectionRequest += OnConnectionRequest;
@@ -321,6 +321,13 @@ namespace OpenShaderGraph.Core.View.UI
                 var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
                 GraphData.AddNode(nodeData);
             }
+        }
+
+        // Deferred method to draw the graph after this control enters the scene tree
+        private void DeferredDrawGraph()
+        {
+            DrawGraph();
+            Logger.Log($"[ShaderGraphEdit] Loaded graph: {GraphData.GetName()}");
         }
     }
 }
