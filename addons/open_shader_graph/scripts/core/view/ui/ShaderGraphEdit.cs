@@ -161,30 +161,13 @@ namespace OpenShaderGraph.Core.View.UI
 
             if (fromPin != null && toPin != null)
             {
-                if (IsConnectionValid(fromPin, toPin))
+                var connection = new ConnectionData(fromNodeView.Data.Id, fromPin, toNodeView.Data.Id, toPin);
+                if (GraphData.AddConnection(connection))
                 {
-                    var connection = new ConnectionData(fromNodeView.Data.Id, fromPin, toNodeView.Data.Id, toPin);
-                    GraphData.AddConnection(connection);
                     ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
                 }
             }
         }
-
-        private bool IsConnectionValid(PinData fromPin, PinData toPin)
-        {
-            if (fromPin.GetDirection() == toPin.GetDirection())
-            {
-                return false;
-            }
-
-            if (fromPin.GetDataType() != toPin.GetDataType())
-            {
-                return false;
-            }
-
-            return true;
-        }
-
 
         private void OnDisconnectionRequest(StringName fromNode, long fromPort, StringName toNode, long toPort)
         {

@@ -74,10 +74,10 @@ public partial class BaseGraphData : RefCounted
         _nodes.Add(node);
     }
 
-    public void AddConnection(ConnectionData connection)
+    public bool AddConnection(ConnectionData connection)
     {
         if (connection == null)
-            return; // Silently ignore null connections
+            return false; // Silently ignore null connections
 
         var fromNode = GetNodeById(connection.GetFrom().NodeId);
         var toNode = GetNodeById(connection.GetTo().NodeId);
@@ -88,10 +88,12 @@ public partial class BaseGraphData : RefCounted
         {
             _connections.Add(connection);
             Logger.Log($"[BaseGraphData] Connection added. Total connections: {_connections.Count}");
+            return true;
         }
         else
         {
             Logger.Log("[BaseGraphData] WARNING: Connection validation failed. Connection not added.");
+            return false;
         }
     }
 
