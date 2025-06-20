@@ -4,18 +4,20 @@ using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.UI.ContextMenu;
 using OpenShaderGraph.Core.View.NodeViews;
+using OpenShaderGraph.Core.Logic;
 using System;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace OpenShaderGraph.Core.View.UI
 {
     public partial class ShaderGraphEdit : GraphEdit
     {
-        public Action<BaseGraphNode> NodeSelectedInGraph { get; set; }
-        public Action NodeDeselectedInGraph { get; set; }
+        public Action<BaseGraphNode>? NodeSelectedInGraph { get; set; }
+        public Action? NodeDeselectedInGraph { get; set; }
 
-        public BaseGraphData GraphData { get; private set; }
-        private ContextMenuManager _contextMenuManager;
+        public BaseGraphData? GraphData { get; private set; }
+        private ContextMenuManager? _contextMenuManager;
 
         public ShaderGraphEdit()
         {
@@ -62,18 +64,23 @@ namespace OpenShaderGraph.Core.View.UI
             if (GraphData != null)
             {
                 GraphData.NodeRemoved -= OnNodeRemoved;
+                GraphData.NodeAdded -= OnNodeAdded;
             }
         }
 
         private void DrawGraph()
         {
+            if (GraphData == null)
+            {
+                return;
+            }
             // Draw nodes
             foreach (var nodeData in GraphData.GetNodes())
             {
                 var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeData.GetNodeType());
                 if (registeredNode != null)
                 {
-                    var nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType);
+                    var nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType)!;
                     nodeView.Initialize(nodeData);
                     AddChild(nodeView);
                 }
@@ -89,11 +96,11 @@ namespace OpenShaderGraph.Core.View.UI
                 {
                     if (child is BaseGraphNode nodeView)
                     {
-                        if (nodeView.Data.Id == connectionData.GetFrom().NodeId)
+                        if (nodeView.Data != null && nodeView.Data.Id == connectionData.GetFrom().NodeId)
                         {
                             fromNode = nodeView;
                         }
-                        if (nodeView.Data.Id == connectionData.GetTo().NodeId)
+                        if (nodeView.Data != null && nodeView.Data.Id == connectionData.GetTo().NodeId)
                         {
                             toNode = nodeView;
                         }
@@ -102,8 +109,8 @@ namespace OpenShaderGraph.Core.View.UI
 
                 if (fromNode != null && toNode != null)
                 {
-                    var fromPinIndex = fromNode.Data.GetOutputs().IndexOf(connectionData.GetFrom().Pin);
-                    var toPinIndex = toNode.Data.GetInputs().IndexOf(connectionData.GetTo().Pin);
+                    var fromPinIndex = fromNode.Data?.GetOutputs().IndexOf(connectionData.GetFrom().Pin) ?? -1;
+                    var toPinIndex = toNode.Data?.GetInputs().IndexOf(connectionData.GetTo().Pin) ?? -1;
 
                     if (fromPinIndex != -1 && toPinIndex != -1)
                     {
@@ -120,7 +127,7 @@ namespace OpenShaderGraph.Core.View.UI
                 if (GraphData != null && _contextMenuManager != null)
                 {
                     var globalMousePosition = GetGlobalMousePosition();
-                    BaseGraphNode topNode = null;
+                    BaseGraphNode? topNode = null;
 
                     for (int i = GetChildCount() - 1; i >= 0; i--)
                     {
@@ -137,7 +144,15 @@ namespace OpenShaderGraph.Core.View.UI
 
                     if (topNode != null)
                     {
-                        _contextMenuManager.ShowNodeMenu(globalMousePosition, topNode, this);
+                        var selectedNodes = GetSelectedNodes();
+                        if (selectedNodes.Count > 1 && selectedNodes.Contains(topNode))
+                        {
+                            _contextMenuManager.ShowGroupingMenu(globalMousePosition, new Godot.Collections.Array<GraphNode>(selectedNodes), this);
+                        }
+                        else
+                        {
+                            _contextMenuManager.ShowNodeMenu(globalMousePosition, topNode, this);
+                        }
                     }
                     else
                     {
@@ -146,6 +161,19 @@ namespace OpenShaderGraph.Core.View.UI
                     AcceptEvent();
                 }
             }
+        }
+
+        private List<GraphNode> GetSelectedNodes()
+        {
+            var selectedNodes = new List<GraphNode>();
+            foreach (var child in GetChildren())
+            {
+                if (child is GraphNode graphNode && graphNode.Selected)
+                {
+                    selectedNodes.Add(graphNode);
+                }
+            }
+            return selectedNodes;
         }
 
         public void CreateNodeAt(string nodeName, Vector2 position)
@@ -157,17 +185,17 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 // 1. Create Node Data using the static method on the node's type
                 var createNodeDataMethod = registeredNode.NodeType.GetMethod("CreateNodeData");
-                var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
+                if (createNodeDataMethod != null)
+                {
+                    var nodeData = (BaseNodeData?)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
 
-                // 2. Add to Graph Data
-                GraphData.AddNode(nodeData);
-
-                // 3. Create Node View
-                var nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType);
-                nodeView.Initialize(nodeData);
-
-                // 4. Add to scene
-                AddChild(nodeView);
+                    // 2. Add to Graph Data
+                    if (nodeData != null && GraphData != null)
+                    {
+                        GraphData.AddNode(nodeData);
+                        // Node view will be created by the OnNodeAdded event
+                    }
+                }
             }
         }
 
@@ -186,13 +214,13 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort);
-            var toPin = toNodeView.Data.GetInputByIndex((int)toPort);
+            var fromPin = fromNodeView.Data?.GetOutputByIndex((int)fromPort);
+            var toPin = toNodeView.Data?.GetInputByIndex((int)toPort);
 
 
             if (fromPin != null && toPin != null)
             {
-                var connection = new ConnectionData(fromNodeView.Data.Id, fromPin, toNodeView.Data.Id, toPin);
+                var connection = new ConnectionData(fromNodeView.Data!.Id, fromPin, toNodeView.Data!.Id, toPin);
                 if (GraphData.AddConnection(connection))
                 {
                     ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
@@ -215,13 +243,13 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromPin = fromNodeView.Data.GetOutputByIndex((int)fromPort);
-            var toPin = toNodeView.Data.GetInputByIndex((int)toPort);
+            var fromPin = fromNodeView.Data?.GetOutputByIndex((int)fromPort);
+            var toPin = toNodeView.Data?.GetInputByIndex((int)toPort);
 
 
             if (fromPin != null && toPin != null)
             {
-                var connection = GraphData.FindConnection(fromNodeView.Data.Id, fromPin, toNodeView.Data.Id, toPin);
+                var connection = GraphData.FindConnection(fromNodeView.Data!.Id, fromPin, toNodeView.Data!.Id, toPin);
                 if (connection != null)
                 {
                     GraphData.RemoveConnection(connection);
@@ -248,87 +276,88 @@ namespace OpenShaderGraph.Core.View.UI
             var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeData.GetNodeType());
             if (registeredNode != null)
             {
-                var nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType);
-                nodeView.Initialize(nodeData);
-                AddChild(nodeView);
+                var nodeView = (BaseGraphNode?)System.Activator.CreateInstance(registeredNode.NodeType);
+                if (nodeView != null)
+                {
+                    nodeView.Initialize(nodeData);
+                    AddChild(nodeView);
+                }
             }
         }
 
         private void OnNodeRemoved(BaseNodeData nodeData)
         {
-            foreach (var nodeView in GetChildren().OfType<BaseGraphNode>())
+            foreach (var child in GetChildren())
             {
-                if (nodeView.Data.Id == nodeData.Id)
+                if (child is BaseGraphNode nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
                 {
-                    nodeView.QueueFree();
-                    return;
+                    nodeView.DeleteNode();
+                    break;
                 }
             }
         }
 
         private void DeactivateGraphEdit()
         {
-            ShowMenu = false;
-            Modulate = new Color(1, 1, 1, 0.5f);
-            MinimapEnabled = false;
+            SetProcess(false);
+            SetProcessInput(false);
         }
 
         private void ActivateGraphEdit()
         {
-            ShowMenu = true;
-            Modulate = new Color(1, 1, 1, 1);
-            MinimapEnabled = true;
+            SetProcess(true);
+            SetProcessInput(true);
         }
 
-        public BaseGraphData GetGraphData()
+        public BaseGraphData? GetGraphData()
         {
             return GraphData;
         }
 
         private void ClearGraph()
         {
-            // Remove all GraphNode children
-            foreach (Node child in GetChildren())
+            foreach (var connection in GetConnectionList())
             {
-                if (child is GraphNode)
-                {
-                    RemoveChild(child);
-                    child.QueueFree();
-                }
+                var fromNode = (string)connection["from_node"];
+                var fromPort = (int)connection["from_port"];
+                var toNode = (string)connection["to_node"];
+                var toPort = (int)connection["to_port"];
+                DisconnectNode(fromNode, fromPort, toNode, toPort);
             }
 
-            // Remove all connections
-            ClearConnections();
+            foreach (var child in GetChildren())
+            {
+                if (child is BaseGraphNode nodeView)
+                {
+                    nodeView.DeleteNode();
+                }
+            }
         }
 
         public void RequestNodeDeletion(BaseGraphNode node)
         {
-            Services.Get<Logic.GraphManager>().RemoveNode(node.Data);
+            Services.Get<GraphManager>().RemoveNode(node.Data!);
         }
 
         public void RequestNodeDuplication(BaseGraphNode node)
         {
-            Services.Get<Logic.GraphManager>().DuplicateNode(node.Data);
+            Services.Get<GraphManager>().DuplicateNode(node.Data!);
+        }
+
+        public void RequestGrouping(Godot.Collections.Array<GraphNode> nodes)
+        {
+            var nodesData = nodes.Cast<BaseGraphNode>().Select(n => n.Data!).ToList();
+            Services.Get<GraphManager>().GroupNodes(nodesData);
         }
 
         public void RequestNodeCreation(string nodeName, Vector2 position)
         {
-            Logger.Log($"Node creation requested: {nodeName} at {position}");
-            var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeName);
-
-            if (registeredNode != null)
-            {
-                var createNodeDataMethod = registeredNode.NodeType.GetMethod("CreateNodeData");
-                var nodeData = (BaseNodeData)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
-                GraphData.AddNode(nodeData);
-            }
+            CreateNodeAt(nodeName, position);
         }
 
-        // Deferred method to draw the graph after this control enters the scene tree
         private void DeferredDrawGraph()
         {
             DrawGraph();
-            Logger.Log($"[ShaderGraphEdit] Loaded graph: {GraphData.GetName()}");
         }
     }
 }

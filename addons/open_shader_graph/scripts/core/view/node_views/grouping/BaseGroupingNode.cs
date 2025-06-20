@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 using OpenShaderGraph.Core.Data;
+using System;
 
 namespace OpenShaderGraph.Core.View.NodeViews.Grouping
 {
@@ -13,24 +14,21 @@ namespace OpenShaderGraph.Core.View.NodeViews.Grouping
         // All types of grouping nodes can be ungrouped and all internal nodes are transfered to the parent graph. except for the input/output nodes. their pins are transfered to the parent graph.
         private BaseGroupGraphData _graphData;
 
-        public BaseGroupingNode(GraphType graphType) : base()
+        public BaseGroupingNode() : base()
         {
             // Default constructor required for Godot
-            var _name = "";
-            switch (graphType)
-            {
-                case GraphType.GroupGraph:
-                    _name = "Group";
-                    break;
-                case GraphType.LocalSubgraph:
-                    _name = "Local Subgraph";
-                    break;
-                case GraphType.GlobalSubgraph:
-                    _name = "Subgraph";
-                    break;
-            }
-            _graphData = new BaseGroupGraphData(_name, graphType);
         }
+
+        public override void Initialize(BaseNodeData nodeData)
+        {
+            if (nodeData is not GroupNodeData groupNodeData)
+            {
+                throw new ArgumentException("BaseGroupingNode must be initialized with GroupNodeData");
+            }
+            base.Initialize(nodeData);
+            _graphData = groupNodeData.SubGraph;
+        }
+
         public void AddNodesAndConnections(List<BaseNodeData> nodes, List<ConnectionData> connections)
         {
             foreach (var node in nodes)

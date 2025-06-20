@@ -28,7 +28,6 @@ namespace OpenShaderGraph.Core.View
             _nodeRegistry = Services.Get<NodeRegistry>();
 
             // Connect GraphManager signals
-            _graphManager.GraphCreated += OnGraphCreated;
             _graphManager.GraphSelected += OnGraphSelected;
             _graphManager.GraphDeleted += OnGraphDeleted;
 
@@ -48,11 +47,6 @@ namespace OpenShaderGraph.Core.View
         }
 
         // Graph management signal handlers
-        private void OnGraphCreated(BaseGraphData graph)
-        {
-            _uiManager.OnGraphCreated(graph);
-        }
-
         private void OnGraphSelected(BaseGraphData? graph)
         {
             if (graph != null)

@@ -7,13 +7,14 @@ namespace OpenShaderGraph.Core.View.NodeViews
     [RegisterNode(name: "Group", category: "Grouping")]
     public partial class GroupNode : BaseGroupingNode
     {
-        public GroupNode() : base(GraphType.GroupGraph)
+        public GroupNode() : base()
         {
         }
 
         public new static BaseNodeData CreateNodeData(string name, string type, Vector2 position)
         {
-            var nodeData = new BaseNodeData(name, type, position);
+            var subGraph = new BaseGroupGraphData("Group", GraphType.GroupGraph);
+            var nodeData = new GroupNodeData(name, type, position, subGraph);
             return nodeData;
         }
     }

@@ -24,7 +24,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
             // Default constructor required for Godot
         }
 
-        public void Initialize(BaseNodeData nodeData)
+        public virtual void Initialize(BaseNodeData nodeData)
         {
             Data = nodeData;
             Title = Data.GetName();

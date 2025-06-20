@@ -122,7 +122,11 @@ namespace OpenShaderGraph.Core.View
                 var child = _graphTabs.GetChild(i);
                 if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
                 {
+                    // Prevent firing TabChanged while programmatically switching
+                    _graphTabs.TabChanged -= OnTabChanged;
+                    _currentGraphEdit = edit;
                     _graphTabs.CurrentTab = i;
+                    _graphTabs.TabChanged += OnTabChanged;
                     return;
                 }
             }
@@ -130,6 +134,8 @@ namespace OpenShaderGraph.Core.View
             // Create new tab
             var newEdit = new ShaderGraphEdit();
             newEdit.Initialize(graph, _contextMenuManager);
+            // Prevent automatic selection on add
+            _graphTabs.TabChanged -= OnTabChanged;
             _graphTabs.AddChild(newEdit);
             _graphTabs.SetTabTitle(_graphTabs.GetChildCount() - 1, graph.GetName());
 
@@ -137,7 +143,10 @@ namespace OpenShaderGraph.Core.View
             newEdit.NodeSelectedInGraph += OnNodeSelectedInGraph;
             newEdit.NodeDeselectedInGraph += OnNodeDeselectedInGraph;
 
-            _graphTabs.CurrentTab = _graphTabs.GetChildCount() - 1;
+            var newIndex = _graphTabs.GetChildCount() - 1;
+            _currentGraphEdit = newEdit;
+            _graphTabs.CurrentTab = newIndex;
+            _graphTabs.TabChanged += OnTabChanged;
         }
 
         public void OnGraphDeleted(BaseGraphData graph)
