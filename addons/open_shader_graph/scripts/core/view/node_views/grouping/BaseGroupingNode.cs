@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Godot;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.Logic;
 using System;
 
 namespace OpenShaderGraph.Core.View.NodeViews.Grouping
@@ -26,6 +28,8 @@ namespace OpenShaderGraph.Core.View.NodeViews.Grouping
                 throw new ArgumentException("BaseGroupingNode must be initialized with GroupNodeData");
             }
             base.Initialize(nodeData);
+            // Listen for double-click to open subgraph
+            GuiInput += OnGuiInput;
             _graphData = groupNodeData.SubGraph;
         }
 
@@ -38,6 +42,18 @@ namespace OpenShaderGraph.Core.View.NodeViews.Grouping
             foreach (var connection in connections)
             {
                 _graphData.AddConnection(connection);
+            }
+        }
+
+        private void OnGuiInput(InputEvent @event)
+        {
+            if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed && mb.DoubleClick)
+            {
+                var gm = Services.Get<GraphManager>();
+                if (!gm.GetAllGraphs().Contains(_graphData))
+                    gm.AddGraph(_graphData);
+                else
+                    gm.SelectGraph(_graphData);
             }
         }
     }

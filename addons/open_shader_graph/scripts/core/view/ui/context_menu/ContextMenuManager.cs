@@ -1,6 +1,9 @@
 using Godot;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.NodeViews;
+using OpenShaderGraph.Core.Logic;
+using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.View;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
 {
@@ -48,7 +51,8 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             Delete,
             Duplicate,
             Copy,
-            Cut
+            Cut,
+            Ungroup
         }
 
         public NodeContextMenu()
@@ -58,6 +62,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             AddItem("Duplicate", (int)MenuOptions.Duplicate);
             AddItem("Copy", (int)MenuOptions.Copy);
             AddItem("Cut", (int)MenuOptions.Cut);
+            AddItem("Ungroup", (int)MenuOptions.Ungroup);
             IdPressed += OnIdPressed;
         }
 
@@ -83,6 +88,19 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                     if (_targetNode != null)
                     {
                         _graph.RequestNodeDuplication(_targetNode);
+                    }
+                    break;
+                case MenuOptions.Ungroup:
+                    if (_targetNode.Data is GroupNodeData groupNodeData)
+                    {
+                        var graphData = _graph.GetGraphData();
+                        if (graphData != null)
+                        {
+                            var subGraph = groupNodeData.SubGraph;
+                            Services.Get<GroupingService>().Ungroup(graphData, groupNodeData, subGraph);
+                            graphData.RemoveNode(groupNodeData);
+                            Services.Get<UIManager>().RefreshGraph(graphData);
+                        }
                     }
                     break;
                 case MenuOptions.Copy:

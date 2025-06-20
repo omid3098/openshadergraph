@@ -141,5 +141,56 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(nestedSub.GetNodes().Count, Is.EqualTo(4));  // 2 + Input + Output
             Assert.That(nestedSub.GetConnections().Count, Is.EqualTo(2));
         }
+
+        [Test]
+        public void UngroupingSimpleGroup_RestoresOriginalGraph()
+        {
+            // Simple graph: two floats into one add
+            var float1Out = new PinData("value1", PinDataType.Float, DirectionType.Output);
+            var float2Out = new PinData("value2", PinDataType.Float, DirectionType.Output);
+            var addInA = new PinData("a", PinDataType.Float, DirectionType.Input);
+            var addInB = new PinData("b", PinDataType.Float, DirectionType.Input);
+            var addOut = new PinData("out", PinDataType.Float, DirectionType.Output);
+
+            var float1 = new BaseNodeData("Float1", "Float", Vector2.Zero, null, new List<PinData> { float1Out });
+            var float2 = new BaseNodeData("Float2", "Float", new Vector2(100, 0), null, new List<PinData> { float2Out });
+            var add = new BaseNodeData("Add", "Add", new Vector2(200, 0), new List<PinData> { addInA, addInB }, new List<PinData> { addOut });
+
+            _graph.AddNode(float1);
+            _graph.AddNode(float2);
+            _graph.AddNode(add);
+            _graph.AddConnection(new ConnectionData(float1.Id, float1Out, add.Id, addInA));
+            _graph.AddConnection(new ConnectionData(float2.Id, float2Out, add.Id, addInB));
+
+            // Verify initial state
+            Assert.That(_graph.GetNodes().Count, Is.EqualTo(3));
+            Assert.That(_graph.GetConnections().Count, Is.EqualTo(2));
+
+            // Group these nodes
+            _graphManager.GroupNodes(new List<BaseNodeData> { float1, float2, add });
+            var group = _graph.GetNodes().OfType<GroupNodeData>().First();
+            var sub = group.SubGraph;
+
+            // Verify grouping removed 3 nodes, added 1, and all internal connections removed
+            Assert.That(_graph.GetNodes().Count, Is.EqualTo(1));
+            Assert.That(_graph.GetConnections().Count, Is.EqualTo(0));
+
+            // Perform ungroup
+            var service = Services.Get<GroupingService>();
+            var (newNodes, newConnections) = service.Ungroup(_graph, group, sub);
+            _graph.RemoveNode(group);
+
+            // After ungroup, main graph should have original 3 nodes and 2 connections
+            Assert.That(_graph.GetNodes().Count, Is.EqualTo(3));
+            Assert.That(_graph.GetConnections().Count, Is.EqualTo(2));
+
+            // The connections should link the restored floats to the restored add
+            var restoredAdd = newNodes.First(n => n.GetName() == "Add");
+            var restoredFloat1 = newNodes.First(n => n.GetName() == "Float1");
+            var restoredFloat2 = newNodes.First(n => n.GetName() == "Float2");
+
+            Assert.That(_graph.GetConnections().Any(c => c.GetFrom().NodeId == restoredFloat1.Id && c.GetTo().NodeId == restoredAdd.Id), Is.True);
+            Assert.That(_graph.GetConnections().Any(c => c.GetFrom().NodeId == restoredFloat2.Id && c.GetTo().NodeId == restoredAdd.Id), Is.True);
+        }
     }
 }
