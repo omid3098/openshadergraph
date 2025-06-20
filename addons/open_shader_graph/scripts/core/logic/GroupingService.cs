@@ -6,6 +6,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OpenShaderGraph.Core.Utils;
 
 public class GroupingService
 {
@@ -26,7 +27,27 @@ public class GroupingService
         {
             // Clone the node so we don't modify the original, preserving its ID for later removal
             var oldId = node.Id;
-            var nodeClone = node.Clone();
+            BaseNodeData nodeClone;
+            // Preserve group node subgraphs when nesting groups
+            if (node is GroupNodeData groupNodeData)
+            {
+                // Copy inputs and outputs for the group node by reference to preserve identity
+                var cloneInputs = new List<PinData>(groupNodeData.GetInputs());
+                var cloneOutputs = new List<PinData>(groupNodeData.GetOutputs());
+                // Create a new GroupNodeData with the existing subgraph reference
+                nodeClone = new GroupNodeData(
+                    groupNodeData.GetName(),
+                    groupNodeData.GetNodeType(),
+                    groupNodeData.GetPosition(),
+                    groupNodeData.SubGraph,
+                    cloneInputs,
+                    cloneOutputs);
+            }
+            else
+            {
+                var baseClone = node.Clone();
+                nodeClone = baseClone;
+            }
             // Add the cloned node to the subgroup graph, it will receive a new ID
             groupGraph.AddNode(nodeClone);
             idMap[oldId] = nodeClone.Id;
@@ -139,13 +160,15 @@ public class GroupingService
             }
         }
 
-        // Remap outgoing connections from the new nodes
-        foreach (var outgoing in outgoingConnections)
+        // Remap outgoing connections from the new nodes using index-based mapping
+        var outputPins = subGraph.OutputNode.GetInputs();
+        for (int idx = 0; idx < outgoingConnections.Count && idx < outputPins.Count; idx++)
         {
-            var subGraphConnections = subGraph.GetConnections()
-                .Where(c => c.GetTo().NodeId == subGraph.OutputNode.Id && c.GetTo().Pin.GetName() == outgoing.GetFrom().Pin.GetName());
-
-            foreach (var subConn in subGraphConnections)
+            var outgoing = outgoingConnections[idx];
+            var outputPin = outputPins[idx];
+            var subGraphConns = subGraph.GetConnections()
+                .Where(c => c.GetTo().NodeId == subGraph.OutputNode.Id && c.GetTo().Pin == outputPin);
+            foreach (var subConn in subGraphConns)
             {
                 if (idMap.TryGetValue(subConn.GetFrom().NodeId, out var newInternalFromNodeId))
                 {

@@ -62,9 +62,12 @@ namespace OpenShaderGraph.Core.Logic
 
         public void GroupNodes(List<BaseNodeData> nodesToGroup)
         {
+            // Debug: log GroupNodes invocation and target nodes
+            Logger.Log($"[GraphManager] GroupNodes called on graph '{_currentGraphData?.GetName()}' for nodes: {string.Join(",", nodesToGroup.Select(n => n.GetName() + "(" + n.Id + ")"))}");
             if (_currentGraphData == null || nodesToGroup == null || nodesToGroup.Count <= 1)
                 return;
 
+            // Compute incoming and outgoing connections
             var groupingService = Services.Get<GroupingService>();
 
             var nodesToGroupIdSet = new HashSet<long>(nodesToGroup.Select(n => n.Id));
@@ -76,10 +79,20 @@ namespace OpenShaderGraph.Core.Logic
             var outgoingConnections = _currentGraphData.GetConnections()
                 .Where(c => nodesToGroupIdSet.Contains(c.GetFrom().NodeId) && !nodesToGroupIdSet.Contains(c.GetTo().NodeId))
                 .ToList();
+            // Debug: log connection lists
+            Logger.Log($"[GraphManager] incomingConnections count={incomingConnections.Count}");
+            foreach (var c in incomingConnections)
+                Logger.Log($"[GraphManager] incoming: from {c.GetFrom().NodeId}:{c.GetFrom().Pin.GetName()} -> to {c.GetTo().NodeId}:{c.GetTo().Pin.GetName()}");
+            Logger.Log($"[GraphManager] outgoingConnections count={outgoingConnections.Count}");
+            foreach (var c in outgoingConnections)
+                Logger.Log($"[GraphManager] outgoing: from {c.GetFrom().NodeId}:{c.GetFrom().Pin.GetName()} -> to {c.GetTo().NodeId}:{c.GetTo().Pin.GetName()}");
 
             // The grouping service modifies the nodes, so we should pass clones if we want to keep the originals for now.
             // However, we are deleting them, so it's fine.
             var groupGraphData = groupingService.Group("New Group", GraphType.GroupGraph, _currentGraphData, nodesToGroup);
+            // Debug: log subgraph input/output pins after groupingService.Group
+            Logger.Log($"[GraphManager] subgraph InputNode outputs: {string.Join(",", groupGraphData.InputNode.GetOutputs().Select(p => p.GetName()))}");
+            Logger.Log($"[GraphManager] subgraph OutputNode inputs: {string.Join(",", groupGraphData.OutputNode.GetInputs().Select(p => p.GetName()))}");
 
             var groupPosition = new Vector2(
                 nodesToGroup.Average(n => n.GetPosition().X),
@@ -98,6 +111,9 @@ namespace OpenShaderGraph.Core.Logic
                 clone.SetDirection(DirectionType.Output);
                 return clone;
             }).ToList();
+            // Debug: log group node data pin lists
+            Logger.Log($"[GraphManager] groupInputs names: {string.Join(",", groupInputs.Select(p => p.GetName()))}");
+            Logger.Log($"[GraphManager] groupOutputs names: {string.Join(",", groupOutputs.Select(p => p.GetName()))}");
 
             var groupNodeData = new GroupNodeData("Group", "Group", groupPosition, groupGraphData, groupInputs, groupOutputs);
 
@@ -108,20 +124,24 @@ namespace OpenShaderGraph.Core.Logic
             foreach (var node in nodesToGroup)
             {
                 _currentGraphData.RemoveNode(node);
+                Logger.Log($"[GraphManager] removed node {node.GetName()}({node.Id}) from main graph");
             }
 
             _currentGraphData.AddNode(groupNodeData);
+            Logger.Log($"[GraphManager] added group node {groupNodeData.GetName()}({groupNodeData.Id}) to main graph");
 
             // Map incoming connections to group input pins by index order
             for (int i = 0; i < incomingConnections.Count; i++)
             {
                 var connection = incomingConnections[i];
+                Logger.Log($"[GraphManager] mapping incoming connection {i}: from {connection.GetFrom().NodeId} to group input pin index {i} name {(i < groupNodeData.GetInputs().Count ? groupNodeData.GetInputs()[i].GetName() : "<none>")}");
                 if (i < groupNodeData.GetInputs().Count)
                 {
                     var newInputPin = groupNodeData.GetInputs()[i];
                     _currentGraphData.AddConnection(new ConnectionData(
                         connection.GetFrom().NodeId, connection.GetFrom().Pin,
                         groupNodeData.Id, newInputPin));
+                    Logger.Log($"[GraphManager] added connection to group node: from {connection.GetFrom().NodeId}:{connection.GetFrom().Pin.GetName()} -> {groupNodeData.Id}:{newInputPin.GetName()}");
                 }
             }
 
@@ -129,12 +149,14 @@ namespace OpenShaderGraph.Core.Logic
             for (int i = 0; i < outgoingConnections.Count; i++)
             {
                 var connection = outgoingConnections[i];
+                Logger.Log($"[GraphManager] mapping outgoing connection {i}: to {connection.GetTo().NodeId} from group output pin index {i} name {(i < groupNodeData.GetOutputs().Count ? groupNodeData.GetOutputs()[i].GetName() : "<none>")}");
                 if (i < groupNodeData.GetOutputs().Count)
                 {
                     var newOutputPin = groupNodeData.GetOutputs()[i];
                     _currentGraphData.AddConnection(new ConnectionData(
                         groupNodeData.Id, newOutputPin,
                         connection.GetTo().NodeId, connection.GetTo().Pin));
+                    Logger.Log($"[GraphManager] added connection from group node: from {groupNodeData.Id}:{newOutputPin.GetName()} -> {connection.GetTo().NodeId}:{connection.GetTo().Pin.GetName()}");
                 }
             }
         }

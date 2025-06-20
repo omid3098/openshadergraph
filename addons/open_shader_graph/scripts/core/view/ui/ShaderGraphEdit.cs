@@ -127,11 +127,20 @@ namespace OpenShaderGraph.Core.View.UI
 
                 if (fromNode != null && toNode != null)
                 {
-                    // Use name-based lookup for cloned PinData instances
-                    var fromPinIndex = fromNode.Data?.GetOutputs().FindIndex(p => p.GetName() == connectionData.GetFrom().Pin.GetName()) ?? -1;
-                    var toPinIndex = toNode.Data?.GetInputs().FindIndex(p => p.GetName() == connectionData.GetTo().Pin.GetName()) ?? -1;
+                    // Determine pin indices using reference-based lookup first, fallback to name-based
+                    var outputs = fromNode.Data.GetOutputs();
+                    int fromPinIndex = outputs.FindIndex(p => p == connectionData.GetFrom().Pin);
+                    if (fromPinIndex == -1)
+                    {
+                        fromPinIndex = outputs.FindIndex(p => p.GetName() == connectionData.GetFrom().Pin.GetName());
+                    }
+                    var inputs = toNode.Data.GetInputs();
+                    int toPinIndex = inputs.FindIndex(p => p == connectionData.GetTo().Pin);
+                    if (toPinIndex == -1)
+                    {
+                        toPinIndex = inputs.FindIndex(p => p.GetName() == connectionData.GetTo().Pin.GetName());
+                    }
                     Logger.Log($"[ShaderGraphEdit] DrawGraph: pin indices fromPinIndex={fromPinIndex}, toPinIndex={toPinIndex}");
-
                     if (fromPinIndex != -1 && toPinIndex != -1)
                     {
                         Logger.Log($"[ShaderGraphEdit] DrawGraph: connecting node '{fromNode.Name}' slot {fromPinIndex} -> node '{toNode.Name}' slot {toPinIndex}");
