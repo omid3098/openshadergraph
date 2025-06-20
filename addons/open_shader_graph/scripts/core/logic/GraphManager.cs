@@ -112,23 +112,29 @@ namespace OpenShaderGraph.Core.Logic
 
             _currentGraphData.AddNode(groupNodeData);
 
-            foreach (var connection in incomingConnections)
+            // Map incoming connections to group input pins by index order
+            for (int i = 0; i < incomingConnections.Count; i++)
             {
-                var originalToPin = connection.GetTo().Pin;
-                var newInputPin = groupNodeData.GetInputs().FirstOrDefault(p => p.GetName() == originalToPin.GetName() && p.GetDataType() == originalToPin.GetDataType());
-                if (newInputPin != null)
+                var connection = incomingConnections[i];
+                if (i < groupNodeData.GetInputs().Count)
                 {
-                    _currentGraphData.AddConnection(new ConnectionData(connection.GetFrom().NodeId, connection.GetFrom().Pin, groupNodeData.Id, newInputPin));
+                    var newInputPin = groupNodeData.GetInputs()[i];
+                    _currentGraphData.AddConnection(new ConnectionData(
+                        connection.GetFrom().NodeId, connection.GetFrom().Pin,
+                        groupNodeData.Id, newInputPin));
                 }
             }
 
-            foreach (var connection in outgoingConnections)
+            // Map outgoing connections to group output pins by index order
+            for (int i = 0; i < outgoingConnections.Count; i++)
             {
-                var originalFromPin = connection.GetFrom().Pin;
-                var newOutputPin = groupNodeData.GetOutputs().FirstOrDefault(p => p.GetName() == originalFromPin.GetName() && p.GetDataType() == originalFromPin.GetDataType());
-                if (newOutputPin != null)
+                var connection = outgoingConnections[i];
+                if (i < groupNodeData.GetOutputs().Count)
                 {
-                    _currentGraphData.AddConnection(new ConnectionData(groupNodeData.Id, newOutputPin, connection.GetTo().NodeId, connection.GetTo().Pin));
+                    var newOutputPin = groupNodeData.GetOutputs()[i];
+                    _currentGraphData.AddConnection(new ConnectionData(
+                        groupNodeData.Id, newOutputPin,
+                        connection.GetTo().NodeId, connection.GetTo().Pin));
                 }
             }
         }
