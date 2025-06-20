@@ -24,12 +24,6 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Services.Register(_mockGroupingService.Object);
         }
 
-        [TearDown]
-        public void TearDown()
-        {
-            Services.Clear();
-        }
-
         [Test]
         public void CreateNewGraph_ReturnsNewGraph()
         {
