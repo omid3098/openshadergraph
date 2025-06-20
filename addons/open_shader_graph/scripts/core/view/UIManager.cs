@@ -112,6 +112,8 @@ namespace OpenShaderGraph.Core.View
         {
             Logger.Log($"[UIManager] Switching to graph: {graph.GetName()}");
             CreateOrSwitchToTab(graph);
+            // Clear any lingering selection so no nodes remain selected when switching graphs
+            _currentGraphEdit.DeselectAllNodes();
         }
 
         private void CreateOrSwitchToTab(BaseGraphData graph)

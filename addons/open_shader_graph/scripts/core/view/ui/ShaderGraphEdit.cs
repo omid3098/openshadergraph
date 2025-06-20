@@ -382,5 +382,19 @@ namespace OpenShaderGraph.Core.View.UI
         {
             DrawGraph();
         }
+
+        /// <summary>
+        /// Deselect all nodes in this graph edit.
+        /// </summary>
+        public void DeselectAllNodes()
+        {
+            foreach (var child in GetChildren())
+            {
+                if (child is GraphNode node)
+                {
+                    node.Selected = false;
+                }
+            }
+        }
     }
 }
