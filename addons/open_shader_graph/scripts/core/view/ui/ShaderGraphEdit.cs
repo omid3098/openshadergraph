@@ -348,6 +348,8 @@ namespace OpenShaderGraph.Core.View.UI
         {
             var nodesData = nodes.Cast<BaseGraphNode>().Select(n => n.Data!).ToList();
             Services.Get<GraphManager>().GroupNodes(nodesData);
+            ClearGraph();
+            CallDeferred(nameof(DeferredDrawGraph));
         }
 
         public void RequestNodeCreation(string nodeName, Vector2 position)

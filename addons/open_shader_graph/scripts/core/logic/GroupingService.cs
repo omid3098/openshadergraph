@@ -24,10 +24,12 @@ public class GroupingService
         // Add nodes to the group and create an ID map
         foreach (var node in nodesToGroup)
         {
+            // Clone the node so we don't modify the original, preserving its ID for later removal
             var oldId = node.Id;
-            node.Id = -1; // Reset ID to be reassigned by the group graph
-            groupGraph.AddNode(node);
-            idMap[oldId] = node.Id;
+            var nodeClone = node.Clone();
+            // Add the cloned node to the subgroup graph, it will receive a new ID
+            groupGraph.AddNode(nodeClone);
+            idMap[oldId] = nodeClone.Id;
         }
 
         var allParentConnections = parentGraph.GetConnections();

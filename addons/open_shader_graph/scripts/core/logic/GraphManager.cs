@@ -86,8 +86,18 @@ namespace OpenShaderGraph.Core.Logic
                 nodesToGroup.Average(n => n.GetPosition().Y)
             );
 
-            var groupInputs = groupGraphData.OutputNode.GetInputs().Select(p => p.Clone()).ToList();
-            var groupOutputs = groupGraphData.InputNode.GetOutputs().Select(p => p.Clone()).ToList();
+            var groupInputs = groupGraphData.InputNode.GetOutputs().Select(p =>
+            {
+                var clone = p.Clone();
+                clone.SetDirection(DirectionType.Input);
+                return clone;
+            }).ToList();
+            var groupOutputs = groupGraphData.OutputNode.GetInputs().Select(p =>
+            {
+                var clone = p.Clone();
+                clone.SetDirection(DirectionType.Output);
+                return clone;
+            }).ToList();
 
             var groupNodeData = new GroupNodeData("Group", "Group", groupPosition, groupGraphData, groupInputs, groupOutputs);
 
@@ -105,20 +115,20 @@ namespace OpenShaderGraph.Core.Logic
             foreach (var connection in incomingConnections)
             {
                 var originalToPin = connection.GetTo().Pin;
-                var newOutputPin = groupNodeData.GetOutputs().FirstOrDefault(p => p.GetName() == originalToPin.GetName() && p.GetDataType() == originalToPin.GetDataType());
-                if (newOutputPin != null)
+                var newInputPin = groupNodeData.GetInputs().FirstOrDefault(p => p.GetName() == originalToPin.GetName() && p.GetDataType() == originalToPin.GetDataType());
+                if (newInputPin != null)
                 {
-                    _currentGraphData.AddConnection(new ConnectionData(connection.GetFrom().NodeId, connection.GetFrom().Pin, groupNodeData.Id, newOutputPin));
+                    _currentGraphData.AddConnection(new ConnectionData(connection.GetFrom().NodeId, connection.GetFrom().Pin, groupNodeData.Id, newInputPin));
                 }
             }
 
             foreach (var connection in outgoingConnections)
             {
                 var originalFromPin = connection.GetFrom().Pin;
-                var newInputPin = groupNodeData.GetInputs().FirstOrDefault(p => p.GetName() == originalFromPin.GetName() && p.GetDataType() == originalFromPin.GetDataType());
-                if (newInputPin != null)
+                var newOutputPin = groupNodeData.GetOutputs().FirstOrDefault(p => p.GetName() == originalFromPin.GetName() && p.GetDataType() == originalFromPin.GetDataType());
+                if (newOutputPin != null)
                 {
-                    _currentGraphData.AddConnection(new ConnectionData(groupNodeData.Id, newInputPin, connection.GetTo().NodeId, connection.GetTo().Pin));
+                    _currentGraphData.AddConnection(new ConnectionData(groupNodeData.Id, newOutputPin, connection.GetTo().NodeId, connection.GetTo().Pin));
                 }
             }
         }

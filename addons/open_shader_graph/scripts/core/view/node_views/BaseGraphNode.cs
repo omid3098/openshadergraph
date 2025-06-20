@@ -128,10 +128,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public void DeleteNode()
         {
-            // remove all listeners
-            FocusEntered -= OnFocusEntered;
-            FocusExited -= OnFocusExited;
-            Dragged -= OnDragged;
+            // no manual disconnect of Godot signals; they will be cleaned up on free
             NodeMoved = null;
             QueueFree();
         }
