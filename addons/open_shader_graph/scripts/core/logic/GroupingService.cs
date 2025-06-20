@@ -15,7 +15,7 @@ public class GroupingService
     /// The original nodes and connections should be removed from the main graph afterwards,
     /// and a new GroupNode referencing this graph should be added.
     /// </summary>
-    public BaseGroupGraphData Group(string groupName, GraphType graphType, BaseGraphData parentGraph, List<BaseNodeData> nodesToGroup)
+    public virtual BaseGroupGraphData Group(string groupName, GraphType graphType, BaseGraphData parentGraph, List<BaseNodeData> nodesToGroup)
     {
         var groupGraph = new BaseGroupGraphData(groupName, graphType);
         var idMap = new Dictionary<long, long>();
@@ -79,7 +79,7 @@ public class GroupingService
     /// It remaps the node IDs from the group to be unique in the main graph.
     /// The groupNodeData should be removed from the main graph after this operation.
     /// </summary>
-    public (List<BaseNodeData> newNodes, List<ConnectionData> newConnections) Ungroup(BaseGraphData mainGraph, BaseNodeData groupNode, BaseGroupGraphData subGraph)
+    public virtual (List<BaseNodeData> newNodes, List<ConnectionData> newConnections) Ungroup(BaseGraphData mainGraph, BaseNodeData groupNode, BaseGroupGraphData subGraph)
     {
         var newNodes = new List<BaseNodeData>();
         var newConnections = new List<ConnectionData>();

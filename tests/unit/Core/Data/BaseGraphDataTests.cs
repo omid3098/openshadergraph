@@ -3,7 +3,8 @@ using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
 using static OpenShaderGraph.Core.Data.GraphType;
-using static OpenShaderGraph.Core.Data.PinType;
+using static OpenShaderGraph.Core.Data.PinDataType;
+using static OpenShaderGraph.Core.Data.DirectionType;
 
 namespace OpenShaderGraph.Tests.Core.Data
 {
@@ -22,8 +23,8 @@ namespace OpenShaderGraph.Tests.Core.Data
             _graph = new BaseGraphData("Test Graph", GraphType.ShaderGraph);
 
             // Create test nodes with pins
-            _outputPin = new PinData("output", "float", PinType.Output, new Variant(1.0f));
-            _inputPin = new PinData("input", "float", PinType.Input, new Variant(0.0f));
+            _outputPin = new PinData("output", PinDataType.Float, DirectionType.Output, new Variant(1.0f));
+            _inputPin = new PinData("input", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
             var outputPins = new List<PinData> { _outputPin };
             var inputPins = new List<PinData> { _inputPin };
@@ -159,7 +160,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Arrange
             _graph.AddNode(_node1);
             _graph.AddNode(_node2);
-            var intPin = new PinData("input", "int", PinType.Input, new Variant(0));
+            var intPin = new PinData("input", PinDataType.Int, DirectionType.Input, new Variant(0));
             var connection = new ConnectionData(_node1.Id, _outputPin, _node2.Id, intPin);
 
             // Act & Assert

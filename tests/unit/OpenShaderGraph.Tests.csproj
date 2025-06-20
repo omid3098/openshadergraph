@@ -20,11 +20,15 @@
   <!-- Reference only the data layer classes that don't depend on Godot types -->
   <ItemGroup>
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/PinData.cs" Link="Source/PinData.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/PinDataType.cs" Link="Source/PinDataType.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/ConnectionData.cs" Link="Source/ConnectionData.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/BaseNodeData.cs" Link="Source/BaseNodeData.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/BaseGraphData.cs" Link="Source/BaseGraphData.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/GroupNodeData.cs" Link="Source/GroupNodeData.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GraphManager.cs" Link="Source/GraphManager.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GroupingService.cs" Link="Source/GroupingService.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/Logger.cs" Link="Source/Logger.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/ServiceContainer.cs" Link="Source/ServiceContainer.cs" />
   </ItemGroup>
 
 </Project> 

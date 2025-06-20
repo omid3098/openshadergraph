@@ -2,7 +2,6 @@ using NUnit.Framework;
 using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
-using static OpenShaderGraph.Core.Data.PinType;
 
 namespace OpenShaderGraph.Tests.Core.Data
 {
@@ -18,8 +17,8 @@ namespace OpenShaderGraph.Tests.Core.Data
         [SetUp]
         public void SetUp()
         {
-            _outputPin = new PinData("output", "float", PinType.Output, new Variant(1.0f));
-            _inputPin = new PinData("input", "float", PinType.Input, new Variant(0.0f));
+            _outputPin = new PinData("output", PinDataType.Float, DirectionType.Output, new Variant(1.0f));
+            _inputPin = new PinData("input", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
             var outputPins = new List<PinData> { _outputPin };
             var inputPins = new List<PinData> { _inputPin };
@@ -55,7 +54,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Assert
             Assert.That(from.NodeId, Is.EqualTo(1));
             Assert.That(from.Pin.GetName(), Is.EqualTo("output"));
-            Assert.That(from.Pin.GetDirection(), Is.EqualTo(PinType.Output));
+            Assert.That(from.Pin.GetDirection(), Is.EqualTo(DirectionType.Output));
         }
 
         [Test]
@@ -67,7 +66,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Assert
             Assert.That(to.NodeId, Is.EqualTo(2));
             Assert.That(to.Pin.GetName(), Is.EqualTo("input"));
-            Assert.That(to.Pin.GetDirection(), Is.EqualTo(PinType.Input));
+            Assert.That(to.Pin.GetDirection(), Is.EqualTo(DirectionType.Input));
         }
 
         [Test]
@@ -86,7 +85,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         {
             // Arrange
             var endpoint = new ConnectionEndpoint(_fromNode.Id, _outputPin);
-            var newPin = new PinData("newPin", "int", PinType.Output, new Variant(42));
+            var newPin = new PinData("newPin", PinDataType.Int, DirectionType.Output, new Variant(42));
 
             // Act
             endpoint.Pin = newPin;
@@ -100,8 +99,8 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void Constructor_WithDifferentPinTypes_CreatesValidConnection()
         {
             // Arrange
-            var intOutputPin = new PinData("intOutput", "int", PinType.Output, new Variant(100));
-            var intInputPin = new PinData("intInput", "int", PinType.Input, new Variant(0));
+            var intOutputPin = new PinData("intOutput", PinDataType.Int, DirectionType.Output, new Variant(100));
+            var intInputPin = new PinData("intInput", PinDataType.Int, DirectionType.Input, new Variant(0));
 
             // Act
             var intConnection = new ConnectionData(_fromNode.Id, intOutputPin, _toNode.Id, intInputPin);
@@ -109,8 +108,8 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Assert
             var from = intConnection.GetFrom();
             var to = intConnection.GetTo();
-            Assert.That(from.Pin.GetDataType(), Is.EqualTo("int"));
-            Assert.That(to.Pin.GetDataType(), Is.EqualTo("int"));
+            Assert.That(from.Pin.GetDataType(), Is.EqualTo(PinDataType.Int));
+            Assert.That(to.Pin.GetDataType(), Is.EqualTo(PinDataType.Int));
         }
     }
 }

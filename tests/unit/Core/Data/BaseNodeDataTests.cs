@@ -2,7 +2,6 @@ using NUnit.Framework;
 using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
-using static OpenShaderGraph.Core.Data.PinType;
 
 namespace OpenShaderGraph.Tests.Core.Data
 {
@@ -18,13 +17,13 @@ namespace OpenShaderGraph.Tests.Core.Data
         {
             _inputPins = new List<PinData>
             {
-                new PinData("input1", "float", PinType.Input, new Variant(0.0f)),
-                new PinData("input2", "int", PinType.Input, new Variant(0))
+                new PinData("input1", PinDataType.Float, DirectionType.Input, new Variant(0.0f)),
+                new PinData("input2", PinDataType.Int, DirectionType.Input, new Variant(0))
             };
 
             _outputPins = new List<PinData>
             {
-                new PinData("output1", "float", PinType.Output, new Variant(1.0f))
+                new PinData("output1", PinDataType.Float, DirectionType.Output, new Variant(1.0f))
             };
 
             _node = new BaseNodeData("TestNode", "MathNode", new Vector2(100, 200), _inputPins, _outputPins);
@@ -93,7 +92,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Arrange
             var newInputs = new List<PinData>
             {
-                new PinData("newInput", "string", PinType.Input, new Variant("test"))
+                new PinData("newInput", PinDataType.Bool, DirectionType.Input, new Variant(true))
             };
 
             // Act
@@ -111,8 +110,8 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Arrange
             var newOutputs = new List<PinData>
             {
-                new PinData("newOutput1", "bool", PinType.Output, new Variant(true)),
-                new PinData("newOutput2", "float", PinType.Output, new Variant(2.0f))
+                new PinData("newOutput1", PinDataType.Bool, DirectionType.Output, new Variant(true)),
+                new PinData("newOutput2", PinDataType.Float, DirectionType.Output, new Variant(2.0f))
             };
 
             // Act
