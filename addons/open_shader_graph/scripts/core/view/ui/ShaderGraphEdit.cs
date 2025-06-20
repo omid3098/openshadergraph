@@ -1,3 +1,4 @@
+#nullable enable
 using Godot;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;

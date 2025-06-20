@@ -13,6 +13,11 @@ The plugin follows the naming conventions:
 Main plugin entry point: `gd_plugin.gd`
 Main editor interface: `scripts/gd_open_shader_editor.gd`
 
+<!-- For the next step I want to implement grouping features like group, local subgraph and subgraphs (as a separate resource to share between graphs)
+Carefully plan for this next step knowing these factors:
+- In ContextMenuManager, we already have a Grouping context menu. it should be activated when multiple nodes are selected and we want to do grouping features like creating a group, subgraphs, local subgraps or arrange these nodes, etc..
+- Focus on group creation first. when user tries to group some nodes, all connections comming outside if these nodes should be converted to the group input pins or output pins preserving their types and passing connections to preserve the whole flow.
+- we need to have mandatory input/output nodes only visible in any kind of groups (always) -->
 
 ## TODO:
 - re-openning the same graph will hide all connections but nodes will be visible.

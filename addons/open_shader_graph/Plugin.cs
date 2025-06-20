@@ -21,6 +21,7 @@ namespace OpenShaderGraph
             Services.Register<PreferencesManager>(new PreferencesManager());
             Services.Register<UIManager>(new UIManager());
             Services.Register<NodeRegistry>(new NodeRegistry());
+            Services.Register<GroupingService>(new GroupingService());
             Services.InitAll();
 
             // Build the editor UI

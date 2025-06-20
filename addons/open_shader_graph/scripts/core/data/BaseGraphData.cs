@@ -14,17 +14,72 @@ public enum GraphType
     GlobalSubgraph,
 }
 
+public partial class BaseGroupGraphData : BaseGraphData
+{
+    public BaseNodeData InputNode { get; private set; }
+    public BaseNodeData OutputNode { get; private set; }
+
+    public BaseGroupGraphData(string name,
+                              GraphType graphType,
+                              List<BaseNodeData>? nodes = null,
+                              List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
+    {
+        InputNode = new BaseNodeData("Input", "Input", new Vector2(0, 0));
+        OutputNode = new BaseNodeData("Output", "Output", new Vector2(500, 0));
+        AddNode(InputNode);
+        AddNode(OutputNode);
+    }
+
+    public override bool AddConnection(ConnectionData connection)
+    {
+        // If the connection node does not exist in the graph, use the input/output nodes as the connection nodes based on the direction of the connection.
+        if (connection == null)
+            return false; // Silently ignore null connections
+
+        var fromNode = GetNodeById(connection.GetFrom().NodeId);
+        var toNode = GetNodeById(connection.GetTo().NodeId);
+        if (fromNode == null)
+        {
+            fromNode = InputNode;
+            PinData pin = connection.GetFrom().Pin;
+            fromNode.AddInput(pin);
+            // Update the connection to use the input node as the from node.
+            connection = new ConnectionData(fromNode.Id, pin, connection.GetTo().NodeId, connection.GetTo().Pin);
+        }
+        if (toNode == null)
+        {
+            toNode = OutputNode;
+            toNode.AddOutput(connection.GetTo().Pin);
+        }
+
+
+
+        bool valid = ValidateConnection(connection);
+        if (valid)
+        {
+            _connections.Add(connection);
+            Logger.Log($"[BaseGraphData] Connection added. Total connections: {_connections.Count}");
+            return true;
+        }
+        else
+        {
+            Logger.Log("[BaseGraphData] WARNING: Connection validation failed. Connection not added.");
+            return false;
+        }
+    }
+}
+
 public partial class BaseGraphData : RefCounted
 {
-    public Action<string> NameChanged { get; set; }
-    public Action<BaseNodeData> NodeRemoved { get; set; }
-    public Action<BaseNodeData> NodeAdded { get; set; }
+    public Action<string> NameChanged { get; set; } = delegate { };
+    public Action<BaseNodeData> NodeRemoved { get; set; } = delegate { };
+    public Action<BaseNodeData> NodeAdded { get; set; } = delegate { };
 
     private string _name = "";
     private GraphType _graphType = GraphType.ShaderGraph;
-    private List<BaseNodeData> _nodes = new();
-    private List<ConnectionData> _connections = new();
-    private long _nextNodeId = 0;
+    protected List<BaseNodeData> _nodes = new();
+    protected List<ConnectionData> _connections = new();
+    protected long _nextNodeId = 0;
     private string _filePath = ""; // asset path used for saving and loading
     private string _version = "1.0"; // version identifier for the graph asset
     private Dictionary<string, Variant> _properties = new(); // custom graph properties
@@ -103,7 +158,7 @@ public partial class BaseGraphData : RefCounted
         NodeRemoved?.Invoke(node);
     }
 
-    public bool AddConnection(ConnectionData connection)
+    public virtual bool AddConnection(ConnectionData connection)
     {
         if (connection == null)
             return false; // Silently ignore null connections
