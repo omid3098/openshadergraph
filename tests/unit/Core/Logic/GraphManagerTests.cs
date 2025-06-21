@@ -176,5 +176,25 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(outgoingConn.GetTo().NodeId, Is.EqualTo(outputNode.Id));
             Assert.That(outgoingConn.GetFrom().Pin.GetName(), Is.EqualTo(pinB_out.GetName()));
         }
+
+        [Test]
+        public void CreateNewGraph_WithCustomEngineAndStage_SetsPropertiesCorrectly()
+        {
+            var graph = _graphManager.CreateNewGraph("CustomGraph", ShaderGraph, EngineType.HLSL, ShaderStage.Compute);
+            Assert.That(graph, Is.InstanceOf<ShaderGraphData>());
+            var sg = (ShaderGraphData)graph;
+            Assert.That(sg.Engine, Is.EqualTo(EngineType.HLSL));
+            Assert.That(sg.Stage, Is.EqualTo(ShaderStage.Compute));
+        }
+
+        [Test]
+        public void CreateNewGraph_DefaultsToShaderGraphDataWithGodotAndFragment()
+        {
+            var graph = _graphManager.CreateNewGraph();
+            Assert.That(graph, Is.InstanceOf<ShaderGraphData>());
+            var sg = (ShaderGraphData)graph;
+            Assert.That(sg.Engine, Is.EqualTo(EngineType.Godot));
+            Assert.That(sg.Stage, Is.EqualTo(ShaderStage.Fragment));
+        }
     }
 }

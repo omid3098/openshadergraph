@@ -29,6 +29,11 @@
     <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GroupingService.cs" Link="Source/GroupingService.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/Logger.cs" Link="Source/Logger.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/ServiceContainer.cs" Link="Source/ServiceContainer.cs" />
+    <!-- Include filtering service and related metadata for tests -->
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/NodeFilteringService.cs" Link="Source/NodeFilteringService.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/view/node_views/RegisterNodeAttribute.cs" Link="Source/RegisterNodeAttribute.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/view/node_views/RegisteredNode.cs" Link="Source/RegisteredNode.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderGraphData.cs" Link="Source/ShaderGraphData.cs" />
   </ItemGroup>
 
 </Project> 

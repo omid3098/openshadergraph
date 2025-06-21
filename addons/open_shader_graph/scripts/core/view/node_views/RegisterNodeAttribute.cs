@@ -1,4 +1,5 @@
 using System;
+using OpenShaderGraph.Core.Data;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
@@ -7,6 +8,9 @@ namespace OpenShaderGraph.Core.View.NodeViews
     {
         public string Category { get; }
         public string Name { get; }
+        public EngineType[] Engines { get; set; } = Array.Empty<EngineType>();
+        public ShaderStage[] Stages { get; set; } = Array.Empty<ShaderStage>();
+        public GraphType[] GraphTypes { get; set; } = Array.Empty<GraphType>();
 
         public RegisterNodeAttribute(string name, string category = "General")
         {

@@ -25,11 +25,30 @@ namespace OpenShaderGraph.Core.Logic
             Logger.Log("[GraphManager] init");
         }
 
-        public BaseGraphData CreateNewGraph(string name = "New Graph", GraphType graphType = GraphType.ShaderGraph)
+        /// <summary>
+        /// Creates a new graph. For ShaderGraph types, returns a ShaderGraphData with explicit engine and stage.
+        /// </summary>
+        public BaseGraphData CreateNewGraph(
+            string name = "New Graph",
+            GraphType graphType = GraphType.ShaderGraph,
+            EngineType engine = EngineType.Godot,
+            ShaderStage shaderStage = ShaderStage.Fragment)
         {
-            var emptyNodes = new List<BaseNodeData>();
-            var emptyConnections = new List<ConnectionData>();
-            var graph = new BaseGraphData(name, graphType, emptyNodes, emptyConnections);
+            BaseGraphData graph;
+            if (graphType == GraphType.ShaderGraph)
+            {
+                graph = new ShaderGraphData(name, engine, shaderStage);
+            }
+            else if (graphType == GraphType.GroupGraph)
+            {
+                // Group graphs have built-in input/output nodes
+                graph = new BaseGroupGraphData(name, graphType);
+            }
+            else
+            {
+                // Other graph types (subgraphs) use basic BaseGraphData
+                graph = new BaseGraphData(name, graphType, new List<BaseNodeData>(), new List<ConnectionData>());
+            }
             AddGraph(graph);
             return graph;
         }

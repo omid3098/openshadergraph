@@ -6,18 +6,6 @@ using OpenShaderGraph.Core.Utils;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
-    public class RegisteredNode
-    {
-        public Type NodeType { get; }
-        public RegisterNodeAttribute Attribute { get; }
-
-        public RegisteredNode(Type nodeType, RegisterNodeAttribute attribute)
-        {
-            NodeType = nodeType;
-            Attribute = attribute;
-        }
-    }
-
     public class NodeRegistry : IInitializable
     {
         // Holds all registered node types by category

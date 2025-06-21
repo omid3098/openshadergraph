@@ -3,6 +3,8 @@ using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.NodeViews;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using OpenShaderGraph.Core.Logic;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
 {
@@ -89,28 +91,35 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
             Clear();
             foreach (var sub in _subMenus.Values)
-            {
                 sub.QueueFree();
-            }
             _subMenus.Clear();
 
-            // This placeholder item reserves space for the search box.
-            // It is covered by the search box, which gets a proper background.
+            // Placeholder for search box space
             AddItem("");
             SetItemDisabled(0, true);
 
+            var filter = Services.Get<NodeFilteringService>();
+            var graphData = _targetGraphEdit.GetGraphData();
+
             if (string.IsNullOrEmpty(searchText))
             {
-                foreach (string category in _registeredNodes.Keys)
+                foreach (var category in _registeredNodes.Keys)
                 {
+                    // Only include nodes visible in this graph context
+                    var visibleNodes = _registeredNodes[category]
+                        .Where(n => filter.IsNodeVisible(n, graphData))
+                        .ToList();
+                    if (!visibleNodes.Any())
+                        continue;
+
                     var subMenu = new PopupMenu();
                     subMenu.Name = category + " > ";
                     AddSubmenuNodeItem(category, subMenu);
                     _subMenus[category] = subMenu;
-                    foreach (var node in _registeredNodes[category])
+                    foreach (var node in visibleNodes)
                     {
                         subMenu.AddItem(node.Attribute.Name);
-                        subMenu.IdPressed += (id) => OnSubMenuIdPressed(subMenu, id);
+                        subMenu.IdPressed += id => OnSubMenuIdPressed(subMenu, id);
                     }
                 }
             }
@@ -120,6 +129,8 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                 {
                     foreach (var node in _registeredNodes[category])
                     {
+                        if (!filter.IsNodeVisible(node, graphData))
+                            continue;
                         if (node.Attribute.Name.ToLower().Contains(searchText) || category.ToLower().Contains(searchText))
                         {
                             var itemText = $"{category} > {node.Attribute.Name}";
@@ -139,7 +150,6 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             }
             Hide();
         }
-
 
         private void OnSearchTextChanged(string newText)
         {
