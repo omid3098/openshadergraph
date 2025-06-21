@@ -8,7 +8,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
 {
     public abstract partial class BaseGraphNode : GraphNode
     {
-        public Action<BaseNodeData, Vector2> NodeMoved;
+        public Action<BaseNodeData, Vector2>? NodeMoved;
 
         public BaseNodeData Data { get; private set; }
 
@@ -128,9 +128,23 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public void DeleteNode()
         {
-            // no manual disconnect of Godot signals; they will be cleaned up on free
-            NodeMoved = null;
+            // Clean up subscriptions before freeing
+            Dispose();
             QueueFree();
+        }
+
+        // Implement IDisposable to clean up event subscriptions
+        public new void Dispose()
+        {
+            // Unsubscribe Godot signals
+            FocusEntered -= OnFocusEntered;
+            FocusExited -= OnFocusExited;
+            Dragged -= OnDragged;
+
+            // Clear custom delegates
+            NodeMoved = null;
+            // Call Godot's internal Dispose for proper cleanup
+            base.Dispose();
         }
     }
 }
