@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "wunS7WB5O8g=",
+  "dgSpecHash": "MBBqTXbyFvQ=",
   "success": true,
   "projectFilePath": "/Users/omid3098/Documents/w/Godot/openshadergraph/tests/unit/OpenShaderGraph.Tests.csproj",
   "expectedPackageFiles": [
@@ -20,6 +20,7 @@
     "/Users/omid3098/.nuget/packages/nunit3testadapter/4.4.2/nunit3testadapter.4.4.2.nupkg.sha512",
     "/Users/omid3098/.nuget/packages/system.diagnostics.eventlog/6.0.0/system.diagnostics.eventlog.6.0.0.nupkg.sha512",
     "/Users/omid3098/.nuget/packages/system.reflection.metadata/1.6.0/system.reflection.metadata.1.6.0.nupkg.sha512",
+    "/Users/omid3098/.nuget/packages/yamldotnet/16.3.0/yamldotnet.16.3.0.nupkg.sha512",
     "/Users/omid3098/.nuget/packages/microsoft.netcore.app.ref/6.0.36/microsoft.netcore.app.ref.6.0.36.nupkg.sha512",
     "/Users/omid3098/.nuget/packages/microsoft.aspnetcore.app.ref/6.0.36/microsoft.aspnetcore.app.ref.6.0.36.nupkg.sha512"
   ],
