@@ -212,9 +212,14 @@ namespace OpenShaderGraph.Core.Logic
         }
 
         // Delete a graph and emit a signal; auto-select first graph if any remain
-        public void DeleteGraph(BaseGraphData graph)
+        public void DeleteGraph(BaseGraphData? graph)
         {
-            if (graph == null) throw new ArgumentNullException(nameof(graph));
+            // Handle null input gracefully
+            if (graph == null)
+            {
+                Logger.Log("[GraphManager] Attempted to delete null graph");
+                return;
+            }
             if (_allGraphsData.Contains(graph))
             {
                 _allGraphsData.Remove(graph);
