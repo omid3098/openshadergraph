@@ -32,6 +32,7 @@ columnSorting:
 - [p2-code-generation-multi-language-support](tasks/p2-code-generation-multi-language-support.md)
 - [p3-local-subgraph-implementation](tasks/p3-local-subgraph-implementation.md)
 - [p3-subgraph-implementation](tasks/p3-subgraph-implementation.md)
+- [p4-group-graphs-properties](tasks/p4-group-graphs-properties.md)
 - [p4-remove-connections](tasks/p4-remove-connections.md)
 - [p5-disconnect-the-previous-connection-on-new-connection-request](tasks/p5-disconnect-the-previous-connection-on-new-connection-request.md)
 
