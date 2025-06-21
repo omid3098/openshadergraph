@@ -31,6 +31,7 @@ columnSorting:
 - [p1-brainstorm-node-filtering-factors](tasks/p1-brainstorm-node-filtering-factors.md)
 - [p1-brainstorm-output-nodes-for-shaders](tasks/p1-brainstorm-output-nodes-for-shaders.md)
 - [p2-code-generation-multi-language-support](tasks/p2-code-generation-multi-language-support.md)
+- [p2-display-graph-properties-on-create](tasks/p2-display-graph-properties-on-create.md)
 - [p3-local-subgraph-implementation](tasks/p3-local-subgraph-implementation.md)
 - [p3-subgraph-implementation](tasks/p3-subgraph-implementation.md)
 - [p4-remove-connections](tasks/p4-remove-connections.md)

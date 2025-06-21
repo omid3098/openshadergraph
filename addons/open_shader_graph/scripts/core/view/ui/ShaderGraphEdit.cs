@@ -73,12 +73,12 @@ namespace OpenShaderGraph.Core.View.UI
         {
             if (GraphData == null)
             {
-                Logger.Log("[ShaderGraphEdit] DrawGraph aborted: GraphData is null");
+                Logger.Debug("[ShaderGraphEdit] DrawGraph aborted: GraphData is null");
                 return;
             }
             _nodeViewCache.Clear();
             // Log graph content before drawing
-            Logger.Log($"[ShaderGraphEdit] DrawGraph: Graph='{GraphData.GetName()}', Nodes={GraphData.GetNodes().Count}, Connections={GraphData.GetConnections().Count}");
+            Logger.Debug($"[ShaderGraphEdit] DrawGraph: Graph='{GraphData.GetName()}', Nodes={GraphData.GetNodes().Count}, Connections={GraphData.GetConnections().Count}");
             // Draw nodes
             foreach (var nodeData in GraphData.GetNodes())
             {
@@ -101,19 +101,19 @@ namespace OpenShaderGraph.Core.View.UI
             }
 
             // Draw connections
-            Logger.Log("[ShaderGraphEdit] DrawGraph: starting connection loop");
+            Logger.Debug("[ShaderGraphEdit] DrawGraph: starting connection loop");
             foreach (var connectionData in GraphData.GetConnections())
             {
                 // Log each connection to draw
-                Logger.Log($"[ShaderGraphEdit] DrawGraph: examining connection from {connectionData.GetFrom().NodeId}:{connectionData.GetFrom().Pin.GetName()} to {connectionData.GetTo().NodeId}:{connectionData.GetTo().Pin.GetName()}");
+                Logger.Debug($"[ShaderGraphEdit] DrawGraph: examining connection from {connectionData.GetFrom().NodeId}:{connectionData.GetFrom().Pin.GetName()} to {connectionData.GetTo().NodeId}:{connectionData.GetTo().Pin.GetName()}");
                 // Use cache for O(1) lookups
                 _nodeViewCache.TryGetValue(connectionData.GetFrom().NodeId, out var fromNode);
                 _nodeViewCache.TryGetValue(connectionData.GetTo().NodeId, out var toNode);
 
                 if (fromNode == null)
-                    Logger.Log($"[ShaderGraphEdit] DrawGraph: could not find fromNode view for ID {connectionData.GetFrom().NodeId}");
+                    Logger.Debug($"[ShaderGraphEdit] DrawGraph: could not find fromNode view for ID {connectionData.GetFrom().NodeId}");
                 if (toNode == null)
-                    Logger.Log($"[ShaderGraphEdit] DrawGraph: could not find toNode view for ID {connectionData.GetTo().NodeId}");
+                    Logger.Debug($"[ShaderGraphEdit] DrawGraph: could not find toNode view for ID {connectionData.GetTo().NodeId}");
 
                 if (fromNode != null && toNode != null)
                 {
@@ -130,10 +130,10 @@ namespace OpenShaderGraph.Core.View.UI
                     {
                         toPinIndex = inputs.FindIndex(p => p.GetName() == connectionData.GetTo().Pin.GetName());
                     }
-                    Logger.Log($"[ShaderGraphEdit] DrawGraph: pin indices fromPinIndex={fromPinIndex}, toPinIndex={toPinIndex}");
+                    Logger.Debug($"[ShaderGraphEdit] DrawGraph: pin indices fromPinIndex={fromPinIndex}, toPinIndex={toPinIndex}");
                     if (fromPinIndex != -1 && toPinIndex != -1)
                     {
-                        Logger.Log($"[ShaderGraphEdit] DrawGraph: connecting node '{fromNode.Name}' slot {fromPinIndex} -> node '{toNode.Name}' slot {toPinIndex}");
+                        Logger.Debug($"[ShaderGraphEdit] DrawGraph: connecting node '{fromNode.Name}' slot {fromPinIndex} -> node '{toNode.Name}' slot {toPinIndex}");
                         ConnectNode(fromNode.Name, fromPinIndex, toNode.Name, toPinIndex);
                     }
                 }
