@@ -25,6 +25,8 @@ namespace OpenShaderGraph.Core.View
             // Retrieve shared service instances from the DI container
             _graphManager = Services.Get<GraphManager>();
             _uiManager = Services.Get<UIManager>();
+            // Handle graph creation to add a new tab and subscribe to name changes
+            _graphManager.GraphCreated += _uiManager.OnGraphCreated;
             _preferencesManager = Services.Get<PreferencesManager>();
             _nodeRegistry = Services.Get<NodeRegistry>();
 

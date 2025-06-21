@@ -28,7 +28,6 @@ columnSorting:
 
 ## Todo
 
-- [p1-brainstorm-node-filtering-factors](tasks/p1-brainstorm-node-filtering-factors.md)
 - [p1-brainstorm-output-nodes-for-shaders](tasks/p1-brainstorm-output-nodes-for-shaders.md)
 - [p2-code-generation-multi-language-support](tasks/p2-code-generation-multi-language-support.md)
 - [p2-display-graph-properties-on-create-or-open](tasks/p2-display-graph-properties-on-create-or-open.md)
@@ -40,3 +39,5 @@ columnSorting:
 ## In Progress
 
 ## Done
+
+- [p1-brainstorm-node-filtering-factors](tasks/p1-brainstorm-node-filtering-factors.md)

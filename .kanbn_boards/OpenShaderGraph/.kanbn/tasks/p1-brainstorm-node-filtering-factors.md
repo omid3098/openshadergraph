@@ -1,9 +1,10 @@
 ---
 created: 2025-06-20T20:43:16.134Z
-updated: 2025-06-20T20:43:21.376Z
+updated: 2025-06-21T12:42:05.585Z
 assigned: ""
 progress: 0
 tags: []
+completed: 2025-06-21T12:42:05.585Z
 ---
 
 # P1 - Brainstorm node filtering factors
@@ -32,4 +33,3 @@ Target Engine:
         - Vertex Shader
         - Fragment Shader
         - Compute Shader
-    

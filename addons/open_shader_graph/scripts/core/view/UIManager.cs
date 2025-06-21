@@ -106,6 +106,8 @@ namespace OpenShaderGraph.Core.View
             Logger.Log($"[UIManager] Adding graph tab: {graph.GetName()}");
             graph.NameChanged += (newName) => OnGraphNameChanged(graph, newName);
             CreateOrSwitchToTab(graph);
+            // Display graph properties immediately on graph creation
+            OnNodeDeselectedInGraph();
         }
 
         public void OnGraphSelected(BaseGraphData graph)
@@ -114,6 +116,8 @@ namespace OpenShaderGraph.Core.View
             CreateOrSwitchToTab(graph);
             // Clear any lingering selection so no nodes remain selected when switching graphs
             _currentGraphEdit.DeselectAllNodes();
+            // Display graph properties immediately on graph selection
+            OnNodeDeselectedInGraph();
         }
 
         private void CreateOrSwitchToTab(BaseGraphData graph)
@@ -167,6 +171,26 @@ namespace OpenShaderGraph.Core.View
                     child.QueueFree();
                     break;
                 }
+            }
+            // Refresh active tab selection and properties panel after deletion
+            if (_graphTabs.GetChildCount() > 0)
+            {
+                int currentIndex = _graphTabs.CurrentTab;
+                if (currentIndex < 0 || currentIndex >= _graphTabs.GetChildCount())
+                {
+                    currentIndex = 0;
+                    _graphTabs.CurrentTab = 0;
+                }
+                if (_graphTabs.GetChild(currentIndex) is ShaderGraphEdit newEdit)
+                {
+                    _currentGraphEdit = newEdit;
+                    OnNodeDeselectedInGraph();
+                }
+            }
+            else
+            {
+                // No tabs remain: clear properties panel
+                _sidebar.GetPropertiesPanel().ClearProperties();
             }
         }
 
