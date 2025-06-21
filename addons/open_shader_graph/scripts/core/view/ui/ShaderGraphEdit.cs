@@ -357,8 +357,11 @@ namespace OpenShaderGraph.Core.View.UI
                 DisconnectNode(fromNode, fromPort, toNode, toPort);
             }
 
-            var baseNodes = GetChildren().OfType<BaseGraphNode>().ToList();
-            Logger.Log($"[ShaderGraphEdit] ClearGraph: BaseGraphNode children count = {baseNodes.Count}");
+            // Only delete nodes that are still in the cache (i.e., not already removed)
+            var baseNodes = GetChildren().OfType<BaseGraphNode>()
+                .Where(n => _nodeViewCache.ContainsKey(n.Data.Id))
+                .ToList();
+            Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting {baseNodes.Count} BaseGraphNode children from cache");
             foreach (var nodeView in baseNodes)
             {
                 Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.GetName()}({nodeView.Data.Id}) with Name {nodeView.Name}");
