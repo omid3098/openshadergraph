@@ -68,14 +68,14 @@ namespace OpenShaderGraph.Core.Logic
         public void RemoveNode(BaseNodeData node)
         {
             if (node == null) throw new ArgumentNullException(nameof(node));
-            _currentGraphData?.RemoveNode(node);
+            if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");
+            _currentGraphData.RemoveNode(node);
         }
 
         public void DuplicateNode(BaseNodeData node)
         {
             if (node == null) throw new ArgumentNullException(nameof(node));
-            if (_currentGraphData == null)
-                return;
+            if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");
 
             var newNode = node.Clone();
             var newPosition = new Vector2(newNode.GetPosition().X + 30, newNode.GetPosition().Y + 30);
@@ -88,8 +88,8 @@ namespace OpenShaderGraph.Core.Logic
             if (nodesToGroup == null) throw new ArgumentNullException(nameof(nodesToGroup));
             // Debug: log GroupNodes invocation and target nodes
             Logger.Log($"[GraphManager] GroupNodes called on graph '{_currentGraphData?.GetName()}' for nodes: {string.Join(",", nodesToGroup.Select(n => n.GetName() + "(" + n.Id + ")"))}");
-            if (_currentGraphData == null || nodesToGroup.Count <= 1)
-                return;
+            if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");
+            if (nodesToGroup.Count <= 1) throw new ArgumentException("At least two nodes are required to group.", nameof(nodesToGroup));
 
             // Compute incoming and outgoing connections
             var groupingService = Services.Get<GroupingService>();
