@@ -16,7 +16,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
         [SetUp]
         public void SetUp()
         {
-            _graphManager = new GraphManager();
+            // Inject a default grouping service instance
+            _graphManager = new GraphManager(new GroupingService());
             _receivedSignals = new List<string>();
         }
 

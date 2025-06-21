@@ -15,7 +15,8 @@ namespace OpenShaderGraph.Tests.Core.Logic
         [SetUp]
         public void SetUp()
         {
-            _graphManager = new GraphManager();
+            // Inject a default grouping service instance
+            _graphManager = new GraphManager(new GroupingService());
             _graphData = _graphManager.CreateNewGraph();
             _graphManager.SelectGraph(_graphData);
         }

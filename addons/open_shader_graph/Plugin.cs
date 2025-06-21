@@ -16,13 +16,21 @@ namespace OpenShaderGraph
 
         public override void _EnterTree()
         {
-            // Register core services and perform initialization
-            Services.Register<GraphManager>(new GraphManager());
-            Services.Register<PreferencesManager>(new PreferencesManager());
-            Services.Register<UIManager>(new UIManager());
-            Services.Register<NodeRegistry>(new NodeRegistry());
-            Services.Register<GroupingService>(new GroupingService());
-            Services.Register<NodeFilteringService>(new NodeFilteringService());
+            // Instantiate service instances for constructor-based DI
+            var groupingService = new GroupingService();
+            var nodeFilteringService = new NodeFilteringService();
+            var preferencesManager = new PreferencesManager();
+            var uiManager = new UIManager();
+            var nodeRegistry = new NodeRegistry();
+            var graphManager = new GraphManager(groupingService);
+
+            // Register services and perform initialization
+            Services.Register<GroupingService>(groupingService);
+            Services.Register<NodeFilteringService>(nodeFilteringService);
+            Services.Register<PreferencesManager>(preferencesManager);
+            Services.Register<UIManager>(uiManager);
+            Services.Register<NodeRegistry>(nodeRegistry);
+            Services.Register<GraphManager>(graphManager);
             Services.InitAll();
 
             // Build the editor UI

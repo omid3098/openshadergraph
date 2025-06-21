@@ -19,9 +19,8 @@ namespace OpenShaderGraph.Tests.Core.Logic
         [SetUp]
         public void SetUp()
         {
-            _graphManager = new GraphManager();
             _mockGroupingService = new Mock<GroupingService>();
-            Services.Register(_mockGroupingService.Object);
+            _graphManager = new GraphManager(_mockGroupingService.Object);
         }
 
         [Test]

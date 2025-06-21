@@ -17,9 +17,10 @@ namespace OpenShaderGraph.Tests.Core.Logic
         [SetUp]
         public void SetUp()
         {
-            // Register the real grouping service
-            Services.Register(new GroupingService());
-            _graphManager = new GraphManager();
+            // Instantiate and register the real grouping service
+            var groupingService = new GroupingService();
+            Services.Register(groupingService);
+            _graphManager = new GraphManager(groupingService);
             _graph = _graphManager.CreateNewGraph();
         }
 

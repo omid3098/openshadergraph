@@ -10,6 +10,9 @@ namespace OpenShaderGraph.Core.Logic
 {
     public partial class GraphManager : Node
     {
+        // Service dependencies
+        private readonly GroupingService _groupingService;
+
         // Direct signals instead of using EventBus
         public Action<BaseGraphData> GraphCreated = delegate { };
 
@@ -20,8 +23,9 @@ namespace OpenShaderGraph.Core.Logic
         private List<BaseGraphData> _allGraphsData = new();
         private BaseGraphData? _currentGraphData;
 
-        public GraphManager()
+        public GraphManager(GroupingService groupingService)
         {
+            _groupingService = groupingService ?? throw new ArgumentNullException(nameof(groupingService));
             Logger.Log("[GraphManager] init");
         }
 
@@ -92,7 +96,8 @@ namespace OpenShaderGraph.Core.Logic
             if (nodesToGroup.Count <= 1) throw new ArgumentException("At least two nodes are required to group.", nameof(nodesToGroup));
 
             // Compute incoming and outgoing connections
-            var groupingService = Services.Get<GroupingService>();
+            // Use injected grouping service
+            var groupingService = _groupingService;
 
             var nodesToGroupIdSet = new HashSet<long>(nodesToGroup.Select(n => n.Id));
 
