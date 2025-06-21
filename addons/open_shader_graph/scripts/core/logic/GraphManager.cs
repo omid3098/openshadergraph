@@ -34,6 +34,7 @@ namespace OpenShaderGraph.Core.Logic
             EngineType engine = EngineType.Godot,
             ShaderStage shaderStage = ShaderStage.Fragment)
         {
+            if (name == null) throw new ArgumentNullException(nameof(name));
             BaseGraphData graph;
             if (graphType == GraphType.ShaderGraph)
             {
@@ -55,6 +56,7 @@ namespace OpenShaderGraph.Core.Logic
 
         public void AddGraph(BaseGraphData graph)
         {
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
             if (!_allGraphsData.Contains(graph))
             {
                 _allGraphsData.Add(graph);
@@ -65,11 +67,13 @@ namespace OpenShaderGraph.Core.Logic
 
         public void RemoveNode(BaseNodeData node)
         {
+            if (node == null) throw new ArgumentNullException(nameof(node));
             _currentGraphData?.RemoveNode(node);
         }
 
         public void DuplicateNode(BaseNodeData node)
         {
+            if (node == null) throw new ArgumentNullException(nameof(node));
             if (_currentGraphData == null)
                 return;
 
@@ -81,9 +85,10 @@ namespace OpenShaderGraph.Core.Logic
 
         public void GroupNodes(List<BaseNodeData> nodesToGroup)
         {
+            if (nodesToGroup == null) throw new ArgumentNullException(nameof(nodesToGroup));
             // Debug: log GroupNodes invocation and target nodes
             Logger.Log($"[GraphManager] GroupNodes called on graph '{_currentGraphData?.GetName()}' for nodes: {string.Join(",", nodesToGroup.Select(n => n.GetName() + "(" + n.Id + ")"))}");
-            if (_currentGraphData == null || nodesToGroup == null || nodesToGroup.Count <= 1)
+            if (_currentGraphData == null || nodesToGroup.Count <= 1)
                 return;
 
             // Compute incoming and outgoing connections
@@ -209,6 +214,7 @@ namespace OpenShaderGraph.Core.Logic
         // Delete a graph and emit a signal; auto-select first graph if any remain
         public void DeleteGraph(BaseGraphData graph)
         {
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
             if (_allGraphsData.Contains(graph))
             {
                 _allGraphsData.Remove(graph);
