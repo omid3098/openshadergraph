@@ -8,7 +8,7 @@ using OpenShaderGraph.Core.Data;
 
 namespace OpenShaderGraph.Core.Utils
 {
-    public class YamlGraphLoader
+    public class YamlGraphLoader : IGraphSerializerService
     {
         private readonly IDeserializer _deserializer;
         private readonly ISerializer _serializer;
@@ -21,6 +21,26 @@ namespace OpenShaderGraph.Core.Utils
             _serializer = new SerializerBuilder()
                 .WithNamingConvention(CamelCaseNamingConvention.Instance)
                 .Build();
+        }
+
+        // IGraphSerializerService implementation
+        public IEnumerable<(string pattern, string description)> FileFilters => new[] {
+            ("*.yml", "YAML Graph"),
+            ("*.yaml", "YAML Graph")
+        };
+
+        public string DefaultFileName => "new_graph.yml";
+
+        public string Save(BaseGraphData graph)
+        {
+            if (graph is ShaderGraphData shaderGraph)
+                return SaveShaderGraph(shaderGraph);
+            throw new NotSupportedException("Only ShaderGraphData is supported by YAML serializer");
+        }
+
+        public BaseGraphData Load(string content, string? filePath = null)
+        {
+            return LoadShaderGraph(content, filePath);
         }
 
         public ShaderGraphData LoadShaderGraph(string yamlContent, string? filePath = null)

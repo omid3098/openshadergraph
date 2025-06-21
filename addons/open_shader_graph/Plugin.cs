@@ -25,6 +25,9 @@ namespace OpenShaderGraph
             var graphManager = new GraphManager(groupingService);
 
             // Register services and perform initialization
+            // Serializer service for graph assets
+            var graphSerializer = new YamlGraphLoader();
+            Services.Register<IGraphSerializerService>(graphSerializer);
             Services.Register<GroupingService>(groupingService);
             Services.Register<NodeFilteringService>(nodeFilteringService);
             Services.Register<PreferencesManager>(preferencesManager);

@@ -12,6 +12,7 @@ namespace OpenShaderGraph.Core.View
 {
     public partial class OpenShaderGraphEditor : Control
     {
+        private readonly IGraphSerializerService _serializerService;
         private GraphManager _graphManager;
         private UIManager _uiManager;
         private PreferencesManager _preferencesManager;
@@ -22,6 +23,7 @@ namespace OpenShaderGraph.Core.View
         public OpenShaderGraphEditor()
         {
             Logger.Log("[OpenShaderGraphEditor] init");
+            _serializerService = Services.Get<IGraphSerializerService>();
             // Retrieve shared service instances from the DI container
             _graphManager = Services.Get<GraphManager>();
             _uiManager = Services.Get<UIManager>();
@@ -110,9 +112,12 @@ namespace OpenShaderGraph.Core.View
             _fileDialog = new FileDialog();
             _fileDialog.Access = FileDialog.AccessEnum.Resources;
             _fileDialog.FileMode = FileDialog.FileModeEnum.SaveFile;
-            _fileDialog.AddFilter("*.json", "JSON Graph");
-            _fileDialog.AddFilter("*.yml", "YAML Graph");
-            _fileDialog.CurrentFile = "new_graph.json";
+            // Register file filters from the serializer service
+            foreach (var (pattern, description) in _serializerService.FileFilters)
+            {
+                _fileDialog.AddFilter(pattern, description);
+            }
+            _fileDialog.CurrentFile = _serializerService.DefaultFileName;
             _fileDialog.FileSelected += OnFileDialogFileSelected;
             _rootControl.AddChild(_fileDialog);
         }
@@ -161,87 +166,22 @@ namespace OpenShaderGraph.Core.View
                 Logger.Log("[OpenShaderGraphEditor] No graph to save.");
                 return;
             }
-
-            // Update graph object with chosen file path
             graph.SetFilePath(path);
 
-            // Prepare data structure for serialization
-            var data = new Godot.Collections.Dictionary<string, Variant>();
-
-            var metadata = new Godot.Collections.Dictionary<string, Variant>
-            {
-                ["name"] = graph.GetName(),
-                ["version"] = graph.GetVersion(),
-                ["type"] = GraphTypeToString(graph.GetGraphType()),
-                ["properties"] = new Godot.Collections.Dictionary<string, Variant>(graph.GetProperties())
-            };
-            data["metadata"] = metadata;
-
-            // Serialize nodes
-            var nodesArray = new Godot.Collections.Array();
-            foreach (var node in graph.GetNodes())
-            {
-                var nodeEntry = new Godot.Collections.Dictionary<string, Variant>
-                {
-                    ["id"] = node.Id,
-                    ["name"] = node.GetName(),
-                    ["type"] = node.GetNodeType(),
-                    ["position"] = new Godot.Collections.Array { node.GetPosition().X, node.GetPosition().Y },
-                    ["inputs"] = new Godot.Collections.Array(),
-                    ["outputs"] = new Godot.Collections.Array()
-                };
-
-                var inputs = (Godot.Collections.Array)nodeEntry["inputs"];
-                foreach (var pin in node.GetInputs())
-                {
-                    inputs.Add(new Godot.Collections.Dictionary<string, Variant>
-                    {
-                        ["name"] = pin.GetName(),
-                        ["type"] = PinDataTypeToString(pin.GetDataType()),
-                        ["value"] = pin.GetValue()
-                    });
-                }
-
-                var outputs = (Godot.Collections.Array)nodeEntry["outputs"];
-                foreach (var pin in node.GetOutputs())
-                {
-                    outputs.Add(new Godot.Collections.Dictionary<string, Variant>
-                    {
-                        ["name"] = pin.GetName(),
-                        ["type"] = PinDataTypeToString(pin.GetDataType()),
-                        ["value"] = pin.GetValue()
-                    });
-                }
-
-                nodesArray.Add(nodeEntry);
-            }
-            data["nodes"] = nodesArray;
-
-            // Serialize connections
-            var connectionsArray = new Godot.Collections.Array();
-            foreach (var connection in graph.GetConnections())
-            {
-                var from = connection.GetFrom();
-                var to = connection.GetTo();
-                connectionsArray.Add(new Godot.Collections.Dictionary<string, Variant>
-                {
-                    ["from_node_id"] = from.NodeId,
-                    ["from_pin"] = from.Pin.GetName(),
-                    ["to_node_id"] = to.NodeId,
-                    ["to_pin"] = to.Pin.GetName()
-                });
-            }
-            data["connections"] = connectionsArray;
-
-            // Convert to JSON
-            var json = Json.Stringify(data);
-
-            // Write to file with error handling
             try
             {
-                using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
-                file.StoreString(json);
-                Logger.Info($"[OpenShaderGraphEditor] Graph saved to {path}");
+                // Serialize graph to YAML
+                if (graph is ShaderGraphData shaderGraph)
+                {
+                    var yaml = _serializerService.Save(graph);
+                    using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+                    file.StoreString(yaml);
+                    Logger.Info($"[OpenShaderGraphEditor] Graph saved to {path}");
+                }
+                else
+                {
+                    Logger.Error("[OpenShaderGraphEditor] Unsupported graph type for YAML serialization.");
+                }
             }
             catch (Exception ex)
             {
@@ -259,77 +199,8 @@ namespace OpenShaderGraph.Core.View
                     Logger.Error($"[OpenShaderGraphEditor] Failed to open graph from {path}");
                     return;
                 }
-
-                var jsonString = file.GetAsText();
-                var json = new Json();
-                var error = json.Parse(jsonString);
-                if (error != Error.Ok)
-                {
-                    Logger.Error($"[OpenShaderGraphEditor] Failed to parse JSON from {path}: {json.GetErrorMessage()} at line {json.GetErrorLine()}");
-                    return;
-                }
-
-                var data = (Godot.Collections.Dictionary)json.Data;
-
-                // Reconstruct graph from data
-                var metadata = (Godot.Collections.Dictionary)data["metadata"];
-                var graphName = metadata["name"].ToString();
-                var graph = new BaseGraphData(graphName, GraphType.ShaderGraph);
-                graph.SetFilePath(path);
-
-                var nodesData = (Godot.Collections.Array)data["nodes"];
-                var nodeMap = new Dictionary<long, BaseNodeData>();
-
-                foreach (Godot.Collections.Dictionary nodeEntry in nodesData)
-                {
-                    var nodeName = nodeEntry["name"].ToString();
-                    var nodeType = nodeEntry["type"].ToString();
-                    var positionArray = (Godot.Collections.Array)nodeEntry["position"];
-                    var position = new Vector2((float)positionArray[0], (float)positionArray[1]);
-
-                    var inputs = new List<PinData>();
-                    foreach (Godot.Collections.Dictionary pinEntry in (Godot.Collections.Array)nodeEntry["inputs"])
-                    {
-                        inputs.Add(new PinData(pinEntry["name"].ToString(), StringToPinDataType(pinEntry["type"].ToString()), DirectionType.Input, pinEntry["value"]));
-                    }
-
-                    var outputs = new List<PinData>();
-                    foreach (Godot.Collections.Dictionary pinEntry in (Godot.Collections.Array)nodeEntry["outputs"])
-                    {
-                        outputs.Add(new PinData(pinEntry["name"].ToString(), StringToPinDataType(pinEntry["type"].ToString()), DirectionType.Output, pinEntry["value"]));
-                    }
-
-                    var nodeData = new BaseNodeData(nodeName, nodeType, position, inputs, outputs);
-                    if (nodeEntry.ContainsKey("id"))
-                    {
-                        nodeData.Id = (long)nodeEntry["id"];
-                    }
-
-                    graph.AddNode(nodeData);
-                    nodeMap[nodeData.Id] = nodeData;
-                }
-
-                var connectionsData = (Godot.Collections.Array)data["connections"];
-                foreach (Godot.Collections.Dictionary connectionEntry in connectionsData)
-                {
-                    var fromNodeId = (long)connectionEntry["from_node_id"];
-                    var fromPinName = connectionEntry["from_pin"].ToString();
-                    var toNodeId = (long)connectionEntry["to_node_id"];
-                    var toPinName = connectionEntry["to_pin"].ToString();
-
-                    var fromNode = nodeMap[fromNodeId];
-                    var toNode = nodeMap[toNodeId];
-
-                    var fromPin = fromNode.GetOutputs().Find(p => p.GetName() == fromPinName);
-                    var toPin = toNode.GetInputs().Find(p => p.GetName() == toPinName);
-
-                    if (fromPin != null && toPin != null)
-                    {
-                        var connection = new ConnectionData(fromNode.Id, fromPin, toNode.Id, toPin);
-                        graph.AddConnection(connection);
-                    }
-                }
-
+                var yamlText = file.GetAsText();
+                var graph = _serializerService.Load(yamlText, path);
                 _graphManager.AddGraph(graph);
                 Logger.Info($"[OpenShaderGraphEditor] Loaded graph from {path}");
             }

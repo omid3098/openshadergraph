@@ -36,6 +36,7 @@
     <Compile Include="../../addons/open_shader_graph/scripts/core/view/node_views/RegisteredNode.cs" Link="Source/RegisteredNode.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderGraphData.cs" Link="Source/ShaderGraphData.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/YamlGraphLoader.cs" Link="Source/YamlGraphLoader.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/IGraphSerializerService.cs" Link="Source/IGraphSerializerService.cs" />
   </ItemGroup>
 
 </Project> 
