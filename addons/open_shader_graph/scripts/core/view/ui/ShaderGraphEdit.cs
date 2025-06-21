@@ -18,6 +18,7 @@ namespace OpenShaderGraph.Core.View.UI
 
         public BaseGraphData? GraphData { get; private set; }
         private ContextMenuManager? _contextMenuManager;
+        private readonly Dictionary<long, BaseGraphNode> _nodeViewCache = new();
 
         public ShaderGraphEdit()
         {
@@ -75,6 +76,7 @@ namespace OpenShaderGraph.Core.View.UI
                 Logger.Log("[ShaderGraphEdit] DrawGraph aborted: GraphData is null");
                 return;
             }
+            _nodeViewCache.Clear();
             // Log graph content before drawing
             Logger.Log($"[ShaderGraphEdit] DrawGraph: Graph='{GraphData.GetName()}', Nodes={GraphData.GetNodes().Count}, Connections={GraphData.GetConnections().Count}");
             // Draw nodes
@@ -95,6 +97,7 @@ namespace OpenShaderGraph.Core.View.UI
                 nodeView.Name = nodeData.Id.ToString();
                 nodeView.Initialize(nodeData);
                 AddChild(nodeView);
+                _nodeViewCache[nodeData.Id] = nodeView;
             }
 
             // Draw connections
@@ -103,23 +106,10 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 // Log each connection to draw
                 Logger.Log($"[ShaderGraphEdit] DrawGraph: examining connection from {connectionData.GetFrom().NodeId}:{connectionData.GetFrom().Pin.GetName()} to {connectionData.GetTo().NodeId}:{connectionData.GetTo().Pin.GetName()}");
-                BaseGraphNode? fromNode = null;
-                BaseGraphNode? toNode = null;
+                // Use cache for O(1) lookups
+                _nodeViewCache.TryGetValue(connectionData.GetFrom().NodeId, out var fromNode);
+                _nodeViewCache.TryGetValue(connectionData.GetTo().NodeId, out var toNode);
 
-                foreach (var child in GetChildren())
-                {
-                    if (child is BaseGraphNode nodeView)
-                    {
-                        if (nodeView.Data != null && nodeView.Data.Id == connectionData.GetFrom().NodeId)
-                        {
-                            fromNode = nodeView;
-                        }
-                        if (nodeView.Data != null && nodeView.Data.Id == connectionData.GetTo().NodeId)
-                        {
-                            toNode = nodeView;
-                        }
-                    }
-                }
                 if (fromNode == null)
                     Logger.Log($"[ShaderGraphEdit] DrawGraph: could not find fromNode view for ID {connectionData.GetFrom().NodeId}");
                 if (toNode == null)
@@ -311,6 +301,7 @@ namespace OpenShaderGraph.Core.View.UI
                 {
                     nodeView.Initialize(nodeData);
                     AddChild(nodeView);
+                    _nodeViewCache[nodeData.Id] = nodeView;
                 }
             }
         }
@@ -322,6 +313,7 @@ namespace OpenShaderGraph.Core.View.UI
                 if (child is BaseGraphNode nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
                 {
                     nodeView.DeleteNode();
+                    _nodeViewCache.Remove(nodeData.Id);
                     break;
                 }
             }
@@ -362,6 +354,7 @@ namespace OpenShaderGraph.Core.View.UI
                     nodeView.DeleteNode();
                 }
             }
+            _nodeViewCache.Clear();
         }
 
         public void RequestNodeDeletion(BaseGraphNode node)
