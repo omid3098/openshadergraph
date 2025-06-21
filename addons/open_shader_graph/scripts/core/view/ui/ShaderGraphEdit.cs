@@ -308,15 +308,22 @@ namespace OpenShaderGraph.Core.View.UI
 
         private void OnNodeRemoved(BaseNodeData nodeData)
         {
+            Logger.Log($"[ShaderGraphEdit] OnNodeRemoved called for nodeData.Id {nodeData.Id}");
+            bool removed = false;
             foreach (var child in GetChildren())
             {
                 if (child is BaseGraphNode nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
                 {
+                    Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Deleting nodeView {nodeView.Data.GetName()}({nodeView.Data.Id})");
                     nodeView.DeleteNode();
                     _nodeViewCache.Remove(nodeData.Id);
+                    Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Removed from cache nodeId {nodeData.Id}");
+                    removed = true;
                     break;
                 }
             }
+            if (!removed)
+                Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: No matching BaseGraphNode found for nodeId {nodeData.Id}");
         }
 
         private void DeactivateGraphEdit()
@@ -338,23 +345,27 @@ namespace OpenShaderGraph.Core.View.UI
 
         private void ClearGraph()
         {
-            foreach (var connection in GetConnectionList())
+            var connections = GetConnectionList();
+            Logger.Log($"[ShaderGraphEdit] ClearGraph: connections count = {connections.Count}");
+            foreach (var connection in connections)
             {
                 var fromNode = (string)connection["from_node"];
                 var fromPort = (int)connection["from_port"];
                 var toNode = (string)connection["to_node"];
                 var toPort = (int)connection["to_port"];
+                Logger.Log($"[ShaderGraphEdit] ClearGraph: Disconnecting connection from {fromNode}:{fromPort} -> {toNode}:{toPort}");
                 DisconnectNode(fromNode, fromPort, toNode, toPort);
             }
 
-            foreach (var child in GetChildren())
+            var baseNodes = GetChildren().OfType<BaseGraphNode>().ToList();
+            Logger.Log($"[ShaderGraphEdit] ClearGraph: BaseGraphNode children count = {baseNodes.Count}");
+            foreach (var nodeView in baseNodes)
             {
-                if (child is BaseGraphNode nodeView)
-                {
-                    nodeView.DeleteNode();
-                }
+                Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.GetName()}({nodeView.Data.Id}) with Name {nodeView.Name}");
+                nodeView.DeleteNode();
             }
             _nodeViewCache.Clear();
+            Logger.Log($"[ShaderGraphEdit] ClearGraph: _nodeViewCache cleared");
         }
 
         public void RequestNodeDeletion(BaseGraphNode node)

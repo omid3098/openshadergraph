@@ -1,9 +1,10 @@
 ---
 created: 2025-06-21T12:03:58.634Z
-updated: 2025-06-21T12:41:38.740Z
+updated: 2025-06-21T13:33:14.785Z
 assigned: ""
 progress: 0
 tags: []
+completed: 2025-06-21T13:33:14.785Z
 ---
 
 # P2 - Display graph properties on create or open

@@ -128,23 +128,15 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public void DeleteNode()
         {
-            // Clean up subscriptions before freeing
-            Dispose();
-            QueueFree();
-        }
-
-        // Implement IDisposable to clean up event subscriptions
-        public new void Dispose()
-        {
+            Logger.Log($"[BaseGraphNode] DeleteNode invoked for {Data.GetName()}({Data.Id})");
             // Unsubscribe Godot signals
             FocusEntered -= OnFocusEntered;
             FocusExited -= OnFocusExited;
             Dragged -= OnDragged;
-
             // Clear custom delegates
             NodeMoved = null;
-            // Call Godot's internal Dispose for proper cleanup
-            base.Dispose();
+            // Queue free in Godot; let engine and GC handle cleanup
+            QueueFree();
         }
     }
 }
