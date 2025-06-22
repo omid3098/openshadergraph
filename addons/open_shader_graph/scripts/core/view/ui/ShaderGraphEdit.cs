@@ -244,14 +244,40 @@ namespace OpenShaderGraph.Core.View.UI
             var fromPin = fromNodeView.Data?.GetOutputByIndex((int)fromPort);
             var toPin = toNodeView.Data?.GetInputByIndex((int)toPort);
 
-
-            if (fromPin != null && toPin != null)
+            if (fromPin == null || toPin == null)
             {
-                var connection = new ConnectionData(fromNodeView.Data!.Id, fromPin, toNodeView.Data!.Id, toPin);
-                if (GraphData.AddConnection(connection))
+                return;
+            }
+
+            // Prevent multiple connections to a single input pin
+            if (GraphData.IsPinConnected(toPin))
+            {
+                var existing = GraphData.GetConnections().FirstOrDefault(c => c.GetTo().Pin == toPin);
+                if (existing != null)
                 {
-                    ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
+                    // Remove existing connection in data model
+                    GraphData.RemoveConnection(existing);
+
+                    // Remove existing connection in UI
+                    var oldFromNodeName = new StringName(existing.GetFrom().NodeId.ToString());
+                    var oldFromNodeView = GetNode<BaseGraphNode>(new NodePath(oldFromNodeName));
+                    if (oldFromNodeView != null)
+                    {
+                        int oldFromIndex = oldFromNodeView.Data.GetOutputs().FindIndex(p => p == existing.GetFrom().Pin);
+                        if (oldFromIndex == -1)
+                        {
+                            oldFromIndex = oldFromNodeView.Data.GetOutputs().FindIndex(p => p.GetName() == existing.GetFrom().Pin.GetName());
+                        }
+                        DisconnectNode(oldFromNodeName, oldFromIndex, toNode, (int)toPort);
+                    }
                 }
+            }
+
+            // Add new connection
+            var connection = new ConnectionData(fromNodeView.Data!.Id, fromPin, toNodeView.Data!.Id, toPin);
+            if (GraphData.AddConnection(connection))
+            {
+                ConnectNode(fromNode, (int)fromPort, toNode, (int)toPort);
             }
         }
 
