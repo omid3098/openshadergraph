@@ -1,7 +1,7 @@
 using System;
 using OpenShaderGraph.Core.Data;
 
-namespace OpenShaderGraph.Core.View.NodeViews
+namespace OpenShaderGraph.Core.Data
 {
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public sealed class RegisterNodeAttribute : Attribute

@@ -3,6 +3,7 @@ using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Data;
 using Godot;
 using System.Linq;
+using OpenShaderGraph.Core.Logic.Services.ShaderGenerator;
 
 namespace OpenShaderGraph.Tests.Core.Logic
 {

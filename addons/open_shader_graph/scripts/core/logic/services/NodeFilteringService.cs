@@ -1,6 +1,5 @@
 using System.Linq;
 using OpenShaderGraph.Core.Data;
-using OpenShaderGraph.Core.View.NodeViews;
 using OpenShaderGraph.Core.Utils;
 using System;
 using Godot;

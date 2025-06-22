@@ -10,7 +10,7 @@ using System;
 
 namespace OpenShaderGraph.Core.View
 {
-    public partial class UIManager : Node
+    public partial class UIManager : Control
     {
         // Direct signals for parent communication
         public Action<BaseGraphData> GraphTabSelected;

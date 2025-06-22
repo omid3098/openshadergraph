@@ -1,6 +1,6 @@
 using OpenShaderGraph.Core.Data;
 
-namespace OpenShaderGraph.Core.Logic
+namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
 {
     /// <summary>
     /// Interface for engine-specific shader generators.

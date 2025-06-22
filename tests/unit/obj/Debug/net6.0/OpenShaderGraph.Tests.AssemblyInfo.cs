@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OpenShaderGraph.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+68225e0e5f2a4478b768f4992e2039f0a15b322f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dc2a64cb78e425e05422d8bed9c3133840972290")]
 [assembly: System.Reflection.AssemblyProductAttribute("OpenShaderGraph.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OpenShaderGraph.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

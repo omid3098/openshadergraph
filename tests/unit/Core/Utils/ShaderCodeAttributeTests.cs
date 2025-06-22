@@ -1,8 +1,8 @@
+using OpenShaderGraph.Core.Utils;
 using NUnit.Framework;
-using OpenShaderGraph.Core.View.Utils;
 using System.Reflection;
 
-namespace OpenShaderGraph.Tests.Core.View.Utils
+namespace OpenShaderGraph.Tests.Core.Utils
 {
     [ShaderCode("Foo.yaml")]
     public class DummyNodeForAttributeTest { }

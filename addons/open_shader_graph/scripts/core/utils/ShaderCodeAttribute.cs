@@ -1,9 +1,9 @@
 using System;
 
-namespace OpenShaderGraph.Core.View.Utils
+namespace OpenShaderGraph.Core.Utils
 {
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public class ShaderCodeAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+    public sealed class ShaderCodeAttribute : Attribute
     {
         public string TemplateFile { get; }
 

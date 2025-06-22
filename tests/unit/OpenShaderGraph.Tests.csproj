@@ -18,33 +18,16 @@
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
-  <!-- Reference only the data layer classes that don't depend on Godot types -->
+  <!-- 
+    Reference C# files from the main project.
+    We use globbing for data, logic, and utils directories to automatically include new files.
+    The 'view' directory is excluded as it contains dependencies on Godot classes,
+    and this test project does not reference Godot assemblies.
+  -->
   <ItemGroup>
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/PinData.cs" Link="Source/PinData.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/PinDataType.cs" Link="Source/PinDataType.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/ConnectionData.cs" Link="Source/ConnectionData.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/BaseNodeData.cs" Link="Source/BaseNodeData.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/BaseGraphData.cs" Link="Source/BaseGraphData.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/GroupNodeData.cs" Link="Source/GroupNodeData.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GraphManager.cs" Link="Source/GraphManager.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GroupingService.cs" Link="Source/GroupingService.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/Logger.cs" Link="Source/Logger.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/ServiceContainer.cs" Link="Source/ServiceContainer.cs" />
-    <!-- Include filtering service and related metadata for tests -->
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/NodeFilteringService.cs" Link="Source/NodeFilteringService.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/view/node_views/RegisterNodeAttribute.cs" Link="Source/RegisterNodeAttribute.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/view/node_views/RegisteredNode.cs" Link="Source/RegisteredNode.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderGraphData.cs" Link="Source/ShaderGraphData.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/YamlGraphLoader.cs" Link="Source/YamlGraphLoader.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/IGraphSerializerService.cs" Link="Source/IGraphSerializerService.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/view/utils/ShaderCodeAttribute.cs" Link="Source/ShaderCodeAttribute.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderEnums.cs" Link="Source/ShaderEnums.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/data/TemplateEntry.cs" Link="Source/TemplateEntry.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/TemplateRegistry.cs" Link="Source/TemplateRegistry.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/PlaceholderReplacer.cs" Link="Source/PlaceholderReplacer.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/IShaderGenerator.cs" Link="Source/IShaderGenerator.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/ShaderGeneratorContext.cs" Link="Source/ShaderGeneratorContext.cs" />
-    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/GodotShaderGenerator.cs" Link="Source/GodotShaderGenerator.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/**/*.cs" Link="Source/data/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/**/*.cs" Link="Source/logic/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/**/*.cs" Link="Source/utils/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

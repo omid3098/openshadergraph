@@ -1,8 +1,10 @@
 using Godot;
+using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.View;
+using OpenShaderGraph.Core.View.NodeViews;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Logic;
-using OpenShaderGraph.Core.View.NodeViews;
+using OpenShaderGraph.Core.Logic.Services.ShaderGenerator;
 
 namespace OpenShaderGraph
 {
@@ -22,16 +24,18 @@ namespace OpenShaderGraph
             var uiManager = new UIManager();
             var nodeRegistry = new NodeRegistry();
             var graphManager = new GraphManager(groupingService);
+            var shaderGeneratorService = new ShaderGeneratorService();
 
             // Register services and perform initialization
             // Serializer service for graph assets
             var graphSerializer = new YamlGraphLoader();
             Services.Register<IGraphSerializerService>(graphSerializer);
-            Services.Register<GroupingService>(groupingService);
-            Services.Register<NodeFilteringService>(nodeFilteringService);
-            Services.Register<UIManager>(uiManager);
-            Services.Register<NodeRegistry>(nodeRegistry);
-            Services.Register<GraphManager>(graphManager);
+            Services.Register<IShaderGeneratorService>(shaderGeneratorService);
+            Services.Register(groupingService);
+            Services.Register(nodeFilteringService);
+            Services.Register(uiManager);
+            Services.Register(nodeRegistry);
+            Services.Register(graphManager);
             Services.InitAll();
 
             // Build the editor UI

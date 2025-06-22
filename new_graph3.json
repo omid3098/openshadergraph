@@ -1,1 +1,0 @@
-{"connections":[],"metadata":{"name":"OD","properties":{"engine":0,"shader_stage":1},"type":"SHADER_GRAPH","version":"1.0"},"nodes":[{"id":0,"inputs":[{"name":"value","type":"FLOAT","value":0.0}],"name":"Float","outputs":[{"name":"out","type":"FLOAT","value":null}],"position":[280.0,300.0],"type":"Float"}]}

@@ -2,7 +2,6 @@ using NUnit.Framework;
 using Godot;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Data;
-using OpenShaderGraph.Core.View.NodeViews;
 using System.Collections.Generic;
 
 namespace OpenShaderGraph.Tests.Core.Logic

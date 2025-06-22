@@ -6,8 +6,9 @@ using System.Text;
 using System.Globalization;
 using OpenShaderGraph.Core.Data;
 
-namespace OpenShaderGraph.Core.Logic
+namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
 {
+
     /// <summary>
     /// Generates Godot shader code from a ShaderGraphData.
     /// </summary>

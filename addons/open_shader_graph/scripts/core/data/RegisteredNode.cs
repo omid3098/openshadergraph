@@ -1,6 +1,6 @@
 using System;
 
-namespace OpenShaderGraph.Core.View.NodeViews
+namespace OpenShaderGraph.Core.Data
 {
     /// <summary>
     /// Metadata holder for a registered graph node type.
