@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.Godot.Services.ShaderGenerator;
 
 namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
 {

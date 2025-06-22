@@ -1,7 +1,7 @@
+using Godot;
 #nullable enable
 namespace OpenShaderGraph.Core.Data;
 
-using Godot;
 
 public enum DirectionType
 {

@@ -1,9 +1,7 @@
 using NUnit.Framework;
-using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.Godot.Services.ShaderGenerator;
 using Godot;
-using System.Linq;
-using OpenShaderGraph.Core.Logic.Services.ShaderGenerator;
 
 namespace OpenShaderGraph.Tests.Core.Logic
 {

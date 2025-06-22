@@ -28,6 +28,7 @@
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/**/*.cs" Link="Source/data/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/logic/**/*.cs" Link="Source/logic/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/**/*.cs" Link="Source/utils/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/godot/**/*.cs" Link="Source/godot/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

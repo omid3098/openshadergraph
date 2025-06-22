@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
 
-namespace OpenShaderGraph.Core.Logic
+namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
 {
     /// <summary>
     /// Context for accumulating shader code generation state, including variable naming and code sections.

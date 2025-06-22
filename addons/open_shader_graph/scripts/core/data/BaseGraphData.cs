@@ -1,7 +1,7 @@
+using Godot;
 #nullable enable
 namespace OpenShaderGraph.Core.Data;
 
-using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using System;

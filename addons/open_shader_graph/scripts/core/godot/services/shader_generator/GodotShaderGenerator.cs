@@ -5,8 +5,10 @@ using System.Linq;
 using System.Text;
 using System.Globalization;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.Logic.Services.ShaderGenerator;
+using OpenShaderGraph.Core.Logic;
 
-namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
+namespace OpenShaderGraph.Core.Godot.Services.ShaderGenerator
 {
 
     /// <summary>
