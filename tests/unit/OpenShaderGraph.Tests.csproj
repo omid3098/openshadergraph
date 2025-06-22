@@ -41,6 +41,7 @@
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderEnums.cs" Link="Source/ShaderEnums.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/TemplateEntry.cs" Link="Source/TemplateEntry.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/logic/TemplateRegistry.cs" Link="Source/TemplateRegistry.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/PlaceholderReplacer.cs" Link="Source/PlaceholderReplacer.cs" />
   </ItemGroup>
 
   <ItemGroup>
