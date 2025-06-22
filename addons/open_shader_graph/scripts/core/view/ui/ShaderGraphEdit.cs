@@ -54,6 +54,8 @@ namespace OpenShaderGraph.Core.View.UI
             DisconnectionRequest += OnDisconnectionRequest;
             NodeSelected += OnNodeSelected;
             NodeDeselected += OnNodeDeselected;
+
+            RightDisconnects = true;
         }
 
         public override void _ExitTree()
