@@ -1,5 +1,5 @@
 metadata:
-  name: DD
+  name: Graph
   version: 1.0
   type: SHADER_GRAPH
   properties:
@@ -10,8 +10,8 @@ nodes:
   name: Float
   type: Float
   position:
-  - 268
-  - 373
+  - 180
+  - 280
   inputs:
   - name: value
     type: FLOAT
@@ -24,8 +24,8 @@ nodes:
   name: Float
   type: Float
   position:
-  - 260
-  - 600
+  - 180
+  - 520
   inputs:
   - name: value
     type: FLOAT
@@ -38,8 +38,8 @@ nodes:
   name: Add
   type: Add
   position:
-  - 560
-  - 460
+  - 440
+  - 380
   inputs:
   - name: a
     type: FLOAT
@@ -55,8 +55,8 @@ nodes:
   name: Float
   type: Float
   position:
-  - 280
-  - 860
+  - 180
+  - 760
   inputs:
   - name: value
     type: FLOAT
@@ -69,8 +69,8 @@ nodes:
   name: Float
   type: Float
   position:
-  - 280
-  - 1100
+  - 160
+  - 1020
   inputs:
   - name: value
     type: FLOAT
@@ -83,8 +83,8 @@ nodes:
   name: Add
   type: Add
   position:
-  - 580
-  - 920
+  - 460
+  - 880
   inputs:
   - name: a
     type: FLOAT
@@ -100,8 +100,25 @@ nodes:
   name: Add
   type: Add
   position:
-  - 860
-  - 760
+  - 780
+  - 680
+  inputs:
+  - name: a
+    type: FLOAT
+    value: 
+  - name: b
+    type: FLOAT
+    value: 
+  outputs:
+  - name: out
+    type: FLOAT
+    value: 
+- id: 7
+  name: Add
+  type: Add
+  position:
+  - 1120
+  - 820
   inputs:
   - name: a
     type: FLOAT
@@ -137,4 +154,12 @@ connections:
 - from_node_id: 5
   from_pin: out
   to_node_id: 6
+  to_pin: b
+- from_node_id: 6
+  from_pin: out
+  to_node_id: 7
+  to_pin: a
+- from_node_id: 5
+  from_pin: out
+  to_node_id: 7
   to_pin: b

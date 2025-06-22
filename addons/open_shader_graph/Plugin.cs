@@ -19,7 +19,6 @@ namespace OpenShaderGraph
             // Instantiate service instances for constructor-based DI
             var groupingService = new GroupingService();
             var nodeFilteringService = new NodeFilteringService();
-            var preferencesManager = new PreferencesManager();
             var uiManager = new UIManager();
             var nodeRegistry = new NodeRegistry();
             var graphManager = new GraphManager(groupingService);
@@ -30,7 +29,6 @@ namespace OpenShaderGraph
             Services.Register<IGraphSerializerService>(graphSerializer);
             Services.Register<GroupingService>(groupingService);
             Services.Register<NodeFilteringService>(nodeFilteringService);
-            Services.Register<PreferencesManager>(preferencesManager);
             Services.Register<UIManager>(uiManager);
             Services.Register<NodeRegistry>(nodeRegistry);
             Services.Register<GraphManager>(graphManager);

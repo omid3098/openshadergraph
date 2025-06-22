@@ -15,7 +15,6 @@ namespace OpenShaderGraph.Core.View
         private readonly IGraphSerializerService _serializerService;
         private GraphManager _graphManager;
         private UIManager _uiManager;
-        private PreferencesManager _preferencesManager;
         private NodeRegistry _nodeRegistry;
         private FileDialog _fileDialog = default!; // for save dialog
         private Control _rootControl = default!; // root UI scene returned by GetMainScene
@@ -29,7 +28,6 @@ namespace OpenShaderGraph.Core.View
             _uiManager = Services.Get<UIManager>();
             // Handle graph creation to add a new tab and subscribe to name changes
             _graphManager.GraphCreated += _uiManager.OnGraphCreated;
-            _preferencesManager = Services.Get<PreferencesManager>();
             _nodeRegistry = Services.Get<NodeRegistry>();
 
             // Connect GraphManager signals
