@@ -177,7 +177,10 @@ namespace OpenShaderGraph.Core.View.UI
                     }
                     else
                     {
-                        _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), GetLocalMousePosition(), this);
+                        var localMousePosition = GetLocalMousePosition();
+                        var graphPosition = (localMousePosition + ScrollOffset) / Zoom;
+                        Logger.Log($"[DEBUG] Mouse position fix - Local: {localMousePosition}, ScrollOffset: {ScrollOffset}, Zoom: {Zoom}, Final: {graphPosition}");
+                        _contextMenuManager.ShowCreationMenu(GetGlobalMousePosition(), graphPosition, this);
                     }
                     AcceptEvent();
                 }
@@ -199,6 +202,7 @@ namespace OpenShaderGraph.Core.View.UI
 
         public void CreateNodeAt(string nodeName, Vector2 position)
         {
+            Logger.Log($"[DEBUG] Node creation requested: {nodeName} at position {position}");
             Logger.Log($"Node creation requested: {nodeName} at {position}");
             var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeName);
 
