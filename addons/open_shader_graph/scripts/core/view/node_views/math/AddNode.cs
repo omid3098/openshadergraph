@@ -1,7 +1,7 @@
 using Godot;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.NodeViews.Math;
-using OpenShaderGraph.Core.View.Utils;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {

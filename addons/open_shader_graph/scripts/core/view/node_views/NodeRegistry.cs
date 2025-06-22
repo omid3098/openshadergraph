@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
 
 namespace OpenShaderGraph.Core.View.NodeViews
