@@ -1,4 +1,4 @@
-using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.Logic;
 using NUnit.Framework;
 using System.Reflection;
 

@@ -1,11 +1,11 @@
 using Godot;
 using OpenShaderGraph.Core.Data;
-using OpenShaderGraph.Core.Utils;
+using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.View.NodeViews.Math;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
-    [ShaderCode("Core/Logic/AddNode.yaml")]
+    [ShaderCode("AddNode.yaml")]
     [RegisterNode(name: "Add", category: "Math")]
     public partial class AddNode : BaseMathNode
     {

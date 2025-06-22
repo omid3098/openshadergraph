@@ -2,11 +2,7 @@ using NUnit.Framework;
 using Godot;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Utils;
-using System;
-using System.Collections.Generic;
-using static OpenShaderGraph.Core.Data.GraphType;
 using static OpenShaderGraph.Core.Data.PinDataType;
-using static OpenShaderGraph.Core.Data.DirectionType;
 
 namespace OpenShaderGraph.Tests.Core.Data
 {
@@ -22,7 +18,7 @@ namespace OpenShaderGraph.Tests.Core.Data
       constNode.AddOutput(new PinData("out", Float, DirectionType.Output, new Variant(0.0f)));
       graph.AddNode(constNode);
 
-      var loader = new YamlGraphLoader();
+      var loader = new YamlGraphSerializer();
 
       // Act: serialize to YAML and back
       var yaml = loader.SaveShaderGraph(graph);
@@ -67,7 +63,7 @@ nodes:
         value: 42
 connections: []
 ";
-      var loader = new YamlGraphLoader();
+      var loader = new YamlGraphSerializer();
 
       // Act
       var graph = loader.LoadShaderGraph(yaml);

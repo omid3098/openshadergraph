@@ -28,7 +28,7 @@ namespace OpenShaderGraph
 
             // Register services and perform initialization
             // Serializer service for graph assets
-            var graphSerializer = new YamlGraphLoader();
+            var graphSerializer = new YamlGraphSerializer();
             Services.Register<IGraphSerializerService>(graphSerializer);
             Services.Register<IShaderGeneratorService>(shaderGeneratorService);
             Services.Register(groupingService);

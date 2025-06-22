@@ -1,6 +1,6 @@
 using System;
 
-namespace OpenShaderGraph.Core.Utils
+namespace OpenShaderGraph.Core.Logic
 {
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public sealed class ShaderCodeAttribute : Attribute

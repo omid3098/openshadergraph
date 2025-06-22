@@ -8,12 +8,12 @@ using OpenShaderGraph.Core.Data;
 
 namespace OpenShaderGraph.Core.Utils
 {
-    public class YamlGraphLoader : IGraphSerializerService
+    public class YamlGraphSerializer : IGraphSerializerService
     {
         private readonly IDeserializer _deserializer;
         private readonly ISerializer _serializer;
 
-        public YamlGraphLoader()
+        public YamlGraphSerializer()
         {
             _deserializer = new DeserializerBuilder()
                 .WithNamingConvention(CamelCaseNamingConvention.Instance)
