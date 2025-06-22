@@ -4,6 +4,7 @@ using OpenShaderGraph.Core.View.NodeViews;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.View;
+using Godot.Collections;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
 {
@@ -35,7 +36,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             _nodeContextMenu.ShowMenu(globalPosition, node, graph);
         }
 
-        public void ShowGroupingMenu(Vector2 globalPosition, Godot.Collections.Array<GraphNode> nodes, ShaderGraphEdit graph)
+        public void ShowGroupingMenu(Vector2 globalPosition, Array<GraphNode> nodes, ShaderGraphEdit graph)
         {
             _groupingContextMenu.ShowMenu(globalPosition, nodes, graph);
         }
@@ -115,7 +116,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
     public partial class GroupingContextMenu : PopupMenu
     {
-        private Godot.Collections.Array<GraphNode> _targetNodes;
+        private Array<GraphNode> _targetNodes;
         private ShaderGraphEdit _graph;
 
         private enum MenuOptions
@@ -157,7 +158,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             arrangeSubmenu.IdPressed += OnArrangeSubmenuIdPressed;
         }
 
-        public void ShowMenu(Vector2 globalPosition, Godot.Collections.Array<GraphNode> nodes, ShaderGraphEdit graph)
+        public void ShowMenu(Vector2 globalPosition, Array<GraphNode> nodes, ShaderGraphEdit graph)
         {
             _targetNodes = nodes;
             _graph = graph;

@@ -8,6 +8,7 @@ using OpenShaderGraph.Core.Logic;
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using Godot.Collections;
 
 namespace OpenShaderGraph.Core.View.UI
 {
@@ -18,7 +19,7 @@ namespace OpenShaderGraph.Core.View.UI
 
         public BaseGraphData? GraphData { get; private set; }
         private ContextMenuManager? _contextMenuManager;
-        private readonly Dictionary<long, BaseGraphNode> _nodeViewCache = new();
+        private readonly System.Collections.Generic.Dictionary<long, BaseGraphNode> _nodeViewCache = new();
 
         public ShaderGraphEdit()
         {
@@ -167,7 +168,7 @@ namespace OpenShaderGraph.Core.View.UI
                         var selectedNodes = GetSelectedNodes();
                         if (selectedNodes.Count > 1 && selectedNodes.Contains(topNode))
                         {
-                            _contextMenuManager.ShowGroupingMenu(globalMousePosition, new Godot.Collections.Array<GraphNode>(selectedNodes), this);
+                            _contextMenuManager.ShowGroupingMenu(globalMousePosition, new Array<GraphNode>(selectedNodes), this);
                         }
                         else
                         {
@@ -381,7 +382,7 @@ namespace OpenShaderGraph.Core.View.UI
             Services.Get<GraphManager>().DuplicateNode(node.Data!);
         }
 
-        public void RequestGrouping(Godot.Collections.Array<GraphNode> nodes)
+        public void RequestGrouping(Array<GraphNode> nodes)
         {
             var nodesData = nodes.Cast<BaseGraphNode>().Select(n => n.Data!).ToList();
             Services.Get<GraphManager>().GroupNodes(nodesData);
