@@ -35,7 +35,7 @@ namespace OpenShaderGraph.Core.Logic
         public BaseGraphData CreateNewGraph(
             string name = "New Graph",
             GraphType graphType = GraphType.ShaderGraph,
-            EngineType engine = EngineType.Godot,
+            ShaderLanguage engine = ShaderLanguage.Godot,
             ShaderStage shaderStage = ShaderStage.Fragment)
         {
             if (name == null) throw new ArgumentNullException(nameof(name));

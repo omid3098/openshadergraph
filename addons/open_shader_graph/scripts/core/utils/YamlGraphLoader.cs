@@ -53,12 +53,12 @@ namespace OpenShaderGraph.Core.Utils
             var name = metadata["name"].ToString()!;
             var version = metadata["version"].ToString()!;
             var properties = (Dictionary<object, object>)metadata["properties"];
-            var engineIndex = Convert.ToInt32(properties["engine"]);
+            var languageIndex = Convert.ToInt32(properties["shader_language"]);
             var stageIndex = Convert.ToInt32(properties["shader_stage"]);
-            var engine = (EngineType)engineIndex;
+            var shaderLanguage = (ShaderLanguage)languageIndex;
             var stage = (ShaderStage)stageIndex;
 
-            var graph = new ShaderGraphData(name, engine, stage);
+            var graph = new ShaderGraphData(name, shaderLanguage, stage);
             graph.SetVersion(version);
             if (filePath != null)
                 graph.SetFilePath(filePath);
@@ -86,32 +86,7 @@ namespace OpenShaderGraph.Core.Utils
                     var pinName = pinEntry["name"].ToString()!;
                     var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
                     var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
-                    Variant pinDefaultValue = new Variant();
-                    if (pinValueObj is int vi)
-                        pinDefaultValue = (Variant)vi;
-                    else if (pinValueObj is long vl)
-                        pinDefaultValue = (Variant)Convert.ToInt32(vl);
-                    else if (pinValueObj is float vf)
-                        pinDefaultValue = (Variant)vf;
-                    else if (pinValueObj is double vd)
-                        pinDefaultValue = (Variant)Convert.ToSingle(vd);
-                    else if (pinValueObj is bool vb)
-                        pinDefaultValue = (Variant)vb;
-                    else if (pinValueObj is string vs)
-                    {
-                        if (int.TryParse(vs, out var intVal))
-                            pinDefaultValue = (Variant)intVal;
-                        else if (float.TryParse(vs, out var floatVal))
-                            pinDefaultValue = (Variant)floatVal;
-                        else if (bool.TryParse(vs, out var boolVal))
-                            pinDefaultValue = (Variant)boolVal;
-                        else
-                            pinDefaultValue = new Variant();
-                    }
-                    else
-                    {
-                        pinDefaultValue = new Variant();
-                    }
+                    var pinDefaultValue = ParseVariant(pinValueObj, pinType);
                     inputs.Add(new PinData(pinName, pinType, DirectionType.Input, pinDefaultValue));
                 }
 
@@ -124,32 +99,7 @@ namespace OpenShaderGraph.Core.Utils
                     var pinName = pinEntry["name"].ToString()!;
                     var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
                     var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
-                    Variant pinDefaultValue = new Variant();
-                    if (pinValueObj is int vi)
-                        pinDefaultValue = (Variant)vi;
-                    else if (pinValueObj is long vl)
-                        pinDefaultValue = (Variant)Convert.ToInt32(vl);
-                    else if (pinValueObj is float vf)
-                        pinDefaultValue = (Variant)vf;
-                    else if (pinValueObj is double vd)
-                        pinDefaultValue = (Variant)Convert.ToSingle(vd);
-                    else if (pinValueObj is bool vb)
-                        pinDefaultValue = (Variant)vb;
-                    else if (pinValueObj is string vs)
-                    {
-                        if (int.TryParse(vs, out var intVal))
-                            pinDefaultValue = (Variant)intVal;
-                        else if (float.TryParse(vs, out var floatVal))
-                            pinDefaultValue = (Variant)floatVal;
-                        else if (bool.TryParse(vs, out var boolVal))
-                            pinDefaultValue = (Variant)boolVal;
-                        else
-                            pinDefaultValue = new Variant();
-                    }
-                    else
-                    {
-                        pinDefaultValue = new Variant();
-                    }
+                    var pinDefaultValue = ParseVariant(pinValueObj, pinType);
                     outputs.Add(new PinData(pinName, pinType, DirectionType.Output, pinDefaultValue));
                 }
 
@@ -199,7 +149,7 @@ namespace OpenShaderGraph.Core.Utils
                 ["type"] = "SHADER_GRAPH",
                 ["properties"] = new Dictionary<string, object>
                 {
-                    ["engine"] = (int)graph.Engine,
+                    ["shader_language"] = (int)graph.Language,
                     ["shader_stage"] = (int)graph.Stage
                 }
             };
@@ -222,7 +172,7 @@ namespace OpenShaderGraph.Core.Utils
                     {
                         ["name"] = pin.GetName(),
                         ["type"] = PinDataTypeToString(pin.GetDataType()),
-                        ["value"] = pin.GetValue().AsGodotObject()
+                        ["value"] = ConvertVariant(pin.GetValue())
                     });
                 }
                 entry["inputs"] = inputList;
@@ -233,7 +183,7 @@ namespace OpenShaderGraph.Core.Utils
                     {
                         ["name"] = pin.GetName(),
                         ["type"] = PinDataTypeToString(pin.GetDataType()),
-                        ["value"] = pin.GetValue().AsGodotObject()
+                        ["value"] = ConvertVariant(pin.GetValue())
                     });
                 }
                 entry["outputs"] = outputList;
@@ -261,6 +211,59 @@ namespace OpenShaderGraph.Core.Utils
                 ["nodes"] = nodes,
                 ["connections"] = conns
             };
+        }
+
+        private static object ConvertVariant(Variant value)
+        {
+            return value.VariantType switch
+            {
+                Variant.Type.Vector2 => new List<float> { value.AsVector2().X, value.AsVector2().Y },
+                Variant.Type.Vector3 => new List<float> { value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z },
+                Variant.Type.Vector4 => new List<float> { value.AsVector4().X, value.AsVector4().Y, value.AsVector4().Z, value.AsVector4().W },
+                Variant.Type.Float => value.AsSingle(),
+                Variant.Type.Int => value.AsInt32(),
+                Variant.Type.Bool => value.AsBool(),
+                _ => null
+            };
+        }
+
+        private static Variant ParseVariant(object value, PinDataType type)
+        {
+            if (value == null)
+            {
+                return new Variant();
+            }
+
+            switch (type)
+            {
+                case PinDataType.Float:
+                    if (value is IConvertible cFloat)
+                    {
+                        if (value is int || value is long)
+                            return (Variant)cFloat.ToInt32(null);
+                        else
+                            return (Variant)cFloat.ToSingle(null);
+                    }
+                    return new Variant();
+                case PinDataType.Int:
+                    return value is IConvertible cInt ? (Variant)cInt.ToInt32(null) : new Variant();
+                case PinDataType.Bool:
+                    return value is IConvertible cBool ? (Variant)cBool.ToBoolean(null) : new Variant();
+                case PinDataType.Vector2:
+                    if (value is List<object> v2)
+                        return (Variant)new Vector2(Convert.ToSingle(v2[0]), Convert.ToSingle(v2[1]));
+                    break;
+                case PinDataType.Vector3:
+                    if (value is List<object> v3)
+                        return (Variant)new Vector3(Convert.ToSingle(v3[0]), Convert.ToSingle(v3[1]), Convert.ToSingle(v3[2]));
+                    break;
+                case PinDataType.Vector4:
+                    if (value is List<object> v4)
+                        return (Variant)new Vector4(Convert.ToSingle(v4[0]), Convert.ToSingle(v4[1]), Convert.ToSingle(v4[2]), Convert.ToSingle(v4[3]));
+                    break;
+            }
+
+            return new Variant();
         }
 
         private static PinDataType StringToPinDataType(string type)

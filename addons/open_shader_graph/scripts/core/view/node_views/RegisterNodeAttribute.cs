@@ -8,7 +8,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
     {
         public string Category { get; }
         public string Name { get; }
-        public EngineType[] Engines { get; set; } = Array.Empty<EngineType>();
+        public ShaderLanguage[] Engines { get; set; } = Array.Empty<ShaderLanguage>();
         public ShaderStage[] Stages { get; set; } = Array.Empty<ShaderStage>();
         public GraphType[] GraphTypes { get; set; } = Array.Empty<GraphType>();
 

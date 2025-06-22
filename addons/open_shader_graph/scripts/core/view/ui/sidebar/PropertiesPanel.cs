@@ -42,15 +42,15 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             // Engine type selector
             var engineLabel = new Label { Text = "Engine" };
             var engineSelect = new OptionButton();
-            foreach (EngineType eng in Enum.GetValues(typeof(EngineType)))
+            foreach (ShaderLanguage lang in Enum.GetValues(typeof(ShaderLanguage)))
             {
-                engineSelect.AddItem(eng.ToString(), (int)eng);
+                engineSelect.AddItem(lang.ToString(), (int)lang);
             }
             // Set current selection
             var props = currentGraphData.GetProperties();
-            int currentEngine = props.TryGetValue("engine", out var engVar) ? engVar.AsInt32() : (int)EngineType.Godot;
+            int currentEngine = props.TryGetValue("shader_language", out var langVar) ? langVar.AsInt32() : (int)ShaderLanguage.Godot;
             engineSelect.Selected = currentEngine;
-            engineSelect.ItemSelected += id => { props["engine"] = id; };
+            engineSelect.ItemSelected += id => { props["shader_language"] = id; };
             _vbox.AddChild(engineLabel);
             _vbox.AddChild(engineSelect);
 

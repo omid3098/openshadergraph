@@ -37,6 +37,16 @@
     <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderGraphData.cs" Link="Source/ShaderGraphData.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/YamlGraphLoader.cs" Link="Source/YamlGraphLoader.cs" />
     <Compile Include="../../addons/open_shader_graph/scripts/core/utils/IGraphSerializerService.cs" Link="Source/IGraphSerializerService.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/view/utils/ShaderCodeAttribute.cs" Link="Source/ShaderCodeAttribute.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/ShaderEnums.cs" Link="Source/ShaderEnums.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/TemplateEntry.cs" Link="Source/TemplateEntry.cs" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/TemplateRegistry.cs" Link="Source/TemplateRegistry.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Core/Logic/AddNode.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project> 

@@ -18,7 +18,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
         {
             _service = new NodeFilteringService();
             _service.Init();
-            _graph = new ShaderGraphData("TestGraph", EngineType.Godot, ShaderStage.Fragment);
+            _graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderStage.Fragment);
         }
 
         [Test]
@@ -56,7 +56,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
         {
             var attr = new RegisterNodeAttribute("TestNode", "General")
             {
-                Engines = new[] { EngineType.HLSL }
+                Engines = new[] { ShaderLanguage.HLSL }
             };
             var rn = new RegisteredNode(typeof(BaseGraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.False);
@@ -69,7 +69,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             {
                 GraphTypes = new[] { GraphType.ShaderGraph },
                 Stages = new[] { ShaderStage.Fragment },
-                Engines = new[] { EngineType.Godot }
+                Engines = new[] { ShaderLanguage.Godot }
             };
             var rn = new RegisteredNode(typeof(BaseGraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.True);
@@ -79,14 +79,14 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void IsNodeVisible_OverridesGraphProperties_ReturnsTrue()
         {
             // Override graph to GLSL + Compute stage via strongly-typed properties
-            _graph.Engine = EngineType.GLSL;
+            _graph.Language = ShaderLanguage.GLSL;
             _graph.Stage = ShaderStage.Compute;
 
             var attr = new RegisterNodeAttribute("TestNode", "General")
             {
                 GraphTypes = new[] { GraphType.ShaderGraph },
                 Stages = new[] { ShaderStage.Compute },
-                Engines = new[] { EngineType.GLSL }
+                Engines = new[] { ShaderLanguage.GLSL }
             };
             var rn = new RegisteredNode(typeof(BaseGraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.True);

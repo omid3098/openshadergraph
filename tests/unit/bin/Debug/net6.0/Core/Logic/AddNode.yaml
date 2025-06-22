@@ -1,0 +1,12 @@
+- engine: Godot
+  stage: All
+  parameters: ["result","a","b"]
+  template: |
+    // add two floats
+    float {result} = {a} + {b};
+- engine: Godot
+  stage: Fragment
+  parameters: ["result","a","b"]
+  template: |
+    // fragment-specific add
+    float {result} = {a} + {b} + 0.1; 

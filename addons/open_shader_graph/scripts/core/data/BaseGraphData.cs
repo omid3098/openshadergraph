@@ -14,22 +14,6 @@ public enum GraphType
     GlobalSubgraph,
 }
 
-// Add new enums for filtering nodes by engine and shader stage
-public enum EngineType
-{
-    Godot,
-    Bevy,
-    GLSL,
-    HLSL,
-}
-
-public enum ShaderStage
-{
-    Vertex,
-    Fragment,
-    Compute,
-}
-
 public partial class BaseGroupGraphData : BaseGraphData
 {
     public BaseNodeData InputNode { get; private set; }

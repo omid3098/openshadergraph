@@ -23,17 +23,17 @@ namespace OpenShaderGraph.Core.Logic
                 return false;
 
             // Determine engine and stage from strongly-typed GraphData when possible
-            EngineType engine;
+            ShaderLanguage shaderLanguage;
             ShaderStage stage;
             if (graphData is ShaderGraphData sg)
             {
-                engine = sg.Engine;
+                shaderLanguage = sg.Language;
                 stage = sg.Stage;
             }
             else
             {
                 var props = graphData.GetProperties();
-                engine = props.TryGetValue("engine", out var ev) ? (EngineType)ev.AsInt32() : EngineType.Godot;
+                shaderLanguage = props.TryGetValue("shader_language", out var shaderLanguageVariant) ? (ShaderLanguage)shaderLanguageVariant.AsInt32() : ShaderLanguage.Godot;
                 stage = props.TryGetValue("shader_stage", out var sv) ? (ShaderStage)sv.AsInt32() : ShaderStage.Fragment;
             }
 
@@ -42,7 +42,7 @@ namespace OpenShaderGraph.Core.Logic
                 return false;
 
             // EngineType filter
-            if (attr.Engines.Length > 0 && !attr.Engines.Contains(engine))
+            if (attr.Engines.Length > 0 && !attr.Engines.Contains(shaderLanguage))
                 return false;
 
             // Passed all checks
