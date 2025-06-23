@@ -1,0 +1,21 @@
+name: Add
+type: Add
+category: Math
+inputs:
+  - name: a
+    dataType: Float
+    direction: Input
+  - name: b
+    dataType: Float
+    direction: Input
+outputs:
+  - name: out
+    dataType: Float
+    direction: Output
+codeGenDefinitions:
+  - language: Godot
+    stages:
+      - All
+    code: |
+      // add two floats
+      float {out} = {a} + {b};

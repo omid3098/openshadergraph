@@ -22,3 +22,6 @@ mono_crash.*.json
 
 # GUT testing framework
 addons/gut/
+tests/unit/bin/
+tests/unit/obj/
+tests/unit/TestResults/
