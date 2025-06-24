@@ -11,36 +11,37 @@ public enum DirectionType
 
 public partial class PinData : RefCounted
 {
-    private string _name;
-    private PinDataType _dataType;
-    private DirectionType _direction;
-    private Variant _defaultValue;
-    private Variant _value;
+    public PinData() { Name = ""; }
+    public string Name { get; set; }
+    public PinDataType DataType {get; set;}
+    public DirectionType Direction {get; set;}
+    public Variant DefaultValue {get; set;}
+    public Variant Value {get; set;}
 
     public PinData(string name, PinDataType dataType, DirectionType direction, Variant defaultValue = new())
     {
-        _name = name;
-        _dataType = dataType;
-        _direction = direction;
-        _defaultValue = defaultValue;
-        _value = defaultValue;
+        Name = name;
+        DataType = dataType;
+        Direction = direction;
+        DefaultValue = defaultValue;
+        Value = defaultValue;
     }
 
-    public string GetName() => _name;
-    public PinDataType GetDataType() => _dataType;
-    public DirectionType GetDirection() => _direction;
-    public Variant GetDefaultValue() => _defaultValue;
-    public Variant GetValue() => _value;
+    public string GetName() => Name;
+    public PinDataType GetDataType() => DataType;
+    public DirectionType GetDirection() => Direction;
+    public Variant GetDefaultValue() => DefaultValue;
+    public Variant GetValue() => Value;
 
-    public void SetValue(Variant value) => _value = value;
-    public void SetName(string name) => _name = name;
-    public void SetDataType(PinDataType dataType) => _dataType = dataType;
-    public void SetDirection(DirectionType direction) => _direction = direction;
+    public void SetValue(Variant value) => Value = value;
+    public void SetName(string name) => Name = name;
+    public void SetDataType(PinDataType dataType) => DataType = dataType;
+    public void SetDirection(DirectionType direction) => Direction = direction;
 
     public PinData Clone()
     {
-        var newPin = new PinData(_name, _dataType, _direction, _defaultValue);
-        newPin.SetValue(_value);
+        var newPin = new PinData(Name, DataType, Direction, DefaultValue);
+        newPin.SetValue(Value);
         return newPin;
     }
 }
