@@ -9,6 +9,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using Godot.Collections;
+using OpenShaderGraph.Core.Logic.Services.NodeRegistry;
 
 namespace OpenShaderGraph.Core.View.UI
 {

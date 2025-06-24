@@ -36,7 +36,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.IsTrue(File.Exists(yamlPath), $"YAML file not found at {yamlPath}");
             var yaml = File.ReadAllText(yamlPath);
 
-            var def = _deserializer.Deserialize<NodeYamlDefinition>(yaml);
+            var def = _deserializer.Deserialize<BaseNodeData>(yaml);
             Assert.IsNotNull(def);
             Assert.AreEqual("Float", def.Name);
             Assert.AreEqual("Float", def.Type);
@@ -55,8 +55,8 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.AreEqual(PinDataType.Float, output.DataType);
             Assert.AreEqual(DirectionType.Output, output.Direction);
 
-            Assert.That(def.CodeGenDefinitions, Has.Count.EqualTo(1));
-            var codeGen = def.CodeGenDefinitions[0];
+            Assert.That(def.CodeGenerations, Has.Count.EqualTo(1));
+            var codeGen = def.CodeGenerations[0];
             Assert.AreEqual(ShaderLanguage.Godot, codeGen.Language);
             Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderStage.All }));
             StringAssert.Contains("float {out} = {value};", codeGen.Code);
@@ -69,7 +69,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.IsTrue(File.Exists(yamlPath), $"YAML file not found at {yamlPath}");
             var yaml = File.ReadAllText(yamlPath);
 
-            var def = _deserializer.Deserialize<NodeYamlDefinition>(yaml);
+            var def = _deserializer.Deserialize<BaseNodeData>(yaml);
             Assert.IsNotNull(def);
             Assert.AreEqual("Add", def.Name);
             Assert.AreEqual("Add", def.Type);
@@ -91,8 +91,8 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.AreEqual(PinDataType.Float, output.DataType);
             Assert.AreEqual(DirectionType.Output, output.Direction);
 
-            Assert.That(def.CodeGenDefinitions, Has.Count.EqualTo(1));
-            var codeGen = def.CodeGenDefinitions[0];
+            Assert.That(def.CodeGenerations, Has.Count.EqualTo(1));
+            var codeGen = def.CodeGenerations[0];
             Assert.AreEqual(ShaderLanguage.Godot, codeGen.Language);
             Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderStage.All }));
             StringAssert.Contains("float {out} = {a} + {b};", codeGen.Code);

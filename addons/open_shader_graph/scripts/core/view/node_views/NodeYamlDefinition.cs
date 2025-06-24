@@ -10,14 +10,6 @@ namespace OpenShaderGraph.Core.View.NodeViews
         public string Category { get; set; } // to use in the creation popup panel under correct category
         public List<PinData> Inputs { get; set; } // a list of input pins
         public List<PinData> Outputs { get; set; } // a list of output pins
-        public List<CodeGenDefinition> CodeGenDefinitions { get; set; } // a list of code gen definitions
-    }
-
-    public class CodeGenDefinition
-    {
-        public ShaderLanguage Language { get; set; } // the language of the node
-        public List<ShaderStage> Stages { get; set; } // the stages of the node
-        // the code of the node. parameters in the code should be in the format of {parameter_name} matching the name of the input and output pins
-        public string Code { get; set; }
+        public List<CodeGeneration> CodeGenDefinitions { get; set; } // a list of code gen definitions
     }
 }

@@ -26,3 +26,5 @@ tests/unit/bin/
 tests/unit/obj/
 tests/unit/TestResults/
 *.cs.uid
+
+*.DS_Store

@@ -13,7 +13,7 @@ namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
             Logger.Log("[ShaderGeneratorService] init");
             _generators = new Dictionary<ShaderLanguage, IShaderGenerator>
             {
-                { ShaderLanguage.Godot, new GodotShaderGenerator() }
+                // { ShaderLanguage.Godot, new GodotShaderGenerator() }
             };
         }
     }

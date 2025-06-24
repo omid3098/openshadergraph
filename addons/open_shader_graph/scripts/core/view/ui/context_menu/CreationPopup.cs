@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenShaderGraph.Core.Logic;
+using OpenShaderGraph.Core.Logic.Services.NodeRegistry;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
 {
