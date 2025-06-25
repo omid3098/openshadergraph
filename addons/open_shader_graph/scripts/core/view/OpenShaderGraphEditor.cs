@@ -1,13 +1,11 @@
 #nullable enable
 using Godot;
-using System.Collections.Generic;
 using System;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Utils;
-using OpenShaderGraph.Core.View.NodeViews;
 using OpenShaderGraph.Core.View.UI.Sidebar.MenuBar;
-using OpenShaderGraph.Core.Logic.Services.NodeRegistry;
+
 
 namespace OpenShaderGraph.Core.View
 {
@@ -16,7 +14,6 @@ namespace OpenShaderGraph.Core.View
         private readonly IGraphSerializerService _serializerService;
         private GraphManager _graphManager;
         private UIManager _uiManager;
-        // private NodeRegistry _nodeRegistry;
         private FileDialog _fileDialog = default!; // for save dialog
         private Control _rootControl = default!; // root UI scene returned by GetMainScene
 
@@ -29,7 +26,6 @@ namespace OpenShaderGraph.Core.View
             _uiManager = Services.Get<UIManager>();
             // Handle graph creation to add a new tab and subscribe to name changes
             _graphManager.GraphCreated += _uiManager.OnGraphCreated;
-            // _nodeRegistry = Services.Get<NodeRegistry>();
 
             // Connect GraphManager signals
             _graphManager.GraphSelected += OnGraphSelected;

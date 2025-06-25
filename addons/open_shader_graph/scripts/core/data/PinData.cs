@@ -13,10 +13,10 @@ public partial class PinData : RefCounted
 {
     public PinData() { Name = ""; }
     public string Name { get; set; }
-    public PinDataType DataType {get; set;}
-    public DirectionType Direction {get; set;}
-    public Variant DefaultValue {get; set;}
-    public Variant Value {get; set;}
+    public PinDataType DataType { get; set; }
+    public DirectionType Direction { get; set; }
+    public Variant DefaultValue { get; set; }
+    public Variant Value { get; set; }
 
     public PinData(string name, PinDataType dataType, DirectionType direction, Variant defaultValue = new())
     {

@@ -8,15 +8,19 @@ namespace OpenShaderGraph.Core.View.NodeViews
 {
     public abstract partial class BaseGraphNode : GraphNode
     {
+
+        public long Id { get; set; } = -1;
+        public readonly NodeTemplate Template;
+
         public Action<BaseNodeData, Vector2>? NodeMoved;
 
         public BaseNodeData Data { get; private set; }
 
         private static readonly Color DefaultPinColor = new Color(1, 1, 1, 0.8f);
 
-        public static BaseNodeData CreateNodeData(string name, string type, Vector2 position)
+        public static BaseNodeData CreateNodeData(NodeTemplate template, Vector2 position)
         {
-            return new BaseNodeData(name, type, position);
+            return new BaseNodeData(template, position);
         }
 
         public BaseGraphNode() : base()
@@ -121,7 +125,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
             Title = value;
             if (Data != null)
             {
-                Data.SetName(value);
+                // Data.SetName(value);
                 Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.GetName()}");
             }
         }

@@ -7,64 +7,29 @@ metadata:
     shader_stage: 2
 nodes:
 - id: 0
-  name: Float
-  type: Float
+  template: Float
   position:
   - 268
   - 373
   inputs:
   - name: value
-    type: FLOAT
     value: 0
   outputs:
   - name: out
-    type: FLOAT
-    value: 
-- id: 1
-  name: Float
-  type: Float
-  position:
-  - 260
-  - 600
-  inputs:
-  - name: value
-    type: FLOAT
-    value: 0
-  outputs:
-  - name: out
-    type: FLOAT
-    value: 
+    value: 1.2
 - id: 2
-  name: Add
-  type: Add
+  template: Add
   position:
   - 560
   - 460
   inputs:
   - name: a
-    type: FLOAT
-    value: 
+    value: 0.0
   - name: b
-    type: FLOAT
-    value: 
+    value: 1.2
   outputs:
   - name: out
-    type: FLOAT
-    value: 
-- id: 3
-  name: Float
-  type: Float
-  position:
-  - 280
-  - 860
-  inputs:
-  - name: value
-    type: FLOAT
     value: 0
-  outputs:
-  - name: out
-    type: FLOAT
-    value: 
 - id: 4
   name: Float
   type: Float

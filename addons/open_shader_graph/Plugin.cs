@@ -1,11 +1,9 @@
 using Godot;
-using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.View;
-using OpenShaderGraph.Core.View.NodeViews;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Logic.Services.ShaderGenerator;
-using OpenShaderGraph.Core.Logic.Services.NodeRegistry;
+using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 
 namespace OpenShaderGraph
 {
@@ -20,18 +18,20 @@ namespace OpenShaderGraph
         public override void _EnterTree()
         {
             // Instantiate service instances for constructor-based DI
+            var templateRegistry = new YamlTemplateRegistry();
+
             var groupingService = new GroupingService();
             var nodeFilteringService = new NodeFilteringService();
             var uiManager = new UIManager();
-            var nodeRegistry = new YamlNodeRegistry();
             var graphManager = new GraphManager(groupingService);
             var shaderGeneratorService = new ShaderGeneratorService();
             var graphSerializer = new YamlGraphSerializer();
 
             // Register services and perform initialization
+            Services.Register<ITemplateRegistry>(templateRegistry);
+
             Services.Register<IGraphSerializerService>(graphSerializer);
             Services.Register<IShaderGeneratorService>(shaderGeneratorService);
-            Services.Register<INodeRegistry>(nodeRegistry);
             Services.Register(groupingService);
             Services.Register(nodeFilteringService);
             Services.Register(uiManager);

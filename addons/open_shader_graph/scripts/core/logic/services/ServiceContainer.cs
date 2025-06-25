@@ -7,7 +7,7 @@ namespace OpenShaderGraph.Core.Utils
     // Defines an initialization contract for services
     public interface IInitializable
     {
-        void Init();
+        void Init() { }
     }
 
     // Simple service locator for registering and retrieving services

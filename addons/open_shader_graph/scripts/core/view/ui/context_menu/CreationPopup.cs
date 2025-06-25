@@ -1,12 +1,11 @@
 using Godot;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Data;
-using OpenShaderGraph.Core.View.NodeViews;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenShaderGraph.Core.Logic;
-using OpenShaderGraph.Core.Logic.Services.NodeRegistry;
+using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
 {
@@ -14,7 +13,6 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
     {
         private LineEdit _searchBox;
         private Dictionary<string, PopupMenu> _subMenus = new();
-        private Dictionary<string, List<RegisteredNode>> _registeredNodes = new();
         private Vector2 _creationPositionInGraph;
         private ShaderGraphEdit _targetGraphEdit;
 
@@ -28,8 +26,6 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             _searchBox = new LineEdit { PlaceholderText = "Search..." };
             AddChild(_searchBox);
             _searchBox.TextChanged += OnSearchTextChanged;
-
-            _registeredNodes = Services.Get<NodeRegistry>().GetRegisteredNodes();
         }
 
         private void OnAboutToPopup()
@@ -90,57 +86,41 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private void PopulateMenu(string searchText = "")
         {
             searchText = searchText.Trim().ToLower();
+            var filter = Services.Get<NodeFilteringService>();
+            var graphData = _targetGraphEdit.GetGraphData();
+            var registeredTemplates = Services.Get<ITemplateRegistry>().GetRegisteredTemplates();
 
-            Clear();
-            foreach (var sub in _subMenus.Values)
-                sub.QueueFree();
-            _subMenus.Clear();
+            CleanUpMenus();
 
             // Placeholder for search box space
             AddItem("");
             SetItemDisabled(0, true);
 
-            var filter = Services.Get<NodeFilteringService>();
-            var graphData = _targetGraphEdit.GetGraphData();
-
             if (string.IsNullOrEmpty(searchText))
             {
-                foreach (var category in _registeredNodes.Keys)
+                foreach (KeyValuePair<string, NodeTemplate> template in registeredTemplates)
                 {
-                    // Only include nodes visible in this graph context
-                    var visibleNodes = _registeredNodes[category]
-                        .Where(n => filter.IsNodeVisible(n, graphData))
-                        .ToList();
-                    if (!visibleNodes.Any())
-                        continue;
-
-                    var subMenu = new PopupMenu();
-                    subMenu.Name = category + " > ";
-                    AddSubmenuNodeItem(category, subMenu);
-                    _subMenus[category] = subMenu;
-                    foreach (var node in visibleNodes)
-                    {
-                        subMenu.AddItem(node.Attribute.Name);
-                        subMenu.IdPressed += id => OnSubMenuIdPressed(subMenu, id);
-                    }
+                    AddItem(template.Value.Name);
                 }
             }
             else
             {
-                foreach (var category in _registeredNodes.Keys)
+                foreach (KeyValuePair<string, NodeTemplate> template in registeredTemplates)
                 {
-                    foreach (var node in _registeredNodes[category])
+                    if (template.Value.Name.Contains(searchText))
                     {
-                        if (!filter.IsNodeVisible(node, graphData))
-                            continue;
-                        if (node.Attribute.Name.ToLower().Contains(searchText) || category.ToLower().Contains(searchText))
-                        {
-                            var itemText = $"{category} > {node.Attribute.Name}";
-                            AddItem(itemText);
-                        }
+                        AddItem(template.Value.Name);
                     }
                 }
             }
+        }
+
+        private void CleanUpMenus()
+        {
+            Clear();
+            foreach (var sub in _subMenus.Values)
+                sub.QueueFree();
+            _subMenus.Clear();
         }
 
         private void OnSubMenuIdPressed(PopupMenu menu, long id)

@@ -9,7 +9,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using Godot.Collections;
-using OpenShaderGraph.Core.Logic.Services.NodeRegistry;
+using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 
 namespace OpenShaderGraph.Core.View.UI
 {
@@ -86,11 +86,11 @@ namespace OpenShaderGraph.Core.View.UI
             // Draw nodes
             foreach (var nodeData in GraphData.GetNodes())
             {
-                var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeData.GetNodeType());
+                var registeredTemplate = Services.Get<ITemplateRegistry>().FindTemplate(nodeData.GetNodeType());
                 BaseGraphNode nodeView;
-                if (registeredNode != null)
+                if (registeredTemplate != null)
                 {
-                    nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredNode.NodeType)!;
+                    nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredTemplate.Type)!;
                 }
                 else
                 {
@@ -207,7 +207,7 @@ namespace OpenShaderGraph.Core.View.UI
         {
             Logger.Log($"[DEBUG] Node creation requested: {nodeName} at position {position}");
             Logger.Log($"Node creation requested: {nodeName} at {position}");
-            var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeName);
+            var registeredNode = Services.Get<ITemplateRegistry>().FindNode(nodeName);
 
             if (registeredNode != null)
             {
@@ -327,7 +327,7 @@ namespace OpenShaderGraph.Core.View.UI
 
         private void OnNodeAdded(BaseNodeData nodeData)
         {
-            var registeredNode = Services.Get<NodeRegistry>().FindRegisteredNode(nodeData.GetNodeType());
+            var registeredNode = Services.Get<ITemplateRegistry>().FindNode(nodeData.GetNodeType());
             if (registeredNode != null)
             {
                 var nodeView = (BaseGraphNode?)System.Activator.CreateInstance(registeredNode.NodeType);

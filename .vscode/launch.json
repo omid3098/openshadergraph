@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Godot",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "/Applications/Godot_mono.app/Contents/MacOS/Godot",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+        },
+        {
+            "name": "Launch Godot Editor",
+            "type": "node-terminal",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "command": "/Applications/Godot_mono.app/Contents/MacOS/Godot --editor --path ${workspaceFolder}",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Attach to Godot Editor",
+            "type": "coreclr",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": false
+        }
+    ]
+}
