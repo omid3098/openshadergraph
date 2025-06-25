@@ -14,7 +14,7 @@ namespace OpenShaderGraph.Core.Data
         public string[] Parameters { get; set; }
 
         [YamlMember(Alias = "template")]
-        public string Template { get; set; }
+        public string Template { get; set; } = "";
 
         public TemplateEntry(ShaderLanguage engine, ShaderStage stage, string[] parameters, string template)
         {
@@ -25,8 +25,9 @@ namespace OpenShaderGraph.Core.Data
         }
 
         // Parameterless constructor for deserialization
-        public TemplateEntry()
-        {
-        }
+        // todo: temporary disable this to see if we realy need this!
+        // public TemplateEntry()
+        // {
+        // }
     }
 }

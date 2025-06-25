@@ -86,8 +86,15 @@ namespace OpenShaderGraph.Core.Utils
                     var pinName = pinEntry["name"].ToString()!;
                     var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
                     var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
-                    var pinDefaultValue = ParseVariant(pinValueObj, pinType);
-                    inputs.Add(new PinData(pinName, pinType, DirectionType.Input, pinDefaultValue));
+                    if (pinValueObj != null)
+                    {
+                        var pinDefaultValue = ParseVariant(pinValueObj, pinType);
+                        inputs.Add(new PinData(pinName, pinType, DirectionType.Input, pinDefaultValue));
+                    }
+                    else
+                    {
+                        // todo: what if pinValueObj == null?
+                    }
                 }
 
                 // Outputs
@@ -99,8 +106,15 @@ namespace OpenShaderGraph.Core.Utils
                     var pinName = pinEntry["name"].ToString()!;
                     var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
                     var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
-                    var pinDefaultValue = ParseVariant(pinValueObj, pinType);
-                    outputs.Add(new PinData(pinName, pinType, DirectionType.Output, pinDefaultValue));
+                    if (pinValueObj != null)
+                    {
+                        var pinDefaultValue = ParseVariant(pinValueObj, pinType);
+                        outputs.Add(new PinData(pinName, pinType, DirectionType.Output, pinDefaultValue));
+                    }
+                    else
+                    {
+                        // todo: what should be done if pinValueObj is null
+                    }
                 }
 
                 var nodeData = new BaseNodeData(nodeName, nodeType, position, inputs, outputs) { Id = id };
@@ -215,6 +229,7 @@ namespace OpenShaderGraph.Core.Utils
 
         private static object ConvertVariant(Variant value)
         {
+            // todo: this is the same can we avoid returning null?
             return value.VariantType switch
             {
                 Variant.Type.Vector2 => new List<float> { value.AsVector2().X, value.AsVector2().Y },

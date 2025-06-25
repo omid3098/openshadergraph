@@ -61,10 +61,10 @@ namespace OpenShaderGraph.Core.Godot.Services.ShaderGenerator
                     ShaderStage.Fragment => "fragment",
                     ShaderStage.Light => "light",
                     ShaderStage.Compute => "compute",
-                    _ => null
+                    _ => ""
                 };
 
-                if (funcName != null)
+                if (funcName != "")
                 {
                     sb.AppendLine($"void {funcName}() {{");
                     foreach (var bodyLine in ctx.BodyLines)

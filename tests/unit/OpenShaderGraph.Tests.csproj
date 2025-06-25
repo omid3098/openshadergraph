@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+    <PackageReference Include="NUnit" Version="3.13.3" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.4.2" />
+    <PackageReference Include="NUnit.Analyzers" Version="3.6.1" />
+    <PackageReference Include="coverlet.collector" Version="3.2.0" />
+    <PackageReference Include="Moq" Version="4.20.69" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <!-- 
+    Reference C# files from the main project.
+    We use globbing for data, logic, and utils directories to automatically include new files.
+    The 'view' directory is excluded as it contains dependencies on Godot classes,
+    and this test project does not reference Godot assemblies.
+  -->
+  <ItemGroup>
+    <Compile Include="../../addons/open_shader_graph/scripts/core/data/**/*.cs" Link="Source/data/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/logic/**/*.cs" Link="Source/logic/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/utils/**/*.cs" Link="Source/utils/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/godot/**/*.cs" Link="Source/godot/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../addons/open_shader_graph/scripts/core/view/node_views/NodeYamlDefinition.cs" Link="Source/view/node_views/NodeYamlDefinition.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Core/Logic/AddNode.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project> 

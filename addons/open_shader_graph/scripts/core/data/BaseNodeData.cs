@@ -8,21 +8,21 @@ using System.Collections.Generic;
 public class CodeGeneration
 {
     public ShaderLanguage Language { get; set; } // the language of the node
-    public List<ShaderStage> Stages { get; set; } // the stages of the node
+    public List<ShaderStage> Stages { get; set; } = new(); // the stages of the node
                                                   // the code of the node. parameters in the code should be in the format of {parameter_name} matching the name of the input and output pins
-    public string Code { get; set; }
+    public string Code { get; set; } = "";
 }
 
 public partial class BaseNodeData : RefCounted
 {
     public long Id { get; set; } = -1;
-    public string Name { get; set; }
-    public string Type { get; set; }
-    public string Category { get; set; }
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Category { get; set; } = "";
     public Vector2 Position { get; set; }
-    public List<PinData> Inputs { get; set; }
-    public List<PinData> Outputs { get; set; }
-    public List<CodeGeneration> CodeGenerations { get; set; }
+    public List<PinData> Inputs { get; set; } = new();
+    public List<PinData> Outputs { get; set; } = new();
+    public List<CodeGeneration> CodeGenerations { get; set; } = new();
 
     public BaseNodeData(string name, string type, Vector2 position, List<PinData>? inputs = null, List<PinData>? outputs = null, List<CodeGeneration>? codeGenDefinitions = null)
     {

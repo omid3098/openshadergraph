@@ -93,6 +93,7 @@ namespace OpenShaderGraph.Core.Logic.Services.NodeRegistry
                         return node;
                 }
             }
+            // todo: maybe need to change the return type to nullable!?!?
             return null;
         }
 
@@ -106,9 +107,9 @@ namespace OpenShaderGraph.Core.Logic.Services.NodeRegistry
         {
             return type switch
             {
-                PinDataType.Float => (Variant)(float)defaultValue,
+                PinDataType.Float => (Variant)defaultValue.AsSingle(),
                 PinDataType.Int => (Variant)Convert.ToInt32(defaultValue),
-                PinDataType.Bool => (Variant)(bool)defaultValue,
+                PinDataType.Bool => (Variant)defaultValue.AsBool(),
                 _ => new Variant()
             };
         }

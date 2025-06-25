@@ -14,7 +14,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var template = "float {var} = {val};";
             var values = new Dictionary<string, string> { { "var", "x" }, { "val", "3.0" } };
             var result = PlaceholderReplacer.Replace(template, values);
-            Assert.AreEqual("float x = 3.0;", result);
+            Assert.That(result, Is.EqualTo("float x = 3.0;"));
         }
 
         [Test]
@@ -28,7 +28,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var expected = @"void fragment() {
     float y = 1.0;
 }";
-            Assert.AreEqual(expected, result);
+            Assert.That(expected, Is.EqualTo(result));
         }
 
         [Test]

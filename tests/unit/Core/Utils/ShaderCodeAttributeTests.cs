@@ -22,7 +22,7 @@ namespace OpenShaderGraph.Tests.Core.Utils
 
             // Assert
             Assert.IsNotNull(attribute, "ShaderCodeAttribute should be found on DummyNodeForAttributeTest");
-            Assert.AreEqual("Foo.yaml", attribute.TemplateFile, "The TemplateFile property should match the value passed to the attribute.");
+            Assert.That(attribute.TemplateFile, Is.EqualTo("Foo.yaml"), "The TemplateFile property should match the value passed to the attribute.");
         }
     }
 }

@@ -38,26 +38,26 @@ namespace OpenShaderGraph.Tests.Core.Data
 
             var def = _deserializer.Deserialize<BaseNodeData>(yaml);
             Assert.IsNotNull(def);
-            Assert.AreEqual("Float", def.Name);
-            Assert.AreEqual("Float", def.Type);
-            Assert.AreEqual("Constants", def.Category);
+            Assert.That(def.Name, Is.EqualTo("Float"));
+            Assert.That(def.Type, Is.EqualTo("Float"));
+            Assert.That(def.Category, Is.EqualTo("Constants"));
 
             Assert.That(def.Inputs, Has.Count.EqualTo(1));
             var input = def.Inputs[0];
-            Assert.AreEqual("value", input.Name);
-            Assert.AreEqual(PinDataType.Float, input.DataType);
-            Assert.AreEqual(DirectionType.Input, input.Direction);
+            Assert.That(input.Name, Is.EqualTo("value"));
+            Assert.That(input.DataType, Is.EqualTo(PinDataType.Float));
+            Assert.That(input.Direction, Is.EqualTo(DirectionType.Input));
             // todo: fix this -> Assert.AreEqual(0.0, input.DefaultValue, 1e-6);
 
             Assert.That(def.Outputs, Has.Count.EqualTo(1));
             var output = def.Outputs[0];
-            Assert.AreEqual("out", output.Name);
-            Assert.AreEqual(PinDataType.Float, output.DataType);
-            Assert.AreEqual(DirectionType.Output, output.Direction);
+            Assert.That(output.Name, Is.EqualTo("out"));
+            Assert.That(output.DataType, Is.EqualTo(PinDataType.Float));
+            Assert.That(output.Direction, Is.EqualTo(DirectionType.Output));
 
             Assert.That(def.CodeGenerations, Has.Count.EqualTo(1));
             var codeGen = def.CodeGenerations[0];
-            Assert.AreEqual(ShaderLanguage.Godot, codeGen.Language);
+            Assert.That(codeGen.Language, Is.EqualTo(ShaderLanguage.Godot));
             Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderStage.All }));
             StringAssert.Contains("float {out} = {value};", codeGen.Code);
         }
@@ -71,29 +71,29 @@ namespace OpenShaderGraph.Tests.Core.Data
 
             var def = _deserializer.Deserialize<BaseNodeData>(yaml);
             Assert.IsNotNull(def);
-            Assert.AreEqual("Add", def.Name);
-            Assert.AreEqual("Add", def.Type);
-            Assert.AreEqual("Math", def.Category);
+            Assert.That(def.Name, Is.EqualTo("Add"));
+            Assert.That(def.Type, Is.EqualTo("Add"));
+            Assert.That(def.Category, Is.EqualTo("Math"));
 
             Assert.That(def.Inputs, Has.Count.EqualTo(2));
             var a = def.Inputs.Find(p => p.Name == "a");
             Assert.IsNotNull(a);
-            Assert.AreEqual(PinDataType.Float, a.DataType);
-            Assert.AreEqual(DirectionType.Input, a.Direction);
+            Assert.That(a.DataType, Is.EqualTo(PinDataType.Float));
+            Assert.That(a.Direction, Is.EqualTo(DirectionType.Input));
             var b = def.Inputs.Find(p => p.Name == "b");
             Assert.IsNotNull(b);
-            Assert.AreEqual(PinDataType.Float, b.DataType);
-            Assert.AreEqual(DirectionType.Input, b.Direction);
+            Assert.That(b.DataType, Is.EqualTo(PinDataType.Float));
+            Assert.That(b.Direction, Is.EqualTo(DirectionType.Input));
 
             Assert.That(def.Outputs, Has.Count.EqualTo(1));
             var output = def.Outputs[0];
-            Assert.AreEqual("out", output.Name);
-            Assert.AreEqual(PinDataType.Float, output.DataType);
-            Assert.AreEqual(DirectionType.Output, output.Direction);
+            Assert.That(output.Name, Is.EqualTo("out"));
+            Assert.That(output.DataType, Is.EqualTo(PinDataType.Float));
+            Assert.That(output.Direction, Is.EqualTo(DirectionType.Output));
 
             Assert.That(def.CodeGenerations, Has.Count.EqualTo(1));
             var codeGen = def.CodeGenerations[0];
-            Assert.AreEqual(ShaderLanguage.Godot, codeGen.Language);
+            Assert.That(codeGen.Language, Is.EqualTo(ShaderLanguage.Godot));
             Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderStage.All }));
             StringAssert.Contains("float {out} = {a} + {b};", codeGen.Code);
         }
