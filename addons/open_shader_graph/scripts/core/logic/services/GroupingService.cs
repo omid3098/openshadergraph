@@ -2,14 +2,17 @@
 namespace OpenShaderGraph.Core.Logic;
 
 using OpenShaderGraph.Core.Data;
-using Godot;
-using System;
+using OpenShaderGraph.Core.Utils;
 using System.Collections.Generic;
 using System.Linq;
-using OpenShaderGraph.Core.Utils;
 
-public class GroupingService
+public class GroupingService : IInitializable
 {
+
+    public void Init()
+    {
+        throw new System.NotImplementedException();
+    }
     /// <summary>
     /// Creates a new group graph from a selection of nodes and connections.
     /// It remaps the node IDs to be local to the new group graph.
@@ -94,6 +97,7 @@ public class GroupingService
 
         return groupGraph;
     }
+
 
     /// <summary>
     /// Merges a group graph into a main graph at the position of the group node.

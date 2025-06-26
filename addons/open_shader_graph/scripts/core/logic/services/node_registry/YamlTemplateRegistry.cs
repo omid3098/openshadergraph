@@ -11,11 +11,11 @@ using Godot;
 
 namespace OpenShaderGraph.Core.Logic.Services.TemplateRegistry
 {
-    public class YamlTemplateRegistry : ITemplateRegistry
+    public class YamlTemplateRegistry : ITemplateRegistry, IInitializable
     {
         private readonly Dictionary<string, NodeTemplate> _registeredNodes = new();
 
-        public YamlTemplateRegistry()
+        public void Init()
         {
             ScanTemplates();
         }

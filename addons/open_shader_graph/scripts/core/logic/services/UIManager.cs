@@ -7,12 +7,15 @@ using OpenShaderGraph.Core.View.UI.BottomPanel;
 using OpenShaderGraph.Core.View.UI.ContextMenu;
 using OpenShaderGraph.Core.View.NodeViews;
 using System;
+using OpenShaderGraph.Core.View.UI.Sidebar.MenuBar;
+using OpenShaderGraph.Core.Logic;
 
 namespace OpenShaderGraph.Core.View
 {
-    public partial class UIManager : Control
+    public partial class UIManager : Control, IInitializable
     {
-        // Direct signals for parent communication
+        private Control _rootControl = default!; // root UI scene returned by GetMainScene
+
         public Action<BaseGraphData> GraphTabSelected;
         public Action<int> FileMenuItemSelected;
         public Action<BaseGraphData> GraphCloseRequested;
@@ -21,83 +24,133 @@ namespace OpenShaderGraph.Core.View
         private ContextMenuManager _contextMenuManager = default!;
         private BottomPanel _bottomPanel = default!;
         private Sidebar _sidebar = default!;
+        // TODO: current graph edit should be in the graph manager
         private ShaderGraphEdit _currentGraphEdit;
-
         private const int SidebarWidth = 250;
         private const int BottomPanelHeight = 250;
 
-        public UIManager()
+        public void Init()
         {
             Logger.Log("[UIManager] init");
 
+            InitializeMainScene();
+            AddListeners();
+        }
+
+        void AddListeners()
+        {
+            _graphTabs.TabChanged += OnTabChanged;
+            _graphTabs.GetTabBar().TabClosePressed += OnTabCloseRequested;
+            _graphTabs.GetTabBar().GuiInput += OnTabBarGuiInput;
+            _sidebar.FileMenuItemSelected += OnFileMenuItemSelected;
+
+            var graphManager = Services.Get<GraphManager>();
+            graphManager.GraphCreated += OnGraphCreated;
+            graphManager.GraphSelected += OnGraphSelected;
+            graphManager.GraphDeleted += OnGraphDeleted;
+        }
+
+        void InitializeMainScene()
+        {
             // Set up UI components
             _graphTabs = new TabContainer();
             _graphTabs.Set("tabs_closable", true);
-
-            var tabBar = _graphTabs.GetTabBar();
-            if (tabBar != null)
-            {
-                tabBar.TabClosePressed += OnTabCloseRequested;
-                tabBar.GuiInput += OnTabBarGuiInput;
-            }
-
             _contextMenuManager = new ContextMenuManager();
             _bottomPanel = new BottomPanel();
             _sidebar = new Sidebar();
 
-            // Connect to view layer events
-            _graphTabs.TabChanged += OnTabChanged;
-            _sidebar.FileMenuItemSelected += OnFileMenuItemSelected;
-        }
-
-        public Control GetMainScene()
-        {
             // A main control node that will contain all the other nodes
-            var mainScene = new Control();
+            _rootControl = new Control();
 
             // A VBoxContainer that will contain the menu bar and the main split container
             var vboxContainer = new VBoxContainer();
-            vboxContainer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            vboxContainer.SetAnchorsPreset(LayoutPreset.FullRect);
 
             // VSplitContainer to separate main content from bottom panel (resizable vertically)
             var mainVsplit = new VSplitContainer();
-            mainVsplit.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            mainVsplit.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            mainVsplit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            mainVsplit.SizeFlagsVertical = SizeFlags.ExpandFill;
 
             // HSplitContainer for sidebar and graph edit (resizable horizontally)
             var mainHsplit = new HSplitContainer();
-            mainHsplit.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            mainHsplit.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            mainHsplit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            mainHsplit.SizeFlagsVertical = SizeFlags.ExpandFill;
 
             // Set initial split ratios
             mainHsplit.SplitOffset = -SidebarWidth; // Initial sidebar width
             mainVsplit.SplitOffset = BottomPanelHeight; // Initial bottom panel height
 
             // Set up sidebar
-            _sidebar.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            _sidebar.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            _sidebar.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _sidebar.SizeFlagsVertical = SizeFlags.ExpandFill;
             _sidebar.CustomMinimumSize = new Vector2(SidebarWidth, 0); // Give it a minimum width
             mainHsplit.AddChild(_sidebar);
 
             // Set up graph edit
-            _graphTabs.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            _graphTabs.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            _graphTabs.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _graphTabs.SizeFlagsVertical = SizeFlags.ExpandFill;
             mainHsplit.AddChild(_graphTabs);
 
             // Add the horizontal split to the vertical split
             mainVsplit.AddChild(mainHsplit);
 
             // Set up bottom panel
-            _bottomPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            _bottomPanel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            _bottomPanel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _bottomPanel.SizeFlagsVertical = SizeFlags.ExpandFill;
             _bottomPanel.CustomMinimumSize = new Vector2(0, BottomPanelHeight); // Give it a minimum height
             mainVsplit.AddChild(_bottomPanel);
 
             vboxContainer.AddChild(mainVsplit);
-            mainScene.AddChild(vboxContainer);
-            mainScene.AddChild(_contextMenuManager);
+            _rootControl.AddChild(vboxContainer);
+            _rootControl.AddChild(_contextMenuManager);
+        }
 
-            return mainScene;
+        private void OnFileMenuItemSelected(int itemId)
+        {
+            var graphManager = Services.Get<GraphManager>();
+            // Handle actions based on the selected File menu item enum.
+            switch ((MenuEnums.FileMenuItem)itemId)
+            {
+                case MenuEnums.FileMenuItem.NewGraph:
+                    Logger.Log("[UIManager] File > New Graph");
+                    graphManager.CreateNewGraph();
+                    break;
+                case MenuEnums.FileMenuItem.OpenGraph:
+                    Logger.Log("[UIManager] File > Open Graph");
+                    // _fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile;
+                    // _fileDialog.PopupCentered();
+                    break;
+                case MenuEnums.FileMenuItem.Save:
+                    Logger.Log("[UIManager] File > Save");
+                    // OnSaveMenu();
+                    break;
+                case MenuEnums.FileMenuItem.SaveAs:
+                    Logger.Log("[UIManager] File > Save As");
+                    // OnSaveAsMenu();
+                    break;
+                case MenuEnums.FileMenuItem.Export:
+                    Logger.Log("[UIManager] File > Export");
+                    break;
+                default:
+                    Logger.Log($"[UIManager] Unknown file menu action: {itemId}");
+                    break;
+            }
+        }
+
+        private void SaveGraphToPath(string path)
+        {
+            // TODO: Implement this after we have a serializer service
+        }
+
+
+        private void LoadGraphFromPath(string path)
+        {
+            // TODO: Implement this after we have a serializer service
+        }
+
+        public Control GetMainScene()
+        {
+            return _rootControl;
         }
 
         // Tab management - orchestrates UI updates based on graph operations
@@ -211,12 +264,6 @@ namespace OpenShaderGraph.Core.View
                 // Update properties panel to show graph properties
                 OnNodeDeselectedInGraph();
             }
-        }
-
-        private void OnFileMenuItemSelected(int itemId)
-        {
-            // Forward signal to parent
-            FileMenuItemSelected?.Invoke(itemId);
         }
 
         private void OnGraphNameChanged(BaseGraphData graph, string newName)

@@ -2,7 +2,6 @@ using Godot;
 using OpenShaderGraph.Core.View;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Logic;
-using OpenShaderGraph.Core.Logic.Services.ShaderGenerator;
 using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 
 namespace OpenShaderGraph
@@ -12,35 +11,31 @@ namespace OpenShaderGraph
     {
         private Control _dock;
         private readonly DockSlot _dockSlot = DockSlot.LeftUl;
-        // TODO: Implement TestFramework in C# later
-        // private TestFramework _testFramework = new TestFramework();
 
         public override void _EnterTree()
         {
             // Instantiate service instances for constructor-based DI
-            var templateRegistry = new YamlTemplateRegistry();
-
-            var groupingService = new GroupingService();
-            var nodeFilteringService = new NodeFilteringService();
-            var uiManager = new UIManager();
-            var graphManager = new GraphManager(groupingService);
-            var shaderGeneratorService = new ShaderGeneratorService();
-            var graphSerializer = new YamlGraphSerializer();
-
-            // Register services and perform initialization
-            Services.Register<ITemplateRegistry>(templateRegistry);
-
-            Services.Register<IGraphSerializerService>(graphSerializer);
-            Services.Register<IShaderGeneratorService>(shaderGeneratorService);
-            Services.Register(groupingService);
-            Services.Register(nodeFilteringService);
+            ITemplateRegistry templateRegistry = new YamlTemplateRegistry();
+            Services.Register(templateRegistry);
+            UIManager uiManager = new();
             Services.Register(uiManager);
+            GraphManager graphManager = new();
             Services.Register(graphManager);
+
+            // TODO: Implement these services later
+            // var nodeFilteringService = new NodeFilteringService();
+            // var groupingService = new GroupingService();
+            // var shaderGeneratorService = new ShaderGeneratorService();
+            // var graphSerializer = new YamlGraphSerializer();
+            // Services.Register(nodeFilteringService);
+            // Services.Register(groupingService);
+            // Services.Register<IGraphSerializerService>(graphSerializer);
+            // Services.Register<IShaderGeneratorService>(shaderGeneratorService);
+
             Services.InitAll();
 
             // Build the editor UI
-            var openShaderGraphEditor = new OpenShaderGraphEditor();
-            _dock = openShaderGraphEditor.GetMainScene();
+            _dock = uiManager.GetMainScene();
             // To create a standalone editor, we only need to add the main scene to the root node of an empty scene
             _dock.Name = "OpenShaderGraph";
             AddControlToDock(_dockSlot, _dock);
