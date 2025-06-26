@@ -5,6 +5,7 @@ namespace OpenShaderGraph.Core.Data;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using System;
+using OpenShaderGraph.Core.View.NodeViews;
 
 public enum GraphType
 {
@@ -16,6 +17,19 @@ public enum GraphType
 
 public partial class BaseGroupGraphData : BaseGraphData
 {
+    /**
+       todo: the input and output should be removed
+       - we need to separate the group and subgraph, group can be node that has children.
+       public List<BaseGraphNode> Children = new();
+
+       - group should be inherited from node
+       - subgraph sohuld be inherited from graph
+       - subgraph also has node, aka subgraphnode, that is inherited from node and will represented as a node in graph.
+       - double clicking on subgraphnode, it should open the subgraph as another graph.
+       - for the template, it can has an explicit value that sets the explicit logic, 
+       e.g, a template for group with explicit value as group, that will be detected in the code and apply some hard coded logic,
+       that won't be avoidable.
+    **/
     public BaseNodeData InputNode { get; private set; }
     public BaseNodeData OutputNode { get; private set; }
 
@@ -282,3 +296,4 @@ public partial class BaseGraphData : RefCounted
         }
     }
 }
+
