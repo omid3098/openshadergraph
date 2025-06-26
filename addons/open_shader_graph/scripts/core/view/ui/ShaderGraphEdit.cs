@@ -86,11 +86,12 @@ namespace OpenShaderGraph.Core.View.UI
             // Draw nodes
             foreach (var nodeData in GraphData.GetNodes())
             {
-                var registeredTemplate = Services.Get<ITemplateRegistry>().FindTemplate(nodeData.GetNodeType());
+                var registeredTemplate = nodeData.Template;
                 BaseGraphNode nodeView;
                 if (registeredTemplate != null)
                 {
-                    nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredTemplate.Type)!;
+                    // todo: not sure what this is doing
+                    nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredTemplate.GetType())!;
                 }
                 else
                 {
@@ -205,24 +206,18 @@ namespace OpenShaderGraph.Core.View.UI
 
         public void CreateNodeAt(string nodeName, Vector2 position)
         {
+            
             Logger.Log($"[DEBUG] Node creation requested: {nodeName} at position {position}");
             Logger.Log($"Node creation requested: {nodeName} at {position}");
-            var registeredNode = Services.Get<ITemplateRegistry>().FindNode(nodeName);
+            var registeredTemplate = Services.Get<ITemplateRegistry>().FindTemplate(nodeName);
 
-            if (registeredNode != null)
+            if (registeredTemplate != null)
             {
-                // 1. Create Node Data using the static method on the node's type
-                var createNodeDataMethod = registeredNode.NodeType.GetMethod("CreateNodeData");
-                if (createNodeDataMethod != null)
+                var nodeData = new BaseNodeData(registeredTemplate, position);
+                // 2. Add to Graph Data
+                if (nodeData != null && GraphData != null)
                 {
-                    var nodeData = (BaseNodeData?)createNodeDataMethod.Invoke(null, new object[] { registeredNode.Attribute.Name, registeredNode.Attribute.Name, position });
-
-                    // 2. Add to Graph Data
-                    if (nodeData != null && GraphData != null)
-                    {
-                        GraphData.AddNode(nodeData);
-                        // Node view will be created by the OnNodeAdded event
-                    }
+                    GraphData.AddNode(nodeData);
                 }
             }
         }
@@ -327,10 +322,13 @@ namespace OpenShaderGraph.Core.View.UI
 
         private void OnNodeAdded(BaseNodeData nodeData)
         {
-            var registeredNode = Services.Get<ITemplateRegistry>().FindNode(nodeData.GetNodeType());
-            if (registeredNode != null)
+            var nodeTemplate = nodeData.Template;
+            if (nodeTemplate != null)
             {
-                var nodeView = (BaseGraphNode?)System.Activator.CreateInstance(registeredNode.NodeType);
+                // todo: make sure this is correct
+                // previously: var nodeView = (BaseGraphNode?)System.Activator.CreateInstance(registeredNode.NodeType);
+
+                var nodeView = new DefaultGraphNode();
                 if (nodeView != null)
                 {
                     nodeView.Initialize(nodeData);
@@ -348,7 +346,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (child is BaseGraphNode nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
                 {
-                    Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Deleting nodeView {nodeView.Data.GetName()}({nodeView.Data.Id})");
+                    Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Deleting nodeView {nodeView.Data.GetTitle()}({nodeView.Data.Id})");
                     nodeView.DeleteNode();
                     _nodeViewCache.Remove(nodeData.Id);
                     Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Removed from cache nodeId {nodeData.Id}");
@@ -398,7 +396,7 @@ namespace OpenShaderGraph.Core.View.UI
             Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting {baseNodes.Count} BaseGraphNode children from cache");
             foreach (var nodeView in baseNodes)
             {
-                Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.GetName()}({nodeView.Data.Id}) with Name {nodeView.Name}");
+                Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.GetTitle()}({nodeView.Data.Id}) with Name {nodeView.Name}");
                 nodeView.DeleteNode();
             }
             _nodeViewCache.Clear();

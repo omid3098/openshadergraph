@@ -24,8 +24,8 @@ public partial class BaseGroupGraphData : BaseGraphData
                               List<BaseNodeData>? nodes = null,
                               List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
     {
-        InputNode = new BaseNodeData("Input", "Input", new Vector2(0, 0));
-        OutputNode = new BaseNodeData("Output", "Output", new Vector2(500, 0));
+        InputNode = new BaseNodeData(new NodeTemplate(), new Vector2(0, 0));
+        OutputNode = new BaseNodeData(new NodeTemplate(), new Vector2(500, 0));
         AddNode(InputNode);
         AddNode(OutputNode);
     }
@@ -42,14 +42,14 @@ public partial class BaseGroupGraphData : BaseGraphData
         {
             fromNode = InputNode;
             PinData pin = connection.GetFrom().Pin;
-            fromNode.AddInput(pin);
+            // fromNode.AddInput(pin);
             // Update the connection to use the input node as the from node.
             connection = new ConnectionData(fromNode.Id, pin, connection.GetTo().NodeId, connection.GetTo().Pin);
         }
         if (toNode == null)
         {
             toNode = OutputNode;
-            toNode.AddOutput(connection.GetTo().Pin);
+            // toNode.AddOutput(connection.GetTo().Pin);
         }
 
 
@@ -165,7 +165,7 @@ public partial class BaseGraphData : RefCounted
 
         var fromNode = GetNodeById(connection.GetFrom().NodeId);
         var toNode = GetNodeById(connection.GetTo().NodeId);
-        Logger.Log($"[BaseGraphData] Adding connection: {fromNode?.GetName()} -> {toNode?.GetName()}");
+        Logger.Log($"[BaseGraphData] Adding connection: {fromNode?.GetTitle()} -> {toNode?.GetTitle()}");
 
         bool valid = ValidateConnection(connection);
         if (valid)
@@ -221,7 +221,7 @@ public partial class BaseGraphData : RefCounted
         // Connection from and to the same node
         if (fromNode.Id == toNode.Id)
         {
-            Logger.Log($"[BaseGraphData] Connection from and to the same node: {fromNode.GetName()}");
+            Logger.Log($"[BaseGraphData] Connection from and to the same node: {fromNode.GetTitle()}");
             return false;
         }
 
@@ -235,28 +235,28 @@ public partial class BaseGraphData : RefCounted
         // Node has no output pin
         if (fromNode.GetOutputs().Count == 0)
         {
-            Logger.Log($"[BaseGraphData] Node has no output pin: {fromNode.GetName()}");
+            Logger.Log($"[BaseGraphData] Node has no output pin: {fromNode.GetTitle()}");
             return false;
         }
 
         // Node has no input pin
         if (toNode.GetInputs().Count == 0)
         {
-            Logger.Log($"[BaseGraphData] Node has no input pin: {toNode.GetName()}");
+            Logger.Log($"[BaseGraphData] Node has no input pin: {toNode.GetTitle()}");
             return false;
         }
 
         // Node source does not exist in the graph
         if (!_nodes.Contains(fromNode))
         {
-            Logger.Log($"[BaseGraphData] Node does not exist in the graph: {fromNode.GetName()}");
+            Logger.Log($"[BaseGraphData] Node does not exist in the graph: {fromNode.GetTitle()}");
             return false;
         }
 
         // Node destination does not exist in the graph
         if (!_nodes.Contains(toNode))
         {
-            Logger.Log($"[BaseGraphData] Node does not exist in the graph: {toNode.GetName()}");
+            Logger.Log($"[BaseGraphData] Node does not exist in the graph: {toNode.GetTitle()}");
             return false;
         }
 

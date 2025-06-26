@@ -81,17 +81,15 @@ namespace OpenShaderGraph.Core.Logic
             if (node == null) throw new ArgumentNullException(nameof(node));
             if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");
 
-            var newNode = node.Clone();
-            var newPosition = new Vector2(newNode.GetPosition().X + 30, newNode.GetPosition().Y + 30);
-            newNode.SetPosition(newPosition);
-            _currentGraphData.AddNode(newNode);
+            // todo: you said no need for clone!?
+            _currentGraphData.AddNode(node.Clone());
         }
 
         public void GroupNodes(List<BaseNodeData> nodesToGroup)
         {
             if (nodesToGroup == null) throw new ArgumentNullException(nameof(nodesToGroup));
             // Debug: log GroupNodes invocation and target nodes
-            Logger.Log($"[GraphManager] GroupNodes called on graph '{_currentGraphData?.GetName()}' for nodes: {string.Join(",", nodesToGroup.Select(n => n.GetName() + "(" + n.Id + ")"))}");
+            Logger.Log($"[GraphManager] GroupNodes called on graph '{_currentGraphData?.GetName()}' for nodes: {string.Join(",", nodesToGroup.Select(n => n.GetTitle() + "(" + n.Id + ")"))}");
             if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");
             if (nodesToGroup.Count <= 1) throw new ArgumentException("At least two nodes are required to group.", nameof(nodesToGroup));
 
@@ -144,7 +142,7 @@ namespace OpenShaderGraph.Core.Logic
             Logger.Log($"[GraphManager] groupInputs names: {string.Join(",", groupInputs.Select(p => p.GetName()))}");
             Logger.Log($"[GraphManager] groupOutputs names: {string.Join(",", groupOutputs.Select(p => p.GetName()))}");
 
-            var groupNodeData = new GroupNodeData("Group", "Group", groupPosition, groupGraphData, groupInputs, groupOutputs);
+            var groupNodeData = new GroupNodeData(groupPosition, groupGraphData, groupInputs, groupOutputs);
 
             // This is the tricky part, we need to remove the old nodes *before* adding the new one,
             // to avoid issues with node ids. But we need connection info first.
@@ -153,11 +151,11 @@ namespace OpenShaderGraph.Core.Logic
             foreach (var node in nodesToGroup)
             {
                 _currentGraphData.RemoveNode(node);
-                Logger.Log($"[GraphManager] removed node {node.GetName()}({node.Id}) from main graph");
+                Logger.Log($"[GraphManager] removed node {node.GetTitle()}({node.Id}) from main graph");
             }
 
             _currentGraphData.AddNode(groupNodeData);
-            Logger.Log($"[GraphManager] added group node {groupNodeData.GetName()}({groupNodeData.Id}) to main graph");
+            Logger.Log($"[GraphManager] added group node {groupNodeData.GetTitle()}({groupNodeData.Id}) to main graph");
 
             // Map incoming connections to group input pins by index order
             for (int i = 0; i < incomingConnections.Count; i++)

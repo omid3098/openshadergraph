@@ -36,8 +36,6 @@ public class GroupingService
                 var cloneOutputs = new List<PinData>(groupNodeData.GetOutputs());
                 // Create a new GroupNodeData with the existing subgraph reference
                 nodeClone = new GroupNodeData(
-                    groupNodeData.GetName(),
-                    groupNodeData.GetNodeType(),
                     groupNodeData.GetPosition(),
                     groupNodeData.SubGraph,
                     cloneInputs,
@@ -74,7 +72,8 @@ public class GroupingService
             var toPin = connection.GetTo().Pin;
             var newOutputPin = toPin.Clone();
             newOutputPin.SetDirection(DirectionType.Output);
-            groupGraph.InputNode.AddOutput(newOutputPin);
+            // todo: InputNode does not support AddOutput ATM
+            // groupGraph.InputNode.AddOutput(newOutputPin);
 
             var newConnection = new ConnectionData(groupGraph.InputNode.Id, newOutputPin, idMap[connection.GetTo().NodeId], toPin);
             groupGraph.AddConnection(newConnection);
@@ -86,7 +85,8 @@ public class GroupingService
             var fromPin = connection.GetFrom().Pin;
             var newInputPin = fromPin.Clone();
             newInputPin.SetDirection(DirectionType.Input);
-            groupGraph.OutputNode.AddInput(newInputPin);
+            // todo: OutputNode does not support AddOutput ATM
+            // groupGraph.OutputNode.AddInput(newInputPin);
 
             var newConnection = new ConnectionData(idMap[connection.GetFrom().NodeId], fromPin, groupGraph.OutputNode.Id, newInputPin);
             groupGraph.AddConnection(newConnection);
@@ -108,7 +108,7 @@ public class GroupingService
         var idMap = new Dictionary<long, long>();
 
         // Remap nodes from subgraph to maingraph
-        var nodesToRemap = subGraph.GetNodes().Where(n => n.GetName() != "Input" && n.GetName() != "Output").ToList();
+        var nodesToRemap = subGraph.GetNodes().Where(n => n.GetTitle() != "Input" && n.GetTitle() != "Output").ToList();
 
         foreach (var node in nodesToRemap)
         {

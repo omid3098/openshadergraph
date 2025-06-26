@@ -31,7 +31,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
         public virtual void Initialize(BaseNodeData nodeData)
         {
             Data = nodeData;
-            Title = Data.GetName();
+            Title = Data.GetTitle();
             PositionOffset = Data.GetPosition();
             FocusMode = Control.FocusModeEnum.All;
 
@@ -121,18 +121,18 @@ namespace OpenShaderGraph.Core.View.NodeViews
         public void SetNodeTitle(string value)
         {
             Logger.Log("[BaseGraphNode] set_node_title called");
-            Logger.Log($"[BaseGraphNode] set_node_title called with value: {value}, data_before: {Data?.GetName()}");
+            Logger.Log($"[BaseGraphNode] set_node_title called with value: {value}, data_before: {Data?.GetTitle()}");
             Title = value;
             if (Data != null)
             {
                 // Data.SetName(value);
-                Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.GetName()}");
+                Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.GetTitle()}");
             }
         }
 
         public void DeleteNode()
         {
-            Logger.Log($"[BaseGraphNode] DeleteNode invoked for {Data.GetName()}({Data.Id})");
+            Logger.Log($"[BaseGraphNode] DeleteNode invoked for {Data.GetTitle()}({Data.Id})");
             // Unsubscribe Godot signals
             FocusEntered -= OnFocusEntered;
             FocusExited -= OnFocusExited;

@@ -10,4 +10,9 @@ public class NodeTemplate
     public List<PinData> Inputs { get; set; } = new(); // a list of input pins
     public List<PinData> Outputs { get; set; } = new();  // a list of output pins
     public List<CodeGeneration> CodeGenDefinitions { get; set; } = new();  // a list of code gen definitions
+
+    public override string ToString()
+    {
+        return string.Format("Template Name: {0} Type: {1} Category: {2}", Name, Type, Category);
+    }
 }

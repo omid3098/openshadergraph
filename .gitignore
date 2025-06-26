@@ -27,3 +27,5 @@ tests/unit/TestResults/
 *.cs.uid
 
 *.DS_Store
+*.cs.uid
+*/*.cs.uid

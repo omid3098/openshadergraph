@@ -2,7 +2,13 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "clean-terminal",
+            "type": "shell",
+            "command": "printf '\\033c'"
+        },
+        {
             "label": "build",
+            "dependsOn": "clean-terminal",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -20,6 +26,7 @@
         },
         {
             "label": "test",
+            "dependsOn": "clean-terminal",
             "command": "dotnet",
             "type": "process",
             "args": [

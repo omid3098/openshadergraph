@@ -30,6 +30,8 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         private void OnAboutToPopup()
         {
+            Size = new Vector2I(500, (_subMenus.Keys.Count+1) * 30);
+
             // Repopulate menu each time it's shown to ensure it's fresh.
             PopulateMenu(_searchBox.Text);
 
@@ -42,6 +44,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         public void ShowMenu(Vector2 globalPosition, Vector2 localPosition, ShaderGraphEdit target)
         {
+
             _targetGraphEdit = target;
             _creationPositionInGraph = localPosition;
             Position = (Vector2I)globalPosition;
@@ -140,24 +143,12 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         private void OnIdPressed(long id)
         {
-            var searchText = _searchBox.Text.Trim();
-            if (!string.IsNullOrEmpty(searchText))
+            var ItemName = GetItemText((int)id);
+            if (_targetGraphEdit != null && IsInstanceValid(_targetGraphEdit))
             {
-                if (id >= ItemCount || id < 1) return; // item 0 is placeholder
-                var itemText = GetItemText((int)id);
-                if (string.IsNullOrEmpty(itemText)) return;
-
-                var parts = itemText.Split(" > ");
-                if (parts.Length > 1)
-                {
-                    var nodeName = parts[1];
-                    if (_targetGraphEdit != null && IsInstanceValid(_targetGraphEdit))
-                    {
-                        _targetGraphEdit.RequestNodeCreation(nodeName, _creationPositionInGraph);
-                    }
-                    Hide();
-                }
+                _targetGraphEdit.RequestNodeCreation(ItemName, _creationPositionInGraph);
             }
+            Hide();
         }
     }
 }

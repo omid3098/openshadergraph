@@ -117,7 +117,8 @@ namespace OpenShaderGraph.Core.Utils
                     }
                 }
 
-                var nodeData = new BaseNodeData(nodeName, nodeType, position, inputs, outputs) { Id = id };
+                // todo: find the template
+                var nodeData = new BaseNodeData(new NodeTemplate(), position) { Id = id };
                 graph.AddNode(nodeData);
                 nodeMap[id] = nodeData;
             }
@@ -175,7 +176,7 @@ namespace OpenShaderGraph.Core.Utils
                 var entry = new Dictionary<string, object>
                 {
                     ["id"] = node.Id,
-                    ["name"] = node.GetName(),
+                    ["name"] = node.GetTitle(),
                     ["type"] = node.GetNodeType(),
                     ["position"] = new List<object> { node.GetPosition().X, node.GetPosition().Y }
                 };
