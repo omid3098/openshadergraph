@@ -77,7 +77,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             }
         }
 
-        public void DisplayNodeProperties(BaseGraphNode node)
+        public void DisplayNodeProperties(NodeView node)
         {
             ClearProperties();
             if (node == null) return;

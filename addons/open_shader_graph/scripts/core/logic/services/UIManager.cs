@@ -278,7 +278,7 @@ namespace OpenShaderGraph.Core.View
             }
         }
 
-        private void OnNodeSelectedInGraph(BaseGraphNode node)
+        private void OnNodeSelectedInGraph(NodeView node)
         {
             var propertiesPanel = _sidebar.GetPropertiesPanel();
             propertiesPanel.DisplayNodeProperties(node);

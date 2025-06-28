@@ -7,7 +7,7 @@ using System;
 
 namespace OpenShaderGraph.Core.View.NodeViews.Grouping
 {
-    public abstract partial class BaseGroupingNode : BaseGraphNode
+    public abstract partial class BaseGroupingNode : NodeView
     {
         // Grouping nodes have a complete GraphData as their data.
         // Grouping nodes are not resizable or closable. they are one single node with input/output pins.

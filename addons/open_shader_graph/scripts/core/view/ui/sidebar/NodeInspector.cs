@@ -8,7 +8,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
 {
     public static class NodeInspector
     {
-        public static Control CreateProperties(BaseGraphNode node)
+        public static Control CreateProperties(NodeView node)
         {
             var container = new VBoxContainer();
 

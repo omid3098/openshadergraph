@@ -7,7 +7,7 @@ using OpenShaderGraph.Core.View.Utils;
 namespace OpenShaderGraph.Core.View.NodeViews
 {
     // TODO: The correct name should be NodeView
-    public abstract partial class BaseGraphNode : GraphNode
+    public abstract partial class NodeView : GraphNode
     {
 
         public long Id { get; set; } = -1;
@@ -24,7 +24,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
             return new NodeData(template, position);
         }
 
-        public BaseGraphNode() : base()
+        public NodeView() : base()
         {
             // Default constructor required for Godot
         }
@@ -36,7 +36,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
             PositionOffset = Data.Position;
             FocusMode = Control.FocusModeEnum.All;
 
-            Logger.Log("[BaseGraphNode] Initialize");
+            Logger.Log("[NodeView] Initialize");
 
             // Connect signals using Godot 4.x C# syntax
             FocusEntered += OnFocusEntered;
@@ -72,19 +72,19 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         private void OnFocusEntered()
         {
-            Logger.Log("[BaseGraphNode] focus_entered");
+            Logger.Log("[NodeView] focus_entered");
             // Use built-in focus_entered signal externally to handle node selection
         }
 
         private void OnFocusExited()
         {
-            Logger.Log("[BaseGraphNode] focus_exited");
+            Logger.Log("[NodeView] focus_exited");
             // Use built-in focus_exited signal externally to handle node deselection
         }
 
         private void OnDragged(Vector2 from, Vector2 to)
         {
-            Logger.Log($"[BaseGraphNode] dragged from {from} to {to}");
+            Logger.Log($"[NodeView] dragged from {from} to {to}");
             if (Data != null)
             {
                 Data.SetPosition(PositionOffset);
@@ -105,12 +105,12 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public void SetNodePosition(Vector2 value, bool keepOffset = true)
         {
-            Logger.Log($"[BaseGraphNode] set_position called with value: {value}, data_before: {Data?.Position}");
+            Logger.Log($"[NodeView] set_position called with value: {value}, data_before: {Data?.Position}");
             PositionOffset = value;
             if (Data != null)
             {
                 Data.SetPosition(value);
-                Logger.Log($"[BaseGraphNode] data position after set_position: {Data.Position}");
+                Logger.Log($"[NodeView] data position after set_position: {Data.Position}");
             }
         }
 
@@ -121,19 +121,19 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public void SetNodeTitle(string value)
         {
-            Logger.Log("[BaseGraphNode] set_node_title called");
-            Logger.Log($"[BaseGraphNode] set_node_title called with value: {value}, data_before: {Data?.Title}");
+            Logger.Log("[NodeView] set_node_title called");
+            Logger.Log($"[NodeView] set_node_title called with value: {value}, data_before: {Data?.Title}");
             Title = value;
             if (Data != null)
             {
                 // Data.SetName(value);
-                Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.Title}");
+                Logger.Log($"[NodeView] data name after set_node_title: {Data.Title}");
             }
         }
 
         public void DeleteNode()
         {
-            Logger.Log($"[BaseGraphNode] DeleteNode invoked for {Data.Title}({Data.Id})");
+            Logger.Log($"[NodeView] DeleteNode invoked for {Data.Title}({Data.Id})");
             // Unsubscribe Godot signals
             FocusEntered -= OnFocusEntered;
             FocusExited -= OnFocusExited;

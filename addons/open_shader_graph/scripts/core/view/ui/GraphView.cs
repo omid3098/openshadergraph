@@ -15,12 +15,12 @@ namespace OpenShaderGraph.Core.View.UI
 {
     public partial class GraphView : GraphEdit
     {
-        public Action<BaseGraphNode>? NodeSelectedInGraph { get; set; }
+        public Action<NodeView>? NodeSelectedInGraph { get; set; }
         public Action? NodeDeselectedInGraph { get; set; }
 
         public GraphData? GraphData { get; private set; }
         private ContextMenuManager? _contextMenuManager;
-        private readonly System.Collections.Generic.Dictionary<long, BaseGraphNode> _nodeViewCache = new();
+        private readonly System.Collections.Generic.Dictionary<long, NodeView> _nodeViewCache = new();
 
         public GraphView()
         {
@@ -88,11 +88,11 @@ namespace OpenShaderGraph.Core.View.UI
             foreach (var nodeData in GraphData.GetNodes())
             {
                 var registeredTemplate = nodeData.Template;
-                BaseGraphNode nodeView;
+                NodeView nodeView;
                 if (registeredTemplate != null)
                 {
                     // todo: not sure what this is doing
-                    nodeView = (BaseGraphNode)System.Activator.CreateInstance(registeredTemplate.GetType())!;
+                    nodeView = (NodeView)System.Activator.CreateInstance(registeredTemplate.GetType())!;
                 }
                 else
                 {
@@ -153,12 +153,12 @@ namespace OpenShaderGraph.Core.View.UI
                 if (GraphData != null && _contextMenuManager != null)
                 {
                     var globalMousePosition = GetGlobalMousePosition();
-                    BaseGraphNode? topNode = null;
+                    NodeView? topNode = null;
 
                     for (int i = GetChildCount() - 1; i >= 0; i--)
                     {
                         var child = GetChild(i);
-                        if (child is BaseGraphNode nodeView)
+                        if (child is NodeView nodeView)
                         {
                             if (nodeView.GetGlobalRect().HasPoint(globalMousePosition))
                             {
@@ -230,8 +230,8 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromNodeView = GetNode<BaseGraphNode>(new NodePath(fromNode));
-            var toNodeView = GetNode<BaseGraphNode>(new NodePath(toNode));
+            var fromNodeView = GetNode<NodeView>(new NodePath(fromNode));
+            var toNodeView = GetNode<NodeView>(new NodePath(toNode));
 
             if (fromNodeView == null || toNodeView == null)
             {
@@ -257,7 +257,7 @@ namespace OpenShaderGraph.Core.View.UI
 
                     // Remove existing connection in UI
                     var oldFromNodeName = new StringName(existing.GetFrom().NodeId.ToString());
-                    var oldFromNodeView = GetNode<BaseGraphNode>(new NodePath(oldFromNodeName));
+                    var oldFromNodeView = GetNode<NodeView>(new NodePath(oldFromNodeName));
                     if (oldFromNodeView != null)
                     {
                         int oldFromIndex = oldFromNodeView.Data.GetOutputs().FindIndex(p => p == existing.GetFrom().Pin);
@@ -285,8 +285,8 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromNodeView = GetNode<BaseGraphNode>(new NodePath(fromNode));
-            var toNodeView = GetNode<BaseGraphNode>(new NodePath(toNode));
+            var fromNodeView = GetNode<NodeView>(new NodePath(fromNode));
+            var toNodeView = GetNode<NodeView>(new NodePath(toNode));
 
             if (fromNodeView == null || toNodeView == null)
             {
@@ -310,7 +310,7 @@ namespace OpenShaderGraph.Core.View.UI
 
         private void OnNodeSelected(Node node)
         {
-            if (node is BaseGraphNode selectedNode)
+            if (node is NodeView selectedNode)
             {
                 NodeSelectedInGraph?.Invoke(selectedNode);
             }
@@ -327,7 +327,7 @@ namespace OpenShaderGraph.Core.View.UI
             if (nodeTemplate != null)
             {
                 // todo: make sure this is correct
-                // previously: var nodeView = (BaseGraphNode?)System.Activator.CreateInstance(registeredNode.NodeType);
+                // previously: var nodeView = (NodeView?)System.Activator.CreateInstance(registeredNode.NodeType);
 
                 var nodeView = new DefaultGraphNode();
                 if (nodeView != null)
@@ -345,7 +345,7 @@ namespace OpenShaderGraph.Core.View.UI
             bool removed = false;
             foreach (var child in GetChildren())
             {
-                if (child is BaseGraphNode nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
+                if (child is NodeView nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
                 {
                     Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Deleting nodeView {nodeView.Data.Title}({nodeView.Data.Id})");
                     nodeView.DeleteNode();
@@ -356,7 +356,7 @@ namespace OpenShaderGraph.Core.View.UI
                 }
             }
             if (!removed)
-                Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: No matching BaseGraphNode found for nodeId {nodeData.Id}");
+                Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: No matching NodeView found for nodeId {nodeData.Id}");
         }
 
         private void DeactivateGraphEdit()
@@ -391,10 +391,10 @@ namespace OpenShaderGraph.Core.View.UI
             }
 
             // Only delete nodes that are still in the cache (i.e., not already removed)
-            var baseNodes = GetChildren().OfType<BaseGraphNode>()
+            var baseNodes = GetChildren().OfType<NodeView>()
                 .Where(n => _nodeViewCache.ContainsKey(n.Data.Id))
                 .ToList();
-            Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting {baseNodes.Count} BaseGraphNode children from cache");
+            Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting {baseNodes.Count} NodeView children from cache");
             foreach (var nodeView in baseNodes)
             {
                 Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.Title}({nodeView.Data.Id}) with Name {nodeView.Name}");
@@ -404,19 +404,19 @@ namespace OpenShaderGraph.Core.View.UI
             Logger.Log($"[ShaderGraphEdit] ClearGraph: _nodeViewCache cleared");
         }
 
-        public void RequestNodeDeletion(BaseGraphNode node)
+        public void RequestNodeDeletion(NodeView node)
         {
             Services.Get<GraphManager>().RemoveNode(node.Data!);
         }
 
-        public void RequestNodeDuplication(BaseGraphNode node)
+        public void RequestNodeDuplication(NodeView node)
         {
             Services.Get<GraphManager>().DuplicateNode(node.Data!);
         }
 
         public void RequestGrouping(Array<GraphNode> nodes)
         {
-            var nodesData = nodes.Cast<BaseGraphNode>().Select(n => n.Data!).ToList();
+            var nodesData = nodes.Cast<NodeView>().Select(n => n.Data!).ToList();
             // Services.Get<GraphManager>().GroupNodes(nodesData);
             ClearGraph();
             CallDeferred(nameof(DeferredDrawGraph));

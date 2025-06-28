@@ -31,7 +31,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             _creationPopup.ShowMenu(globalPosition, localPosition, target);
         }
 
-        public void ShowNodeMenu(Vector2 globalPosition, BaseGraphNode node, GraphView graph)
+        public void ShowNodeMenu(Vector2 globalPosition, NodeView node, GraphView graph)
         {
             _nodeContextMenu.ShowMenu(globalPosition, node, graph);
         }
@@ -44,7 +44,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
     public partial class NodeContextMenu : PopupMenu
     {
-        private BaseGraphNode _targetNode;
+        private NodeView _targetNode;
         private GraphView _graph;
 
         private enum MenuOptions
@@ -67,7 +67,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             IdPressed += OnIdPressed;
         }
 
-        public void ShowMenu(Vector2 globalPosition, BaseGraphNode node, GraphView graph)
+        public void ShowMenu(Vector2 globalPosition, NodeView node, GraphView graph)
         {
             _targetNode = node;
             _graph = graph;

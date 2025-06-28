@@ -24,7 +24,7 @@ public partial class GroupGraphData : GraphData
     /**
        todo: the input and output should be removed
        - we need to separate the group and subgraph, group can be node that has children.
-       public List<BaseGraphNode> Children = new();
+       public List<NodeView> Children = new();
 
        - group should be inherited from node
        - subgraph sohuld be inherited from graph

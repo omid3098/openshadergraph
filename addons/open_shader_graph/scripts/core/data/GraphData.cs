@@ -72,11 +72,13 @@ public partial class GraphData
     public void AddNode(NodeData node)
     {
         if (node == null)
-            return; // Silently ignore null nodes
+            throw new Exception("Trying to add a null node to the graph");
 
         if (node.Id == -1)
         {
-            node.SetId(_nextNodeId++);
+            _nextNodeId++;
+            node.SetId(_nextNodeId);
+            Logger.Log($"[GraphData] Assigning new ID to node: {node.Title} : {_nextNodeId}");
         }
         else
         {

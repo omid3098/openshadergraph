@@ -1,6 +1,6 @@
 namespace OpenShaderGraph.Core.View.NodeViews.Grouping
 {
-    public partial class GroupOutputNode : BaseGraphNode
+    public partial class GroupOutputNode : NodeView
     {
     }
 
