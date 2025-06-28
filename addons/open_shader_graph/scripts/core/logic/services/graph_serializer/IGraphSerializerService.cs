@@ -17,9 +17,9 @@ namespace OpenShaderGraph.Core.Utils
         string DefaultFileName { get; }
 
         /// <summary>Serialize the given graph to a string (file content).</summary>
-        string Save(BaseGraphData graph);
+        string Save(GraphData graph);
 
         /// <summary>Deserialize graph content to a graph object, setting file path if provided.</summary>
-        BaseGraphData Load(string content, string? filePath = null);
+        GraphData Load(string content, string? filePath = null);
     }
 }

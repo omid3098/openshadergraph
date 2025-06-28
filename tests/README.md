@@ -11,7 +11,7 @@ tests/
 │   ├── TestRunner.cs                       # Custom test runner
 │   └── Core/                               # Core functionality tests
 │       ├── Data/                           # Data layer tests
-│       │   ├── BaseGraphDataTests.cs      # BaseGraphData class tests
+│       │   ├── GraphDataTests.cs      # GraphData class tests
 │       │   ├── BaseNodeDataTests.cs       # BaseNodeData class tests
 │       │   ├── PinDataTests.cs            # PinData class tests
 │       │   └── ConnectionDataTests.cs     # ConnectionData class tests
@@ -67,7 +67,7 @@ dotnet run
 The current test suite covers:
 
 ### Data Layer (100% Coverage)
-- **BaseGraphData**: Constructor, properties, node/connection management, validation logic
+- **GraphData**: Constructor, properties, node/connection management, validation logic
 - **BaseNodeData**: Constructor, getters, setters, pin management
 - **PinData**: Constructor, property management, different data types
 - **ConnectionData**: Constructor, endpoint management, type safety

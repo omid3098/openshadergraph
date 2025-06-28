@@ -6,7 +6,7 @@ namespace OpenShaderGraph.Core.Data
     /// <summary>
     /// Strongly-typed graph data for shader graphs, including shader language and stage.
     /// </summary>
-    public partial class ShaderGraphData : BaseGraphData
+    public partial class ShaderGraphData : GraphData
     {
         /// <summary>Shader language (Godot, Bevy, GLSL, HLSL).</summary>
         public ShaderLanguage Language { get; set; }

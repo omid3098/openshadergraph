@@ -24,7 +24,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void IsNodeVisible_NoMetadata_ReturnsTrue()
         {
             var attr = new RegisterNodeAttribute("TestNode", "General");
-            var rn = new RegisteredNode(typeof(BaseGraphData), attr);
+            var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.True);
         }
 
@@ -35,7 +35,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             {
                 GraphTypes = new[] { GraphType.GroupGraph }
             };
-            var rn = new RegisteredNode(typeof(BaseGraphData), attr);
+            var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.False);
         }
 
@@ -46,7 +46,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             {
                 Stages = new[] { ShaderStage.Vertex }
             };
-            var rn = new RegisteredNode(typeof(BaseGraphData), attr);
+            var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.False);
         }
 
@@ -57,7 +57,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             {
                 Engines = new[] { ShaderLanguage.HLSL }
             };
-            var rn = new RegisteredNode(typeof(BaseGraphData), attr);
+            var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.False);
         }
 
@@ -70,7 +70,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
                 Stages = new[] { ShaderStage.Fragment },
                 Engines = new[] { ShaderLanguage.Godot }
             };
-            var rn = new RegisteredNode(typeof(BaseGraphData), attr);
+            var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.True);
         }
 
@@ -87,7 +87,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
                 Stages = new[] { ShaderStage.Compute },
                 Engines = new[] { ShaderLanguage.GLSL }
             };
-            var rn = new RegisteredNode(typeof(BaseGraphData), attr);
+            var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.True);
         }
     }

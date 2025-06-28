@@ -375,10 +375,10 @@ namespace OpenShaderGraph.Tests.Core.Integration
         public void GraphTypes_AllTypes_CreateCorrectly()
         {
             // Act & Assert - Test all graph types
-            var shaderGraph = new BaseGraphData("Shader", GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>());
-            var groupGraph = new BaseGraphData("Group", GraphType.GroupGraph, new List<BaseNodeData>(), new List<ConnectionData>());
-            var localSubgraph = new BaseGraphData("LocalSub", GraphType.LocalSubgraph, new List<BaseNodeData>(), new List<ConnectionData>());
-            var globalSubgraph = new BaseGraphData("GlobalSub", GraphType.GlobalSubgraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var shaderGraph = new GraphData("Shader", GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var groupGraph = new GraphData("Group", GraphType.GroupGraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var localSubgraph = new GraphData("LocalSub", GraphType.LocalSubgraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var globalSubgraph = new GraphData("GlobalSub", GraphType.GlobalSubgraph, new List<BaseNodeData>(), new List<ConnectionData>());
 
             Assert.That(shaderGraph.GetGraphType(), Is.EqualTo(GraphType.ShaderGraph));
             Assert.That(groupGraph.GetGraphType(), Is.EqualTo(GraphType.GroupGraph));
@@ -390,7 +390,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
         public void GraphProperties_Metadata_PreservesCorrectly()
         {
             // Arrange & Act
-            var graph = new BaseGraphData("TestGraph", GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var graph = new GraphData("TestGraph", GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>());
             graph.SetFilePath("test/path/shader.graph");
             graph.SetVersion("1.2.3");
 

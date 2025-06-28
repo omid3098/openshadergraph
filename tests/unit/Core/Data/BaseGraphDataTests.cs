@@ -9,9 +9,9 @@ using static OpenShaderGraph.Core.Data.DirectionType;
 namespace OpenShaderGraph.Tests.Core.Data
 {
     [TestFixture]
-    public class BaseGraphDataTests
+    public class GraphDataTests
     {
-        private BaseGraphData _graph;
+        private GraphData _graph;
         private BaseNodeData _node1;
         private BaseNodeData _node2;
         private PinData _outputPin;
@@ -20,7 +20,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         [SetUp]
         public void SetUp()
         {
-            _graph = new BaseGraphData("Test Graph", GraphType.ShaderGraph);
+            _graph = new GraphData("Test Graph", GraphType.ShaderGraph);
 
             // Create test nodes with pins
             _outputPin = new PinData("output", PinDataType.Float, DirectionType.Output, new Variant(1.0f));
@@ -56,7 +56,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             var connections = new List<ConnectionData>();
 
             // Act
-            var graph = new BaseGraphData("Test", GraphType.GroupGraph, nodes, connections);
+            var graph = new GraphData("Test", GraphType.GroupGraph, nodes, connections);
 
             // Assert
             Assert.That(graph.GetNodes().Count, Is.EqualTo(2));

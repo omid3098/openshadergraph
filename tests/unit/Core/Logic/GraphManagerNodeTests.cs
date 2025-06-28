@@ -10,7 +10,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
     public class GraphManagerNodeTests
     {
         private GraphManager _graphManager;
-        private BaseGraphData _graphData;
+        private GraphData _graphData;
 
         [SetUp]
         public void SetUp()

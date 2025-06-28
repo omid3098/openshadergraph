@@ -12,7 +12,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public static BaseNodeData CreateNodeData(string name, string type, Vector2 position)
         {
-            var subGraph = new BaseGroupGraphData("Group", GraphType.GroupGraph);
+            var subGraph = new GroupGraphData("Group", GraphType.GroupGraph);
             var nodeData = new GroupNodeData(position, subGraph);
             return nodeData;
         }

@@ -31,14 +31,14 @@ namespace OpenShaderGraph.Core.Utils
 
         public string DefaultFileName => "new_graph.yml";
 
-        public string Save(BaseGraphData graph)
+        public string Save(GraphData graph)
         {
             if (graph is ShaderGraphData shaderGraph)
                 return SaveShaderGraph(shaderGraph);
             throw new NotSupportedException("Only ShaderGraphData is supported by YAML serializer");
         }
 
-        public BaseGraphData Load(string content, string? filePath = null)
+        public GraphData Load(string content, string? filePath = null)
         {
             return LoadShaderGraph(content, filePath);
         }

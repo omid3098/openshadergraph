@@ -26,17 +26,17 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             AddChild(_groupingContextMenu);
         }
 
-        public void ShowCreationMenu(Vector2 globalPosition, Vector2 localPosition, ShaderGraphEdit target)
+        public void ShowCreationMenu(Vector2 globalPosition, Vector2 localPosition, GraphView target)
         {
             _creationPopup.ShowMenu(globalPosition, localPosition, target);
         }
 
-        public void ShowNodeMenu(Vector2 globalPosition, BaseGraphNode node, ShaderGraphEdit graph)
+        public void ShowNodeMenu(Vector2 globalPosition, BaseGraphNode node, GraphView graph)
         {
             _nodeContextMenu.ShowMenu(globalPosition, node, graph);
         }
 
-        public void ShowGroupingMenu(Vector2 globalPosition, Array<GraphNode> nodes, ShaderGraphEdit graph)
+        public void ShowGroupingMenu(Vector2 globalPosition, Array<GraphNode> nodes, GraphView graph)
         {
             _groupingContextMenu.ShowMenu(globalPosition, nodes, graph);
         }
@@ -45,7 +45,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
     public partial class NodeContextMenu : PopupMenu
     {
         private BaseGraphNode _targetNode;
-        private ShaderGraphEdit _graph;
+        private GraphView _graph;
 
         private enum MenuOptions
         {
@@ -67,7 +67,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             IdPressed += OnIdPressed;
         }
 
-        public void ShowMenu(Vector2 globalPosition, BaseGraphNode node, ShaderGraphEdit graph)
+        public void ShowMenu(Vector2 globalPosition, BaseGraphNode node, GraphView graph)
         {
             _targetNode = node;
             _graph = graph;
@@ -117,7 +117,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
     public partial class GroupingContextMenu : PopupMenu
     {
         private Array<GraphNode> _targetNodes;
-        private ShaderGraphEdit _graph;
+        private GraphView _graph;
 
         private enum MenuOptions
         {
@@ -158,7 +158,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             arrangeSubmenu.IdPressed += OnArrangeSubmenuIdPressed;
         }
 
-        public void ShowMenu(Vector2 globalPosition, Array<GraphNode> nodes, ShaderGraphEdit graph)
+        public void ShowMenu(Vector2 globalPosition, Array<GraphNode> nodes, GraphView graph)
         {
             _targetNodes = nodes;
             _graph = graph;

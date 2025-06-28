@@ -9,12 +9,12 @@ namespace OpenShaderGraph.Core.View.NodeViews.Grouping
 {
     public abstract partial class BaseGroupingNode : BaseGraphNode
     {
-        // Grouping nodes have a complete BaseGraphData as their data.
+        // Grouping nodes have a complete GraphData as their data.
         // Grouping nodes are not resizable or closable. they are one single node with input/output pins.
         // Grouping nodes have mandatory input/output nodes.
         // input/output nodes have their pins based on the creation of the grouping node.
         // All types of grouping nodes can be ungrouped and all internal nodes are transfered to the parent graph. except for the input/output nodes. their pins are transfered to the parent graph.
-        private BaseGroupGraphData _graphData;
+        private GroupGraphData _graphData;
 
         public BaseGroupingNode() : base()
         {

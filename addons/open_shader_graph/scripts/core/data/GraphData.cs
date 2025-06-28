@@ -15,75 +15,7 @@ public enum GraphType
     GlobalSubgraph,
 }
 
-public partial class BaseGroupGraphData : BaseGraphData
-{
-    /**
-       todo: the input and output should be removed
-       - we need to separate the group and subgraph, group can be node that has children.
-       public List<BaseGraphNode> Children = new();
-
-       - group should be inherited from node
-       - subgraph sohuld be inherited from graph
-       - subgraph also has node, aka subgraphnode, that is inherited from node and will represented as a node in graph.
-       - double clicking on subgraphnode, it should open the subgraph as another graph.
-       - for the template, it can has an explicit value that sets the explicit logic, 
-       e.g, a template for group with explicit value as group, that will be detected in the code and apply some hard coded logic,
-       that won't be avoidable.
-    **/
-    public BaseNodeData InputNode { get; private set; }
-    public BaseNodeData OutputNode { get; private set; }
-
-    public BaseGroupGraphData(string name,
-                              GraphType graphType,
-                              List<BaseNodeData>? nodes = null,
-                              List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
-    {
-        InputNode = new BaseNodeData(new NodeTemplate(), new Vector2(0, 0));
-        OutputNode = new BaseNodeData(new NodeTemplate(), new Vector2(500, 0));
-        AddNode(InputNode);
-        AddNode(OutputNode);
-    }
-
-    public override bool AddConnection(ConnectionData connection)
-    {
-        // If the connection node does not exist in the graph, use the input/output nodes as the connection nodes based on the direction of the connection.
-        if (connection == null)
-            return false; // Silently ignore null connections
-
-        var fromNode = GetNodeById(connection.GetFrom().NodeId);
-        var toNode = GetNodeById(connection.GetTo().NodeId);
-        if (fromNode == null)
-        {
-            fromNode = InputNode;
-            PinData pin = connection.GetFrom().Pin;
-            // fromNode.AddInput(pin);
-            // Update the connection to use the input node as the from node.
-            connection = new ConnectionData(fromNode.Id, pin, connection.GetTo().NodeId, connection.GetTo().Pin);
-        }
-        if (toNode == null)
-        {
-            toNode = OutputNode;
-            // toNode.AddOutput(connection.GetTo().Pin);
-        }
-
-
-
-        bool valid = ValidateConnection(connection);
-        if (valid)
-        {
-            _connections.Add(connection);
-            Logger.Log($"[BaseGraphData] Connection added. Total connections: {_connections.Count}");
-            return true;
-        }
-        else
-        {
-            Logger.Log("[BaseGraphData] WARNING: Connection validation failed. Connection not added.");
-            return false;
-        }
-    }
-}
-
-public partial class BaseGraphData : RefCounted
+public partial class GraphData
 {
     public Action<string> NameChanged { get; set; } = delegate { };
     public Action<BaseNodeData> NodeRemoved { get; set; } = delegate { };
@@ -98,13 +30,13 @@ public partial class BaseGraphData : RefCounted
     private string _version = "1.0"; // version identifier for the graph asset
     private Dictionary<string, Variant> _properties = new(); // custom graph properties
 
-    public BaseGraphData(string name, GraphType graphType, List<BaseNodeData>? nodes = null, List<ConnectionData>? connections = null)
+    public GraphData(string name, GraphType graphType, List<BaseNodeData>? nodes = null, List<ConnectionData>? connections = null)
     {
         _name = name;
         _graphType = graphType;
         _nodes = nodes ?? new List<BaseNodeData>();
         _connections = connections ?? new List<ConnectionData>();
-        Logger.Log($"[BaseGraphData]: {_name}");
+        Logger.Log($"[GraphData]: {_name}");
     }
 
     public string GetName() => _name;
@@ -179,18 +111,18 @@ public partial class BaseGraphData : RefCounted
 
         var fromNode = GetNodeById(connection.GetFrom().NodeId);
         var toNode = GetNodeById(connection.GetTo().NodeId);
-        Logger.Log($"[BaseGraphData] Adding connection: {fromNode?.GetTitle()} -> {toNode?.GetTitle()}");
+        Logger.Log($"[GraphData] Adding connection: {fromNode?.GetTitle()} -> {toNode?.GetTitle()}");
 
         bool valid = ValidateConnection(connection);
         if (valid)
         {
             _connections.Add(connection);
-            Logger.Log($"[BaseGraphData] Connection added. Total connections: {_connections.Count}");
+            Logger.Log($"[GraphData] Connection added. Total connections: {_connections.Count}");
             return true;
         }
         else
         {
-            Logger.Log("[BaseGraphData] WARNING: Connection validation failed. Connection not added.");
+            Logger.Log("[GraphData] WARNING: Connection validation failed. Connection not added.");
             return false;
         }
     }
@@ -235,49 +167,49 @@ public partial class BaseGraphData : RefCounted
         // Connection from and to the same node
         if (fromNode.Id == toNode.Id)
         {
-            Logger.Log($"[BaseGraphData] Connection from and to the same node: {fromNode.GetTitle()}");
+            Logger.Log($"[GraphData] Connection from and to the same node: {fromNode.GetTitle()}");
             return false;
         }
 
         // Connection from and to the same pin
         if (fromPin.GetDirection() == toPin.GetDirection())
         {
-            Logger.Log($"[BaseGraphData] Connection from and to the same pin: {fromPin.GetName()}");
+            Logger.Log($"[GraphData] Connection from and to the same pin: {fromPin.GetName()}");
             return false;
         }
 
         // Node has no output pin
         if (fromNode.GetOutputs().Count == 0)
         {
-            Logger.Log($"[BaseGraphData] Node has no output pin: {fromNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node has no output pin: {fromNode.GetTitle()}");
             return false;
         }
 
         // Node has no input pin
         if (toNode.GetInputs().Count == 0)
         {
-            Logger.Log($"[BaseGraphData] Node has no input pin: {toNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node has no input pin: {toNode.GetTitle()}");
             return false;
         }
 
         // Node source does not exist in the graph
         if (!_nodes.Contains(fromNode))
         {
-            Logger.Log($"[BaseGraphData] Node does not exist in the graph: {fromNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node does not exist in the graph: {fromNode.GetTitle()}");
             return false;
         }
 
         // Node destination does not exist in the graph
         if (!_nodes.Contains(toNode))
         {
-            Logger.Log($"[BaseGraphData] Node does not exist in the graph: {toNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node does not exist in the graph: {toNode.GetTitle()}");
             return false;
         }
 
         // Type mismatch : TODO: Fix this after type conversion is implemented
         if (fromPin.GetDataType() != toPin.GetDataType())
         {
-            Logger.Log($"[BaseGraphData] Type mismatch: {fromPin.GetDataType()} -> {toPin.GetDataType()}");
+            Logger.Log($"[GraphData] Type mismatch: {fromPin.GetDataType()} -> {toPin.GetDataType()}");
             return false;
         }
 

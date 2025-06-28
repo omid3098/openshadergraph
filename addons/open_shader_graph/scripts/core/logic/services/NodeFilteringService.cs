@@ -12,7 +12,7 @@ namespace OpenShaderGraph.Core.Logic
         public void Init() { }
 
         // Determines whether a given node should be visible in the menu for the provided graph context
-        public bool IsNodeVisible(BaseNodeData node, BaseGraphData graphData)
+        public bool IsNodeVisible(BaseNodeData node, GraphData graphData)
         {
             GD.PrintErr("Implement me");
             return true;

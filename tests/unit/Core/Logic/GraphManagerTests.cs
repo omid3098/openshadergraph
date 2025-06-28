@@ -80,7 +80,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
 
             var nodesToGroup = new List<BaseNodeData> { nodeA, nodeB };
 
-            var groupGraphData = new BaseGroupGraphData("New Group", GraphType.GroupGraph);
+            var groupGraphData = new GroupGraphData("New Group", GraphType.GroupGraph);
 
             // Based on GroupingService logic for an outgoing connection B->C:
             // It creates an input on the group's OutputNode that mirrors B's output pin.
@@ -140,7 +140,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
 
             var nodesToGroup = new List<BaseNodeData> { nodeA, nodeB };
 
-            var groupGraphData = new BaseGroupGraphData("New Group", GraphType.GroupGraph);
+            var groupGraphData = new GroupGraphData("New Group", GraphType.GroupGraph);
 
             // Mock GroupingService creating an output on InputNode for the incoming connection
             var groupInputMirrorPin = pinA_in.Clone();

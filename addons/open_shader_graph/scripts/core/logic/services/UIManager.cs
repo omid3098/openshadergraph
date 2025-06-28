@@ -16,16 +16,16 @@ namespace OpenShaderGraph.Core.View
     {
         private Control _rootControl = default!; // root UI scene returned by GetMainScene
 
-        public Action<BaseGraphData> GraphTabSelected;
+        public Action<GraphData> GraphTabSelected;
         public Action<int> FileMenuItemSelected;
-        public Action<BaseGraphData> GraphCloseRequested;
+        public Action<GraphData> GraphCloseRequested;
 
         private TabContainer _graphTabs = default!;
         private ContextMenuManager _contextMenuManager = default!;
         private BottomPanel _bottomPanel = default!;
         private Sidebar _sidebar = default!;
-        // TODO: current graph edit should be in the graph manager
-        private ShaderGraphEdit _currentGraphEdit;
+        // TODO: current graph edit should be current graph view
+        private GraphView _currentGraphEdit;
         private const int SidebarWidth = 250;
         private const int BottomPanelHeight = 250;
 
@@ -154,7 +154,7 @@ namespace OpenShaderGraph.Core.View
         }
 
         // Tab management - orchestrates UI updates based on graph operations
-        public void OnGraphCreated(BaseGraphData graph)
+        public void OnGraphCreated(GraphData graph)
         {
             Logger.Log($"[UIManager] Adding graph tab: {graph.GetName()}");
             graph.NameChanged += (newName) => OnGraphNameChanged(graph, newName);
@@ -163,7 +163,7 @@ namespace OpenShaderGraph.Core.View
             OnNodeDeselectedInGraph();
         }
 
-        public void OnGraphSelected(BaseGraphData graph)
+        public void OnGraphSelected(GraphData graph)
         {
             Logger.Log($"[UIManager] Switching to graph: {graph.GetName()}");
             CreateOrSwitchToTab(graph);
@@ -173,13 +173,13 @@ namespace OpenShaderGraph.Core.View
             OnNodeDeselectedInGraph();
         }
 
-        private void CreateOrSwitchToTab(BaseGraphData graph)
+        private void CreateOrSwitchToTab(GraphData graph)
         {
             // Check if tab already exists
             for (int i = 0; i < _graphTabs.GetChildCount(); i++)
             {
                 var child = _graphTabs.GetChild(i);
-                if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
+                if (child is GraphView edit && edit.GetGraphData() == graph)
                 {
                     // Prevent firing TabChanged while programmatically switching
                     _graphTabs.TabChanged -= OnTabChanged;
@@ -191,7 +191,7 @@ namespace OpenShaderGraph.Core.View
             }
 
             // Create new tab
-            var newEdit = new ShaderGraphEdit();
+            var newEdit = new GraphView();
             newEdit.Initialize(graph, _contextMenuManager);
             // Prevent automatic selection on add
             _graphTabs.TabChanged -= OnTabChanged;
@@ -208,12 +208,12 @@ namespace OpenShaderGraph.Core.View
             _graphTabs.TabChanged += OnTabChanged;
         }
 
-        public void OnGraphDeleted(BaseGraphData graph)
+        public void OnGraphDeleted(GraphData graph)
         {
             for (int i = 0; i < _graphTabs.GetChildCount(); i++)
             {
                 var child = _graphTabs.GetChild(i);
-                if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
+                if (child is GraphView edit && edit.GetGraphData() == graph)
                 {
                     // Disconnect signals before removing
                     edit.NodeSelectedInGraph -= OnNodeSelectedInGraph;
@@ -234,7 +234,7 @@ namespace OpenShaderGraph.Core.View
                     currentIndex = 0;
                     _graphTabs.CurrentTab = 0;
                 }
-                if (_graphTabs.GetChild(currentIndex) is ShaderGraphEdit newEdit)
+                if (_graphTabs.GetChild(currentIndex) is GraphView newEdit)
                 {
                     _currentGraphEdit = newEdit;
                     OnNodeDeselectedInGraph();
@@ -250,7 +250,7 @@ namespace OpenShaderGraph.Core.View
         private void OnTabChanged(long tabIndex)
         {
             var child = _graphTabs.GetChild((int)tabIndex);
-            if (child is ShaderGraphEdit edit && edit.GetGraphData() != null)
+            if (child is GraphView edit && edit.GetGraphData() != null)
             {
                 if (_currentGraphEdit == edit)
                 {
@@ -266,11 +266,11 @@ namespace OpenShaderGraph.Core.View
             }
         }
 
-        private void OnGraphNameChanged(BaseGraphData graph, string newName)
+        private void OnGraphNameChanged(GraphData graph, string newName)
         {
             for (int i = 0; i < _graphTabs.GetTabCount(); i++)
             {
-                if (_graphTabs.GetTabControl(i) is ShaderGraphEdit edit && edit.GraphData == graph)
+                if (_graphTabs.GetTabControl(i) is GraphView edit && edit.GraphData == graph)
                 {
                     _graphTabs.SetTabTitle(i, newName);
                     break;
@@ -293,12 +293,12 @@ namespace OpenShaderGraph.Core.View
             }
         }
 
-        public void RefreshGraph(BaseGraphData graph)
+        public void RefreshGraph(GraphData graph)
         {
             for (int i = 0; i < _graphTabs.GetChildCount(); i++)
             {
                 var child = _graphTabs.GetChild(i);
-                if (child is ShaderGraphEdit edit && edit.GetGraphData() == graph)
+                if (child is GraphView edit && edit.GetGraphData() == graph)
                 {
                     edit.Initialize(graph, _contextMenuManager); // Re-initialize with the new data
                     break;
@@ -308,7 +308,7 @@ namespace OpenShaderGraph.Core.View
 
         private void OnTabCloseRequested(long tabIndex)
         {
-            if (_graphTabs.GetTabControl((int)tabIndex) is ShaderGraphEdit graphEdit)
+            if (_graphTabs.GetTabControl((int)tabIndex) is GraphView graphEdit)
             {
                 GraphCloseRequested?.Invoke(graphEdit.GraphData);
             }

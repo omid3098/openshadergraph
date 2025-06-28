@@ -13,22 +13,23 @@ using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 
 namespace OpenShaderGraph.Core.View.UI
 {
-    public partial class ShaderGraphEdit : GraphEdit
+    public partial class GraphView : GraphEdit
     {
         public Action<BaseGraphNode>? NodeSelectedInGraph { get; set; }
         public Action? NodeDeselectedInGraph { get; set; }
 
-        public BaseGraphData? GraphData { get; private set; }
+        public GraphData? GraphData { get; private set; }
         private ContextMenuManager? _contextMenuManager;
         private readonly System.Collections.Generic.Dictionary<long, BaseGraphNode> _nodeViewCache = new();
 
-        public ShaderGraphEdit()
+        public GraphView()
         {
             Logger.Log("[ShaderGraphEdit] init");
             DeactivateGraphEdit();
         }
 
-        public void Initialize(BaseGraphData graph, ContextMenuManager contextMenuManager)
+        // TODO: Clean up this initialize method
+        public void Initialize(GraphData graph, ContextMenuManager contextMenuManager)
         {
             if (GraphData != null)
             {
@@ -206,7 +207,7 @@ namespace OpenShaderGraph.Core.View.UI
 
         public void CreateNodeAt(string nodeName, Vector2 position)
         {
-            
+
             Logger.Log($"[DEBUG] Node creation requested: {nodeName} at position {position}");
             Logger.Log($"Node creation requested: {nodeName} at {position}");
             var registeredTemplate = Services.Get<ITemplateRegistry>().FindTemplate(nodeName);
@@ -370,7 +371,7 @@ namespace OpenShaderGraph.Core.View.UI
             SetProcessInput(true);
         }
 
-        public BaseGraphData? GetGraphData()
+        public GraphData? GetGraphData()
         {
             return GraphData;
         }
@@ -416,7 +417,7 @@ namespace OpenShaderGraph.Core.View.UI
         public void RequestGrouping(Array<GraphNode> nodes)
         {
             var nodesData = nodes.Cast<BaseGraphNode>().Select(n => n.Data!).ToList();
-            Services.Get<GraphManager>().GroupNodes(nodesData);
+            // Services.Get<GraphManager>().GroupNodes(nodesData);
             ClearGraph();
             CallDeferred(nameof(DeferredDrawGraph));
         }

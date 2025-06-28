@@ -12,7 +12,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
     public class GroupingTests
     {
         private GraphManager _graphManager;
-        private BaseGraphData _graph;
+        private GraphData _graph;
 
         [SetUp]
         public void SetUp()

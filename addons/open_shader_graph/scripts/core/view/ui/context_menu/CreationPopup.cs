@@ -14,7 +14,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private LineEdit _searchBox;
         private Dictionary<string, PopupMenu> _subMenus = new();
         private Vector2 _creationPositionInGraph;
-        private ShaderGraphEdit _targetGraphEdit;
+        private GraphView _targetGraphEdit;
 
         public override void _Ready()
         {
@@ -30,7 +30,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
 
         private void OnAboutToPopup()
         {
-            Size = new Vector2I(500, (_subMenus.Keys.Count+1) * 30);
+            Size = new Vector2I(500, (_subMenus.Keys.Count + 1) * 30);
 
             // Repopulate menu each time it's shown to ensure it's fresh.
             PopulateMenu(_searchBox.Text);
@@ -42,7 +42,7 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
             _searchBox.SelectAll();
         }
 
-        public void ShowMenu(Vector2 globalPosition, Vector2 localPosition, ShaderGraphEdit target)
+        public void ShowMenu(Vector2 globalPosition, Vector2 localPosition, GraphView target)
         {
 
             _targetGraphEdit = target;
