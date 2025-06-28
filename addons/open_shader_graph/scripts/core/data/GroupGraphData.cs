@@ -7,14 +7,14 @@ using OpenShaderGraph.Core.Utils;
 
 public class LocalSubgraphData : GroupGraphData
 {
-    public LocalSubgraphData(string name, GraphType graphType, List<BaseNodeData>? nodes = null, List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
+    public LocalSubgraphData(string name, GraphType graphType, List<NodeData>? nodes = null, List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
     {
     }
 }
 
 public class GlobalSubgraphData : GroupGraphData
 {
-    public GlobalSubgraphData(string name, GraphType graphType, List<BaseNodeData>? nodes = null, List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
+    public GlobalSubgraphData(string name, GraphType graphType, List<NodeData>? nodes = null, List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
     {
     }
 }
@@ -34,16 +34,16 @@ public partial class GroupGraphData : GraphData
        e.g, a template for group with explicit value as group, that will be detected in the code and apply some hard coded logic,
        that won't be avoidable.
     **/
-    public BaseNodeData InputNode { get; private set; }
-    public BaseNodeData OutputNode { get; private set; }
+    public NodeData InputNode { get; private set; }
+    public NodeData OutputNode { get; private set; }
 
     public GroupGraphData(string name,
                               GraphType graphType,
-                              List<BaseNodeData>? nodes = null,
+                              List<NodeData>? nodes = null,
                               List<ConnectionData>? connections = null) : base(name, graphType, nodes, connections)
     {
-        InputNode = new BaseNodeData(new NodeTemplate(), new Vector2(0, 0));
-        OutputNode = new BaseNodeData(new NodeTemplate(), new Vector2(500, 0));
+        InputNode = new NodeData(new NodeTemplate(), new Vector2(0, 0));
+        OutputNode = new NodeData(new NodeTemplate(), new Vector2(500, 0));
         AddNode(InputNode);
         AddNode(OutputNode);
     }

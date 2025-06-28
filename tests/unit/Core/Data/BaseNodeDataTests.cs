@@ -6,9 +6,9 @@ using OpenShaderGraph.Core.Data;
 namespace OpenShaderGraph.Tests.Core.Data
 {
     [TestFixture]
-    public class BaseNodeDataTests
+    public class NodeDataTests
     {
-        private BaseNodeData _node;
+        private NodeData _node;
         private List<PinData> _inputPins;
         private List<PinData> _outputPins;
 
@@ -26,7 +26,7 @@ namespace OpenShaderGraph.Tests.Core.Data
                 new PinData("output1", PinDataType.Float, DirectionType.Output, new Variant(1.0f))
             };
 
-            _node = new BaseNodeData("TestNode", "MathNode", new Vector2(100, 200), _inputPins, _outputPins);
+            _node = new NodeData("TestNode", "MathNode", new Vector2(100, 200), _inputPins, _outputPins);
         }
 
         [Test]
@@ -35,7 +35,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             // Act & Assert
             Assert.That(_node.GetName(), Is.EqualTo("TestNode"));
             Assert.That(_node.GetNodeType(), Is.EqualTo("MathNode"));
-            Assert.That(_node.GetPosition(), Is.EqualTo(new Vector2(100, 200)));
+            Assert.That(_node.Position, Is.EqualTo(new Vector2(100, 200)));
             Assert.That(_node.GetInputs().Count, Is.EqualTo(2));
             Assert.That(_node.GetOutputs().Count, Is.EqualTo(1));
         }
@@ -44,7 +44,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void Constructor_WithNullPins_CreatesEmptyLists()
         {
             // Act
-            var node = new BaseNodeData("TestNode", "MathNode", new Vector2(0, 0));
+            var node = new NodeData("TestNode", "MathNode", new Vector2(0, 0));
 
             // Assert
             Assert.That(node.GetInputs(), Is.Not.Null);
@@ -63,7 +63,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             _node.SetPosition(newPosition);
 
             // Assert
-            Assert.That(_node.GetPosition(), Is.EqualTo(newPosition));
+            Assert.That(_node.Position, Is.EqualTo(newPosition));
         }
 
         [Test]

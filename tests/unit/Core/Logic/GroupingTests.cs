@@ -34,9 +34,9 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var add1InB = new PinData("b", PinDataType.Float, DirectionType.Input);
             var add1Out = new PinData("out", PinDataType.Float, DirectionType.Output);
 
-            var float1 = new BaseNodeData("Float1", "Float", Vector2.Zero, null, new List<PinData> { float1Out });
-            var float2 = new BaseNodeData("Float2", "Float", new Vector2(100, 0), null, new List<PinData> { float2Out });
-            var add1 = new BaseNodeData("Add1", "Add", new Vector2(200, 0), new List<PinData> { add1InA, add1InB }, new List<PinData> { add1Out });
+            var float1 = new NodeData("Float1", "Float", Vector2.Zero, null, new List<PinData> { float1Out });
+            var float2 = new NodeData("Float2", "Float", new Vector2(100, 0), null, new List<PinData> { float2Out });
+            var add1 = new NodeData("Add1", "Add", new Vector2(200, 0), new List<PinData> { add1InA, add1InB }, new List<PinData> { add1Out });
 
             _graph.AddNode(float1);
             _graph.AddNode(float2);
@@ -51,9 +51,9 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var add2InB = new PinData("b", PinDataType.Float, DirectionType.Input);
             var add2Out = new PinData("out", PinDataType.Float, DirectionType.Output);
 
-            var float3 = new BaseNodeData("Float3", "Float", new Vector2(0, 100), null, new List<PinData> { float3Out });
-            var float4 = new BaseNodeData("Float4", "Float", new Vector2(100, 100), null, new List<PinData> { float4Out });
-            var add2 = new BaseNodeData("Add2", "Add", new Vector2(200, 100), new List<PinData> { add2InA, add2InB }, new List<PinData> { add2Out });
+            var float3 = new NodeData("Float3", "Float", new Vector2(0, 100), null, new List<PinData> { float3Out });
+            var float4 = new NodeData("Float4", "Float", new Vector2(100, 100), null, new List<PinData> { float4Out });
+            var add2 = new NodeData("Add2", "Add", new Vector2(200, 100), new List<PinData> { add2InA, add2InB }, new List<PinData> { add2Out });
 
             _graph.AddNode(float3);
             _graph.AddNode(float4);
@@ -65,7 +65,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var add3InA = new PinData("a", PinDataType.Float, DirectionType.Input);
             var add3InB = new PinData("b", PinDataType.Float, DirectionType.Input);
             var add3Out = new PinData("out", PinDataType.Float, DirectionType.Output);
-            var add3 = new BaseNodeData("Add3", "Add", new Vector2(100, 200), new List<PinData> { add3InA, add3InB }, new List<PinData> { add3Out });
+            var add3 = new NodeData("Add3", "Add", new Vector2(100, 200), new List<PinData> { add3InA, add3InB }, new List<PinData> { add3Out });
 
             _graph.AddNode(add3);
             _graph.AddConnection(new ConnectionData(add1.Id, add1Out, add3.Id, add3InA));
@@ -76,7 +76,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(_graph.GetConnections().Count, Is.EqualTo(6));
 
             // Group first set: Float1, Float2, Add1
-            _graphManager.GroupNodes(new List<BaseNodeData> { float1, float2, add1 });
+            _graphManager.GroupNodes(new List<NodeData> { float1, float2, add1 });
             var group1 = _graph.GetNodes().OfType<GroupNodeData>().First();
 
             // Validate group1 external pins
@@ -98,7 +98,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(sub1.GetConnections().Count, Is.EqualTo(3)); // internal 2 + outgoing 1
 
             // Group second set: Float3, Float4, Add2
-            _graphManager.GroupNodes(new List<BaseNodeData> { float3, float4, add2 });
+            _graphManager.GroupNodes(new List<NodeData> { float3, float4, add2 });
             var group2 = _graph.GetNodes().OfType<GroupNodeData>().First(g => g.Id != group1.Id);
 
             // Validate group2 external pins
@@ -120,7 +120,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(sub2.GetConnections().Count, Is.EqualTo(3));
 
             // Nested grouping of both group nodes
-            _graphManager.GroupNodes(new List<BaseNodeData> { group1, group2 });
+            _graphManager.GroupNodes(new List<NodeData> { group1, group2 });
             var nested = _graph.GetNodes().OfType<GroupNodeData>().First();
 
             // Validate nested group external pins
@@ -153,9 +153,9 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var addInB = new PinData("b", PinDataType.Float, DirectionType.Input);
             var addOut = new PinData("out", PinDataType.Float, DirectionType.Output);
 
-            var float1 = new BaseNodeData("Float1", "Float", Vector2.Zero, null, new List<PinData> { float1Out });
-            var float2 = new BaseNodeData("Float2", "Float", new Vector2(100, 0), null, new List<PinData> { float2Out });
-            var add = new BaseNodeData("Add", "Add", new Vector2(200, 0), new List<PinData> { addInA, addInB }, new List<PinData> { addOut });
+            var float1 = new NodeData("Float1", "Float", Vector2.Zero, null, new List<PinData> { float1Out });
+            var float2 = new NodeData("Float2", "Float", new Vector2(100, 0), null, new List<PinData> { float2Out });
+            var add = new NodeData("Add", "Add", new Vector2(200, 0), new List<PinData> { addInA, addInB }, new List<PinData> { addOut });
 
             _graph.AddNode(float1);
             _graph.AddNode(float2);
@@ -168,7 +168,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(_graph.GetConnections().Count, Is.EqualTo(2));
 
             // Group these nodes
-            _graphManager.GroupNodes(new List<BaseNodeData> { float1, float2, add });
+            _graphManager.GroupNodes(new List<NodeData> { float1, float2, add });
             var group = _graph.GetNodes().OfType<GroupNodeData>().First();
             var sub = group.SubGraph;
 

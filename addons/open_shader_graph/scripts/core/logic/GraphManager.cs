@@ -50,7 +50,7 @@ namespace OpenShaderGraph.Core.Logic
             else
             {
                 // Other graph types (subgraphs) use basic GraphData
-                graph = new GraphData(name, graphType, new List<BaseNodeData>(), new List<ConnectionData>());
+                graph = new GraphData(name, graphType, new List<NodeData>(), new List<ConnectionData>());
             }
             AddGraph(graph);
             return graph;
@@ -68,7 +68,7 @@ namespace OpenShaderGraph.Core.Logic
         }
 
         // TODO: Move this one GraphData
-        public void RemoveNode(BaseNodeData node)
+        public void RemoveNode(NodeData node)
         {
             if (node == null) throw new ArgumentNullException(nameof(node));
             if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");
@@ -76,7 +76,7 @@ namespace OpenShaderGraph.Core.Logic
         }
 
         // TODO: Move this one GraphData
-        public void DuplicateNode(BaseNodeData node)
+        public void DuplicateNode(NodeData node)
         {
             if (node == null) throw new ArgumentNullException(nameof(node));
             if (_currentGraphData == null) throw new InvalidOperationException("No graph selected.");

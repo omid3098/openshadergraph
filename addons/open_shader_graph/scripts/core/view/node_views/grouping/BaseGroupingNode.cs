@@ -21,7 +21,7 @@ namespace OpenShaderGraph.Core.View.NodeViews.Grouping
             // Default constructor required for Godot
         }
 
-        public override void Initialize(BaseNodeData nodeData)
+        public override void Initialize(NodeData nodeData)
         {
             if (nodeData is not GroupNodeData groupNodeData)
             {
@@ -33,7 +33,7 @@ namespace OpenShaderGraph.Core.View.NodeViews.Grouping
             _graphData = groupNodeData.SubGraph;
         }
 
-        public void AddNodesAndConnections(List<BaseNodeData> nodes, List<ConnectionData> connections)
+        public void AddNodesAndConnections(List<NodeData> nodes, List<ConnectionData> connections)
         {
             foreach (var node in nodes)
             {

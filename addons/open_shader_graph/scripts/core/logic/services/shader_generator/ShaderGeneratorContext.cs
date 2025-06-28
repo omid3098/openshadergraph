@@ -27,7 +27,7 @@ namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
         /// <summary>
         /// Gets or assigns a unique variable name for the given node.
         /// </summary>
-        public string GetVariableName(BaseNodeData node)
+        public string GetVariableName(NodeData node)
         {
             if (!_variableNames.TryGetValue(node.Id, out var name))
             {

@@ -18,30 +18,30 @@ public enum GraphType
 public partial class GraphData
 {
     public Action<string> NameChanged { get; set; } = delegate { };
-    public Action<BaseNodeData> NodeRemoved { get; set; } = delegate { };
-    public Action<BaseNodeData> NodeAdded { get; set; } = delegate { };
+    public Action<NodeData> NodeRemoved { get; set; } = delegate { };
+    public Action<NodeData> NodeAdded { get; set; } = delegate { };
 
     private string _name = "";
     private GraphType _graphType = GraphType.ShaderGraph;
-    protected List<BaseNodeData> _nodes = new();
+    protected List<NodeData> _nodes = new();
     protected List<ConnectionData> _connections = new();
     protected long _nextNodeId = 0;
     private string _filePath = ""; // asset path used for saving and loading
     private string _version = "1.0"; // version identifier for the graph asset
     private Dictionary<string, Variant> _properties = new(); // custom graph properties
 
-    public GraphData(string name, GraphType graphType, List<BaseNodeData>? nodes = null, List<ConnectionData>? connections = null)
+    public GraphData(string name, GraphType graphType, List<NodeData>? nodes = null, List<ConnectionData>? connections = null)
     {
         _name = name;
         _graphType = graphType;
-        _nodes = nodes ?? new List<BaseNodeData>();
+        _nodes = nodes ?? new List<NodeData>();
         _connections = connections ?? new List<ConnectionData>();
         Logger.Log($"[GraphData]: {_name}");
     }
 
     public string GetName() => _name;
     public GraphType GetGraphType() => _graphType;
-    public List<BaseNodeData> GetNodes() => _nodes;
+    public List<NodeData> GetNodes() => _nodes;
     public List<ConnectionData> GetConnections() => _connections;
     public string GetVersion() => _version;
     public string GetFilePath() => _filePath;
@@ -59,7 +59,7 @@ public partial class GraphData
     public void SetFilePath(string filePath) => _filePath = filePath;
     public void SetProperties(Dictionary<string, Variant> properties) => _properties = properties;
 
-    public BaseNodeData? GetNodeById(long id)
+    public NodeData? GetNodeById(long id)
     {
         foreach (var node in _nodes)
         {
@@ -69,14 +69,14 @@ public partial class GraphData
         return null;
     }
 
-    public void AddNode(BaseNodeData node)
+    public void AddNode(NodeData node)
     {
         if (node == null)
             return; // Silently ignore null nodes
 
         if (node.Id == -1)
         {
-            node.Id = _nextNodeId++;
+            node.SetId(_nextNodeId++);
         }
         else
         {
@@ -90,7 +90,7 @@ public partial class GraphData
         NodeAdded?.Invoke(node);
     }
 
-    public void RemoveNode(BaseNodeData node)
+    public void RemoveNode(NodeData node)
     {
         if (node == null || !_nodes.Contains(node))
             return;
@@ -111,7 +111,7 @@ public partial class GraphData
 
         var fromNode = GetNodeById(connection.GetFrom().NodeId);
         var toNode = GetNodeById(connection.GetTo().NodeId);
-        Logger.Log($"[GraphData] Adding connection: {fromNode?.GetTitle()} -> {toNode?.GetTitle()}");
+        Logger.Log($"[GraphData] Adding connection: {fromNode?.Title} -> {toNode?.Title}");
 
         bool valid = ValidateConnection(connection);
         if (valid)
@@ -167,7 +167,7 @@ public partial class GraphData
         // Connection from and to the same node
         if (fromNode.Id == toNode.Id)
         {
-            Logger.Log($"[GraphData] Connection from and to the same node: {fromNode.GetTitle()}");
+            Logger.Log($"[GraphData] Connection from and to the same node: {fromNode.Title}");
             return false;
         }
 
@@ -181,28 +181,28 @@ public partial class GraphData
         // Node has no output pin
         if (fromNode.GetOutputs().Count == 0)
         {
-            Logger.Log($"[GraphData] Node has no output pin: {fromNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node has no output pin: {fromNode.Title}");
             return false;
         }
 
         // Node has no input pin
         if (toNode.GetInputs().Count == 0)
         {
-            Logger.Log($"[GraphData] Node has no input pin: {toNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node has no input pin: {toNode.Title}");
             return false;
         }
 
         // Node source does not exist in the graph
         if (!_nodes.Contains(fromNode))
         {
-            Logger.Log($"[GraphData] Node does not exist in the graph: {fromNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node does not exist in the graph: {fromNode.Title}");
             return false;
         }
 
         // Node destination does not exist in the graph
         if (!_nodes.Contains(toNode))
         {
-            Logger.Log($"[GraphData] Node does not exist in the graph: {toNode.GetTitle()}");
+            Logger.Log($"[GraphData] Node does not exist in the graph: {toNode.Title}");
             return false;
         }
 

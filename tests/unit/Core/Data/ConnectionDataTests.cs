@@ -8,8 +8,8 @@ namespace OpenShaderGraph.Tests.Core.Data
     [TestFixture]
     public class ConnectionDataTests
     {
-        private BaseNodeData _fromNode;
-        private BaseNodeData _toNode;
+        private NodeData _fromNode;
+        private NodeData _toNode;
         private PinData _outputPin;
         private PinData _inputPin;
         private ConnectionData _connection;
@@ -23,9 +23,9 @@ namespace OpenShaderGraph.Tests.Core.Data
             var outputPins = new List<PinData> { _outputPin };
             var inputPins = new List<PinData> { _inputPin };
 
-            _fromNode = new BaseNodeData("FromNode", "TestNode", new Vector2(0, 0), new List<PinData>(), outputPins);
+            _fromNode = new NodeData("FromNode", "TestNode", new Vector2(0, 0), new List<PinData>(), outputPins);
             _fromNode.Id = 1;
-            _toNode = new BaseNodeData("ToNode", "TestNode", new Vector2(100, 0), inputPins, new List<PinData>());
+            _toNode = new NodeData("ToNode", "TestNode", new Vector2(100, 0), inputPins, new List<PinData>());
             _toNode.Id = 2;
 
             _connection = new ConnectionData(_fromNode.Id, _outputPin, _toNode.Id, _inputPin);

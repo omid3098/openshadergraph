@@ -78,10 +78,10 @@
 //             return sb.ToString();
 //         }
 
-//         private List<BaseNodeData> TopologicalSort(ShaderGraphData graph)
+//         private List<NodeData> TopologicalSort(ShaderGraphData graph)
 //         {
 //             var visited = new HashSet<long>();
-//             var sorted = new List<BaseNodeData>();
+//             var sorted = new List<NodeData>();
 //             foreach (var root in FindRootNodes(graph))
 //             {
 //                 Visit(root, graph, visited, sorted);
@@ -89,14 +89,14 @@
 //             return sorted;
 //         }
 
-//         private IEnumerable<BaseNodeData> FindRootNodes(ShaderGraphData graph)
+//         private IEnumerable<NodeData> FindRootNodes(ShaderGraphData graph)
 //         {
 //             var nodes = graph.GetNodes();
 //             var fromIds = new HashSet<long>(graph.GetConnections().Select(c => c.GetFrom().NodeId));
 //             return nodes.Where(n => !fromIds.Contains(n.Id));
 //         }
 
-//         private void Visit(BaseNodeData node, ShaderGraphData graph, HashSet<long> visited, List<BaseNodeData> sorted)
+//         private void Visit(NodeData node, ShaderGraphData graph, HashSet<long> visited, List<NodeData> sorted)
 //         {
 //             if (visited.Contains(node.Id))
 //                 return;
@@ -117,14 +117,14 @@
 //             sorted.Add(node);
 //         }
 
-//         private bool IsConstantNode(BaseNodeData node)
+//         private bool IsConstantNode(NodeData node)
 //         {
 //             return node.GetNodeType() == "Float"
 //                 && node.GetInputs().Count == 1
 //                 && node.GetOutputs().Count == 1;
 //         }
 
-//         private string GenerateConstantCode(BaseNodeData node, ShaderGeneratorContext ctx)
+//         private string GenerateConstantCode(NodeData node, ShaderGeneratorContext ctx)
 //         {
 //             var input = node.GetInputs().First();
 //             var defaultVal = input.GetDefaultValue();
@@ -134,7 +134,7 @@
 //             return $"float {varName} = {lit};";
 //         }
 
-//         private string GenerateTemplateCode(BaseNodeData node, ShaderGraphData graph, ShaderGeneratorContext ctx, ShaderStage stage)
+//         private string GenerateTemplateCode(NodeData node, ShaderGraphData graph, ShaderGeneratorContext ctx, ShaderStage stage)
 //         {
 //             // Construct template path relative to test output directory
 //             var baseDir = AppContext.BaseDirectory;

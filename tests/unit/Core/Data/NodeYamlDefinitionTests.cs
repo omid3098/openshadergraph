@@ -36,7 +36,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.IsTrue(File.Exists(yamlPath), $"YAML file not found at {yamlPath}");
             var yaml = File.ReadAllText(yamlPath);
 
-            var def = _deserializer.Deserialize<BaseNodeData>(yaml);
+            var def = _deserializer.Deserialize<NodeData>(yaml);
             Assert.IsNotNull(def);
             Assert.That(def.Name, Is.EqualTo("Float"));
             Assert.That(def.Type, Is.EqualTo("Float"));
@@ -69,7 +69,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.IsTrue(File.Exists(yamlPath), $"YAML file not found at {yamlPath}");
             var yaml = File.ReadAllText(yamlPath);
 
-            var def = _deserializer.Deserialize<BaseNodeData>(yaml);
+            var def = _deserializer.Deserialize<NodeData>(yaml);
             Assert.IsNotNull(def);
             Assert.That(def.Name, Is.EqualTo("Add"));
             Assert.That(def.Type, Is.EqualTo("Add"));

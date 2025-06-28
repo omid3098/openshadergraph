@@ -21,13 +21,13 @@ namespace OpenShaderGraph
             Services.Register(uiManager);
             GraphManager graphManager = new();
             Services.Register(graphManager);
+            NodeFilteringService nodeFilteringService = new();
+            Services.Register(nodeFilteringService);
 
             // TODO: Implement these services later
-            var nodeFilteringService = new NodeFilteringService();
             // var groupingService = new GroupingService();
             // var shaderGeneratorService = new ShaderGeneratorService();
             // var graphSerializer = new YamlGraphSerializer();
-            Services.Register(nodeFilteringService);
             // Services.Register(groupingService);
             // Services.Register<IGraphSerializerService>(graphSerializer);
             // Services.Register<IShaderGeneratorService>(shaderGeneratorService);

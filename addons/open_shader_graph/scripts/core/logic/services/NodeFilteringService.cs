@@ -9,10 +9,13 @@ namespace OpenShaderGraph.Core.Logic
     public class NodeFilteringService : IInitializable
     {
         // No initialization needed
-        public void Init() { }
+        public void Init()
+        {
+            Logger.Log("[NodeFilteringService] Init");
+        }
 
         // Determines whether a given node should be visible in the menu for the provided graph context
-        public bool IsNodeVisible(BaseNodeData node, GraphData graphData)
+        public bool IsNodeVisible(NodeData node, GraphData graphData)
         {
             GD.PrintErr("Implement me");
             return true;

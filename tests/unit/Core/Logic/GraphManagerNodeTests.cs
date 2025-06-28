@@ -25,8 +25,8 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void RemoveNode_NodeExists_RemovesNodeAndConnections()
         {
             // Arrange
-            var node1 = new BaseNodeData("Node1", "Type1", Vector2.Zero, outputs: new List<PinData> { new PinData("out", PinDataType.Float, DirectionType.Output) });
-            var node2 = new BaseNodeData("Node2", "Type2", Vector2.Zero, inputs: new List<PinData> { new PinData("in", PinDataType.Float, DirectionType.Input) });
+            var node1 = new NodeData("Node1", "Type1", Vector2.Zero, outputs: new List<PinData> { new PinData("out", PinDataType.Float, DirectionType.Output) });
+            var node2 = new NodeData("Node2", "Type2", Vector2.Zero, inputs: new List<PinData> { new PinData("in", PinDataType.Float, DirectionType.Input) });
             _graphData.AddNode(node1);
             _graphData.AddNode(node2);
             // todo: node1.GetOutputByIndex(0) and node2.GetInputByIndex(0) are nullable
@@ -35,7 +35,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             _graphData.AddConnection(connection);
 
             bool nodeRemovedFired = false;
-            BaseNodeData removedNode = null;
+            NodeData removedNode = null;
             _graphData.NodeRemoved += (node) =>
             {
                 nodeRemovedFired = true;
@@ -56,8 +56,8 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void RemoveNode_NodeDoesNotExist_DoesNothing()
         {
             // Arrange
-            var node1 = new BaseNodeData("Node1", "Type1", Vector2.Zero);
-            var nonExistentNode = new BaseNodeData("NonExistent", "Type", Vector2.Zero);
+            var node1 = new NodeData("Node1", "Type1", Vector2.Zero);
+            var nonExistentNode = new NodeData("NonExistent", "Type", Vector2.Zero);
             _graphData.AddNode(node1);
             int initialNodeCount = _graphData.GetNodes().Count;
 
@@ -72,10 +72,10 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void DuplicateNode_NodeExists_AddsClonedNode()
         {
             // Arrange
-            var node1 = new BaseNodeData("Node1", "Type1", new Vector2(100, 100), outputs: new List<PinData> { new PinData("out", PinDataType.Float, DirectionType.Output) });
+            var node1 = new NodeData("Node1", "Type1", new Vector2(100, 100), outputs: new List<PinData> { new PinData("out", PinDataType.Float, DirectionType.Output) });
             _graphData.AddNode(node1);
             int initialNodeCount = _graphData.GetNodes().Count;
-            BaseNodeData addedNode = null;
+            NodeData addedNode = null;
             _graphData.NodeAdded += (node) =>
             {
                 addedNode = node;
@@ -89,7 +89,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.IsNotNull(addedNode);
             Assert.That(node1, Is.Not.SameAs(addedNode));
             Assert.That(node1.GetName(), Is.EqualTo(addedNode.GetName()));
-            Assert.That(new Vector2(130, 130), Is.EqualTo(addedNode.GetPosition()));
+            Assert.That(new Vector2(130, 130), Is.EqualTo(addedNode.Position));
         }
     }
 }

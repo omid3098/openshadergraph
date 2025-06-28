@@ -12,8 +12,8 @@ namespace OpenShaderGraph.Tests.Core.Data
     public class GraphDataTests
     {
         private GraphData _graph;
-        private BaseNodeData _node1;
-        private BaseNodeData _node2;
+        private NodeData _node1;
+        private NodeData _node2;
         private PinData _outputPin;
         private PinData _inputPin;
 
@@ -29,8 +29,8 @@ namespace OpenShaderGraph.Tests.Core.Data
             var outputPins = new List<PinData> { _outputPin };
             var inputPins = new List<PinData> { _inputPin };
 
-            _node1 = new BaseNodeData("Node1", "TestNode", new Vector2(0, 0), new List<PinData>(), outputPins);
-            _node2 = new BaseNodeData("Node2", "TestNode", new Vector2(100, 0), inputPins, new List<PinData>());
+            _node1 = new NodeData("Node1", "TestNode", new Vector2(0, 0), new List<PinData>(), outputPins);
+            _node2 = new NodeData("Node2", "TestNode", new Vector2(100, 0), inputPins, new List<PinData>());
         }
 
         [Test]
@@ -52,7 +52,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         public void Constructor_WithNodesAndConnections_SetsThemCorrectly()
         {
             // Arrange
-            var nodes = new List<BaseNodeData> { _node1, _node2 };
+            var nodes = new List<NodeData> { _node1, _node2 };
             var connections = new List<ConnectionData>();
 
             // Act
@@ -146,7 +146,7 @@ namespace OpenShaderGraph.Tests.Core.Data
         {
             // Arrange
             _graph.AddNode(_node1);
-            var node3 = new BaseNodeData("Node3", "TestNode", new Vector2(200, 0), new List<PinData>(), new List<PinData>());
+            var node3 = new NodeData("Node3", "TestNode", new Vector2(200, 0), new List<PinData>(), new List<PinData>());
             node3.Id = 99; // Manually set a fake ID
             var connection = new ConnectionData(_node1.Id, _outputPin, node3.Id, _inputPin);
 

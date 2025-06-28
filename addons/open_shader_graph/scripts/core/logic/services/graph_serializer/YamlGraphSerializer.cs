@@ -66,7 +66,7 @@ namespace OpenShaderGraph.Core.Utils
 
             // Load nodes
             var nodeEntries = (List<object>)data["nodes"];
-            var nodeMap = new Dictionary<long, BaseNodeData>();
+            var nodeMap = new Dictionary<long, NodeData>();
             foreach (var nodeObj in nodeEntries)
             {
                 var nodeEntry = (Dictionary<object, object>)nodeObj;
@@ -119,7 +119,8 @@ namespace OpenShaderGraph.Core.Utils
                 }
 
                 // todo: find the template
-                var nodeData = new BaseNodeData(new NodeTemplate(), position) { Id = id };
+                var nodeData = new NodeData(new NodeTemplate(), position);
+                nodeData.SetId(id);
                 graph.AddNode(nodeData);
                 nodeMap[id] = nodeData;
             }
@@ -177,9 +178,9 @@ namespace OpenShaderGraph.Core.Utils
                 var entry = new Dictionary<string, object>
                 {
                     ["id"] = node.Id,
-                    ["name"] = node.GetTitle(),
+                    ["name"] = node.Title,
                     ["type"] = node.GetNodeType(),
-                    ["position"] = new List<object> { node.GetPosition().X, node.GetPosition().Y }
+                    ["position"] = new List<object> { node.Position.X, node.Position.Y }
                 };
                 var inputList = new List<Dictionary<string, object>>();
                 foreach (var pin in node.GetInputs())

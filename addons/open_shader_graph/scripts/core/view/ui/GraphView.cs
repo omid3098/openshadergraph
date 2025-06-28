@@ -214,7 +214,7 @@ namespace OpenShaderGraph.Core.View.UI
 
             if (registeredTemplate != null)
             {
-                var nodeData = new BaseNodeData(registeredTemplate, position);
+                var nodeData = new NodeData(registeredTemplate, position);
                 // 2. Add to Graph Data
                 if (nodeData != null && GraphData != null)
                 {
@@ -238,8 +238,8 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromPin = fromNodeView.Data?.GetOutputByIndex((int)fromPort);
-            var toPin = toNodeView.Data?.GetInputByIndex((int)toPort);
+            var fromPin = fromNodeView.Data?.GetOutPin((int)fromPort);
+            var toPin = toNodeView.Data?.GetInPin((int)toPort);
 
             if (fromPin == null || toPin == null)
             {
@@ -293,8 +293,8 @@ namespace OpenShaderGraph.Core.View.UI
                 return;
             }
 
-            var fromPin = fromNodeView.Data?.GetOutputByIndex((int)fromPort);
-            var toPin = toNodeView.Data?.GetInputByIndex((int)toPort);
+            var fromPin = fromNodeView.Data?.GetOutPin((int)fromPort);
+            var toPin = toNodeView.Data?.GetInPin((int)toPort);
 
 
             if (fromPin != null && toPin != null)
@@ -321,7 +321,7 @@ namespace OpenShaderGraph.Core.View.UI
             NodeDeselectedInGraph?.Invoke();
         }
 
-        private void OnNodeAdded(BaseNodeData nodeData)
+        private void OnNodeAdded(NodeData nodeData)
         {
             var nodeTemplate = nodeData.Template;
             if (nodeTemplate != null)
@@ -339,7 +339,7 @@ namespace OpenShaderGraph.Core.View.UI
             }
         }
 
-        private void OnNodeRemoved(BaseNodeData nodeData)
+        private void OnNodeRemoved(NodeData nodeData)
         {
             Logger.Log($"[ShaderGraphEdit] OnNodeRemoved called for nodeData.Id {nodeData.Id}");
             bool removed = false;
@@ -347,7 +347,7 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 if (child is BaseGraphNode nodeView && nodeView.Data != null && nodeView.Data.Id == nodeData.Id)
                 {
-                    Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Deleting nodeView {nodeView.Data.GetTitle()}({nodeView.Data.Id})");
+                    Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Deleting nodeView {nodeView.Data.Title}({nodeView.Data.Id})");
                     nodeView.DeleteNode();
                     _nodeViewCache.Remove(nodeData.Id);
                     Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: Removed from cache nodeId {nodeData.Id}");
@@ -397,7 +397,7 @@ namespace OpenShaderGraph.Core.View.UI
             Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting {baseNodes.Count} BaseGraphNode children from cache");
             foreach (var nodeView in baseNodes)
             {
-                Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.GetTitle()}({nodeView.Data.Id}) with Name {nodeView.Name}");
+                Logger.Log($"[ShaderGraphEdit] ClearGraph: Deleting nodeView {nodeView.Data.Title}({nodeView.Data.Id}) with Name {nodeView.Name}");
                 nodeView.DeleteNode();
             }
             _nodeViewCache.Clear();

@@ -12,7 +12,7 @@ tests/
 │   └── Core/                               # Core functionality tests
 │       ├── Data/                           # Data layer tests
 │       │   ├── GraphDataTests.cs      # GraphData class tests
-│       │   ├── BaseNodeDataTests.cs       # BaseNodeData class tests
+│       │   ├── NodeDataTests.cs       # NodeData class tests
 │       │   ├── PinDataTests.cs            # PinData class tests
 │       │   └── ConnectionDataTests.cs     # ConnectionData class tests
 │       └── Logic/                          # Logic layer tests
@@ -68,7 +68,7 @@ The current test suite covers:
 
 ### Data Layer (100% Coverage)
 - **GraphData**: Constructor, properties, node/connection management, validation logic
-- **BaseNodeData**: Constructor, getters, setters, pin management
+- **NodeData**: Constructor, getters, setters, pin management
 - **PinData**: Constructor, property management, different data types
 - **ConnectionData**: Constructor, endpoint management, type safety
 

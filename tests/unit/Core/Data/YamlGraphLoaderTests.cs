@@ -14,7 +14,7 @@ namespace OpenShaderGraph.Tests.Core.Data
     {
       // Arrange: create a minimal shader graph
       var graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderStage.Fragment);
-      var constNode = new BaseNodeData("Const", "ConstantNode", new Vector2(0, 0));
+      var constNode = new NodeData("Const", "ConstantNode", new Vector2(0, 0));
       constNode.AddOutput(new PinData("out", Float, DirectionType.Output, new Variant(0.0f)));
       graph.AddNode(constNode);
 
@@ -81,7 +81,7 @@ connections: []
       Assert.That(node.Id, Is.EqualTo(5));
       Assert.That(node.GetName(), Is.EqualTo("NodeA"));
       Assert.That(node.GetNodeType(), Is.EqualTo("TestNode"));
-      Assert.That(node.GetPosition(), Is.EqualTo(new Vector2(10, 20)));
+      Assert.That(node.Position, Is.EqualTo(new Vector2(10, 20)));
 
       var outputs = node.GetOutputs();
       Assert.That(outputs.Count, Is.EqualTo(1));

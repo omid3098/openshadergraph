@@ -67,9 +67,9 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var pinB_out = new PinData("outB", PinDataType.Float, DirectionType.Output);
             var pinC_in = new PinData("inC", PinDataType.Float, DirectionType.Input);
 
-            var nodeA = new BaseNodeData("NodeA", "A", Vector2.Zero, null, new List<PinData> { pinA_out });
-            var nodeB = new BaseNodeData("NodeB", "B", Vector2.Zero, new List<PinData> { pinB_in }, new List<PinData> { pinB_out });
-            var nodeC = new BaseNodeData("NodeC", "C", Vector2.Zero, new List<PinData> { pinC_in }, null);
+            var nodeA = new NodeData("NodeA", "A", Vector2.Zero, null, new List<PinData> { pinA_out });
+            var nodeB = new NodeData("NodeB", "B", Vector2.Zero, new List<PinData> { pinB_in }, new List<PinData> { pinB_out });
+            var nodeC = new NodeData("NodeC", "C", Vector2.Zero, new List<PinData> { pinC_in }, null);
             graph.AddNode(nodeA);
             graph.AddNode(nodeB);
             graph.AddNode(nodeC);
@@ -78,7 +78,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             graph.AddConnection(new ConnectionData(nodeA.Id, pinA_out, nodeB.Id, pinB_in));
             graph.AddConnection(new ConnectionData(nodeB.Id, pinB_out, nodeC.Id, pinC_in));
 
-            var nodesToGroup = new List<BaseNodeData> { nodeA, nodeB };
+            var nodesToGroup = new List<NodeData> { nodeA, nodeB };
 
             var groupGraphData = new GroupGraphData("New Group", GraphType.GroupGraph);
 
@@ -125,10 +125,10 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var pinB_out = new PinData("out", PinDataType.Float, DirectionType.Output);
             var pinOut_in = new PinData("in", PinDataType.Float, DirectionType.Input);
 
-            var inputNode = new BaseNodeData("Input", "Input", Vector2.Zero, null, new List<PinData> { pinIn_out });
-            var nodeA = new BaseNodeData("NodeA", "A", Vector2.Zero, new List<PinData> { pinA_in }, new List<PinData> { pinA_out });
-            var nodeB = new BaseNodeData("NodeB", "B", Vector2.Zero, new List<PinData> { pinB_in }, new List<PinData> { pinB_out });
-            var outputNode = new BaseNodeData("Output", "Output", Vector2.Zero, new List<PinData> { pinOut_in }, null);
+            var inputNode = new NodeData("Input", "Input", Vector2.Zero, null, new List<PinData> { pinIn_out });
+            var nodeA = new NodeData("NodeA", "A", Vector2.Zero, new List<PinData> { pinA_in }, new List<PinData> { pinA_out });
+            var nodeB = new NodeData("NodeB", "B", Vector2.Zero, new List<PinData> { pinB_in }, new List<PinData> { pinB_out });
+            var outputNode = new NodeData("Output", "Output", Vector2.Zero, new List<PinData> { pinOut_in }, null);
             graph.AddNode(inputNode);
             graph.AddNode(nodeA);
             graph.AddNode(nodeB);
@@ -138,7 +138,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             graph.AddConnection(new ConnectionData(nodeA.Id, pinA_out, nodeB.Id, pinB_in));     // Internal
             graph.AddConnection(new ConnectionData(nodeB.Id, pinB_out, outputNode.Id, pinOut_in)); // Outgoing
 
-            var nodesToGroup = new List<BaseNodeData> { nodeA, nodeB };
+            var nodesToGroup = new List<NodeData> { nodeA, nodeB };
 
             var groupGraphData = new GroupGraphData("New Group", GraphType.GroupGraph);
 

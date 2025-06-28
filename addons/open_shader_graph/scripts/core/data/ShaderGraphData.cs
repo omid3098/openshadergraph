@@ -14,7 +14,7 @@ namespace OpenShaderGraph.Core.Data
         public ShaderStage Stage { get; set; }
 
         public ShaderGraphData(string name, ShaderLanguage language, ShaderStage stage)
-            : base(name, GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>())
+            : base(name, GraphType.ShaderGraph, new List<NodeData>(), new List<ConnectionData>())
         {
             Language = language;
             Stage = stage;

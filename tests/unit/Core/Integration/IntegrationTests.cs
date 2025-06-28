@@ -42,10 +42,10 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var resultPin = new PinData("result", PinDataType.Vector3, DirectionType.Output, new Variant(Vector3.Zero));
             var albedoPin = new PinData("albedo", PinDataType.Vector3, DirectionType.Input, new Variant(Vector3.Zero));
 
-            var colorNode = new BaseNodeData("ColorConstant", "ConstantNode", new Vector2(0, 0), new List<PinData>(), new List<PinData> { colorPin });
-            var valueNode = new BaseNodeData("FloatConstant", "ConstantNode", new Vector2(0, 100), new List<PinData>(), new List<PinData> { valuePin });
-            var addNode = new BaseNodeData("Add", "MathNode", new Vector2(200, 50), new List<PinData> { input1Pin, input2Pin }, new List<PinData> { resultPin });
-            var outputNode = new BaseNodeData("Output", "OutputNode", new Vector2(400, 50), new List<PinData> { albedoPin }, new List<PinData>());
+            var colorNode = new NodeData("ColorConstant", "ConstantNode", new Vector2(0, 0), new List<PinData>(), new List<PinData> { colorPin });
+            var valueNode = new NodeData("FloatConstant", "ConstantNode", new Vector2(0, 100), new List<PinData>(), new List<PinData> { valuePin });
+            var addNode = new NodeData("Add", "MathNode", new Vector2(200, 50), new List<PinData> { input1Pin, input2Pin }, new List<PinData> { resultPin });
+            var outputNode = new NodeData("Output", "OutputNode", new Vector2(400, 50), new List<PinData> { albedoPin }, new List<PinData>());
 
             graph.AddNode(colorNode);
             graph.AddNode(valueNode);
@@ -105,10 +105,10 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var math2Out = new PinData("result", PinDataType.Float, DirectionType.Output, new Variant(0.0f));
             var outputIn = new PinData("final", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
-            var inputNode = new BaseNodeData("Input", "InputNode", new Vector2(0, 0), new List<PinData>(), new List<PinData> { inputOut });
-            var math1Node = new BaseNodeData("Math1", "MathNode", new Vector2(100, 0), new List<PinData> { math1In }, new List<PinData> { math1Out });
-            var math2Node = new BaseNodeData("Math2", "MathNode", new Vector2(200, 0), new List<PinData> { math2In }, new List<PinData> { math2Out });
-            var outputNode = new BaseNodeData("Output", "OutputNode", new Vector2(300, 0), new List<PinData> { outputIn }, new List<PinData>());
+            var inputNode = new NodeData("Input", "InputNode", new Vector2(0, 0), new List<PinData>(), new List<PinData> { inputOut });
+            var math1Node = new NodeData("Math1", "MathNode", new Vector2(100, 0), new List<PinData> { math1In }, new List<PinData> { math1Out });
+            var math2Node = new NodeData("Math2", "MathNode", new Vector2(200, 0), new List<PinData> { math2In }, new List<PinData> { math2Out });
+            var outputNode = new NodeData("Output", "OutputNode", new Vector2(300, 0), new List<PinData> { outputIn }, new List<PinData>());
 
             graph.AddNode(inputNode);
             graph.AddNode(math1Node);
@@ -141,8 +141,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var graph = _graphManager.CreateNewGraph();
 
             // Create nodes with specific data
-            var node1 = new BaseNodeData("Node1", "Type1", new Vector2(10, 20));
-            var node2 = new BaseNodeData("Node2", "Type2", new Vector2(30, 40));
+            var node1 = new NodeData("Node1", "Type1", new Vector2(10, 20));
+            var node2 = new NodeData("Node2", "Type2", new Vector2(30, 40));
 
             // Act
             graph.AddNode(node1);
@@ -151,11 +151,11 @@ namespace OpenShaderGraph.Tests.Core.Integration
             // Assert - Verify data integrity
             Assert.That(graph.GetNodes()[0].GetName(), Is.EqualTo("Node1"));
             Assert.That(graph.GetNodes()[0].GetNodeType(), Is.EqualTo("Type1"));
-            Assert.That(graph.GetNodes()[0].GetPosition(), Is.EqualTo(new Vector2(10, 20)));
+            Assert.That(graph.GetNodes()[0].Position, Is.EqualTo(new Vector2(10, 20)));
 
             Assert.That(graph.GetNodes()[1].GetName(), Is.EqualTo("Node2"));
             Assert.That(graph.GetNodes()[1].GetNodeType(), Is.EqualTo("Type2"));
-            Assert.That(graph.GetNodes()[1].GetPosition(), Is.EqualTo(new Vector2(30, 40)));
+            Assert.That(graph.GetNodes()[1].Position, Is.EqualTo(new Vector2(30, 40)));
 
             // Act - Modify nodes and verify changes persist
             var nodeToModify = graph.GetNodes()[0];
@@ -164,7 +164,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
 
             // Assert - Changes should persist
             Assert.That(graph.GetNodes()[0].GetName(), Is.EqualTo("Modified Node1"));
-            Assert.That(graph.GetNodes()[0].GetPosition(), Is.EqualTo(new Vector2(100, 200)));
+            Assert.That(graph.GetNodes()[0].Position, Is.EqualTo(new Vector2(100, 200)));
         }
         #endregion
 
@@ -182,9 +182,9 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var vec2In = new PinData("vec2_in", PinDataType.Vector2, DirectionType.Input, new Variant(Vector2.Zero));
             var vec3In = new PinData("vec3_in", PinDataType.Vector3, DirectionType.Input, new Variant(Vector3.Zero));
 
-            var sourceNode = new BaseNodeData("Source", "SourceNode", Vector2.Zero,
+            var sourceNode = new NodeData("Source", "SourceNode", Vector2.Zero,
                 new List<PinData>(), new List<PinData> { floatOut, vec2Out, vec3Out });
-            var targetNode = new BaseNodeData("Target", "TargetNode", new Vector2(100, 0),
+            var targetNode = new NodeData("Target", "TargetNode", new Vector2(100, 0),
                 new List<PinData> { floatIn, vec2In, vec3In }, new List<PinData>());
 
             graph.AddNode(sourceNode);
@@ -213,8 +213,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var inputPin1 = new PinData("in1", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
             var inputPin2 = new PinData("in2", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
-            var node1 = new BaseNodeData("Node1", "Type1", Vector2.Zero, new List<PinData> { inputPin1 }, new List<PinData> { outputPin1 });
-            var node2 = new BaseNodeData("Node2", "Type2", new Vector2(100, 0), new List<PinData> { inputPin2 }, new List<PinData> { outputPin2 });
+            var node1 = new NodeData("Node1", "Type1", Vector2.Zero, new List<PinData> { inputPin1 }, new List<PinData> { outputPin1 });
+            var node2 = new NodeData("Node2", "Type2", new Vector2(100, 0), new List<PinData> { inputPin2 }, new List<PinData> { outputPin2 });
 
             graph.AddNode(node1);
             graph.AddNode(node2);
@@ -239,7 +239,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var outputPin = new PinData("output", PinDataType.Float, DirectionType.Output, new Variant(1.0f));
             var inputPin = new PinData("input", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
-            var node = new BaseNodeData("SelfNode", "TestNode", Vector2.Zero, new List<PinData> { inputPin }, new List<PinData> { outputPin });
+            var node = new NodeData("SelfNode", "TestNode", Vector2.Zero, new List<PinData> { inputPin }, new List<PinData> { outputPin });
 
             graph.AddNode(node);
 
@@ -259,8 +259,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var outputPin = new PinData("output", PinDataType.Float, DirectionType.Output, new Variant(1.0f));
             var inputPin = new PinData("input", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
-            var existingNode = new BaseNodeData("Existing", "TestNode", Vector2.Zero, new List<PinData> { inputPin }, new List<PinData> { outputPin });
-            var nonExistentNode = new BaseNodeData("NonExistent", "TestNode", new Vector2(100, 0), new List<PinData> { inputPin }, new List<PinData> { outputPin });
+            var existingNode = new NodeData("Existing", "TestNode", Vector2.Zero, new List<PinData> { inputPin }, new List<PinData> { outputPin });
+            var nonExistentNode = new NodeData("NonExistent", "TestNode", new Vector2(100, 0), new List<PinData> { inputPin }, new List<PinData> { outputPin });
 
             graph.AddNode(existingNode); // Only add one node
 
@@ -287,7 +287,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
                 var outputPin = new PinData($"output_{i}", PinDataType.Float, DirectionType.Output, new Variant((float)i));
                 var inputPin = new PinData($"input_{i}", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
 
-                var node = new BaseNodeData($"Node_{i}", "TestNode", new Vector2(i * 10, i * 10), new List<PinData> { inputPin }, new List<PinData> { outputPin });
+                var node = new NodeData($"Node_{i}", "TestNode", new Vector2(i * 10, i * 10), new List<PinData> { inputPin }, new List<PinData> { outputPin });
 
                 graph.AddNode(node);
             }
@@ -311,8 +311,8 @@ namespace OpenShaderGraph.Tests.Core.Integration
             var in1 = new PinData("in1", PinDataType.Float, DirectionType.Input, new Variant(0.0f));
             var in2 = new PinData("in2", PinDataType.Vector2, DirectionType.Input, new Variant(Vector2.Zero));
 
-            var sourceNode = new BaseNodeData("Source", "SourceNode", Vector2.Zero, new List<PinData>(), new List<PinData> { out1, out2 });
-            var targetNode = new BaseNodeData("Target", "TargetNode", new Vector2(100, 0), new List<PinData> { in1, in2 }, new List<PinData>());
+            var sourceNode = new NodeData("Source", "SourceNode", Vector2.Zero, new List<PinData>(), new List<PinData> { out1, out2 });
+            var targetNode = new NodeData("Target", "TargetNode", new Vector2(100, 0), new List<PinData> { in1, in2 }, new List<PinData>());
 
             graph.AddNode(sourceNode);
             graph.AddNode(targetNode);
@@ -359,7 +359,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
             // Create pins with complex values - Using Vector3 as an example of a non-primitive Godot type
             var vec3Pin = new PinData("vec3_val", PinDataType.Vector3, DirectionType.Output, new Variant(new Vector3(1, 2, 3)));
 
-            var node = new BaseNodeData("ComplexNode", "TestNode", Vector2.Zero, new List<PinData>(), new List<PinData> { vec3Pin });
+            var node = new NodeData("ComplexNode", "TestNode", Vector2.Zero, new List<PinData>(), new List<PinData> { vec3Pin });
 
             // Act
             graph.AddNode(node);
@@ -375,10 +375,10 @@ namespace OpenShaderGraph.Tests.Core.Integration
         public void GraphTypes_AllTypes_CreateCorrectly()
         {
             // Act & Assert - Test all graph types
-            var shaderGraph = new GraphData("Shader", GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>());
-            var groupGraph = new GraphData("Group", GraphType.GroupGraph, new List<BaseNodeData>(), new List<ConnectionData>());
-            var localSubgraph = new GraphData("LocalSub", GraphType.LocalSubgraph, new List<BaseNodeData>(), new List<ConnectionData>());
-            var globalSubgraph = new GraphData("GlobalSub", GraphType.GlobalSubgraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var shaderGraph = new GraphData("Shader", GraphType.ShaderGraph, new List<NodeData>(), new List<ConnectionData>());
+            var groupGraph = new GraphData("Group", GraphType.GroupGraph, new List<NodeData>(), new List<ConnectionData>());
+            var localSubgraph = new GraphData("LocalSub", GraphType.LocalSubgraph, new List<NodeData>(), new List<ConnectionData>());
+            var globalSubgraph = new GraphData("GlobalSub", GraphType.GlobalSubgraph, new List<NodeData>(), new List<ConnectionData>());
 
             Assert.That(shaderGraph.GetGraphType(), Is.EqualTo(GraphType.ShaderGraph));
             Assert.That(groupGraph.GetGraphType(), Is.EqualTo(GraphType.GroupGraph));
@@ -390,7 +390,7 @@ namespace OpenShaderGraph.Tests.Core.Integration
         public void GraphProperties_Metadata_PreservesCorrectly()
         {
             // Arrange & Act
-            var graph = new GraphData("TestGraph", GraphType.ShaderGraph, new List<BaseNodeData>(), new List<ConnectionData>());
+            var graph = new GraphData("TestGraph", GraphType.ShaderGraph, new List<NodeData>(), new List<ConnectionData>());
             graph.SetFilePath("test/path/shader.graph");
             graph.SetVersion("1.2.3");
 

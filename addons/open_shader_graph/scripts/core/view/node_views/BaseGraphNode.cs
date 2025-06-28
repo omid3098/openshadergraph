@@ -13,15 +13,15 @@ namespace OpenShaderGraph.Core.View.NodeViews
         public long Id { get; set; } = -1;
         public readonly NodeTemplate Template;
 
-        public Action<BaseNodeData, Vector2> NodeMoved = delegate { };
+        public Action<NodeData, Vector2> NodeMoved = delegate { };
 
-        public BaseNodeData Data { get; private set; }
+        public NodeData Data { get; private set; }
 
         private static readonly Color DefaultPinColor = new Color(1, 1, 1, 0.8f);
 
-        public static BaseNodeData CreateNodeData(NodeTemplate template, Vector2 position)
+        public static NodeData CreateNodeData(NodeTemplate template, Vector2 position)
         {
-            return new BaseNodeData(template, position);
+            return new NodeData(template, position);
         }
 
         public BaseGraphNode() : base()
@@ -29,11 +29,11 @@ namespace OpenShaderGraph.Core.View.NodeViews
             // Default constructor required for Godot
         }
 
-        public virtual void Initialize(BaseNodeData nodeData)
+        public virtual void Initialize(NodeData nodeData)
         {
             Data = nodeData;
-            Title = Data.GetTitle();
-            PositionOffset = Data.GetPosition();
+            Title = Data.Title;
+            PositionOffset = Data.Position;
             FocusMode = Control.FocusModeEnum.All;
 
             Logger.Log("[BaseGraphNode] Initialize");
@@ -93,7 +93,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
             // Use built-in dragged signal externally to handle node movement
         }
 
-        public BaseNodeData GetNodeData()
+        public NodeData GetNodeData()
         {
             return Data;
         }
@@ -105,12 +105,12 @@ namespace OpenShaderGraph.Core.View.NodeViews
 
         public void SetNodePosition(Vector2 value, bool keepOffset = true)
         {
-            Logger.Log($"[BaseGraphNode] set_position called with value: {value}, data_before: {Data?.GetPosition()}");
+            Logger.Log($"[BaseGraphNode] set_position called with value: {value}, data_before: {Data?.Position}");
             PositionOffset = value;
             if (Data != null)
             {
                 Data.SetPosition(value);
-                Logger.Log($"[BaseGraphNode] data position after set_position: {Data.GetPosition()}");
+                Logger.Log($"[BaseGraphNode] data position after set_position: {Data.Position}");
             }
         }
 
@@ -122,18 +122,18 @@ namespace OpenShaderGraph.Core.View.NodeViews
         public void SetNodeTitle(string value)
         {
             Logger.Log("[BaseGraphNode] set_node_title called");
-            Logger.Log($"[BaseGraphNode] set_node_title called with value: {value}, data_before: {Data?.GetTitle()}");
+            Logger.Log($"[BaseGraphNode] set_node_title called with value: {value}, data_before: {Data?.Title}");
             Title = value;
             if (Data != null)
             {
                 // Data.SetName(value);
-                Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.GetTitle()}");
+                Logger.Log($"[BaseGraphNode] data name after set_node_title: {Data.Title}");
             }
         }
 
         public void DeleteNode()
         {
-            Logger.Log($"[BaseGraphNode] DeleteNode invoked for {Data.GetTitle()}({Data.Id})");
+            Logger.Log($"[BaseGraphNode] DeleteNode invoked for {Data.Title}({Data.Id})");
             // Unsubscribe Godot signals
             FocusEntered -= OnFocusEntered;
             FocusExited -= OnFocusExited;

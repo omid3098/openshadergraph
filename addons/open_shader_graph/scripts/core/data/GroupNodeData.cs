@@ -4,7 +4,7 @@ namespace OpenShaderGraph.Core.Data;
 
 using System.Collections.Generic;
 
-public partial class GroupNodeData : BaseNodeData
+public partial class GroupNodeData : NodeData
 {
     public GroupGraphData SubGraph { get; private set; }
 

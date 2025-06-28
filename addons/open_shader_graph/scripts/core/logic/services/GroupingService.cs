@@ -19,7 +19,7 @@ public class GroupingService : IInitializable
     /// The original nodes and connections should be removed from the main graph afterwards,
     /// and a new GroupNode referencing this graph should be added.
     /// </summary>
-    public virtual GroupGraphData Group(string groupName, GraphType graphType, GraphData parentGraph, List<BaseNodeData> nodesToGroup)
+    public virtual GroupGraphData Group(string groupName, GraphType graphType, GraphData parentGraph, List<NodeData> nodesToGroup)
     {
         var groupGraph = new GroupGraphData(groupName, graphType);
         var idMap = new Dictionary<long, long>();
@@ -30,7 +30,7 @@ public class GroupingService : IInitializable
         {
             // Clone the node so we don't modify the original, preserving its ID for later removal
             var oldId = node.Id;
-            BaseNodeData nodeClone;
+            NodeData nodeClone;
             // Preserve group node subgraphs when nesting groups
             if (node is GroupNodeData groupNodeData)
             {
@@ -39,7 +39,7 @@ public class GroupingService : IInitializable
                 var cloneOutputs = new List<PinData>(groupNodeData.GetOutputs());
                 // Create a new GroupNodeData with the existing subgraph reference
                 nodeClone = new GroupNodeData(
-                    groupNodeData.GetPosition(),
+                    groupNodeData.Position,
                     groupNodeData.SubGraph,
                     cloneInputs,
                     cloneOutputs);
@@ -104,20 +104,20 @@ public class GroupingService : IInitializable
     /// It remaps the node IDs from the group to be unique in the main graph.
     /// The groupNodeData should be removed from the main graph after this operation.
     /// </summary>
-    public virtual (List<BaseNodeData> newNodes, List<ConnectionData> newConnections) Ungroup(GraphData mainGraph, BaseNodeData groupNode, GroupGraphData subGraph)
+    public virtual (List<NodeData> newNodes, List<ConnectionData> newConnections) Ungroup(GraphData mainGraph, NodeData groupNode, GroupGraphData subGraph)
     {
-        var newNodes = new List<BaseNodeData>();
+        var newNodes = new List<NodeData>();
         var newConnections = new List<ConnectionData>();
 
         var idMap = new Dictionary<long, long>();
 
         // Remap nodes from subgraph to maingraph
-        var nodesToRemap = subGraph.GetNodes().Where(n => n.GetTitle() != "Input" && n.GetTitle() != "Output").ToList();
+        var nodesToRemap = subGraph.GetNodes().Where(n => n.Title != "Input" && n.Title != "Output").ToList();
 
         foreach (var node in nodesToRemap)
         {
             var oldId = node.Id;
-            node.Id = -1; // Reset ID for the main graph to assign a new one
+            node.SetId(-1); // Reset ID for the main graph to assign a new one
             mainGraph.AddNode(node);
             idMap[oldId] = node.Id;
             newNodes.Add(node);
