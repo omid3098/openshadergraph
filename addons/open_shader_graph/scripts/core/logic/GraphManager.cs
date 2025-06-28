@@ -37,21 +37,7 @@ namespace OpenShaderGraph.Core.Logic
         {
             Logger.Log("[GraphManager] CreateNewGraph -> Returning a new GraphData");
             if (name == null) throw new ArgumentNullException(nameof(name));
-            GraphData graph;
-            if (graphType == GraphType.ShaderGraph)
-            {
-                graph = new ShaderGraphData(name, engine, shaderStage);
-            }
-            else if (graphType == GraphType.GroupGraph)
-            {
-                // Group graphs have built-in input/output nodes
-                graph = new GroupGraphData(name, graphType);
-            }
-            else
-            {
-                // Other graph types (subgraphs) use basic GraphData
-                graph = new GraphData(name, graphType, new List<NodeData>(), new List<ConnectionData>());
-            }
+            GraphData graph = new GraphData(name, graphType);
             AddGraph(graph);
             return graph;
         }

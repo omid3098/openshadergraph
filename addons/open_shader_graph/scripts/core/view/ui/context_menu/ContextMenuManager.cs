@@ -92,17 +92,17 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
                     }
                     break;
                 case MenuOptions.Ungroup:
-                    if (_targetNode.Data is GroupNodeData groupNodeData)
-                    {
-                        var graphData = _graph.GetGraphData();
-                        if (graphData != null)
-                        {
-                            var subGraph = groupNodeData.SubGraph;
-                            Services.Get<GroupingService>().Ungroup(graphData, groupNodeData, subGraph);
-                            graphData.RemoveNode(groupNodeData);
-                            Services.Get<UIManager>().RefreshGraph(graphData);
-                        }
-                    }
+                    // if (_targetNode.Data is GroupNodeData groupNodeData)
+                    // {
+                    //     var graphData = _graph.GetGraphData();
+                    //     if (graphData != null)
+                    //     {
+                    //         var subGraph = groupNodeData.SubGraph;
+                    //         Services.Get<GroupingService>().Ungroup(graphData, groupNodeData, subGraph);
+                    //         graphData.RemoveNode(groupNodeData);
+                    //         Services.Get<UIManager>().RefreshGraph(graphData);
+                    //     }
+                    // }
                     break;
                 case MenuOptions.Copy:
                     GD.Print("Copy not implemented");

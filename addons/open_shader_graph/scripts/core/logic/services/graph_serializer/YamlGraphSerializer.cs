@@ -34,17 +34,15 @@ namespace OpenShaderGraph.Core.Utils
 
         public string Save(GraphData graph)
         {
-            if (graph is ShaderGraphData shaderGraph)
-                return SaveShaderGraph(shaderGraph);
-            throw new NotSupportedException("Only ShaderGraphData is supported by YAML serializer");
+            return SaveGraph(graph);
         }
 
         public GraphData Load(string content, string? filePath = null)
         {
-            return LoadShaderGraph(content, filePath);
+            return LoadGraph(content, filePath);
         }
 
-        public ShaderGraphData LoadShaderGraph(string yamlContent, string? filePath = null)
+        public GraphData LoadGraph(string yamlContent, string? filePath = null)
         {
             var reader = new StringReader(yamlContent);
             var data = _deserializer.Deserialize<Dictionary<object, object>>(reader);
@@ -59,7 +57,7 @@ namespace OpenShaderGraph.Core.Utils
             var shaderLanguage = (ShaderLanguage)languageIndex;
             var stage = (ShaderStage)stageIndex;
 
-            var graph = new ShaderGraphData(name, shaderLanguage, stage);
+            var graph = new GraphData(name, GraphType.ShaderGraph);
             graph.SetVersion(version);
             if (filePath != null)
                 graph.SetFilePath(filePath);
@@ -148,7 +146,7 @@ namespace OpenShaderGraph.Core.Utils
             return graph;
         }
 
-        public string SaveShaderGraph(ShaderGraphData graph)
+        public string SaveGraph(GraphData graph)
         {
             var model = BuildModel(graph);
             var writer = new StringWriter();
@@ -156,7 +154,7 @@ namespace OpenShaderGraph.Core.Utils
             return writer.ToString();
         }
 
-        private Dictionary<string, object> BuildModel(ShaderGraphData graph)
+        private Dictionary<string, object> BuildModel(GraphData graph)
         {
             // Metadata
             var metadata = new Dictionary<string, object>
@@ -166,8 +164,8 @@ namespace OpenShaderGraph.Core.Utils
                 ["type"] = "SHADER_GRAPH",
                 ["properties"] = new Dictionary<string, object>
                 {
-                    ["shader_language"] = (int)graph.Language,
-                    ["shader_stage"] = (int)graph.Stage
+                    // ["shader_language"] = (int)graph.Language,
+                    // ["shader_stage"] = (int)graph.Stage
                 }
             };
 

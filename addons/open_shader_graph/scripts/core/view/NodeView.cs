@@ -6,10 +6,8 @@ using OpenShaderGraph.Core.View.Utils;
 
 namespace OpenShaderGraph.Core.View.NodeViews
 {
-    // TODO: The correct name should be NodeView
-    public abstract partial class NodeView : GraphNode
+    public partial class NodeView : GraphNode
     {
-
         public long Id { get; set; } = -1;
         public readonly NodeTemplate Template;
 

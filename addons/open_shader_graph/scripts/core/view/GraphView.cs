@@ -89,15 +89,14 @@ namespace OpenShaderGraph.Core.View.UI
             {
                 var registeredTemplate = nodeData.Template;
                 NodeView nodeView;
-                if (registeredTemplate != null)
+                if (registeredTemplate == null)
                 {
-                    // todo: not sure what this is doing
-                    nodeView = (NodeView)System.Activator.CreateInstance(registeredTemplate.GetType())!;
+                    throw new Exception($"Node template not found for node with title: {nodeData.Title}");
                 }
                 else
                 {
-                    // Fallback for unregistered node types (e.g., Input/Output in subgraphs)
-                    nodeView = new DefaultGraphNode();
+                    // todo: not sure what this is doing
+                    nodeView = new NodeView();
                 }
                 // Ensure unique Name for ConnectNode
                 nodeView.Name = nodeData.Id.ToString();
@@ -329,7 +328,7 @@ namespace OpenShaderGraph.Core.View.UI
                 // todo: make sure this is correct
                 // previously: var nodeView = (NodeView?)System.Activator.CreateInstance(registeredNode.NodeType);
 
-                var nodeView = new DefaultGraphNode();
+                var nodeView = new NodeView();
                 if (nodeView != null)
                 {
                     nodeView.Initialize(nodeData);
