@@ -13,7 +13,7 @@ namespace OpenShaderGraph.Core.View.NodeViews
         public long Id { get; set; } = -1;
         public readonly NodeTemplate Template;
 
-        public Action<BaseNodeData, Vector2>? NodeMoved;
+        public Action<BaseNodeData, Vector2> NodeMoved = delegate { };
 
         public BaseNodeData Data { get; private set; }
 
