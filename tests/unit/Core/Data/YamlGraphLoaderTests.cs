@@ -13,7 +13,7 @@ namespace OpenShaderGraph.Tests.Core.Data
     public void RoundTrip_MinimalGraph_ShouldMatch()
     {
       // Arrange: create a minimal shader graph
-      var graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderStage.Fragment);
+      var graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderPass.Fragment);
       var constNode = new NodeData("Const", "ConstantNode", new Vector2(0, 0));
       constNode.AddOutput(new PinData("out", Float, DirectionType.Output, new Variant(0.0f)));
       graph.AddNode(constNode);
@@ -72,7 +72,7 @@ connections: []
       Assert.That(graph.GetName(), Is.EqualTo("MyGraph"));
       Assert.That(graph.GetVersion(), Is.EqualTo("1.0"));
       Assert.That(graph.Language, Is.EqualTo(ShaderLanguage.Godot));
-      Assert.That(graph.Stage, Is.EqualTo(ShaderStage.Vertex));
+      Assert.That(graph.Stage, Is.EqualTo(ShaderPass.Vertex));
 
       // Assert node
       var nodes = graph.GetNodes();

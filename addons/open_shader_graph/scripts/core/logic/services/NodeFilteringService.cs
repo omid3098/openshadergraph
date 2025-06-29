@@ -28,7 +28,7 @@ namespace OpenShaderGraph.Core.Logic
 
             // // Determine engine and stage from strongly-typed GraphData when possible
             // ShaderLanguage shaderLanguage;
-            // ShaderStage stage;
+            // ShaderPass stage;
             // if (graphData is ShaderGraphData sg)
             // {
             //     shaderLanguage = sg.Language;
@@ -38,10 +38,10 @@ namespace OpenShaderGraph.Core.Logic
             // {
             //     var props = graphData.GetProperties();
             //     shaderLanguage = props.TryGetValue("shader_language", out var shaderLanguageVariant) ? (ShaderLanguage)shaderLanguageVariant.AsInt32() : ShaderLanguage.Godot;
-            //     stage = props.TryGetValue("shader_stage", out var sv) ? (ShaderStage)sv.AsInt32() : ShaderStage.Fragment;
+            //     stage = props.TryGetValue("shader_stage", out var sv) ? (ShaderPass)sv.AsInt32() : ShaderPass.Fragment;
             // }
 
-            // // ShaderStage filter
+            // // ShaderPass filter
             // if (attr.Stages.Length > 0 && !attr.Stages.Contains(stage))
             //     return false;
 

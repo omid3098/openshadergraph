@@ -17,7 +17,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
         {
             _service = new NodeFilteringService();
             _service.Init();
-            _graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderStage.Fragment);
+            _graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderPass.Fragment);
         }
 
         [Test]
@@ -40,11 +40,11 @@ namespace OpenShaderGraph.Tests.Core.Logic
         }
 
         [Test]
-        public void IsNodeVisible_MismatchedShaderStage_ReturnsFalse()
+        public void IsNodeVisible_MismatchedShaderPass_ReturnsFalse()
         {
             var attr = new RegisterNodeAttribute("TestNode", "General")
             {
-                Stages = new[] { ShaderStage.Vertex }
+                Stages = new[] { ShaderPass.Vertex }
             };
             var rn = new RegisteredNode(typeof(GraphData), attr);
             Assert.That(_service.IsNodeVisible(rn, _graph), Is.False);
@@ -67,7 +67,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             var attr = new RegisterNodeAttribute("TestNode", "General")
             {
                 GraphTypes = new[] { GraphType.ShaderGraph },
-                Stages = new[] { ShaderStage.Fragment },
+                Stages = new[] { ShaderPass.Fragment },
                 Engines = new[] { ShaderLanguage.Godot }
             };
             var rn = new RegisteredNode(typeof(GraphData), attr);
@@ -79,12 +79,12 @@ namespace OpenShaderGraph.Tests.Core.Logic
         {
             // Override graph to GLSL + Compute stage via strongly-typed properties
             _graph.Language = ShaderLanguage.GLSL;
-            _graph.Stage = ShaderStage.Compute;
+            _graph.Stage = ShaderPass.Compute;
 
             var attr = new RegisterNodeAttribute("TestNode", "General")
             {
                 GraphTypes = new[] { GraphType.ShaderGraph },
-                Stages = new[] { ShaderStage.Compute },
+                Stages = new[] { ShaderPass.Compute },
                 Engines = new[] { ShaderLanguage.GLSL }
             };
             var rn = new RegisteredNode(typeof(GraphData), attr);

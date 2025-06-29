@@ -20,7 +20,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void Generate_FragmentGraph_ShouldIncludeHeaderAndNodeCode()
         {
             // Arrange
-            var graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderStage.Fragment);
+            var graph = new ShaderGraphData("TestGraph", ShaderLanguage.Godot, ShaderPass.Fragment);
 
             // Float constant A
             var constA = new NodeData("Float", "Float", new Vector2(0, 0));
@@ -46,7 +46,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             graph.AddConnection(new ConnectionData(constB.Id, constB.GetOutputs().First(), addNode.Id, addNode.GetInputs()[1]));
 
             // Act
-            var code = _generator.Generate(ShaderStage.Fragment, graph);
+            var code = _generator.Generate(ShaderPass.Fragment, graph);
 
             // Assert header
             StringAssert.StartsWith("shader_type spatial;", code);
@@ -65,9 +65,9 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void Generate_LightingStageEmptyGraph_ShouldNotGenerateLightFunction()
         {
             // Arrange
-            var graph = new ShaderGraphData("EmptyGraph", ShaderLanguage.Godot, ShaderStage.Light);
+            var graph = new ShaderGraphData("EmptyGraph", ShaderLanguage.Godot, ShaderPass.Light);
             // Act
-            var code = _generator.Generate(ShaderStage.Light, graph);
+            var code = _generator.Generate(ShaderPass.Light, graph);
             // Assert only header, no light function
             StringAssert.StartsWith("shader_type spatial;", code);
             StringAssert.DoesNotContain("void light()", code);

@@ -58,7 +58,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.That(def.CodeGenerations, Has.Count.EqualTo(1));
             var codeGen = def.CodeGenerations[0];
             Assert.That(codeGen.Language, Is.EqualTo(ShaderLanguage.Godot));
-            Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderStage.All }));
+            Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderPass.All }));
             StringAssert.Contains("float {out} = {value};", codeGen.Code);
         }
 
@@ -94,7 +94,7 @@ namespace OpenShaderGraph.Tests.Core.Data
             Assert.That(def.CodeGenerations, Has.Count.EqualTo(1));
             var codeGen = def.CodeGenerations[0];
             Assert.That(codeGen.Language, Is.EqualTo(ShaderLanguage.Godot));
-            Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderStage.All }));
+            Assert.That(codeGen.Stages, Is.EqualTo(new[] { ShaderPass.All }));
             StringAssert.Contains("float {out} = {a} + {b};", codeGen.Code);
         }
     }

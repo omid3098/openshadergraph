@@ -41,12 +41,12 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             _vbox.AddChild(nameEdit);
 
             // Engine type selector
-            var engineLabel = new Label { Text = "Engine" };
-            var engineSelect = new OptionButton();
-            foreach (ShaderLanguage lang in Enum.GetValues(typeof(ShaderLanguage)))
-            {
-                engineSelect.AddItem(lang.ToString(), (int)lang);
-            }
+            // var engineLabel = new Label { Text = "Engine" };
+            // var engineSelect = new OptionButton();
+            // foreach (ShaderLanguage lang in Enum.GetValues(typeof(ShaderLanguage)))
+            // {
+            //     engineSelect.AddItem(lang.ToString(), (int)lang);
+            // }
             // Set current selection
             // var props = currentGraphData.GetProperties();
             // int currentEngine = props.TryGetValue("shader_language", out var langVar) ? langVar.AsInt32() : (int)ShaderLanguage.Godot;
@@ -58,11 +58,11 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             // Shader stage selector
             // var stageLabel = new Label { Text = "Shader Stage" };
             // var stageSelect = new OptionButton();
-            // foreach (ShaderStage st in Enum.GetValues(typeof(ShaderStage)))
+            // foreach (ShaderPass st in Enum.GetValues(typeof(ShaderPass)))
             // {
             //     stageSelect.AddItem(st.ToString(), (int)st);
             // }
-            // int currentStage = props.TryGetValue("shader_stage", out var stVar) ? stVar.AsInt32() : (int)ShaderStage.Fragment;
+            // int currentStage = props.TryGetValue("shader_stage", out var stVar) ? stVar.AsInt32() : (int)ShaderPass.Fragment;
             // stageSelect.Selected = currentStage;
             // stageSelect.ItemSelected += id => { props["shader_stage"] = id; };
             // _vbox.AddChild(stageLabel);

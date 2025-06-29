@@ -28,7 +28,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.IsNotNull(entries);
             Assert.That(entries.Count, Is.EqualTo(2));
 
-            var allStageEntry = entries.First(e => e.Stage == ShaderStage.All);
+            var allStageEntry = entries.First(e => e.Stage == ShaderPass.All);
             Assert.That(allStageEntry.Engine, Is.EqualTo(ShaderLanguage.Godot));
             Assert.That(allStageEntry.Parameters.Length, Is.EqualTo(3));
             Assert.IsTrue(allStageEntry.Template.Contains("float {result} = {a} + {b};"));
@@ -50,7 +50,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(entries.Count, Is.EqualTo(0));
         }
 
-        private TemplateEntry GetBestTemplate(List<TemplateEntry> entries, ShaderLanguage language, ShaderStage stage)
+        private TemplateEntry GetBestTemplate(List<TemplateEntry> entries, ShaderLanguage language, ShaderPass stage)
         {
             var specificEntry = entries.FirstOrDefault(e => e.Engine == language && e.Stage == stage);
             if (specificEntry != null)
@@ -58,17 +58,17 @@ namespace OpenShaderGraph.Tests.Core.Logic
                 return specificEntry;
             }
             // todo: this is returning a potential null value
-            return entries.FirstOrDefault(e => e.Engine == language && e.Stage == ShaderStage.All);
+            return entries.FirstOrDefault(e => e.Engine == language && e.Stage == ShaderPass.All);
         }
 
         [Test]
         public void TemplateSelection_FragmentOverridesAll()
         {
             var entries = _registry.GetTemplateEntries(_testYamlPath);
-            var bestEntry = GetBestTemplate(entries, ShaderLanguage.Godot, ShaderStage.Fragment);
+            var bestEntry = GetBestTemplate(entries, ShaderLanguage.Godot, ShaderPass.Fragment);
 
             Assert.IsNotNull(bestEntry);
-            Assert.That(bestEntry.Stage, Is.EqualTo(ShaderStage.Fragment));
+            Assert.That(bestEntry.Stage, Is.EqualTo(ShaderPass.Fragment));
             Assert.IsTrue(bestEntry.Template.Contains("+ 0.1;"));
         }
 
@@ -76,10 +76,10 @@ namespace OpenShaderGraph.Tests.Core.Logic
         public void TemplateSelection_FallsBackToAll()
         {
             var entries = _registry.GetTemplateEntries(_testYamlPath);
-            var bestEntry = GetBestTemplate(entries, ShaderLanguage.Godot, ShaderStage.Vertex);
+            var bestEntry = GetBestTemplate(entries, ShaderLanguage.Godot, ShaderPass.Vertex);
 
             Assert.IsNotNull(bestEntry);
-            Assert.That(bestEntry.Stage, Is.EqualTo(ShaderStage.All));
+            Assert.That(bestEntry.Stage, Is.EqualTo(ShaderPass.All));
             Assert.IsFalse(bestEntry.Template.Contains("+ 0.1;"));
         }
     }

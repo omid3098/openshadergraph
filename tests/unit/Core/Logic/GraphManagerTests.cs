@@ -179,11 +179,11 @@ namespace OpenShaderGraph.Tests.Core.Logic
         [Test]
         public void CreateNewGraph_WithCustomEngineAndStage_SetsPropertiesCorrectly()
         {
-            var graph = _graphManager.CreateNewGraph("CustomGraph", ShaderGraph, ShaderLanguage.HLSL, ShaderStage.Compute);
+            var graph = _graphManager.CreateNewGraph("CustomGraph", ShaderGraph, ShaderLanguage.HLSL, ShaderPass.Compute);
             Assert.That(graph, Is.InstanceOf<ShaderGraphData>());
             var sg = (ShaderGraphData)graph;
             Assert.That(sg.Language, Is.EqualTo(ShaderLanguage.HLSL));
-            Assert.That(sg.Stage, Is.EqualTo(ShaderStage.Compute));
+            Assert.That(sg.Stage, Is.EqualTo(ShaderPass.Compute));
         }
 
         [Test]
@@ -193,7 +193,7 @@ namespace OpenShaderGraph.Tests.Core.Logic
             Assert.That(graph, Is.InstanceOf<ShaderGraphData>());
             var sg = (ShaderGraphData)graph;
             Assert.That(sg.Language, Is.EqualTo(ShaderLanguage.Godot));
-            Assert.That(sg.Stage, Is.EqualTo(ShaderStage.Fragment));
+            Assert.That(sg.Stage, Is.EqualTo(ShaderPass.Fragment));
         }
     }
 }

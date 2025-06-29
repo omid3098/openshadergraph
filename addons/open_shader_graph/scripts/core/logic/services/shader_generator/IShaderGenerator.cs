@@ -8,7 +8,7 @@ namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
     public interface IShaderGenerator
     {
         /// <summary>Shader language produced by this generator.</summary>
-        ShaderLanguage Language { get; }
+        // ShaderLanguage Language { get; }
 
         /// <summary>File extension for generated shader files (e.g., ".gdshader").</summary>
         string FileExtension { get; }
@@ -19,6 +19,6 @@ namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
         /// <param name="stage">The shader stage to generate (Vertex, Fragment, Light, etc.).</param>
         /// <param name="graph">The graph data to traverse and emit code from.</param>
         /// <returns>Complete shader code as a string.</returns>
-        string Generate(ShaderStage stage, GraphData graph);
+        string Generate(ShaderPass stage, GraphData graph);
     }
 }

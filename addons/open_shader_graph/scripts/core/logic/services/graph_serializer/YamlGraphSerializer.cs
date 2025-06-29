@@ -55,7 +55,7 @@ namespace OpenShaderGraph.Core.Utils
             // var languageIndex = Convert.ToInt32(properties["shader_language"]);
             // var stageIndex = Convert.ToInt32(properties["shader_stage"]);
             // var shaderLanguage = (ShaderLanguage)languageIndex;
-            // var stage = (ShaderStage)stageIndex;
+            // var stage = (ShaderPass)stageIndex;
 
             // var graph = new GraphData(name, GraphType.ShaderGraph);
             // graph.SetVersion(version);

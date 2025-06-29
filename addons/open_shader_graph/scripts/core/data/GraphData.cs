@@ -6,6 +6,14 @@ using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using System;
 
+public static class ShaderPass
+{
+    public static string VERTEX = "vertex";
+    public static string FRAGMENT = "fragment";
+    public static string LIGHT = "light";
+    public static string COMPUTE = "compute";
+}
+
 public partial class GraphData
 {
     private string _name = "";
@@ -14,13 +22,14 @@ public partial class GraphData
     protected long _nextNodeId = 0;
     private string _filePath = ""; // asset path used for saving and loading
     private string _version = "1.0"; // version identifier for the graph asset
-    private Dictionary<string, Variant> _properties = new(); // custom graph properties
+    private Dictionary<string, object> _properties = new(); // custom graph properties
 
     public GraphData()
     {
         _name = "New Graph";
         _nodes = new List<NodeData>();
         _connections = new List<ConnectionData>();
+        AddProperty("shaderpass", ShaderPass.FRAGMENT);
         Logger.Log($"[GraphData]: {_name}");
     }
 
@@ -29,18 +38,22 @@ public partial class GraphData
     public List<ConnectionData> GetConnections() => _connections;
     public string GetVersion() => _version;
     public string GetFilePath() => _filePath;
-    public Dictionary<string, Variant> GetProperties() => _properties;
-
-    public void SetName(string name)
-    {
-        if (_name != name)
-        {
-            _name = name;
-        }
-    }
+    public Dictionary<string, object> GetProperties() => _properties;
+    public void SetName(string name) => _name = name;
     public void SetVersion(string version) => _version = version;
     public void SetFilePath(string filePath) => _filePath = filePath;
-    public void SetProperties(Dictionary<string, Variant> properties) => _properties = properties;
+    public void AddProperty(string key, object value)
+    {
+        Logger.Log($"[GraphData] Adding property: {key} = {value}");
+        if (!_properties.ContainsKey(key))
+        {
+            _properties.Add(key, value);
+        }
+        else
+        {
+            _properties[key] = value;
+        }
+    }
 
     public NodeData? GetNodeById(long id)
     {

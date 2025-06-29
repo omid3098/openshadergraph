@@ -22,7 +22,7 @@
 //         /// <summary>
 //         /// Generates shader code for the specified stage from the graph.
 //         /// </summary>
-//         public string Generate(ShaderStage stage, ShaderGraphData graph)
+//         public string Generate(ShaderPass stage, ShaderGraphData graph)
 //         {
 //             var ctx = new ShaderGeneratorContext();
 //             var sortedNodes = TopologicalSort(graph);
@@ -57,10 +57,10 @@
 //             {
 //                 string funcName = stage switch
 //                 {
-//                     ShaderStage.Vertex => "vertex",
-//                     ShaderStage.Fragment => "fragment",
-//                     ShaderStage.Light => "light",
-//                     ShaderStage.Compute => "compute",
+//                     ShaderPass.Vertex => "vertex",
+//                     ShaderPass.Fragment => "fragment",
+//                     ShaderPass.Light => "light",
+//                     ShaderPass.Compute => "compute",
 //                     _ => ""
 //                 };
 
@@ -134,7 +134,7 @@
 //             return $"float {varName} = {lit};";
 //         }
 
-//         private string GenerateTemplateCode(NodeData node, ShaderGraphData graph, ShaderGeneratorContext ctx, ShaderStage stage)
+//         private string GenerateTemplateCode(NodeData node, ShaderGraphData graph, ShaderGeneratorContext ctx, ShaderPass stage)
 //         {
 //             // Construct template path relative to test output directory
 //             var baseDir = AppContext.BaseDirectory;
@@ -147,7 +147,7 @@
 //                 return string.Empty;
 
 //             var entry = entries.FirstOrDefault(e => e.Engine == ShaderLanguage.Godot && e.Stage == stage)
-//                         ?? entries.FirstOrDefault(e => e.Engine == ShaderLanguage.Godot && e.Stage == ShaderStage.All);
+//                         ?? entries.FirstOrDefault(e => e.Engine == ShaderLanguage.Godot && e.Stage == ShaderPass.All);
 //             if (entry == null)
 //                 return string.Empty;
 
