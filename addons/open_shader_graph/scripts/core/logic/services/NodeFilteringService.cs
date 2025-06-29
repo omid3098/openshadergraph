@@ -17,7 +17,7 @@ namespace OpenShaderGraph.Core.Logic
         // Determines whether a given node should be visible in the menu for the provided graph context
         public bool IsNodeVisible(NodeData node, GraphData graphData)
         {
-            GD.PrintErr("Implement me");
+            Logger.Log("Implement me", Logger.LogLevel.Error);
             return true;
             // var attr = node.GetNodeType();
             // var graphType = graphData.GetGraphType();

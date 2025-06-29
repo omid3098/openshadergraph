@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.View.UI;
 
 namespace OpenShaderGraph.Core.Utils
 {
@@ -19,9 +20,9 @@ namespace OpenShaderGraph.Core.Utils
         string DefaultFileName { get; }
 
         /// <summary>Serialize the given graph to a string (file content).</summary>
-        string Save(GraphData graph);
+        string Save(GraphView graph);
 
         /// <summary>Deserialize graph content to a graph object, setting file path if provided.</summary>
-        GraphData Load(string content, string? filePath = null);
+        GraphView Load(string content, string? filePath = null);
     }
 }

@@ -6,6 +6,7 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using Godot;
 using OpenShaderGraph.Core.Data;
+using OpenShaderGraph.Core.View.UI;
 
 namespace OpenShaderGraph.Core.Utils
 {
@@ -32,126 +33,118 @@ namespace OpenShaderGraph.Core.Utils
 
         public string DefaultFileName => "new_graph.yml";
 
-        public string Save(GraphData graph)
+        public string Save(GraphView graph)
         {
-            return SaveGraph(graph);
+            // var model = BuildModel(graph);
+            // var writer = new StringWriter();
+            // _serializer.Serialize(writer, model);
+            // return writer.ToString();
+            return "";
         }
 
-        public GraphData Load(string content, string? filePath = null)
+        public GraphView Load(string content, string? filePath = null)
         {
-            return LoadGraph(content, filePath);
-        }
+            // var reader = new StringReader(content);
+            // var data = _deserializer.Deserialize<Dictionary<object, object>>(reader);
 
-        public GraphData LoadGraph(string yamlContent, string? filePath = null)
-        {
-            var reader = new StringReader(yamlContent);
-            var data = _deserializer.Deserialize<Dictionary<object, object>>(reader);
+            // // Parse metadata
+            // var metadata = (Dictionary<object, object>)data["metadata"];
+            // var name = metadata["name"].ToString()!;
+            // var version = metadata["version"].ToString()!;
+            // var properties = (Dictionary<object, object>)metadata["properties"];
+            // var languageIndex = Convert.ToInt32(properties["shader_language"]);
+            // var stageIndex = Convert.ToInt32(properties["shader_stage"]);
+            // var shaderLanguage = (ShaderLanguage)languageIndex;
+            // var stage = (ShaderStage)stageIndex;
 
-            // Parse metadata
-            var metadata = (Dictionary<object, object>)data["metadata"];
-            var name = metadata["name"].ToString()!;
-            var version = metadata["version"].ToString()!;
-            var properties = (Dictionary<object, object>)metadata["properties"];
-            var languageIndex = Convert.ToInt32(properties["shader_language"]);
-            var stageIndex = Convert.ToInt32(properties["shader_stage"]);
-            var shaderLanguage = (ShaderLanguage)languageIndex;
-            var stage = (ShaderStage)stageIndex;
+            // var graph = new GraphData(name, GraphType.ShaderGraph);
+            // graph.SetVersion(version);
+            // if (filePath != null)
+            //     graph.SetFilePath(filePath);
 
-            var graph = new GraphData(name, GraphType.ShaderGraph);
-            graph.SetVersion(version);
-            if (filePath != null)
-                graph.SetFilePath(filePath);
+            // // Load nodes
+            // var nodeEntries = (List<object>)data["nodes"];
+            // var nodeMap = new Dictionary<long, NodeData>();
+            // foreach (var nodeObj in nodeEntries)
+            // {
+            //     var nodeEntry = (Dictionary<object, object>)nodeObj;
+            //     var id = Convert.ToInt64(nodeEntry["id"]);
+            //     var nodeName = nodeEntry["name"].ToString()!;
+            //     var nodeType = nodeEntry["type"].ToString()!;
+            //     var posList = (List<object>)nodeEntry["position"];
+            //     var x = Convert.ToSingle(posList[0]);
+            //     var y = Convert.ToSingle(posList[1]);
+            //     var position = new Vector2(x, y);
 
-            // Load nodes
-            var nodeEntries = (List<object>)data["nodes"];
-            var nodeMap = new Dictionary<long, NodeData>();
-            foreach (var nodeObj in nodeEntries)
-            {
-                var nodeEntry = (Dictionary<object, object>)nodeObj;
-                var id = Convert.ToInt64(nodeEntry["id"]);
-                var nodeName = nodeEntry["name"].ToString()!;
-                var nodeType = nodeEntry["type"].ToString()!;
-                var posList = (List<object>)nodeEntry["position"];
-                var x = Convert.ToSingle(posList[0]);
-                var y = Convert.ToSingle(posList[1]);
-                var position = new Vector2(x, y);
+            //     // Inputs
+            //     var inputsList = (List<object>)nodeEntry["inputs"];
+            //     var inputs = new List<PinData>();
+            //     foreach (var pinObj in inputsList)
+            //     {
+            //         var pinEntry = (Dictionary<object, object>)pinObj;
+            //         var pinName = pinEntry["name"].ToString()!;
+            //         var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
+            //         var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
+            //         if (pinValueObj != null)
+            //         {
+            //             var pinDefaultValue = ParseVariant(pinValueObj, pinType);
+            //             inputs.Add(new PinData(pinName, pinType, DirectionType.Input, pinDefaultValue));
+            //         }
+            //         else
+            //         {
+            //             // todo: what if pinValueObj == null?
+            //         }
+            //     }
 
-                // Inputs
-                var inputsList = (List<object>)nodeEntry["inputs"];
-                var inputs = new List<PinData>();
-                foreach (var pinObj in inputsList)
-                {
-                    var pinEntry = (Dictionary<object, object>)pinObj;
-                    var pinName = pinEntry["name"].ToString()!;
-                    var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
-                    var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
-                    if (pinValueObj != null)
-                    {
-                        var pinDefaultValue = ParseVariant(pinValueObj, pinType);
-                        inputs.Add(new PinData(pinName, pinType, DirectionType.Input, pinDefaultValue));
-                    }
-                    else
-                    {
-                        // todo: what if pinValueObj == null?
-                    }
-                }
+            //     // Outputs
+            //     var outputsList = (List<object>)nodeEntry["outputs"];
+            //     var outputs = new List<PinData>();
+            //     foreach (var pinObj in outputsList)
+            //     {
+            //         var pinEntry = (Dictionary<object, object>)pinObj;
+            //         var pinName = pinEntry["name"].ToString()!;
+            //         var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
+            //         var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
+            //         if (pinValueObj != null)
+            //         {
+            //             var pinDefaultValue = ParseVariant(pinValueObj, pinType);
+            //             outputs.Add(new PinData(pinName, pinType, DirectionType.Output, pinDefaultValue));
+            //         }
+            //         else
+            //         {
+            //             // todo: what should be done if pinValueObj is null
+            //         }
+            //     }
 
-                // Outputs
-                var outputsList = (List<object>)nodeEntry["outputs"];
-                var outputs = new List<PinData>();
-                foreach (var pinObj in outputsList)
-                {
-                    var pinEntry = (Dictionary<object, object>)pinObj;
-                    var pinName = pinEntry["name"].ToString()!;
-                    var pinType = StringToPinDataType(pinEntry["type"].ToString()!);
-                    var pinValueObj = pinEntry.ContainsKey("value") ? pinEntry["value"] : null;
-                    if (pinValueObj != null)
-                    {
-                        var pinDefaultValue = ParseVariant(pinValueObj, pinType);
-                        outputs.Add(new PinData(pinName, pinType, DirectionType.Output, pinDefaultValue));
-                    }
-                    else
-                    {
-                        // todo: what should be done if pinValueObj is null
-                    }
-                }
+            //     // todo: find the template
+            //     var nodeData = new NodeData(new NodeTemplate(), position);
+            //     nodeData.SetId(id);
+            //     graph.AddNode(nodeData);
+            //     nodeMap[id] = nodeData;
+            // }
 
-                // todo: find the template
-                var nodeData = new NodeData(new NodeTemplate(), position);
-                nodeData.SetId(id);
-                graph.AddNode(nodeData);
-                nodeMap[id] = nodeData;
-            }
+            // // Load connections
+            // var connectionsList = (List<object>)data["connections"];
+            // foreach (var connObj in connectionsList)
+            // {
+            //     var connEntry = (Dictionary<object, object>)connObj;
+            //     var fromNodeId = Convert.ToInt64(connEntry["from_node_id"]);
+            //     var fromPinName = connEntry["from_pin"].ToString()!;
+            //     var toNodeId = Convert.ToInt64(connEntry["to_node_id"]);
+            //     var toPinName = connEntry["to_pin"].ToString()!;
 
-            // Load connections
-            var connectionsList = (List<object>)data["connections"];
-            foreach (var connObj in connectionsList)
-            {
-                var connEntry = (Dictionary<object, object>)connObj;
-                var fromNodeId = Convert.ToInt64(connEntry["from_node_id"]);
-                var fromPinName = connEntry["from_pin"].ToString()!;
-                var toNodeId = Convert.ToInt64(connEntry["to_node_id"]);
-                var toPinName = connEntry["to_pin"].ToString()!;
+            //     var fromNode = nodeMap[fromNodeId];
+            //     var toNode = nodeMap[toNodeId];
+            //     var fromPin = fromNode.GetOutputs().Find(p => p.GetName() == fromPinName);
+            //     var toPin = toNode.GetInputs().Find(p => p.GetName() == toPinName);
+            //     if (fromPin != null && toPin != null)
+            //     {
+            //         graph.AddConnection(new ConnectionData(fromNodeId, fromPin, toNodeId, toPin));
+            //     }
+            // }
 
-                var fromNode = nodeMap[fromNodeId];
-                var toNode = nodeMap[toNodeId];
-                var fromPin = fromNode.GetOutputs().Find(p => p.GetName() == fromPinName);
-                var toPin = toNode.GetInputs().Find(p => p.GetName() == toPinName);
-                if (fromPin != null && toPin != null)
-                {
-                    graph.AddConnection(new ConnectionData(fromNodeId, fromPin, toNodeId, toPin));
-                }
-            }
-
-            return graph;
-        }
-
-        public string SaveGraph(GraphData graph)
-        {
-            var model = BuildModel(graph);
-            var writer = new StringWriter();
-            _serializer.Serialize(writer, model);
-            return writer.ToString();
+            // return graph;
+            return null;
         }
 
         private Dictionary<string, object> BuildModel(GraphData graph)

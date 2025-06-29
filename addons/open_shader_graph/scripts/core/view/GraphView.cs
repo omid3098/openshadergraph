@@ -17,60 +17,75 @@ namespace OpenShaderGraph.Core.View.UI
     {
         public Action<NodeView>? NodeSelectedInGraph { get; set; }
         public Action? NodeDeselectedInGraph { get; set; }
-
-        public GraphData? GraphData { get; private set; }
+        public GraphData GraphData { get; private set; }
         private ContextMenuManager? _contextMenuManager;
         private readonly System.Collections.Generic.Dictionary<long, NodeView> _nodeViewCache = new();
+        private bool _listenersAdded = false;
 
-        public GraphView()
+        public GraphView(string name)
         {
-            Logger.Log("[ShaderGraphEdit] init");
-            DeactivateGraphEdit();
+            Logger.Log("[GraphView] init");
+            GraphData = new GraphData();
+            Name = name;
+            GraphData.SetName(name);
+            _listenersAdded = false;
         }
 
-        // TODO: Clean up this initialize method
-        public void Initialize(GraphData graph, ContextMenuManager contextMenuManager)
+        public void Activate()
         {
-            if (GraphData != null)
+            AddListeners();
+            SetProcess(true);
+            SetProcessInput(true);
+        }
+
+        public void Deactivate()
+        {
+            DeselectAllNodes();
+            RemoveListeners();
+            SetProcess(false);
+            SetProcessInput(false);
+        }
+
+        public void AddListeners()
+        {
+            if (_listenersAdded)
             {
-                // Unsubscribe from old events to prevent multiple subscriptions
-                ConnectionRequest -= OnConnectionRequest;
-                DisconnectionRequest -= OnDisconnectionRequest;
-                NodeSelected -= OnNodeSelected;
-                NodeDeselected -= OnNodeDeselected;
-                GraphData.NodeRemoved -= OnNodeRemoved;
-                GraphData.NodeAdded -= OnNodeAdded;
+                return;
             }
-
-            GraphData = graph;
-            _contextMenuManager = contextMenuManager;
-            GraphData.NodeRemoved += OnNodeRemoved;
-            GraphData.NodeAdded += OnNodeAdded;
-
-            ClearGraph();
-            // Defer drawing until this control is in the scene tree so GraphEdit can hook up signals
-            CallDeferred(nameof(DeferredDrawGraph));
-            ActivateGraphEdit();
-
             ConnectionRequest += OnConnectionRequest;
             DisconnectionRequest += OnDisconnectionRequest;
             NodeSelected += OnNodeSelected;
             NodeDeselected += OnNodeDeselected;
+            _listenersAdded = true;
+        }
 
-            RightDisconnects = true;
+        public void RemoveListeners()
+        {
+            if (!_listenersAdded)
+            {
+                return;
+            }
+            ConnectionRequest -= OnConnectionRequest;
+            DisconnectionRequest -= OnDisconnectionRequest;
+            NodeSelected -= OnNodeSelected;
+            NodeDeselected -= OnNodeDeselected;
+            _listenersAdded = false;
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
-            ConnectionRequest -= OnConnectionRequest;
-            DisconnectionRequest -= OnDisconnectionRequest;
-            NodeSelected -= OnNodeSelected;
-            NodeDeselected -= OnNodeDeselected;
-            if (GraphData != null)
+            RemoveListeners();
+        }
+
+        public void DeselectAllNodes()
+        {
+            foreach (var child in GetChildren())
             {
-                GraphData.NodeRemoved -= OnNodeRemoved;
-                GraphData.NodeAdded -= OnNodeAdded;
+                if (child is GraphNode node)
+                {
+                    node.Selected = false;
+                }
             }
         }
 
@@ -358,23 +373,6 @@ namespace OpenShaderGraph.Core.View.UI
                 Logger.Log($"[ShaderGraphEdit] OnNodeRemoved: No matching NodeView found for nodeId {nodeData.Id}");
         }
 
-        private void DeactivateGraphEdit()
-        {
-            SetProcess(false);
-            SetProcessInput(false);
-        }
-
-        private void ActivateGraphEdit()
-        {
-            SetProcess(true);
-            SetProcessInput(true);
-        }
-
-        public GraphData? GetGraphData()
-        {
-            return GraphData;
-        }
-
         private void ClearGraph()
         {
             var connections = GetConnectionList();
@@ -405,12 +403,12 @@ namespace OpenShaderGraph.Core.View.UI
 
         public void RequestNodeDeletion(NodeView node)
         {
-            Services.Get<GraphManager>().RemoveNode(node.Data!);
+            // Services.Get<GraphManager>().RemoveNode(node.Data!);
         }
 
         public void RequestNodeDuplication(NodeView node)
         {
-            Services.Get<GraphManager>().DuplicateNode(node.Data!);
+            // Services.Get<GraphManager>().DuplicateNode(node.Data!);
         }
 
         public void RequestGrouping(Array<GraphNode> nodes)
@@ -429,20 +427,6 @@ namespace OpenShaderGraph.Core.View.UI
         private void DeferredDrawGraph()
         {
             DrawGraph();
-        }
-
-        /// <summary>
-        /// Deselect all nodes in this graph edit.
-        /// </summary>
-        public void DeselectAllNodes()
-        {
-            foreach (var child in GetChildren())
-            {
-                if (child is GraphNode node)
-                {
-                    node.Selected = false;
-                }
-            }
         }
     }
 }

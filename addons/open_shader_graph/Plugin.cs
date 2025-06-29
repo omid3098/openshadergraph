@@ -3,6 +3,7 @@ using OpenShaderGraph.Core.View;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
+using OpenShaderGraph.Core.Logic.Services.GraphManager;
 
 namespace OpenShaderGraph
 {
@@ -17,10 +18,10 @@ namespace OpenShaderGraph
             // Instantiate service instances for constructor-based DI
             ITemplateRegistry templateRegistry = new YamlTemplateRegistry();
             Services.Register(templateRegistry);
+            IGraphManager graphManager = new GraphManager();
+            Services.Register(graphManager);
             UIManager uiManager = new();
             Services.Register(uiManager);
-            GraphManager graphManager = new();
-            Services.Register(graphManager);
             NodeFilteringService nodeFilteringService = new();
             Services.Register(nodeFilteringService);
 

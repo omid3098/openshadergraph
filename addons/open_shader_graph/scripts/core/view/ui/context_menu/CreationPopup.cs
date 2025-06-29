@@ -1,10 +1,7 @@
 using Godot;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Data;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 
 namespace OpenShaderGraph.Core.View.UI.ContextMenu
@@ -89,8 +86,6 @@ namespace OpenShaderGraph.Core.View.UI.ContextMenu
         private void PopulateMenu(string searchText = "")
         {
             searchText = searchText.Trim().ToLower();
-            var filter = Services.Get<NodeFilteringService>();
-            var graphData = _targetGraphEdit.GetGraphData();
             var registeredTemplates = Services.Get<ITemplateRegistry>().GetRegisteredTemplates();
 
             CleanUpMenus();

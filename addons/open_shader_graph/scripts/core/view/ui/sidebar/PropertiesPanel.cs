@@ -1,6 +1,7 @@
 using Godot;
 using OpenShaderGraph.Core.Data;
 using OpenShaderGraph.Core.Logic;
+using OpenShaderGraph.Core.Logic.Services.GraphManager;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.NodeViews;
 using System;
@@ -47,33 +48,33 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
                 engineSelect.AddItem(lang.ToString(), (int)lang);
             }
             // Set current selection
-            var props = currentGraphData.GetProperties();
-            int currentEngine = props.TryGetValue("shader_language", out var langVar) ? langVar.AsInt32() : (int)ShaderLanguage.Godot;
-            engineSelect.Selected = currentEngine;
-            engineSelect.ItemSelected += id => { props["shader_language"] = id; };
-            _vbox.AddChild(engineLabel);
-            _vbox.AddChild(engineSelect);
+            // var props = currentGraphData.GetProperties();
+            // int currentEngine = props.TryGetValue("shader_language", out var langVar) ? langVar.AsInt32() : (int)ShaderLanguage.Godot;
+            // engineSelect.Selected = currentEngine;
+            // engineSelect.ItemSelected += id => { props["shader_language"] = id; };
+            // _vbox.AddChild(engineLabel);
+            // _vbox.AddChild(engineSelect);
 
             // Shader stage selector
-            var stageLabel = new Label { Text = "Shader Stage" };
-            var stageSelect = new OptionButton();
-            foreach (ShaderStage st in Enum.GetValues(typeof(ShaderStage)))
-            {
-                stageSelect.AddItem(st.ToString(), (int)st);
-            }
-            int currentStage = props.TryGetValue("shader_stage", out var stVar) ? stVar.AsInt32() : (int)ShaderStage.Fragment;
-            stageSelect.Selected = currentStage;
-            stageSelect.ItemSelected += id => { props["shader_stage"] = id; };
-            _vbox.AddChild(stageLabel);
-            _vbox.AddChild(stageSelect);
+            // var stageLabel = new Label { Text = "Shader Stage" };
+            // var stageSelect = new OptionButton();
+            // foreach (ShaderStage st in Enum.GetValues(typeof(ShaderStage)))
+            // {
+            //     stageSelect.AddItem(st.ToString(), (int)st);
+            // }
+            // int currentStage = props.TryGetValue("shader_stage", out var stVar) ? stVar.AsInt32() : (int)ShaderStage.Fragment;
+            // stageSelect.Selected = currentStage;
+            // stageSelect.ItemSelected += id => { props["shader_stage"] = id; };
+            // _vbox.AddChild(stageLabel);
+            // _vbox.AddChild(stageSelect);
         }
 
         private void OnGraphNameChanged(string newText)
         {
-            var currentGraphData = Services.Get<GraphManager>().GetCurrentGraph();
-            if (currentGraphData != null)
+            var graphView = Services.Get<IGraphManager>().GetCurrentGraph();
+            if (graphView != null)
             {
-                currentGraphData.SetName(newText);
+                graphView.SetName(newText);
             }
         }
 
@@ -82,8 +83,8 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             ClearProperties();
             if (node == null) return;
 
-            var control = NodeInspector.CreateProperties(node);
-            _vbox.AddChild(control);
+            // var control = NodeInspector.CreateProperties(node);
+            // _vbox.AddChild(control);
         }
     }
 }

@@ -5,24 +5,10 @@ namespace OpenShaderGraph.Core.Data;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using System;
-using OpenShaderGraph.Core.View.NodeViews;
-
-public enum GraphType
-{
-    ShaderGraph,
-    GroupGraph,
-    LocalSubgraph,
-    GlobalSubgraph,
-}
 
 public partial class GraphData
 {
-    public Action<string> NameChanged { get; set; } = delegate { };
-    public Action<NodeData> NodeRemoved { get; set; } = delegate { };
-    public Action<NodeData> NodeAdded { get; set; } = delegate { };
-
     private string _name = "";
-    private GraphType _graphType = GraphType.ShaderGraph;
     protected List<NodeData> _nodes = new();
     protected List<ConnectionData> _connections = new();
     protected long _nextNodeId = 0;
@@ -30,17 +16,15 @@ public partial class GraphData
     private string _version = "1.0"; // version identifier for the graph asset
     private Dictionary<string, Variant> _properties = new(); // custom graph properties
 
-    public GraphData(string name, GraphType graphType, List<NodeData>? nodes = null, List<ConnectionData>? connections = null)
+    public GraphData()
     {
-        _name = name;
-        _graphType = graphType;
-        _nodes = nodes ?? new List<NodeData>();
-        _connections = connections ?? new List<ConnectionData>();
+        _name = "New Graph";
+        _nodes = new List<NodeData>();
+        _connections = new List<ConnectionData>();
         Logger.Log($"[GraphData]: {_name}");
     }
 
     public string GetName() => _name;
-    public GraphType GetGraphType() => _graphType;
     public List<NodeData> GetNodes() => _nodes;
     public List<ConnectionData> GetConnections() => _connections;
     public string GetVersion() => _version;
@@ -52,7 +36,6 @@ public partial class GraphData
         if (_name != name)
         {
             _name = name;
-            NameChanged?.Invoke(name);
         }
     }
     public void SetVersion(string version) => _version = version;
@@ -89,7 +72,6 @@ public partial class GraphData
         }
 
         _nodes.Add(node);
-        NodeAdded?.Invoke(node);
     }
 
     public void RemoveNode(NodeData node)
@@ -103,7 +85,6 @@ public partial class GraphData
         );
 
         _nodes.Remove(node);
-        NodeRemoved?.Invoke(node);
     }
 
     public virtual bool AddConnection(ConnectionData connection)
