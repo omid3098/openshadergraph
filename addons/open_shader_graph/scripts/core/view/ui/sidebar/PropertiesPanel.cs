@@ -5,6 +5,7 @@ using OpenShaderGraph.Core.Logic.Services.GraphManager;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.NodeViews;
 using System;
+using System.Linq;
 
 namespace OpenShaderGraph.Core.View.UI.Sidebar
 {
@@ -28,45 +29,56 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             }
         }
 
-        public void DisplayGraphProperties()
+        public void ShowGraphProperties(GraphView graphView)
         {
-            var currentGraphData = Services.Get<GraphManager>().GetCurrentGraph();
-            if (currentGraphData == null) return;
-
             ClearProperties();
             var nameLabel = new Label { Text = "Graph Name" };
-            var nameEdit = new LineEdit { Text = currentGraphData.GetName() };
-            nameEdit.TextChanged += OnGraphNameChanged;
+            var nameEdit = new LineEdit { Text = graphView.GetName() };
+            nameEdit.TextChanged += graphView.SetName;
             _vbox.AddChild(nameLabel);
             _vbox.AddChild(nameEdit);
 
-            // Engine type selector
-            // var engineLabel = new Label { Text = "Engine" };
-            // var engineSelect = new OptionButton();
-            // foreach (ShaderLanguage lang in Enum.GetValues(typeof(ShaderLanguage)))
-            // {
-            //     engineSelect.AddItem(lang.ToString(), (int)lang);
-            // }
-            // Set current selection
-            // var props = currentGraphData.GetProperties();
-            // int currentEngine = props.TryGetValue("shader_language", out var langVar) ? langVar.AsInt32() : (int)ShaderLanguage.Godot;
-            // engineSelect.Selected = currentEngine;
-            // engineSelect.ItemSelected += id => { props["shader_language"] = id; };
-            // _vbox.AddChild(engineLabel);
-            // _vbox.AddChild(engineSelect);
+            var properties = graphView.GraphData.GetProperties();
+            foreach (var property in properties)
+            {
+                var key = property.Key;
+                // Handle shaderpass which is a unique case for all graphs
+                if (key == "shaderpass")
+                {
+                    var shaderPassLabel = new Label { Text = "Shader Pass" };
+                    var shaderPassSelect = new OptionButton();
 
-            // Shader stage selector
-            // var stageLabel = new Label { Text = "Shader Stage" };
-            // var stageSelect = new OptionButton();
-            // foreach (ShaderPass st in Enum.GetValues(typeof(ShaderPass)))
-            // {
-            //     stageSelect.AddItem(st.ToString(), (int)st);
-            // }
-            // int currentStage = props.TryGetValue("shader_stage", out var stVar) ? stVar.AsInt32() : (int)ShaderPass.Fragment;
-            // stageSelect.Selected = currentStage;
-            // stageSelect.ItemSelected += id => { props["shader_stage"] = id; };
-            // _vbox.AddChild(stageLabel);
-            // _vbox.AddChild(stageSelect);
+                    // Use reflection to get all static string fields from ShaderPass class
+                    var shaderPassType = typeof(ShaderPass);
+                    var staticFields = shaderPassType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+
+                    foreach (var field in staticFields)
+                    {
+                        if (field.FieldType == typeof(string))
+                        {
+                            var value = field.GetValue(null).ToString().Capitalize();
+                            shaderPassSelect.AddItem(value);
+                        }
+                    }
+
+                    _vbox.AddChild(shaderPassLabel);
+                    _vbox.AddChild(shaderPassSelect);
+
+                    // Get the current property value
+                    var currentValue = graphView.GraphData.GetProperties()[key];
+
+                    // Find the index of the field that matches the current value
+                    var selectedIndex = Array.FindIndex(staticFields, f => f.GetValue(null).Equals(currentValue));
+
+                    // Set the selected item (only if a match was found)
+                    if (selectedIndex >= 0)
+                    {
+                        shaderPassSelect.Selected = selectedIndex;
+                    }
+
+                    shaderPassSelect.ItemSelected += id => graphView.GraphData.SetProperty(key, staticFields[id].GetValue(null));
+                }
+            }
         }
 
         private void OnGraphNameChanged(string newText)
@@ -78,7 +90,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             }
         }
 
-        public void DisplayNodeProperties(NodeView node)
+        public void ShowNodeProperties(NodeView node)
         {
             ClearProperties();
             if (node == null) return;

@@ -29,7 +29,7 @@ public partial class GraphData
         _name = "New Graph";
         _nodes = new List<NodeData>();
         _connections = new List<ConnectionData>();
-        AddProperty("shaderpass", ShaderPass.FRAGMENT);
+        SetProperty("shaderpass", ShaderPass.FRAGMENT);
         Logger.Log($"[GraphData]: {_name}");
     }
 
@@ -42,9 +42,9 @@ public partial class GraphData
     public void SetName(string name) => _name = name;
     public void SetVersion(string version) => _version = version;
     public void SetFilePath(string filePath) => _filePath = filePath;
-    public void AddProperty(string key, object value)
+    public void SetProperty(string key, object value)
     {
-        Logger.Log($"[GraphData] Adding property: {key} = {value}");
+        Logger.Log($"[GraphData] Set property: {key} = {value}");
         if (!_properties.ContainsKey(key))
         {
             _properties.Add(key, value);

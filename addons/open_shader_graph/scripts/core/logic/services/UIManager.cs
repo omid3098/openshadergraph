@@ -6,6 +6,7 @@ using OpenShaderGraph.Core.View.UI.ContextMenu;
 using System;
 using OpenShaderGraph.Core.View.UI.Sidebar.MenuBar;
 using OpenShaderGraph.Core.Logic.Services.GraphManager;
+using OpenShaderGraph.Core.View.UI;
 
 namespace OpenShaderGraph.Core.View
 {
@@ -30,6 +31,9 @@ namespace OpenShaderGraph.Core.View
 
             _graphManager = Services.Get<IGraphManager>();
             _graphManager.SetTabContainer(_tabContainer);
+            _graphManager.GraphSelected += OnGraphSelected;
+            _graphManager.GraphDeleted += OnGraphDeleted;
+            _graphManager.GraphNameChanged += OnGraphNameChanged;
         }
 
         void AddListeners()
@@ -138,5 +142,27 @@ namespace OpenShaderGraph.Core.View
         {
             // TODO: Implement this after we have a serializer service
         }
+
+        private void OnGraphSelected(GraphView graphView)
+        {
+            Logger.Log("[UIManager] Graph selected");
+            _tabContainer.CurrentTab = graphView.GetIndex();
+            _sidebar.GetPropertiesPanel().ShowGraphProperties(graphView);
+        }
+
+        private void OnGraphDeleted(GraphView graphView)
+        {
+            Logger.Log("[UIManager] Graph deleted");
+        }
+
+        private void OnGraphNameChanged(GraphView graphView)
+        {
+            Logger.Log("[UIManager] Graph name changed");
+        }
+
+        // private void OnGraphCreated(GraphView graphView)
+        // {
+        //     Logger.Log("[UIManager] Graph created");
+        // }
     }
 }

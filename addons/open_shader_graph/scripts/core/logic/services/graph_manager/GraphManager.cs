@@ -3,12 +3,17 @@ using Godot;
 using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.UI;
+using System;
 
 namespace OpenShaderGraph.Core.Logic.Services.GraphManager
 {
     // TODO: GraphManager is better to be responsible for creating and managing graph views and UIManager can have a reference to it to get the current graph view. We also do not have a graphview without a graphdata. so all events in this class can be handled by each graphview. then we can have a list of all available graphviews in this class with one current active graphview.
     public partial class GraphManager : Node, IInitializable, IGraphManager
     {
+        public event Action<GraphView> GraphSelected;
+        public event Action<GraphView> GraphDeleted;
+        public event Action<GraphView> GraphCreated;
+        public event Action<GraphView> GraphNameChanged;
         private List<GraphView> _graphViews;
         private GraphView _currentGraphView;
         private TabContainer _tabContainer;
@@ -82,6 +87,7 @@ namespace OpenShaderGraph.Core.Logic.Services.GraphManager
             _tabContainer.AddChild(graphView);
             _graphViews.Add(graphView);
             SelectGraph(graphView);
+            GraphCreated?.Invoke(graphView);
             return graphView;
         }
 
@@ -89,6 +95,7 @@ namespace OpenShaderGraph.Core.Logic.Services.GraphManager
         {
             graph.QueueFree();
             _graphViews.Remove(graph);
+            GraphDeleted?.Invoke(graph);
         }
 
         public void SelectGraph(GraphView graph)
@@ -99,11 +106,18 @@ namespace OpenShaderGraph.Core.Logic.Services.GraphManager
             }
             graph.Activate();
             _currentGraphView = graph;
+            GraphSelected?.Invoke(graph);
         }
 
         public GraphView GetCurrentGraph()
         {
             return _currentGraphView;
+        }
+
+        public void SetCurrentGraphName(string name)
+        {
+            _currentGraphView.SetName(name);
+            GraphNameChanged?.Invoke(_currentGraphView);
         }
     }
 }
