@@ -2,6 +2,12 @@ name: godot
 version: 1.0
 description: Godot shader language
 
+shader_stage:
+  - vertex
+  - fragment
+  - light
+  - compute
+
 shader_type:
   - spatial:
     - render_mode:
