@@ -22,14 +22,14 @@ public partial class GraphData
     protected long _nextNodeId = 0;
     private string _filePath = ""; // asset path used for saving and loading
     private string _version = "1.0"; // version identifier for the graph asset
-    private Dictionary<string, object> _properties = new(); // custom graph properties
+    private Dictionary<string, object> _meta = new(); // custom graph metadata
 
     public GraphData()
     {
         _name = "New Graph";
         _nodes = new List<NodeData>();
         _connections = new List<ConnectionData>();
-        SetProperty("shaderpass", ShaderPass.FRAGMENT);
+        SetMeta("shaderpass", ShaderPass.FRAGMENT);
         Logger.Log($"[GraphData]: {_name}");
     }
 
@@ -38,20 +38,20 @@ public partial class GraphData
     public List<ConnectionData> GetConnections() => _connections;
     public string GetVersion() => _version;
     public string GetFilePath() => _filePath;
-    public Dictionary<string, object> GetProperties() => _properties;
+    public Dictionary<string, object> GetProperties() => _meta;
     public void SetName(string name) => _name = name;
     public void SetVersion(string version) => _version = version;
     public void SetFilePath(string filePath) => _filePath = filePath;
-    public void SetProperty(string key, object value)
+    public void SetMeta(string key, object value)
     {
         Logger.Log($"[GraphData] Set property: {key} = {value}");
-        if (!_properties.ContainsKey(key))
+        if (!_meta.ContainsKey(key))
         {
-            _properties.Add(key, value);
+            _meta.Add(key, value);
         }
         else
         {
-            _properties[key] = value;
+            _meta[key] = value;
         }
     }
 

@@ -9,12 +9,19 @@ public class NodeData
     public long Id { get; private set; } = -1;
     public string Title { get; private set; } = "";
     public Vector2 Position { get; private set; }
+    private Dictionary<string, object> _meta = new(); // custom node metadata
 
     public NodeTemplate Template;
     public NodeData(NodeTemplate template, Vector2 position)
     {
         Position = position;
         Template = template;
+    }
+
+    public Dictionary<string, object> GetMeta() => _meta;
+    public void SetMeta(string key, object value)
+    {
+        _meta[key] = value;
     }
     public string GetNodeType() => Template.Type;
     public List<PinData> GetInputs() => Template.Inputs;

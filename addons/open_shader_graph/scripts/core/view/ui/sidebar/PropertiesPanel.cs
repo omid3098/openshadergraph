@@ -76,7 +76,7 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
                         shaderPassSelect.Selected = selectedIndex;
                     }
 
-                    shaderPassSelect.ItemSelected += id => graphView.GraphData.SetProperty(key, staticFields[id].GetValue(null));
+                    shaderPassSelect.ItemSelected += id => graphView.GraphData.SetMeta(key, staticFields[id].GetValue(null));
                 }
             }
         }
