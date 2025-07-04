@@ -7,11 +7,12 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar.MenuBar
 
         public enum FileMenuItem
         {
-            NewGraph,
-            OpenGraph,
+            NewSurfaceShader,
+            NewCanvasShader,
+            NewComputeShader,
+            Open,
             Save,
-            SaveAs,
-            Export
+            SaveAs
         }
     }
 }

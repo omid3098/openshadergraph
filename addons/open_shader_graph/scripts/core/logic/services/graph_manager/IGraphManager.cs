@@ -13,7 +13,7 @@ namespace OpenShaderGraph.Core.Logic.Services.GraphManager
         public event Action<GraphView> GraphCreated;
         public event Action<GraphView> GraphNameChanged;
         void Init();
-        GraphView CreateGraph();
+        GraphView CreateGraph(ShaderType shaderType);
         void DeleteGraph(GraphView graph);
         void SelectGraph(GraphView graph);
         void SetTabContainer(TabContainer tabContainer);

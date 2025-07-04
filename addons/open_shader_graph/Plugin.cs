@@ -4,6 +4,7 @@ using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.Logic;
 using OpenShaderGraph.Core.Logic.Services.TemplateRegistry;
 using OpenShaderGraph.Core.Logic.Services.GraphManager;
+using OpenShaderGraph.Core.Logic.Services.LanguageRegistry;
 
 namespace OpenShaderGraph
 {
@@ -24,6 +25,8 @@ namespace OpenShaderGraph
             Services.Register(uiManager);
             NodeFilteringService nodeFilteringService = new();
             Services.Register(nodeFilteringService);
+            ILanguageRegistry languageRegistry = new YamlLanguageRegistry();
+            Services.Register(languageRegistry);
 
             // TODO: Implement these services later
             // var groupingService = new GroupingService();

@@ -22,10 +22,10 @@ namespace OpenShaderGraph.Core.View.UI
         private readonly System.Collections.Generic.Dictionary<long, NodeView> _nodeViewCache = new();
         private bool _listenersAdded = false;
 
-        public GraphView(string name)
+        public GraphView(string name, ShaderType shaderType)
         {
             Logger.Log("[GraphView] init");
-            GraphData = new GraphData();
+            GraphData = new GraphData(shaderType);
             Name = name;
             GraphData.SetName(name);
             _listenersAdded = false;
@@ -219,22 +219,23 @@ namespace OpenShaderGraph.Core.View.UI
             return selectedNodes;
         }
 
+        // TODO: this should not create a nodedata, but a nodeview (if it is even needed to have this method)
         public void CreateNodeAt(string nodeName, Vector2 position)
         {
 
             Logger.Log($"[DEBUG] Node creation requested: {nodeName} at position {position}");
             Logger.Log($"Node creation requested: {nodeName} at {position}");
-            var registeredTemplate = Services.Get<ITemplateRegistry>().FindTemplate(nodeName);
+            // var registeredTemplate = Services.Get<ITemplateRegistry>().FindTemplate(nodeName);
 
-            if (registeredTemplate != null)
-            {
-                var nodeData = new NodeData(registeredTemplate, position);
-                // 2. Add to Graph Data
-                if (nodeData != null && GraphData != null)
-                {
-                    GraphData.AddNode(nodeData);
-                }
-            }
+            // if (registeredTemplate != null)
+            // {
+            //     var nodeData = new NodeData(registeredTemplate, position);
+            //     // 2. Add to Graph Data
+            //     if (nodeData != null && GraphData != null)
+            //     {
+            //         GraphData.AddNode(nodeData);
+            //     }
+            // }
         }
 
         private void OnConnectionRequest(StringName fromNode, long fromPort, StringName toNode, long toPort)

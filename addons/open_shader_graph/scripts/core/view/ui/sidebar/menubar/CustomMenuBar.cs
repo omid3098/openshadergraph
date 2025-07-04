@@ -172,13 +172,14 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar.MenuBar
         {
             var fileItems = new MenuItemData[]
             {
-                new() { Text = "New Graph", Id = (int)MenuEnums.FileMenuItem.NewGraph },
-                new() { Text = "Open Graph", Id = (int)MenuEnums.FileMenuItem.OpenGraph },
+                new() { Text = "New Surface Shader", Id = (int)MenuEnums.FileMenuItem.NewSurfaceShader },
+                new() { Text = "New Canvas Shader", Id = (int)MenuEnums.FileMenuItem.NewCanvasShader },
+                new() { Text = "New Compute Shader", Id = (int)MenuEnums.FileMenuItem.NewComputeShader },
+                new() { Separator = true },
+                new() { Text = "Open", Id = (int)MenuEnums.FileMenuItem.Open },
                 new() { Separator = true },
                 new() { Text = "Save", Id = (int)MenuEnums.FileMenuItem.Save },
                 new() { Text = "Save As", Id = (int)MenuEnums.FileMenuItem.SaveAs },
-                new() { Separator = true },
-                new() { Text = "Export", Id = (int)MenuEnums.FileMenuItem.Export }
             };
             AddMenu("File", fileItems);
         }

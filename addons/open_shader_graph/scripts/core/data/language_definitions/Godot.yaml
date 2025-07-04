@@ -2,12 +2,6 @@ name: godot
 version: 1.0
 description: Godot shader language
 
-shader_stage:
-  - vertex
-  - fragment
-  - light
-  - compute
-
 shader_type:
   - spatial:
     - render_mode:
@@ -59,11 +53,3 @@ shader_type:
       - light_only
       - skip_vertex_transform
       - world_vertex_coords
-  - particle:
-    - render_mode:
-      - keep_data
-      - disable_force
-      - disable_velocity
-      - collision_use_scale
-  - sky
-  - fog

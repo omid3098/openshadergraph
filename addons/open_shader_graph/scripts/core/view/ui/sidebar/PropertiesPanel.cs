@@ -38,46 +38,50 @@ namespace OpenShaderGraph.Core.View.UI.Sidebar
             _vbox.AddChild(nameLabel);
             _vbox.AddChild(nameEdit);
 
+            // Shader Type as a read only label
+            var shaderTypeLabel = new Label { Text = "Shader Type: " + graphView.GraphData.GetShaderType().ToString() };
+            _vbox.AddChild(shaderTypeLabel);
+
             var properties = graphView.GraphData.GetProperties();
             foreach (var property in properties)
             {
-                var key = property.Key;
+                // var key = property.Key;
                 // Handle shaderpass which is a unique case for all graphs
-                if (key == "shaderpass")
-                {
-                    var shaderPassLabel = new Label { Text = "Shader Pass" };
-                    var shaderPassSelect = new OptionButton();
+                // if (key == "shaderpass")
+                // {
+                //     var shaderPassLabel = new Label { Text = "Shader Pass" };
+                //     var shaderPassSelect = new OptionButton();
 
-                    // Use reflection to get all static string fields from ShaderPass class
-                    var shaderPassType = typeof(ShaderPass);
-                    var staticFields = shaderPassType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                //     // Use reflection to get all static string fields from ShaderPass class
+                //     var shaderPassType = typeof(ShaderPass);
+                //     var staticFields = shaderPassType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
-                    foreach (var field in staticFields)
-                    {
-                        if (field.FieldType == typeof(string))
-                        {
-                            var value = field.GetValue(null).ToString().Capitalize();
-                            shaderPassSelect.AddItem(value);
-                        }
-                    }
+                //     foreach (var field in staticFields)
+                //     {
+                //         if (field.FieldType == typeof(string))
+                //         {
+                //             var value = field.GetValue(null).ToString().Capitalize();
+                //             shaderPassSelect.AddItem(value);
+                //         }
+                //     }
 
-                    _vbox.AddChild(shaderPassLabel);
-                    _vbox.AddChild(shaderPassSelect);
+                //     _vbox.AddChild(shaderPassLabel);
+                //     _vbox.AddChild(shaderPassSelect);
 
-                    // Get the current property value
-                    var currentValue = graphView.GraphData.GetProperties()[key];
+                //     // Get the current property value
+                //     var currentValue = graphView.GraphData.GetProperties()[key];
 
-                    // Find the index of the field that matches the current value
-                    var selectedIndex = Array.FindIndex(staticFields, f => f.GetValue(null).Equals(currentValue));
+                //     // Find the index of the field that matches the current value
+                //     var selectedIndex = Array.FindIndex(staticFields, f => f.GetValue(null).Equals(currentValue));
 
-                    // Set the selected item (only if a match was found)
-                    if (selectedIndex >= 0)
-                    {
-                        shaderPassSelect.Selected = selectedIndex;
-                    }
+                //     // Set the selected item (only if a match was found)
+                //     if (selectedIndex >= 0)
+                //     {
+                //         shaderPassSelect.Selected = selectedIndex;
+                //     }
 
-                    shaderPassSelect.ItemSelected += id => graphView.GraphData.SetMeta(key, staticFields[id].GetValue(null));
-                }
+                //     shaderPassSelect.ItemSelected += id => graphView.GraphData.SetMeta(key, staticFields[id].GetValue(null));
+                // }
             }
         }
 

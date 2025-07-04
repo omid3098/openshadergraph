@@ -6,15 +6,14 @@ using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using System;
 
-public static class ShaderPass
+public enum ShaderType
 {
-    public static string VERTEX = "vertex";
-    public static string FRAGMENT = "fragment";
-    public static string LIGHT = "light";
-    public static string COMPUTE = "compute";
+    Surface = 0,
+    Canvas = 1,
+    Compute = 2
 }
 
-public partial class GraphData
+public class GraphData
 {
     private string _name = "";
     protected List<NodeData> _nodes = new();
@@ -23,13 +22,16 @@ public partial class GraphData
     private string _filePath = ""; // asset path used for saving and loading
     private string _version = "1.0"; // version identifier for the graph asset
     private Dictionary<string, object> _meta = new(); // custom graph metadata
+    private ShaderType _shaderType;
 
-    public GraphData()
+    public GraphData(ShaderType shaderType)
     {
-        _name = "New Graph";
+        _name = "New " + shaderType.ToString() + " Shader";
+        _shaderType = shaderType;
         _nodes = new List<NodeData>();
         _connections = new List<ConnectionData>();
-        SetMeta("shaderpass", ShaderPass.FRAGMENT);
+        // TODO: Default meta should be set based on the graph type in language definitions
+        // SetMeta("shaderpass", ShaderPass.FRAGMENT);
         Logger.Log($"[GraphData]: {_name}");
     }
 
@@ -39,6 +41,7 @@ public partial class GraphData
     public string GetVersion() => _version;
     public string GetFilePath() => _filePath;
     public Dictionary<string, object> GetProperties() => _meta;
+    public ShaderType GetShaderType() => _shaderType;
     public void SetName(string name) => _name = name;
     public void SetVersion(string version) => _version = version;
     public void SetFilePath(string filePath) => _filePath = filePath;

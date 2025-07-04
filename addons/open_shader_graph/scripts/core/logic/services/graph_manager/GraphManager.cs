@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using OpenShaderGraph.Core.Utils;
 using OpenShaderGraph.Core.View.UI;
 using System;
+using OpenShaderGraph.Core.Data;
 
 namespace OpenShaderGraph.Core.Logic.Services.GraphManager
 {
-    // TODO: GraphManager is better to be responsible for creating and managing graph views and UIManager can have a reference to it to get the current graph view. We also do not have a graphview without a graphdata. so all events in this class can be handled by each graphview. then we can have a list of all available graphviews in this class with one current active graphview.
     public partial class GraphManager : Node, IInitializable, IGraphManager
     {
         public event Action<GraphView> GraphSelected;
@@ -80,10 +80,10 @@ namespace OpenShaderGraph.Core.Logic.Services.GraphManager
             }
         }
 
-        public GraphView CreateGraph()
+        public GraphView CreateGraph(ShaderType shaderType)
         {
             Logger.Log("[GraphManager] Creating graph");
-            var graphView = new GraphView("New Graph " + (_graphViews.Count + 1));
+            var graphView = new GraphView("New " + shaderType.ToString() + (_graphViews.Count + 1), shaderType);
             _tabContainer.AddChild(graphView);
             _graphViews.Add(graphView);
             SelectGraph(graphView);

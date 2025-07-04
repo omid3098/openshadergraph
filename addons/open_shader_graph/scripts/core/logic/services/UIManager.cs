@@ -7,6 +7,7 @@ using System;
 using OpenShaderGraph.Core.View.UI.Sidebar.MenuBar;
 using OpenShaderGraph.Core.Logic.Services.GraphManager;
 using OpenShaderGraph.Core.View.UI;
+using OpenShaderGraph.Core.Data;
 
 namespace OpenShaderGraph.Core.View
 {
@@ -107,14 +108,17 @@ namespace OpenShaderGraph.Core.View
             // Handle actions based on the selected File menu item enum.
             switch ((MenuEnums.FileMenuItem)itemId)
             {
-                case MenuEnums.FileMenuItem.NewGraph:
-                    Logger.Log("[UIManager] File > New Graph");
-                    _graphManager.CreateGraph();
+                case MenuEnums.FileMenuItem.NewSurfaceShader:
+                    Logger.Log("[UIManager] File > New Surface Shader");
+                    _graphManager.CreateGraph(ShaderType.Surface);
                     break;
-                case MenuEnums.FileMenuItem.OpenGraph:
-                    Logger.Log("[UIManager] File > Open Graph");
-                    // _fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile;
-                    // _fileDialog.PopupCentered();
+                case MenuEnums.FileMenuItem.NewCanvasShader:
+                    Logger.Log("[UIManager] File > New Canvas Shader");
+                    _graphManager.CreateGraph(ShaderType.Canvas);
+                    break;
+                case MenuEnums.FileMenuItem.NewComputeShader:
+                    Logger.Log("[UIManager] File > New Compute Shader");
+                    _graphManager.CreateGraph(ShaderType.Compute);
                     break;
                 case MenuEnums.FileMenuItem.Save:
                     Logger.Log("[UIManager] File > Save");
@@ -124,8 +128,10 @@ namespace OpenShaderGraph.Core.View
                     Logger.Log("[UIManager] File > Save As");
                     // OnSaveAsMenu();
                     break;
-                case MenuEnums.FileMenuItem.Export:
-                    Logger.Log("[UIManager] File > Export");
+                case MenuEnums.FileMenuItem.Open:
+                    Logger.Log("[UIManager] File > Open");
+                    // _fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile;
+                    // _fileDialog.PopupCentered();
                     break;
                 default:
                     Logger.Log($"[UIManager] Unknown file menu action: {itemId}");

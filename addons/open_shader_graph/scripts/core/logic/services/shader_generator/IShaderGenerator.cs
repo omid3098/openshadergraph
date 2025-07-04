@@ -19,6 +19,6 @@ namespace OpenShaderGraph.Core.Logic.Services.ShaderGenerator
         /// <param name="stage">The shader stage to generate (Vertex, Fragment, Light, etc.).</param>
         /// <param name="graph">The graph data to traverse and emit code from.</param>
         /// <returns>Complete shader code as a string.</returns>
-        string Generate(ShaderPass stage, GraphData graph);
+        string Generate(string stage, GraphData graph);
     }
 }
