@@ -1,0 +1,19 @@
+# data/shader_templates/Compute.yml
+version: "3.0"
+name: "New Compute Shader"
+type: Compute
+meta:
+  description: "A compute shader with no stages."
+
+# For a Compute shader, we allow creating any node in the main graph.
+constraints:
+  allowed_nodes: ["*/*"]
+  disallowed_nodes:
+    - "outputs/FragmentOutput"
+    - "core/StageOutput"
+
+# A compute shader has no 'stages', just a main 'graph_view'
+# where the user can add nodes directly.
+graph_view:
+  nodes: []
+  connections: []

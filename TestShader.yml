@@ -1,0 +1,43 @@
+version: '3.0'
+name: TestShader
+type: Surface
+meta:
+  description: A shader with embedded, editable vertex and fragment stages.
+constraints:
+  allowed_nodes: []
+graph_view:
+  nodes:
+  - id: 1
+    stage_ref: vertex
+    title: Vertex
+    position:
+      x: 150
+      y: 250
+  - id: 2
+    stage_ref: fragment
+    title: Fragment
+    position:
+      x: 500
+      y: 250
+  connections: []
+stages:
+  vertex:
+    constraints:
+      allowed_nodes:
+      - math/*
+      - inputs/*
+      - uv/*
+      - core/StageOutput
+      - asset://*
+      disallowed_nodes:
+      - outputs/FragmentOutput
+    nodes: []
+    connections: []
+  fragment:
+    constraints:
+      allowed_nodes:
+      - '*/*'
+      disallowed_nodes:
+      - core/StageOutput
+    nodes: []
+    connections: []

@@ -1,0 +1,39 @@
+# data/shader_templates/Canvas.yml
+version: "3.0"
+name: "New Canvas Shader"
+type: Canvas
+meta:
+  description: "A shader with embedded, editable vertex and fragment stages for 2D."
+
+constraints:
+  allowed_nodes: []
+
+# Note: The stages are named differently to align with Godot's canvas_item shaders
+graph_view:
+  nodes:
+    - id: 1
+      stage_ref: "vertex"
+      title: "Vertex"
+      position: { x: 150, y: 250 }
+    - id: 2
+      stage_ref: "fragment"
+      title: "Fragment"
+      position: { x: 500, y: 250 }
+  connections: []
+
+stages:
+  vertex:
+    constraints:
+      allowed_nodes:
+        - "*/*"
+      disallowed_nodes:
+        - "outputs/FragmentOutput"
+    nodes: []
+    connections: []
+
+  fragment:
+    constraints:
+      allowed_nodes: ["*/*"]
+      disallowed_nodes: ["core/StageOutput"]
+    nodes: []
+    connections: []
