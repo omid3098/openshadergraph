@@ -1,0 +1,16 @@
+# nodes/math/Multiply.yml
+name: "Multiply"
+category: "math"
+description: "Outputs the product of two values."
+
+template_code: "{{out}} = {{a}} * {{b}};"
+
+inputs:
+  - name: "a"
+    type: "void"
+  - name: "b"
+    type: "void"
+
+outputs:
+  - name: "out"
+    type: "void"

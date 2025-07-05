@@ -1,0 +1,14 @@
+# nodes/math/Cosine.yml
+name: "Cosine"
+category: "math"
+description: "Outputs the cosine of a value."
+
+template_code: "{{out}} = cos({{in}});"
+
+inputs:
+  - name: "in"
+    type: "void"
+
+outputs:
+  - name: "out"
+    type: "void"

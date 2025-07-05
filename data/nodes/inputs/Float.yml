@@ -1,0 +1,15 @@
+# nodes/inputs/Float.yml
+name: "Float"
+category: "inputs"
+description: "Provides a single floating-point value."
+
+template_code: "{{out}} = {{value}};"
+
+inputs:
+  - name: "value"
+    type: "float"
+    default_value: 1.0
+
+outputs:
+  - name: "out"
+    type: "float"

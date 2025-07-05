@@ -1,0 +1,18 @@
+# nodes/uv/Rotator.yml
+name: "Rotator"
+category: "uv"
+description: "Rotates UV coordinates around a center point."
+
+inputs:
+  - name: "uv_in"
+    type: "vec2"
+  - name: "center"
+    type: "vec2"
+    default_value: { x: 0.5, y: 0.5 }
+  - name: "angle"
+    type: "float"
+    default_value: 0.0
+
+outputs:
+  - name: "uv_out"
+    type: "vec2"

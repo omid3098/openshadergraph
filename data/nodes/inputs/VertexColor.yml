@@ -1,0 +1,12 @@
+# nodes/inputs/VertexColor.yml
+name: "Vertex Color"
+category: "inputs"
+description: "Provides access to the mesh's vertex colors."
+
+template_code: "{{out}} = COLOR;"
+
+inputs: []
+
+outputs:
+  - name: "out"
+    type: "vec4"

@@ -1,0 +1,15 @@
+# nodes/uv/Tiler.yml
+name: "Tiler"
+category: "uv"
+description: "Tiles UV coordinates."
+
+inputs:
+  - name: "uv_in"
+    type: "vec2"
+  - name: "tiling"
+    type: "vec2"
+    default_value: { x: 1.0, y: 1.0 }
+
+outputs:
+  - name: "uv_out"
+    type: "vec2"

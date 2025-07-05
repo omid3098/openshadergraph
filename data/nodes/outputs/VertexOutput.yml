@@ -1,0 +1,15 @@
+# nodes/outputs/VertexOutput.yml
+name: "Vertex Output"
+category: "outputs"
+description: "The final output for a vertex shader."
+
+# This node assigns values to the final vertex output variables.
+template_code: |
+  VERTEX = {{vertex}};
+
+inputs:
+  - name: "vertex"
+    type: "vec3"
+    default_value: { x: 0.0, y: 0.0, z: 0.0 }
+
+outputs: []

@@ -1,0 +1,11 @@
+# nodes/core/Preview.yml
+name: "Preview"
+category: "core"
+description: "A special node to visualize the output of another node at any point in the graph."
+
+# The preview node has one input that can accept any type.
+inputs:
+  - name: "in"
+    type: "void" # 'void' can accept any connection
+
+outputs: []

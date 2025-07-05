@@ -1,0 +1,14 @@
+# nodes/math/Sine.yml
+name: "Sine"
+category: "math"
+description: "Outputs the sine of a value."
+
+template_code: "{{out}} = sin({{in}});"
+
+inputs:
+  - name: "in"
+    type: "void"
+
+outputs:
+  - name: "out"
+    type: "void"

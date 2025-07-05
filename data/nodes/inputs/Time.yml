@@ -1,0 +1,12 @@
+# nodes/inputs/Time.yml
+name: "Time"
+category: "inputs"
+description: "Provides access to the engine's running time."
+
+template_code: "{{out}} = TIME;"
+
+inputs: []
+
+outputs:
+  - name: "out"
+    type: "float"

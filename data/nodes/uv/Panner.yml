@@ -1,0 +1,20 @@
+# nodes/uv/Panner.yml
+name: "Panner"
+category: "uv"
+description: "Scrolls UV coordinates over time."
+
+# This is a sub-graph, so it doesn't have template_code directly.
+# It will be composed of other nodes.
+
+# For now, we'll define its interface.
+
+inputs:
+  - name: "uv_in"
+    type: "vec2"
+  - name: "speed"
+    type: "vec2"
+    default_value: { x: 0.1, y: 0.1 }
+
+outputs:
+  - name: "uv_out"
+    type: "vec2"

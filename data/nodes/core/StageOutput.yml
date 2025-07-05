@@ -1,0 +1,8 @@
+# nodes/core/StageOutput.yml
+name: "Stage Output"
+category: "core"
+description: "Sends data to the next shader stage (e.g., Fragment). Its pins are defined by the user."
+
+# This node is a placeholder; its pins are dynamically created by the user.
+inputs: []
+outputs: []

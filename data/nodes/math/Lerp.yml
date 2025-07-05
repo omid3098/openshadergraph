@@ -1,0 +1,18 @@
+# nodes/math/Lerp.yml
+name: "Lerp"
+category: "math"
+description: "Linearly interpolates between two values."
+
+template_code: "{{out}} = mix({{a}}, {{b}}, {{t}});"
+
+inputs:
+  - name: "a"
+    type: "void"
+  - name: "b"
+    type: "void"
+  - name: "t"
+    type: "float"
+
+outputs:
+  - name: "out"
+    type: "void"
