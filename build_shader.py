@@ -93,7 +93,93 @@ def create_graph_data(shader_type, shader_name, node_template):
 
 # --- Shader Generation Logic ---
 def generate_shader_code(graph_data, language):
-    pass
+    # Load the language definition file
+    language_path = os.path.join("data", "languages", f"{language}.yml")
+    if not os.path.exists(language_path):
+        raise FileNotFoundError(f"Language definition file not found at '{language_path}'")
+    
+    with open(language_path, 'r') as f:
+        lang_def = yaml.safe_load(f)
+
+    generator = ShaderGenerator(graph_data, lang_def)
+    return generator.generate()
+
+class ShaderGenerator:
+    def __init__(self, graph_data, lang_def):
+        self.graph_data = graph_data
+        self.lang_def = lang_def
+        self.generated_code = {
+            "vertex": [],
+            "fragment": []
+        }
+        self.variable_map = {}
+
+    def generate(self):
+        # Find and process vertex and fragment passes
+        for node in self.graph_data['nodes']:
+            if node['type'] == 'vertex_pass':
+                self.process_pass(node, 'vertex')
+            elif node['type'] == 'fragment_pass':
+                self.process_pass(node, 'fragment')
+
+        # Assemble the final shader code from the template
+        return self.assemble_shader()
+
+    def process_pass(self, pass_node, pass_type):
+        # Process all nodes within this pass
+        for node in pass_node['nodes']:
+            self.process_node(node, pass_type, pass_node)
+
+    def process_node(self, node, pass_type, pass_node):
+        node_type = node['type']
+        if node_type not in self.lang_def['nodes']:
+            print(f"Warning: No language definition for node type '{node_type}'")
+            return
+
+        node_def = self.lang_def['nodes'][node_type]
+        
+        # 1. Resolve input values
+        resolved_inputs = {}
+        for pin in node['inputs']:
+            resolved_inputs[pin['name']] = self.resolve_input_value(pin['value'])
+
+        # 2. Create a unique variable name for the node's output
+        var_name = f"{node['title']}_{node['id']}"
+        
+        # 3. Generate the code snippet for the current node
+        code_snippet = node_def['template'].replace('{{var_name}}', var_name)
+        for pin_name, pin_value in resolved_inputs.items():
+            code_snippet = code_snippet.replace(f"{{{{inputs.{pin_name}}}}}", str(pin_value))
+        
+        self.generated_code[pass_type].append(code_snippet)
+
+        # 4. Map the output pins to the generated variable name
+        if 'outputs' in node_def:
+            for pin_name, out_var_template in node_def['outputs'].items():
+                output_var_name = out_var_template.replace('{{var_name}}', var_name)
+                self.variable_map[f"/{pass_node['id']}/{node['id']}/{pin_name}"] = output_var_name
+
+    def resolve_input_value(self, value):
+        if isinstance(value, str) and value.startswith('/'):
+            # This is a connection path, look it up in the variable map
+            return self.variable_map.get(value, "/* unresolved connection */")
+        elif isinstance(value, list):
+            # It's a vector or color literal, format it for the shader language
+            return f"vec4({', '.join(map(str, value))})"
+        else:
+            # It's a direct scalar value
+            return value
+
+    def assemble_shader(self):
+        # Replace placeholders in the master template
+        template = self.lang_def['code_template']
+        shader_code = template.replace('{{graph_type}}', self.graph_data['type'])
+        shader_code = shader_code.replace('{{uniforms}}', "") # Placeholder for now
+        shader_code = shader_code.replace('{{varyings}}', "") # Placeholder for now
+        shader_code = shader_code.replace('{{vertex_code}}', "\n    ".join(self.generated_code['vertex']))
+        shader_code = shader_code.replace('{{fragment_code}}', "\n    ".join(self.generated_code['fragment']))
+        return shader_code
+
 
 # --- Main Execution ---
 if __name__ == "__main__":
@@ -119,4 +205,16 @@ if __name__ == "__main__":
     output_path = os.path.join("", SHADER_NAME + ".yml")
     with open(output_path, 'w') as f:
         yaml.dump(graph_data, f, default_flow_style=False, sort_keys=False)
+
+    # Generate the shader code
+    shader_code = generate_shader_code(graph_data, LANGUAGE)
+    print("\n--- Generated Shader Code ---")
+    print(shader_code)
+    print("---------------------------\n")
+
+    # Save the shader code to a file
+    shader_filename = f"{SHADER_NAME}.gdshader"
+    with open(shader_filename, 'w') as f:
+        f.write(shader_code)
+    print(f"Shader code saved to '{shader_filename}'")
 

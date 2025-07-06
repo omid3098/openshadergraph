@@ -1,4 +1,4 @@
-# data/languages/GodotShader.yml
+# data/languages/Godot.yml
 name: "Godot Shader Language"
 version: "1.0"
 file_extensions: ["gdshader"]
@@ -20,3 +20,18 @@ code_template: |
   void fragment() {
       {{fragment_code}}
   }
+
+# Node to code mappings
+nodes:
+  color:
+    # This node takes a color literal and makes it available as a variable.
+    # Example GLSL: vec4 Color_0 = vec4(1.0, 0.0, 0.0, 1.0);
+    template: "vec4 {{var_name}} = {{inputs.Color}};"
+    outputs:
+      # The output pin 'Color' provides the variable name defined above.
+      Color: "{{var_name}}"
+  fragment_output:
+    # This node assigns values to the final output variables of the fragment shader.
+    # Example GLSL: ALBEDO = vec3(SomeColor.rgb);
+    template: "ALBEDO = vec3({{inputs.Color}}.rgb);"
+    # This node has no outputs that other nodes can connect to.

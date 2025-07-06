@@ -1,6 +1,7 @@
 id: 0
 type: surface
 title: BasicShader
+meta: []
 position:
 - 0
 - 0
@@ -8,6 +9,7 @@ nodes:
 - id: 0
   type: vertex_pass
   title: VertexPass
+  meta: []
   position:
   - 0
   - 0
@@ -23,6 +25,7 @@ nodes:
 - id: 1
   type: fragment_pass
   title: FragmentPass
+  meta: []
   position:
   - 10
   - 0
@@ -30,6 +33,7 @@ nodes:
   - id: 0
     type: color
     title: Color
+    meta: []
     position:
     - 0
     - 0
@@ -53,6 +57,7 @@ nodes:
   - id: 1
     type: fragment_output
     title: FragmentOutput
+    meta: []
     position:
     - 10
     - 0
