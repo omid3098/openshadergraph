@@ -1,0 +1,8 @@
+id: -1
+type: "surface"
+title: "Surface"
+meta: []
+position: [0, 0]
+nodes: ['/passes/vertex_pass', '/passes/fragment_pass']
+inputs: []
+outputs: []

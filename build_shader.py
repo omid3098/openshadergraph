@@ -22,7 +22,7 @@ def create_node(node_template, node_type, node_id, title, position, inputs=None,
         node['nodes'] = nodes
     return node
 
-def get_node_path(graph_node, target_node):
+def get_node_local_path(graph_node, target_node):
     """
     Finds the path of a node within the graph hierarchy.
     The path is represented as a string like '/id1/id2/...'.
@@ -41,7 +41,6 @@ def get_node_path(graph_node, target_node):
 
     return find_path(graph_node, target_node, "")
 
-
 def create_connection(graph_data, from_node, from_output, to_node, to_input):
     # Find the correct output pin in the from_node
     output_pin = next((output for output in from_node['outputs'] if output['name'] == from_output), None)
@@ -52,7 +51,7 @@ def create_connection(graph_data, from_node, from_output, to_node, to_input):
     if input_pin is None:
         raise ValueError(f"Input '{to_input}' not found in node '{to_node['title']}'")
     # Create the connection
-    from_node_path = get_node_path(graph_data, from_node)
+    from_node_path = get_node_local_path(graph_data, from_node)
     if from_node_path is None:
         raise ValueError(f"Could not find path for node '{from_node['title']}'")
     input_pin['value'] = f"{from_node_path}/{from_output}" 
@@ -202,7 +201,7 @@ class ShaderGenerator:
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    # Everything is nodes and connections.
+    # Everything is a node.
     # A graph is a composition node
     # A math node is a primitive node
     

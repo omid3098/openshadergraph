@@ -5,7 +5,7 @@ file_extensions: ["gdshader"]
 
 # The master code template for generating the final shader file.
 code_template: |
-  shader_type {{graph_type}};
+  shader_type {{shader_type}};
 
   // Uniforms
   {{uniforms}}
