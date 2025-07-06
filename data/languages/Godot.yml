@@ -23,6 +23,8 @@ code_template: |
 
 # Node to code mappings
 nodes:
+  surface:
+    template: spatial
   color:
     # This node takes a color literal and makes it available as a variable.
     # Example GLSL: vec4 Color_0 = vec4(1.0, 0.0, 0.0, 1.0);

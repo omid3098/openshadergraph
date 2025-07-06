@@ -57,6 +57,25 @@ def create_connection(graph_data, from_node, from_output, to_node, to_input):
         raise ValueError(f"Could not find path for node '{from_node['title']}'")
     input_pin['value'] = f"{from_node_path}/{from_output}" 
 
+def clean_for_yaml(data):
+    """Recursively remove empty lists, empty dictionaries, empty strings, and None values."""
+    if isinstance(data, dict):
+        cleaned_dict = {}
+        for k, v in data.items():
+            cleaned_v = clean_for_yaml(v)
+            if cleaned_v not in (None, '', [], {}):
+                cleaned_dict[k] = cleaned_v
+        return cleaned_dict
+    elif isinstance(data, list):
+        cleaned_list = []
+        for item in data:
+            cleaned_item = clean_for_yaml(item)
+            if cleaned_item not in (None, '', [], {}):
+                cleaned_list.append(cleaned_item)
+        return cleaned_list
+    else:
+        return data
+
 # --- Graph Creation Logic ---
 def create_graph_data(shader_type, shader_name, node_template):
     graph_data = create_node(node_template, shader_type, 0, shader_name, [0, 0])
@@ -201,10 +220,13 @@ if __name__ == "__main__":
     
     graph_data = create_graph_data(SHADER_TYPE, SHADER_NAME, node_template)
     
+    # Clean the graph data before saving
+    cleaned_graph_data = clean_for_yaml(graph_data)
+
     # Save the yaml file
     output_path = os.path.join("", SHADER_NAME + ".yml")
     with open(output_path, 'w') as f:
-        yaml.dump(graph_data, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(cleaned_graph_data, f, default_flow_style=False, sort_keys=False)
 
     # Generate the shader code
     shader_code = generate_shader_code(graph_data, LANGUAGE)
