@@ -1,8 +1,0 @@
-# nodes/core/StageInput.yml
-name: "Stage Input"
-category: "core"
-description: "Receives data from the previous shader stage (e.g., Vertex). Its pins are generated automatically."
-
-# This node is a placeholder; its pins are dynamically populated by the system.
-inputs: []
-outputs: []

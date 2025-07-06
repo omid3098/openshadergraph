@@ -3,35 +3,9 @@ name: "Godot Shader Language"
 version: "1.0"
 file_extensions: ["gdshader"]
 
-# Defines all valid data types for pins and their visual representation.
-types:
-  void: { color: "#FFFFFF" }
-  float: { color: "#A0A0A0" }
-  vec2: { color: "#6060FF" }
-  vec3: { color: "#B060FF" }
-  vec4: { color: "#FF60FF" }
-  bool: { color: "#FF4040" }
-  int: { color: "#40FF40" }
-  uint: { color: "#40FFFF" }
-  mat2: { color: "#FFFF40" }
-  mat3: { color: "#FFFF40" }
-  mat4: { color: "#FFFF40" }
-  sampler2D: { color: "#FF8040" }
-  sampler3D: { color: "#FF8040" }
-  samplerCube: { color: "#FF8040" }
-
-# Specifies where to find the node definitions for this language.
-# The system will search these directories for .yml files.
-node_definition_paths:
-  - "nodes/core"
-  - "nodes/inputs"
-  - "nodes/outputs"
-  - "nodes/math"
-  - "nodes/uv"
-
 # The master code template for generating the final shader file.
 code_template: |
-  shader_type {{shader_type}};
+  shader_type {{graph_type}};
 
   // Uniforms
   {{uniforms}}
