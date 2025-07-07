@@ -1,34 +1,65 @@
 import os
 import yaml
 
+from utils import *
+
 
 # --- Predefined Variables ---
 SHADER_NAME = "BasicShader"
 SHADER_TYPE = "surface"
 LANGUAGE = "Godot"
-nodes_root_path = ""
 
+def process_graph_section(graph, section_name: str, language_template: dict):
+    code_lines = []
 
-def load_node(node_name: str):
-    # find the node yml file from nodes_root_path
-    # loop recursively through the nodes_root_path
-    for root, dirs, files in os.walk(nodes_root_path):
-        for file in files:
-            if file == f"{node_name}.yml":
-                # return the content of the yml file
-                with open(os.path.join(root, file), 'r') as f:
-                    return yaml.safe_load(f)
+    def recursive_processor(nodes):
+        for node in nodes:
+            node_data = get_node_data(node)
+            if f"{section_name}" in node_data['meta']:
+                param_type = get_node_template(node_data['type'], language_template)
+                param_name = generate_unique_node_name(node_data)
+                code_lines.append(f"{section_name} {param_type} {param_name};\n")
+            
+            if 'nodes' in node_data and node_data['nodes']:
+                recursive_processor(node_data['nodes'])
 
-def get_node_template(node_type: str, language_template: str):
-    for node_name, node_data in language_template['nodes'].items():
-        if node_name == node_type:
-            return node_data['template']
-    raise ValueError(f"Node type '{node_type}' not found in language template.")
+    recursive_processor(graph['nodes'])
+    return "".join(code_lines)
 
-def generate_unique_node_name(node):
-    if node['id'] == -1:
-        raise ValueError("Node ID is not set in the graph. Please set a unique ID for the node.")
-    return f"{node['type']}_{node['id']}"
+def get_node_by_id(graph, node_id):
+    for node in graph['nodes']:
+        if node['id'] == node_id:
+            return node
+    return None
+
+def generate_pass_code(pass_node, language_template):
+    pass_code = []
+    for node in pass_node['nodes']:
+        node_data = get_node_data(node)
+        template = get_node_template(node_data['type'], language_template)
+        
+        # Replace placeholders in the template
+        var_name = generate_unique_node_name(node_data)
+        template = template.replace("{{var_name}}", var_name)
+        
+        for input_pin in node_data.get('inputs', []):
+            value = input_pin['value']
+            if isinstance(value, str) and value.startswith('/'):
+                # This is a connection
+                parts = value.split('/')
+                from_node_id = int(parts[2])
+                from_node = get_node_by_id(pass_node, from_node_id)
+                from_node_var_name = generate_unique_node_name(from_node)
+                template = template.replace(f"{{{{inputs.{input_pin['name']}}}}}", from_node_var_name)
+            else:
+                # This is a literal value
+                if isinstance(value, list):
+                    value = f"vec4({', '.join(map(str, value))})"
+                template = template.replace(f"{{{{inputs.{input_pin['name']}}}}}", str(value))
+            
+        pass_code.append(template)
+        
+    return "\n".join(pass_code)
 
 def generate_shader(graph, language: str):
     # Find the language template
@@ -44,41 +75,21 @@ def generate_shader(graph, language: str):
     code_template = code_template.replace("{{shader_type}}", shader_type)
 
     # Set uniforms in the code template
-    # TODO: Make this recursive using a local function to handle nested nodes
-    uniforms = []
-    for node in graph['nodes']:
-        if node.startswith("/"):
-            # this is a relative path to a node
-            node_name = node.split("/")[-1]
-            node_data = load_node(node_name)
-        else:
-            # this is a direct node name
-            node_data = node
-        if "uniform" in node_data['meta']:
-            uniform_type = get_node_template(node_data['type'], language_template)
-            uniform_name = generate_unique_node_name(node_data)
-            uniforms.append(f"uniform {uniform_type} {uniform_name};\n")
-    code_template = code_template.replace("{{uniforms}}", "".join(uniforms))
+    uniforms_code = process_graph_section(graph, "uniform", language_template)
+    code_template = code_template.replace("{{uniforms}}", uniforms_code)
 
     # Set Varyings in the code template
-    # TODO: use the same function as uniforms
-    varyings = []
-    for node in graph['nodes']:
-        if node.startswith("/"):
-            # this is a relative path to a node
-            node_name = node.split("/")[-1]
-            node_data = load_node(node_name)
-        else:
-            # this is a direct node name
-            node_data = node
-        if "varying" in node_data['meta']:
-            varying_type = get_node_template(node_data['type'], language_template)
-            varying_name = generate_unique_node_name(node_data)
-            varyings.append(f"varying {varying_type} {varying_name};\n")
-
-    code_template = code_template.replace("{{varyings}}", "".join(varyings))
+    varyings_code = process_graph_section(graph, "varying", language_template)
+    code_template = code_template.replace("{{varyings}}", varyings_code)
 
     # Set vertex and fragment passes
+    vertex_pass_node = get_node_data(graph['nodes'][0])
+    vertex_code = generate_pass_code(vertex_pass_node, language_template)
+    code_template = code_template.replace("{{vertex_code}}", vertex_code)
+
+    fragment_pass_node = get_node_data(graph['nodes'][1])
+    fragment_code = generate_pass_code(fragment_pass_node, language_template)
+    code_template = code_template.replace("{{fragment_code}}", fragment_code)
 
     print(f"{code_template}")
 
@@ -91,10 +102,20 @@ if __name__ == "__main__":
     data_root_path = "data"
     nodes_root_path = os.path.join(data_root_path, "nodes")
 
-    surface_graph = load_node("surface")
+    surface_graph = create_graph_of_type("surface")
+    
+    # Add color node to the fragment pass
+    color_node = create_node_of_type('color') 
+    fragment_pass_node = get_node_from_graph(surface_graph, 'fragment_pass')
+    add_node_to_graph(fragment_pass_node, color_node)
+
+    # Connect color node to fragment output
+    fragment_output_node = get_node_from_graph(fragment_pass_node, 'fragment_output')
+    connect_nodes(graph=fragment_pass_node, from_node=color_node, to_node=fragment_output_node, from_pin='out', to_pin='Color')
+
     print("------------------------ Loaded Surface Graph -----------------------")
     print(yaml.dump(surface_graph, default_flow_style=False, sort_keys=False))
 
-    print("------------------------ Generating Shader Code -----------------------")
-    shader_code = generate_shader(surface_graph, LANGUAGE)
+    # print("------------------------ Generating Shader Code -----------------------")
+    # shader_code = generate_shader(surface_graph, LANGUAGE)
 

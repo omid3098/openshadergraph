@@ -3,6 +3,13 @@ type: fragment_pass
 title: FragmentPass
 meta: []
 position: [10, 0]
-nodes: []
-inputs: []
+nodes: 
+  - id: 0
+    type: fragment_output
+    title: Fragment Output
+    position: [10, 0]
+    inputs:
+      - name: Color
+        type: float3
+        value: [1.0, 1.0, 1.0]
 outputs: []
