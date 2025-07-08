@@ -9,13 +9,13 @@ SHADER_NAME = "BasicShader"
 SHADER_TYPE = "surface"
 LANGUAGE = "Godot"
 
-def process_graph_section(graph, section_name: str, language_template: dict):
+def generate_section_code(graph, section_name: str, language_template: dict):
     code_lines = []
 
     def recursive_processor(nodes):
         for node in nodes:
             node_data = get_node_data(node)
-            if f"{section_name}" in node_data['meta']:
+            if 'meta' in node_data and f"{section_name}" in node_data['meta']:
                 param_type = get_node_template(node_data['type'], language_template)
                 param_name = generate_unique_node_name(node_data)
                 code_lines.append(f"{section_name} {param_type} {param_name};\n")
@@ -75,19 +75,19 @@ def generate_shader(graph, language: str):
     code_template = code_template.replace("{{shader_type}}", shader_type)
 
     # Set uniforms in the code template
-    uniforms_code = process_graph_section(graph, "uniform", language_template)
+    uniforms_code = generate_section_code(graph, "uniform", language_template)
     code_template = code_template.replace("{{uniforms}}", uniforms_code)
 
     # Set Varyings in the code template
-    varyings_code = process_graph_section(graph, "varying", language_template)
+    varyings_code = generate_section_code(graph, "varying", language_template)
     code_template = code_template.replace("{{varyings}}", varyings_code)
 
     # Set vertex and fragment passes
-    vertex_pass_node = get_node_data(graph['nodes'][0])
+    vertex_pass_node = get_node_from_graph(graph, 'vertex_pass')
     vertex_code = generate_pass_code(vertex_pass_node, language_template)
     code_template = code_template.replace("{{vertex_code}}", vertex_code)
 
-    fragment_pass_node = get_node_data(graph['nodes'][1])
+    fragment_pass_node = get_node_from_graph(graph, 'fragment_pass')
     fragment_code = generate_pass_code(fragment_pass_node, language_template)
     code_template = code_template.replace("{{fragment_code}}", fragment_code)
 
@@ -98,9 +98,6 @@ def generate_shader(graph, language: str):
 if __name__ == "__main__":
     print("---------------------- Shader Generation Script ---------------------")
     print(f"Generating a graph for shader '{SHADER_NAME}' of type '{SHADER_TYPE}'...")
-
-    data_root_path = "data"
-    nodes_root_path = os.path.join(data_root_path, "nodes")
 
     surface_graph = create_graph_of_type("surface")
     

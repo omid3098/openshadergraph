@@ -17,12 +17,6 @@ def add_node_to_graph(graph, node):
 def create_node_of_type(node_name: str):
     """
     Creates a node of the specified type from existing node definitions.
-    Args:
-        name (str): The name or type of the node to create.
-    Returns:
-        object: The created node instance.
-    Raises:
-        Exception: If the node creation fails or the type is invalid.
     """
     for root, dirs, files in os.walk(nodes_root_path):
         for file in files:
@@ -35,25 +29,13 @@ def create_node_of_type(node_name: str):
 def create_graph_of_type(name: str):
     """
     Creates a graph node of the specified type from existing node(graph) definitions.
-    Args:
-        name (str): The name or type of the graph node to create.
-    Returns:
-        object: The created graph node instance.
-    Raises:
-        Exception: If the node creation fails or the type is invalid.
     """
     return create_node_of_type(name)
     
                 
 def get_node_template(node_type: str, language_template: str):
-    """    Retrieves the template for a specific node type from the language template for shader generation.
-    Args:
-        node_type (str): The type of the node for which to retrieve the template.
-        language_template (dict): The language template containing node definitions.
-    Returns:
-        str: The template string for the specified node type.
-    Raises:
-        ValueError: If the node type is not found in the language template.
+    """    
+    Retrieves the template for a specific node type from the language template for shader generation.
     """
     for node_name, node_data in language_template['nodes'].items():
         if node_name == node_type:
@@ -127,3 +109,19 @@ def connect_nodes(graph, from_node, to_node, from_pin, to_pin):
         raise ValueError(f"Could not find path for node '{from_node['type']}' in the graph '{graph['title']}'.")
     
     to_node_input['value'] = f"{from_node_path}/{from_pin}"
+
+
+def load_graph_from_file(file_path):
+    """
+    Loads a graph from a YAML file.
+    Args:
+        file_path (str): The path to the YAML file containing the graph definition.
+    Returns:
+        dict: The loaded graph.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Graph file '{file_path}' does not exist.")
+    
+    with open(file_path, 'r') as f:
+        graph = yaml.safe_load(f)  
+    return graph
