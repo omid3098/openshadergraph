@@ -125,3 +125,62 @@ def load_graph_from_file(file_path):
     with open(file_path, 'r') as f:
         graph = yaml.safe_load(f)  
     return graph
+
+
+def find_output_nodes(graph):
+    output_nodes = []
+    def traverse_nodes(nodes):
+        for node in nodes:
+            if isinstance(node, str) and node.startswith('/'):
+                node_data = create_node_of_type(node.split('/')[-1])
+            else:
+                node_data = node
+            
+            if node_data['type'].endswith("_output"):
+                output_nodes.append(node_data)
+            if 'nodes' in node_data and node_data['nodes']:
+                traverse_nodes(node_data['nodes'])
+
+    traverse_nodes(graph['nodes'])
+    return output_nodes
+
+def generate_output_code(graph, output_node, language_template):
+    """
+    Generates the shader code for a specific output node by traversing the graph.
+    Args:
+        graph (dict): The shader graph containing nodes and their connections.
+        output_node (dict): The output node to generate code for.
+        language_template (dict): node templates for shader generation.
+    Returns:
+        str: The generated shader code.
+    """
+    code_lines = []
+    node_template = get_node_template(output_node['type'], language_template)
+    code_lines.append(node_template)
+    
+    def recursive_processor(node):
+        # process all input pins of the node
+        if 'inputs' in node:
+            for input_pin in node['inputs']:
+                pin_value = input_pin['value']
+                print(f"Processing input pin '{input_pin['name']}' of type '{input_pin['type']}' with value '{input_pin['value']}'")
+                if isinstance(pin_value, str) and pin_value.startswith('/'):
+                    # This is a connection
+                    parent_graph = get_parent_graph(graph, node)
+                    target_node = get_node_with_local_path(parent_graph, pin_value)
+
+                
+    
+    print(f"Generating code for output node '{output_node['type']}'")
+    recursive_processor(output_node)
+    result = "".join(code_lines)
+    print(f"Result '{output_node['type']}':\n{result}")
+    return "".join(code_lines)
+
+def get_parent_graph(graph, node):
+    # we have to find the current node in the whole graph recursively and each layer we go down, we have to store the current graph we are in
+    pass
+
+def get_node_with_local_path(graph, local_path):
+    # we have to find the top most graph that the 
+    pass

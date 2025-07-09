@@ -69,29 +69,38 @@ def generate_shader(graph, language: str):
     with open(language_template_path, 'r') as f:
         language_template = yaml.safe_load(f)
     code_template = language_template['code_template']
+    node_templates = language_template['nodes']
 
-    # Set shader type in the code template
-    shader_type = get_node_template(graph['type'], language_template)
-    code_template = code_template.replace("{{shader_type}}", shader_type)
+    # find output nodes in the graph to traverse backwards
+    output_nodes = find_output_nodes(graph)
 
-    # Set uniforms in the code template
-    uniforms_code = generate_section_code(graph, "uniform", language_template)
-    code_template = code_template.replace("{{uniforms}}", uniforms_code)
+    for output_node in output_nodes:
+        # Generate code for the output node by traversing the graph
+        output_code = generate_output_code(graph, output_node, language_template)
 
-    # Set Varyings in the code template
-    varyings_code = generate_section_code(graph, "varying", language_template)
-    code_template = code_template.replace("{{varyings}}", varyings_code)
 
-    # Set vertex and fragment passes
-    vertex_pass_node = get_node_from_graph(graph, 'vertex_pass')
-    vertex_code = generate_pass_code(vertex_pass_node, language_template)
-    code_template = code_template.replace("{{vertex_code}}", vertex_code)
+    # # Set shader type in the code template
+    # shader_type = get_node_template(graph['type'], language_template)
+    # code_template = code_template.replace("{{shader_type}}", shader_type)
 
-    fragment_pass_node = get_node_from_graph(graph, 'fragment_pass')
-    fragment_code = generate_pass_code(fragment_pass_node, language_template)
-    code_template = code_template.replace("{{fragment_code}}", fragment_code)
+    # # Set uniforms in the code template
+    # uniforms_code = generate_section_code(graph, "uniform", language_template)
+    # code_template = code_template.replace("{{uniforms}}", uniforms_code)
 
-    print(f"{code_template}")
+    # # Set Varyings in the code template
+    # varyings_code = generate_section_code(graph, "varying", language_template)
+    # code_template = code_template.replace("{{varyings}}", varyings_code)
+
+    # # Set vertex and fragment passes
+    # vertex_pass_node = get_node_from_graph(graph, 'vertex_pass')
+    # vertex_code = generate_pass_code(vertex_pass_node, language_template)
+    # code_template = code_template.replace("{{vertex_code}}", vertex_code)
+
+    # fragment_pass_node = get_node_from_graph(graph, 'fragment_pass')
+    # fragment_code = generate_pass_code(fragment_pass_node, language_template)
+    # code_template = code_template.replace("{{fragment_code}}", fragment_code)
+
+    # print(f"{code_template}")
 
 
 # --- Main Execution ---
@@ -110,9 +119,14 @@ if __name__ == "__main__":
     fragment_output_node = get_node_from_graph(fragment_pass_node, 'fragment_output')
     connect_nodes(graph=fragment_pass_node, from_node=color_node, to_node=fragment_output_node, from_pin='out', to_pin='Color')
 
-    print("------------------------ Loaded Surface Graph -----------------------")
-    print(yaml.dump(surface_graph, default_flow_style=False, sort_keys=False))
+    # print("------------------------ Loaded Surface Graph -----------------------")
+    # print(yaml.dump(surface_graph, default_flow_style=False, sort_keys=False))
 
-    # print("------------------------ Generating Shader Code -----------------------")
-    # shader_code = generate_shader(surface_graph, LANGUAGE)
+    # save it as SHADER_NAME.yml in the project root directory
+    shader_file_path = os.path.join(os.getcwd(), f"{SHADER_NAME}.yml")
+    with open(shader_file_path, 'w') as f:
+        yaml.dump(surface_graph, f, default_flow_style=False, sort_keys=False)
+
+    print("------------------------ Generating Shader Code -----------------------")
+    shader_code = generate_shader(surface_graph, LANGUAGE)
 

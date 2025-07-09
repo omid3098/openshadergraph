@@ -33,7 +33,5 @@ nodes:
       # The output pin 'Color' provides the variable name defined above.
       Color: "{{var_name}}"
   fragment_output:
-    # This node assigns values to the final output variables of the fragment shader.
-    # Example GLSL: ALBEDO = vec3(SomeColor.rgb);
-    template: "ALBEDO = vec3({{inputs.Color}}.rgb);"
-    # This node has no outputs that other nodes can connect to.
+    template: |
+      ALBEDO = {{inputs.Color}}

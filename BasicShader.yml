@@ -1,52 +1,54 @@
-id: 0
+id: -1
 type: surface
-title: BasicShader
+title: Surface
+meta: []
 position:
 - 0
 - 0
 nodes:
-- id: 0
-  type: vertex_pass
-  title: VertexPass
-  position:
-  - 0
-  - 0
+- /passes/vertex_pass
 - id: 1
   type: fragment_pass
   title: FragmentPass
+  meta: []
   position:
   - 10
   - 0
   nodes:
   - id: 0
-    type: color
-    title: Color
-    position:
-    - 0
-    - 0
-    inputs:
-    - name: Color
-      type: float4
-      value:
-      - 1
-      - 0
-      - 0
-      - 1
-    outputs:
-    - name: Color
-      type: float4
-      value:
-      - 1
-      - 0
-      - 0
-      - 1
-  - id: 1
     type: fragment_output
-    title: FragmentOutput
+    title: Fragment Output
     position:
     - 10
     - 0
     inputs:
     - name: Color
+      type: float3
+      value: /1/out
+  - id: 1
+    type: color
+    title: Color
+    meta: []
+    position:
+    - 0
+    - 0
+    nodes: []
+    inputs:
+    - name: in
       type: float4
-      value: /1/0/Color
+      value:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+    outputs:
+    - name: out
+      type: float4
+      value:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+  outputs: []
+inputs: []
+outputs: []
