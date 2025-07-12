@@ -1,16 +1,10 @@
-shader_type surface;
-
-// Uniforms
-
-
-// Varyings
-
-
-void vertex() {
+shader_type spatial;
+/nvoid vertex() {
     
 }
 
-void fragment() {
-    vec4 Color_0 = vec4(1, 0, 0, 1);
-    ALBEDO = vec3(Color_0.rgb);
+    /nvoid fragment() {
+    vec4 color_1_out = vec4(1.0, 1.0, 1.0, 1.0);
+    ALBEDO = vec3(color_1_out.rgb);
 }
+

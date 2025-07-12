@@ -1,0 +1,30 @@
+name: "Unity HLSL"
+version: "1.0"
+file_extensions: ["shader"]
+nodes:
+  surface:
+    template: |
+      Shader "Custom/{{title}}" {
+          Properties {
+          }
+          SubShader {
+              {{meta.blend_mode}}
+              CGPROGRAM
+              #pragma surface surf Standard
+              struct Input {
+                  float2 uv_MainTex;
+              };
+              void surf (Input IN, inout SurfaceOutputStandard o) {
+                  {{internal_nodes}}
+              }
+              ENDCG
+          }
+      }
+  vertex_pass:
+    template: ""
+  fragment_pass:
+    template: "{{internal_nodes}}"
+  color:
+    template: "float4 {{var_name}} = float4({{inputs.in}});"
+  fragment_output:
+    template: "o.Albedo = float3({{inputs.Color}}.rgb);"

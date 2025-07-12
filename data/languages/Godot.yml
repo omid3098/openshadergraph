@@ -1,37 +1,22 @@
-# data/languages/Godot.yml
 name: "Godot Shader Language"
 version: "1.0"
 file_extensions: ["gdshader"]
-
-# The master code template for generating the final shader file.
-code_template: |
-  shader_type {{shader_type}};
-
-  // Uniforms
-  {{uniforms}}
-
-  // Varyings
-  {{varyings}}
-
-  void vertex() {
-      {{vertex_code}}
-  }
-
-  void fragment() {
-      {{fragment_code}}
-  }
-
-# Node to code mappings
 nodes:
   surface:
-    template: spatial
-  color:
-    # This node takes a color literal and makes it available as a variable.
-    # Example GLSL: vec4 Color_0 = vec4(1.0, 0.0, 0.0, 1.0);
-    template: "vec4 {{var_name}} = {{inputs.Color}};"
-    outputs:
-      # The output pin 'Color' provides the variable name defined above.
-      Color: "{{var_name}}"
-  fragment_output:
     template: |
-      ALBEDO = {{inputs.Color}}
+      shader_type spatial;
+      {{meta.blend_mode}}{{internal_nodes}}
+  vertex_pass:
+    template: |
+      void vertex() {
+          {{internal_nodes}}
+      }
+  fragment_pass:
+    template: |
+      void fragment() {
+          {{internal_nodes}}
+      }
+  color:
+    template: "vec4 {{var_name}} = vec4({{inputs.in}});"
+  fragment_output:
+    template: "ALBEDO = vec3({{inputs.Color}}.rgb);"

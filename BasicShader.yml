@@ -44,11 +44,6 @@ nodes:
     outputs:
     - name: out
       type: float4
-      value:
-      - 1.0
-      - 1.0
-      - 1.0
-      - 1.0
   outputs: []
 inputs: []
 outputs: []

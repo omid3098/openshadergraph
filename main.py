@@ -68,7 +68,6 @@ def generate_shader(graph, language: str):
         raise FileNotFoundError(f"Language definition file not found at '{language_template_path}'")
     with open(language_template_path, 'r') as f:
         language_template = yaml.safe_load(f)
-    code_template = language_template['code_template']
     node_templates = language_template['nodes']
 
     # find output nodes in the graph to traverse backwards
@@ -127,6 +126,6 @@ if __name__ == "__main__":
     with open(shader_file_path, 'w') as f:
         yaml.dump(surface_graph, f, default_flow_style=False, sort_keys=False)
 
-    print("------------------------ Generating Shader Code -----------------------")
-    shader_code = generate_shader(surface_graph, LANGUAGE)
+    # print("------------------------ Generating Shader Code -----------------------")
+    # shader_code = generate_shader(surface_graph, LANGUAGE)
 

@@ -40,14 +40,32 @@ def get_node_template(node_type: str, language_template: str):
     for node_name, node_data in language_template['nodes'].items():
         if node_name == node_type:
             return node_data['template']
-    raise ValueError(f"Node type '{node_type}' not found in language template.")
+    raise ValueError(f"Node type '{node_type}' not found in language template for language '{language_template['name']}'.")
 
+def get_pin_template(node_type: str, pin_name: str, language_template: dict):
+    """
+    Retrieves the template for a specific pin of a node type from the language template for shader generation.
+    """
+    for node_name, node_data in language_template['nodes'].items():
+        if node_name == node_type:
+            for pin in node_data['outputs']:
+                if pin['name'] == pin_name:
+                    return pin['template']
+    raise ValueError(f"Pin '{pin_name}' not found in node type '{node_type}' templates.")
 
 def generate_unique_node_name(node):
     if node['id'] == -1:
         raise ValueError("Node ID is not set in the graph. Please set a unique ID for the node.")
     return f"{node['type']}_{node['id']}"
 
+def generate_unique_pin_name(node, pin_name):
+    """
+    Generates a unique name for a pin based on the node type and pin name.
+    This is useful for ensuring that pin names do not collide in the generated shader code.
+    """
+    if 'id' not in node or node['id'] == -1:
+        raise ValueError("Node ID is not set in the graph. Please set a unique ID for the node.")
+    return f"{node['type']}_{node['id']}_{pin_name}"
 
 def get_node_data(node):
     if isinstance(node, str) and node.startswith("/"):
@@ -155,8 +173,8 @@ def generate_output_code(graph, output_node, language_template):
         str: The generated shader code.
     """
     code_lines = []
-    node_template = get_node_template(output_node['type'], language_template)
-    code_lines.append(node_template)
+    # node_template = get_node_template(output_node['type'], language_template)
+    # code_lines.append(node_template)
     
     def recursive_processor(node):
         # process all input pins of the node
@@ -167,7 +185,16 @@ def generate_output_code(graph, output_node, language_template):
                 if isinstance(pin_value, str) and pin_value.startswith('/'):
                     # This is a connection
                     parent_graph = get_parent_graph(graph, node)
+                    print(f"Parent graph found: {parent_graph['type']}")
                     target_node = get_node_with_local_path(parent_graph, pin_value)
+                    print(f"Target node found: {target_node['type']}")
+                    target_pin_name = pin_value.split('/')[-1]
+                    pin_template = get_pin_template(target_node['type'],target_pin_name, language_template)
+                    pin_unique_name = generate_unique_pin_name(target_node, target_pin_name)
+                    print(f"Unique pin name generated: {pin_unique_name}")
+                    pin_template = pin_template.replace("{{var}}", pin_unique_name)
+                    print(f"Pin template found: {pin_template}")
+                    # Now I have to traverse all input pins of the target node recursively and replace
 
                 
     
@@ -177,10 +204,62 @@ def generate_output_code(graph, output_node, language_template):
     print(f"Result '{output_node['type']}':\n{result}")
     return "".join(code_lines)
 
-def get_parent_graph(graph, node):
-    # we have to find the current node in the whole graph recursively and each layer we go down, we have to store the current graph we are in
-    pass
+def get_parent_graph(graph, target_node):
+    """
+    Recursively finds the parent graph of a given node.
+    The parent graph is the node that contains the target_node in its 'nodes' list.
+    """
+    if 'nodes' in graph:
+        for node in graph['nodes']:
+            if node is target_node:
+                return graph
+            
+            if isinstance(node, dict):
+                parent = get_parent_graph(node, target_node)
+                if parent is not None:
+                    return parent
+            # we do not handle paths here, because paths will refer to another graphs which can not be possible to be parent of the current node.
+            # Because paths will be converted to actual graph template when we change something inside the graph within that path.
+            # like when the vertex pass is empty and we are processing the fragment pass.
+    return None
 
 def get_node_with_local_path(graph, local_path):
-    # we have to find the top most graph that the 
-    pass
+    """
+    Finds a node within a graph using a local path.
+
+    This function is designed to find a node within the immediate 'nodes' list
+    of the given graph. It assumes that connections are local and not deeply nested.
+    The path is expected to be in the format '/node_id/pin_name', where 'node_id'
+    is used to find the node.
+
+    Args:
+        graph (dict): The graph (or subgraph) to search within.
+        local_path (str): The path to the node, e.g., '/1/out'.
+
+    Returns:
+        dict or None: The found node dictionary, or None if not found.
+    """
+    path_parts = local_path.strip('/').split('/')
+    
+    try:
+        # The node ID is the first part of the path. e.g., '1' in '/1/out'
+        node_id = int(path_parts[0])
+    except (ValueError, IndexError):
+        return None
+
+    if 'nodes' in graph:
+        for node in graph['nodes']:
+            # Nodes can be strings (paths to node templates) or dicts (full node data)
+            if isinstance(node, dict) and node.get('id') == node_id:
+                return node
+    
+    return None
+
+def add_meta(graph, key, value):
+    """
+    Adds a meta key-value pair to the graph.
+    If the meta dictionary does not exist, it creates one.
+    """
+    if 'meta' not in graph:
+        graph['meta'] = [{}]
+    graph['meta'].append({key: value})
