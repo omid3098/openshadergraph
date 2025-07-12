@@ -1,7 +1,8 @@
 id: -1
 type: surface
 title: Surface
-meta: []
+meta:
+- blend_mode: transparent
 position:
 - 0
 - 0
@@ -28,7 +29,8 @@ nodes:
   - id: 1
     type: color
     title: Color
-    meta: []
+    meta:
+    - exposable: true
     position:
     - 0
     - 0

@@ -5,7 +5,9 @@ nodes:
   surface:
     template: |
       shader_type spatial;
-      {{meta.blend_mode}}{{internal_nodes}}
+      {{meta}}
+      {{exposable_nodes}}
+      {{internal_nodes}}
   vertex_pass:
     template: |
       void vertex() {
@@ -20,3 +22,10 @@ nodes:
     template: "vec4 {{var_name}} = vec4({{inputs.in}});"
   fragment_output:
     template: "ALBEDO = vec3({{inputs.Color}}.rgb);"
+meta_templates:
+  blend_mode:
+    transparent: "render_mode blend_add;\n"
+    opaque: ""
+exposable_nodes:
+  color:
+    template: "uniform vec4 {{var_name}} = vec4({{inputs.in}});"

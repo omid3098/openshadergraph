@@ -1,16 +1,19 @@
 Shader "Custom/Surface" {
     Properties {
+        [Header(Color)]
+_color_1_out ("Color", Color) = (1,1,1,1)
     }
     SubShader {
-        
+        Tags { "Queue" = "Transparent" }
+Blend SrcAlpha OneMinusSrcAlpha
+
         CGPROGRAM
         #pragma surface surf Standard
         struct Input {
             float2 uv_MainTex;
         };
         void surf (Input IN, inout SurfaceOutputStandard o) {
-            float4 color_1_out = float4(1.0, 1.0, 1.0, 1.0);
-    o.Albedo = float3(color_1_out.rgb);
+            o.Albedo = float3(color_1_out.rgb);
         }
         ENDCG
     }

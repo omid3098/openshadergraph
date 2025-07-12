@@ -6,6 +6,7 @@ nodes:
     template: |
       Shader "Custom/{{title}}" {
           Properties {
+              {{exposable_nodes}}
           }
           SubShader {
               {{meta.blend_mode}}
@@ -21,10 +22,21 @@ nodes:
           }
       }
   vertex_pass:
-    template: ""
+    template: "{{internal_nodes}}"
   fragment_pass:
     template: "{{internal_nodes}}"
   color:
-    template: "float4 {{var_name}} = float4({{inputs.in}});"
+    template: "float4 {{var_name}} = _{{var_name}};"
   fragment_output:
     template: "o.Albedo = float3({{inputs.Color}}.rgb);"
+meta_templates:
+  blend_mode:
+    transparent: |
+          Tags { "Queue" = "Transparent" }
+          Blend SrcAlpha OneMinusSrcAlpha
+    opaque: ""
+exposable_nodes:
+  color:
+    template: |
+      [Header(Color)]
+      _{{var_name}} ("Color", Color) = (1,1,1,1)

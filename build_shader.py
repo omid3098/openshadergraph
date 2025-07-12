@@ -18,13 +18,21 @@ class ShaderGenerator:
     def __init__(self, graph_data, lang_def):
         self.graph_data = graph_data
         self.lang_def = lang_def
-        self.global_variable_map = {}  # Maps full paths to variable names
+        self.global_variable_map = {}
+        self.exposable_nodes = []
 
     def generate(self):
         """Generate shader code for the entire graph."""
         if self.graph_data['type'] not in self.lang_def['nodes']:
             raise ValueError(f"Language '{self.lang_def['name']}' does not support shader type '{self.graph_data['type']}'")
-        return self.process_node(self.graph_data, [], {})
+        
+        shader_code = self.process_node(self.graph_data, [], {})
+        
+        if self.exposable_nodes:
+            exposable_code = "".join(self.exposable_nodes)
+            shader_code = shader_code.replace("{{exposable_nodes}}", exposable_code)
+
+        return shader_code
 
     def process_node(self, node, path_prefix, local_variable_map):
         """Process a node recursively, generating its shader code."""
@@ -36,37 +44,40 @@ class ShaderGenerator:
 
         template = self.lang_def['nodes'][node_type]['template']
         
-        # Build a dictionary of replacements
+        is_exposable = any(item.get('exposable', False) for item in node.get('meta', []))
+        
+        if is_exposable:
+            var_name = self.generate_unique_var_name(node_type, node_id, 'out')
+            input_value = self.resolve_input_value(node['inputs'][0]['value'], local_variable_map, "")
+            
+            exposable_template = self.lang_def.get('exposable_nodes', {}).get(node_type, {}).get('template', '')
+            if exposable_template:
+                exposable_code = exposable_template.replace("{{var_name}}", var_name).replace("{{inputs.in}}", input_value)
+                self.exposable_nodes.append(exposable_code)
+            template = "" # Exposable nodes don't have a body, they are just exposable nodes.
+        
         replacements = {}
-
-        # Process metadata into "meta.key" format
         meta_values = self.get_meta_replacements(node.get('meta', []))
         for key, value in meta_values.items():
             replacements[f"meta.{key}"] = value
 
-        # Process other simple fields from the node
         for key, value in node.items():
             if isinstance(value, (str, int, float)):
                 replacements[key] = str(value)
         
-        # Apply all replacements
         for key, value in replacements.items():
             template = template.replace(f"{{{{{key}}}}}", value)
 
-        # Process nested nodes if present
         if "{{internal_nodes}}" in template:
             internal_code = ""
             if node.get('nodes'):
                 internal_code = self.process_subgraph(node, path_prefix + [node_id])
             template = template.replace("{{internal_nodes}}", internal_code)
 
-        # Handle outputs for var_name replacement
-        if 'outputs' in node:
-            for output in node['outputs']:
-                var_name = self.generate_unique_var_name(node_type, node_id, output['name'])
-                template = template.replace("{{var_name}}", var_name)
+        for output in node.get('outputs', []):
+            var_name = self.generate_unique_var_name(node_type, node_id, output['name'])
+            template = template.replace("{{var_name}}", var_name)
 
-        # Handle inputs
         for input_pin in node.get('inputs', []):
             value = self.resolve_input_value(input_pin['value'], local_variable_map, "")
             template = template.replace(f"{{{{inputs.{input_pin['name']}}}}}", value)
@@ -100,11 +111,7 @@ class ShaderGenerator:
                     except (ValueError, IndexError):
                         continue
 
-        try:
-            sorted_ids = toposort_flatten(dependencies)
-        except ValueError:
-            raise ValueError("Cycle detected in node dependencies")
-
+        sorted_ids = toposort_flatten(dependencies)
         code_lines = []
         local_variable_map = {}
         for node_id in sorted_ids:
@@ -113,7 +120,6 @@ class ShaderGenerator:
             node = node_map[node_id]
             node_code = self.process_node(node, path_prefix + [subgraph_node['id']], local_variable_map)
             code_lines.append(node_code)
-            
             if 'outputs' in node:
                 for output in node['outputs']:
                     var_name = self.generate_unique_var_name(node['type'], node_id, output['name'])
@@ -135,18 +141,18 @@ class ShaderGenerator:
 
     def get_meta_replacements(self, meta):
         """Process metadata and return replacements for the template."""
-        replacements = {
-            "blend_mode": ""
-        }
+        replacements = {}
+        meta_dict = {}
         for item in meta:
-            for key, value in item.items():
-                if key == "blend_mode" and value == "transparent":
-                    if self.lang_def['name'] == "Godot Shader Language":
-                        replacements["blend_mode"] = "render_mode blend_add;\n"
-                    elif self.lang_def['name'] == "Unity HLSL":
-                        replacements["blend_mode"] = 'Tags { "Queue" = "Transparent" }\n        Blend SrcAlpha OneMinusSrcAlpha\n'
+            for k, v in item.items():
+                meta_dict[k] = v
+        for key, value in meta_dict.items():
+            if key in self.lang_def.get('meta_templates', {}):
+                templates = self.lang_def['meta_templates'][key]
+                replacements[key] = templates.get(value, "")
+            else:
+                replacements[key] = ""
         return replacements
-
 
 if __name__ == "__main__":
     graph_path = os.path.join("", f"{SHADER_NAME}.yml")
