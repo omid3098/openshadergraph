@@ -2,7 +2,7 @@ id: -1
 type: surface
 title: Surface
 meta:
-- blend_mode: transparent
+- render_mode: transparent
 position:
 - 0
 - 0
