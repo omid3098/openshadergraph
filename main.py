@@ -7,7 +7,6 @@ from utils import *
 # --- Predefined Variables ---
 SHADER_NAME = "BasicShader"
 SHADER_TYPE = "surface"
-LANGUAGE = "Godot"
 
 
 # --- Main Execution ---

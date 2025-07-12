@@ -4,7 +4,6 @@ from toposort import toposort_flatten
 
 # Predefined Variables
 SHADER_NAME = "BasicShader"
-SHADER_TYPE = "surface"
 LANGUAGES = ["Godot", "Unity"]
 
 def load_yaml_file(file_path):
