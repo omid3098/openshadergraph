@@ -1,0 +1,16 @@
+id: -1
+type: add
+title: Add
+meta: [{'current_pintype': 'float'}]
+position: [0, 0]
+nodes: []
+inputs: 
+  - name: a
+    type: [float, float2, float3, float4, matrix2, matrix3, matrix4]
+    value: [1.0]
+  - name: b
+    type: [float, float2, float3, float4, matrix2, matrix3, matrix4]
+    value: [1.0]
+outputs: 
+  - name: out
+    type: [float, float2, float3, float4, matrix2, matrix3, matrix4]
