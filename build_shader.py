@@ -55,7 +55,7 @@ class ShaderGenerator:
         return value
         
     def resolve_ref(self, node, input):
-        log([f'resolve_ref {self.get_node_name(node)} {input}'], False)
+        log([f'resolve_ref {node['type']} {input}'], False)
         path = input['value'].split('/')
         ref_node = node
         for p in path:
@@ -73,14 +73,16 @@ class ShaderGenerator:
         # if probably should be ../1 for single output functions
 
     def resolve_template_input(self, node, match, index):
-        log([f'resolve_template_input {self.get_node_name(node)} {match} {index}'], False)
+        log([f'resolve_template_input {node['type']} {match} {index}'], False)
         input = node['inputs'][index]
         if '../' in input['value']:
             self.resolve_ref(node, input)
         input['_code'] = self.resolve_type(input['value'])
         node['_code'] = node['_code'].replace(match, node['inputs'][index]['_code'])
-            
+
     def resolve_template(self, node):
+        log([f'resolve_template {node['type']}'], False)
+
         if r'{{name}}' in node['_code']:
             node['_code'] = node['_code'].replace(r'{{name}}', self.get_node_name(node))
         if r'{{inputs' in node['_code']:
@@ -90,6 +92,7 @@ class ShaderGenerator:
         matches = re.findall(r"(\{\{inputs:(\d+)\}\})", node['_code'])
         for match, input_index in matches:
             input_index = int(input_index)
+            node['_resolving_input'] = True
             self.resolve_template_input(node, match, input_index)
 
     def resolve_internals(self, node):
@@ -97,34 +100,44 @@ class ShaderGenerator:
         self.resolve_template(node)
         if r'{{internal_nodes}}' not in node['_code']:
             return node['_code']
-        log([f'resolve_internals {self.get_node_name(node)}'], False)
-        
-         
+        log([f'resolve_internals {node['type']}'], False)
+
         if not self.has_nodes(node):
             node['_code'] = node['_code'].replace(r'{{internal_nodes}}', '')
         else:
-            internal_code = ''
-            for child_node in node['nodes']:
-                internal_code += f'\t{child_node['_code']}\n'
-            node['_code'] = node['_code'].replace(r'{{internal_nodes}}', internal_code)
+            if '_input_code' in node:
+                node['_code'] = node['_code'].replace(r'{{internal_nodes}}', node['_input_code'])
+            else:
+                internal_code = ''
+                for child_node in node['nodes']:
+                    internal_code += f'\t{child_node['_code']}\n'
+                node['_code'] = node['_code'].replace(r'{{internal_nodes}}', internal_code)
         return node['_code']
 
     def compile_node(self, node):
         if '_code' in node:
             return
-        log([f'compiling {self.get_node_name(node)}'], False)
+        log([f'compiling {node['type']}'], False)
         code = self.resolve_internals(node)
         if code:
             log([f'adding code {node['type']}', code])
             node['_code'] = code
-            self.shader_code += f'{code}\n'
+            if '_resolving_input' in node:
+                if '_input_code' not in node['parent']:
+                    node['parent']['_input_code'] = ''
+                node['parent']['_input_code'] += f'\t{code}\n'
+                del node['_resolving_input']
+            else:
+                self.shader_code += f'{code}\n'
 
     def get_template(self, node):
         return self.lang_def['nodes'][node['type']]['template']
 
     
     def process_node(self, node):
-        log([f'processing {self.get_node_name(node)}'])
+        if self.has_code(node):
+            return
+        log([f'processing {node['type']}'])
         if not self.has_nodes(node):
             self.compile_node(node)
             return
@@ -134,10 +147,16 @@ class ShaderGenerator:
             self.process_node(child_node)
         self.compile_node(child_node)
 
+    def add_meta(self, node):
+        # for meta in self.graph_data['meta']:
+        pass
+
     def set_parents(self, node):
         if self.has_nodes(node):
             for child_node in node['nodes']:
                 child_node['parent'] = node
+                self.set_parents(child_node)
+
     def generate(self):
         pprint(graph_data)
         self.set_parents(graph_data)
