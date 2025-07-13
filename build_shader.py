@@ -1,173 +1,167 @@
 import yaml
 import os
-from toposort import toposort_flatten
+from pprint import pprint
+import re
 
 # Predefined Variables
-SHADER_NAME = "BasicShader"
-LANGUAGES = ["Godot", "Unity"]
+SHADER_NAME = 'BasicShader'
+LANGUAGES = ['Godot', 'Unity']
+
 
 def load_yaml_file(file_path):
-    """Load a YAML file and return its contents."""
+    '''Load a YAML file and return its contents.'''
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise FileNotFoundError(f'File not found: {file_path}')
     with open(file_path, 'r') as f:
         return yaml.safe_load(f)
+
+
+def log(logs, separated=True):
+    if separated:
+        print('-------------------------------------------')
+    [print(e) for e in logs]
+
 
 class ShaderGenerator:
     def __init__(self, graph_data, lang_def):
         self.graph_data = graph_data
         self.lang_def = lang_def
-        self.global_variable_map = {}
-        self.exposable_nodes = []
+        self.shader_code = ''
 
-    def generate(self):
-        """Generate shader code for the entire graph."""
-        if self.graph_data['type'] not in self.lang_def['nodes']:
-            raise ValueError(f"Language '{self.lang_def['name']}' does not support shader type '{self.graph_data['type']}'")
-        
-        shader_code = self.process_node(self.graph_data, [], {})
-        
-        if self.exposable_nodes:
-            exposable_code = "".join(self.exposable_nodes)
-            shader_code = shader_code.replace("{{exposable_nodes}}", exposable_code)
+    def has_nodes(self, node):
+        has_nodes = 'nodes' in node and len(node['nodes']) > 0
+        return has_nodes
 
-        return shader_code
+    def has_code(self, node):
+        has_nodes = '_code' in node and len(node['_code']) > 0
+        return has_nodes
 
-    def process_node(self, node, path_prefix, local_variable_map):
-        """Process a node recursively, generating its shader code."""
-        node_type = node['type']
-        node_id = node.get('id', -1)
-        
-        if node_type not in self.lang_def['nodes']:
-            raise ValueError(f"No template for node type '{node_type}'")
-
-        template = self.lang_def['nodes'][node_type]['template']
-        
-        is_exposable = any(item.get('exposable', False) for item in node.get('meta', []))
-        
-        if is_exposable:
-            var_name = self.generate_unique_var_name(node_type, node_id, 'out')
-            input_value = self.resolve_input_value(node['inputs'][0]['value'], local_variable_map, "")
-            
-            exposable_template = self.lang_def.get('exposable_nodes', {}).get(node_type, {}).get('template', '')
-            if exposable_template:
-                exposable_code = exposable_template.replace("{{var_name}}", var_name).replace("{{inputs.in}}", input_value)
-                self.exposable_nodes.append(exposable_code)
-            template = "" # Exposable nodes don't have a body, they are just exposable nodes.
-        
-        replacements = {}
-        meta_values = self.get_meta_replacements(node.get('meta', []))
-        for key, value in meta_values.items():
-            replacements[f"meta.{key}"] = value
-
-        for key, value in node.items():
-            if isinstance(value, (str, int, float)):
-                replacements[key] = str(value)
-        
-        for key, value in replacements.items():
-            template = template.replace(f"{{{{{key}}}}}", value)
-
-        if "{{internal_nodes}}" in template:
-            internal_code = ""
-            if node.get('nodes'):
-                internal_code = self.process_subgraph(node, path_prefix + [node_id])
-            template = template.replace("{{internal_nodes}}", internal_code)
-
-        for output in node.get('outputs', []):
-            var_name = self.generate_unique_var_name(node_type, node_id, output['name'])
-            template = template.replace("{{var_name}}", var_name)
-
-        for input_pin in node.get('inputs', []):
-            value = self.resolve_input_value(input_pin['value'], local_variable_map, "")
-            template = template.replace(f"{{{{inputs.{input_pin['name']}}}}}", value)
-
-        return template
-
-    def process_subgraph(self, subgraph_node, path_prefix):
-        """Process a subgraph, handling dependencies with topological sorting."""
-        child_nodes_raw = subgraph_node.get('nodes', [])
-        
-        child_nodes = []
-        for node_ref in child_nodes_raw:
-            if isinstance(node_ref, str):
-                node_path = os.path.join("data", "nodes", f"{node_ref.strip('/')}.yml")
-                node_data = load_yaml_file(node_path)
-                child_nodes.append(node_data)
-            else:
-                child_nodes.append(node_ref)
-
-        dependencies = {node['id']: set() for node in child_nodes}
-        node_map = {node['id']: node for node in child_nodes}
-
-        for node in child_nodes:
-            for input_pin in node.get('inputs', []):
-                value = input_pin['value']
-                if isinstance(value, str) and value.startswith('/'):
-                    try:
-                        dep_id = int(value.split('/')[1])
-                        if dep_id in node_map:
-                            dependencies[node['id']].add(dep_id)
-                    except (ValueError, IndexError):
-                        continue
-
-        sorted_ids = toposort_flatten(dependencies)
-        code_lines = []
-        local_variable_map = {}
-        for node_id in sorted_ids:
-            if node_id not in node_map:
-                continue
-            node = node_map[node_id]
-            node_code = self.process_node(node, path_prefix + [subgraph_node['id']], local_variable_map)
-            code_lines.append(node_code)
-            if 'outputs' in node:
-                for output in node['outputs']:
-                    var_name = self.generate_unique_var_name(node['type'], node_id, output['name'])
-                    local_variable_map[f"/{node_id}/{output['name']}"] = var_name
-
-        return "\n    ".join(filter(None, code_lines))
-
-    def resolve_input_value(self, value, local_variable_map, current_path):
-        """Resolve the value of an input pin (literal or connection)."""
-        if isinstance(value, str) and value.startswith('/'):
-            return local_variable_map.get(value, "/* unresolved */")
-        elif isinstance(value, list):
-            return ', '.join(map(str, value))
-        return str(value)
-
-    def generate_unique_var_name(self, node_type, node_id, pin_name):
-        """Generate a unique variable name for an output pin."""
-        return f"{node_type}_{node_id}_{pin_name}"
-
-    def get_meta_replacements(self, meta):
-        """Process metadata and return replacements for the template."""
-        replacements = {}
-        meta_dict = {}
-        for item in meta:
-            for k, v in item.items():
-                meta_dict[k] = v
-        for key, value in meta_dict.items():
-            if key in self.lang_def.get('meta_templates', {}):
-                templates = self.lang_def['meta_templates'][key]
-                replacements[key] = templates.get(value, "")
-            else:
-                replacements[key] = ""
-        return replacements
-
-if __name__ == "__main__":
-    graph_path = os.path.join("", f"{SHADER_NAME}.yml")
-    graph_data = load_yaml_file(graph_path)
+    def get_node(self, parent, id):
+        for node in parent['nodes']:
+            if node['id'] == int(id):
+                return node
     
+    def get_node_name(self, node):
+        return node['name'] if 'name' in node else node['title']
+    
+    def get_output(self, node, name):
+        for output in node['outputs']:
+            if output['name'] == name:
+                return output
+
+    def resolve_type(self, value):
+        if isinstance(value, list):
+            return re.sub(r'[\[\]]', '', str(value))
+        return value
+        
+    def resolve_ref(self, node, input):
+        log([f'resolve_ref {self.get_node_name(node)} {input}'], False)
+        path = input['value'].split('/')
+        ref_node = node
+        for p in path:
+            if p == '..':
+                ref_node = ref_node['parent']
+            
+        ref_node = self.get_node(ref_node, path[-2])
+        self.process_node(ref_node)
+        # todo: next line is temporary
+        input['value'] = self.get_node_name(ref_node)
+        # input['value'] = ref_node['value']
+        # todo: need to reconsider ref values
+        # value: ../1/out
+        # the out output does not have enough values
+        # if probably should be ../1 for single output functions
+
+    def resolve_template_input(self, node, match, index):
+        log([f'resolve_template_input {self.get_node_name(node)} {match} {index}'], False)
+        input = node['inputs'][index]
+        if '../' in input['value']:
+            self.resolve_ref(node, input)
+        input['_code'] = self.resolve_type(input['value'])
+        node['_code'] = node['_code'].replace(match, node['inputs'][index]['_code'])
+            
+    def resolve_template(self, node):
+        if r'{{name}}' in node['_code']:
+            node['_code'] = node['_code'].replace(r'{{name}}', self.get_node_name(node))
+        if r'{{inputs' in node['_code']:
+            # todo: need to set node['inputs_code'] somewhere here,
+            # then insert before the template later
+            pass
+        matches = re.findall(r"(\{\{inputs:(\d+)\}\})", node['_code'])
+        for match, input_index in matches:
+            input_index = int(input_index)
+            self.resolve_template_input(node, match, input_index)
+
+    def resolve_internals(self, node):
+        node['_code'] = self.get_template(node)
+        self.resolve_template(node)
+        if r'{{internal_nodes}}' not in node['_code']:
+            return node['_code']
+        log([f'resolve_internals {self.get_node_name(node)}'], False)
+        
+         
+        if not self.has_nodes(node):
+            node['_code'] = node['_code'].replace(r'{{internal_nodes}}', '')
+        else:
+            internal_code = ''
+            for child_node in node['nodes']:
+                internal_code += f'\t{child_node['_code']}\n'
+            node['_code'] = node['_code'].replace(r'{{internal_nodes}}', internal_code)
+        return node['_code']
+
+    def compile_node(self, node):
+        if '_code' in node:
+            return
+        log([f'compiling {self.get_node_name(node)}'], False)
+        code = self.resolve_internals(node)
+        if code:
+            log([f'adding code {node['type']}', code])
+            node['_code'] = code
+            self.shader_code += f'{code}\n'
+
+    def get_template(self, node):
+        return self.lang_def['nodes'][node['type']]['template']
+
+    
+    def process_node(self, node):
+        log([f'processing {self.get_node_name(node)}'])
+        if not self.has_nodes(node):
+            self.compile_node(node)
+            return
+        sorted_nodes = sorted(node['nodes'], key=lambda item: item['id'])
+        for child_node in sorted_nodes:
+            child_node['parent'] = node
+            self.process_node(child_node)
+        self.compile_node(child_node)
+
+    def set_parents(self, node):
+        if self.has_nodes(node):
+            for child_node in node['nodes']:
+                child_node['parent'] = node
+    def generate(self):
+        pprint(graph_data)
+        self.set_parents(graph_data)
+        self.process_node(graph_data)
+        log(['GENERATED SHADER:', self.shader_code])
+
+if __name__ == '__main__':
+    graph_path = os.path.join('', f'{SHADER_NAME}.yml')
+    graph_data = load_yaml_file(graph_path)
+
     for language in LANGUAGES:
-        print(f"\nGenerating {language} shader for '{SHADER_NAME}'...")
-        
-        lang_def_path = os.path.join("data", "languages", f"{language}.yml")
+        log([f'\nGenerating {language} shader for {SHADER_NAME}'])
+
+        lang_def_path = os.path.join('data', 'languages', f'{language}.yml')
+
         lang_def = load_yaml_file(lang_def_path)
-        
+        print(f'lang_def {type(lang_def)}')
         generator = ShaderGenerator(graph_data, lang_def)
-        shader_code = generator.generate()
-        
+
+        generator.generate()
+
         ext = lang_def['file_extensions'][0]
-        output_file = f"{SHADER_NAME}.{ext}"
+        output_file = f'{SHADER_NAME}.{ext}'
         with open(output_file, 'w') as f:
-            f.write(shader_code)
-        print(f"Shader saved to '{output_file}':\n{shader_code}\n")
+            f.write(generator.shader_code)
+        break
+        # print(f'Shader saved to '{output_file}':\n{shader_code}\n')

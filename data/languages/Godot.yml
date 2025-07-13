@@ -11,21 +11,21 @@ nodes:
   vertex_pass:
     template: |
       void vertex() {
-          {{internal_nodes}}
+      {{internal_nodes}}
       }
   fragment_pass:
     template: |
       void fragment() {
-          {{internal_nodes}}
+      {{internal_nodes}}
       }
   color:
-    template: "vec4 {{var_name}} = vec4({{inputs.in}});"
+    template: "vec4 {{name}} = vec4({{inputs:0}});"
   fragment_output:
-    template: "ALBEDO = vec3({{inputs.Color}}.rgb);"
+    template: "ALBEDO = vec3({{inputs:0}}.rgb);"
 meta_templates:
   blend_mode:
     transparent: "render_mode blend_add;\n"
     opaque: ""
 exposable_nodes:
   color:
-    template: "uniform vec4 {{var_name}} = vec4({{inputs.in}});"
+    template: "uniform vec4 {{name}} = vec4({{inputs:0}});"
