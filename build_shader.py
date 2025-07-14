@@ -5,7 +5,8 @@ import re
 
 # Predefined Variables
 SHADER_NAME = 'BasicShader'
-LANGUAGES = ['Godot', 'Unity']
+# LANGUAGES = ['Godot', 'Unity']
+LANGUAGES = ['Godot']
 
 
 def load_yaml_file(file_path):
@@ -55,7 +56,7 @@ class ShaderGenerator:
         return value
         
     def resolve_ref(self, node, input):
-        log([f'resolve_ref {node['type']} {input}'], False)
+        log([f"resolve_ref {node['type']} {input}"], False)
         path = input['value'].split('/')
         ref_node = node
         for p in path:
@@ -73,7 +74,7 @@ class ShaderGenerator:
         # if probably should be ../1 for single output functions
 
     def resolve_template_input(self, node, match, index):
-        log([f'resolve_template_input {node['type']} {match} {index}'], False)
+        log([f'resolve_template_input {node["type"]} {match} {index}'], False)
         input = node['inputs'][index]
         if '../' in input['value']:
             self.resolve_ref(node, input)
@@ -81,7 +82,7 @@ class ShaderGenerator:
         node['_code'] = node['_code'].replace(match, node['inputs'][index]['_code'])
 
     def resolve_template(self, node):
-        log([f'resolve_template {node['type']}'], False)
+        log([f'resolve_template {node["type"]}'], False)
 
         if r'{{name}}' in node['_code']:
             node['_code'] = node['_code'].replace(r'{{name}}', self.get_node_name(node))
@@ -100,7 +101,7 @@ class ShaderGenerator:
         self.resolve_template(node)
         if r'{{internal_nodes}}' not in node['_code']:
             return node['_code']
-        log([f'resolve_internals {node['type']}'], False)
+        log([f'resolve_internals {node["type"]}'], False)
 
         if not self.has_nodes(node):
             node['_code'] = node['_code'].replace(r'{{internal_nodes}}', '')
@@ -110,17 +111,17 @@ class ShaderGenerator:
             else:
                 internal_code = ''
                 for child_node in node['nodes']:
-                    internal_code += f'\t{child_node['_code']}\n'
+                    internal_code += f'\t{child_node["_code"]}\n'
                 node['_code'] = node['_code'].replace(r'{{internal_nodes}}', internal_code)
         return node['_code']
 
     def compile_node(self, node):
         if '_code' in node:
             return
-        log([f'compiling {node['type']}'], False)
+        log([f'compiling {node["type"]}'], False)
         code = self.resolve_internals(node)
         if code:
-            log([f'adding code {node['type']}', code])
+            log([f'adding code {node["type"]}', code])
             node['_code'] = code
             if '_resolving_input' in node:
                 if '_input_code' not in node['parent']:
@@ -137,7 +138,7 @@ class ShaderGenerator:
     def process_node(self, node):
         if self.has_code(node):
             return
-        log([f'processing {node['type']}'])
+        log([f'processing {node["type"]}'])
         if not self.has_nodes(node):
             self.compile_node(node)
             return

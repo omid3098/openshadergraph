@@ -103,7 +103,14 @@ class GraphUtil:
         result = [node for node in graph['nodes'] if node['name'] == name]
         if result:
             return result[0]
-
+    
+    def get_node_by_type(self, graph, type):
+        if graph and 'type' in graph:
+            print(f"Searching in graph {graph['type']} for node name '{type}'")
+        result = [node for node in graph['nodes'] if node['type'] == type]
+        if result:
+            return result[0]
+        
     def get_node_local_path(self, graph_node, target_node):
         """
         Finds the path of a node within the graph hierarchy.

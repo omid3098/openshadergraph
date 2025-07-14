@@ -25,11 +25,11 @@ nodes:
 
 meta:
   blend_mode_transparent:
-    template: Tags { "Queue" = "Transparent" }
+    template: render_mode blend_mix;
   blend_mode_opaque:
-    template: Tags { "Queue" = "Opaque" }
+    template: ""
   alpha_mode_SrcAlpha_OneMinusSrcAlpha:
-    template: Blend SrcAlpha OneMinusSrcAlpha
+    template: render_mode blend_mul;
   varing:
     template: "varing {{definitaion}}"
   exposed:
