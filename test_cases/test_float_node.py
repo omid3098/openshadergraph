@@ -26,7 +26,6 @@ if __name__ == "__main__":
 
     # Connect color node to fragment output
     fragment_output_node = get_node(fragment_pass_node, 'fragment_output')
-    # TODO: Roughness or ROUGHNESS?? is it case sensitive? if yes, then it godot its ROUGHNESS
     connect_nodes(graph=fragment_pass_node, from_node=float_node_a, to_node=fragment_output_node, from_pin='out',
                   to_pin='Roughness')
 
