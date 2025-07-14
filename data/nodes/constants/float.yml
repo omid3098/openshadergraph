@@ -1,15 +1,17 @@
 id: -1
 type: float
-title: Float
+name: Float
 meta: []
 position: [0, 0]
 nodes: []
 inputs:
-  - name: in
+  - id: 0
+    name: in
 #   TODO: double check see if type is float or float1
     type: float
     value: [0.0]
 outputs:
-  - name: out
+  - id: 0
+    name: out
     #   TODO: double check see if type is float or float1
     type: float

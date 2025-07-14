@@ -1,15 +1,8 @@
-id: 1
+id: -1
 type: fragment_pass
-title: FragmentPass
+name: FragmentPass
 meta: []
-position: [10, 0]
 nodes: 
-  - id: 0
+  - id: 0 
     type: fragment_output
-    title: Fragment Output
-    position: [10, 0]
-    inputs:
-      - name: Color
-        type: float3
-        value: [1.0, 1.0, 1.0]
 outputs: []

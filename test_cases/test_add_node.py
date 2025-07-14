@@ -21,8 +21,8 @@ if __name__ == "__main__":
 
     add_meta(surface_graph, "render_mode", "opaque")
     
-    fragment_pass_node = get_node_from_graph(surface_graph, 'fragment_pass')
-    fragment_output_node = get_node_from_graph(fragment_pass_node, 'fragment_output')
+    fragment_pass_node = get_node(surface_graph, 'fragment_pass')
+    fragment_output_node = get_node(fragment_pass_node, 'fragment_output')
     
     # Add color node to the fragment pass
     color1 = create_node_of_type('color') 

@@ -1,8 +1,10 @@
 id: -1
-type: "surface"
-title: "Surface"
+type: surface
+name: Surface
 meta: []
 position: [0, 0]
-nodes: ['/passes/vertex_pass', '/passes/fragment_pass']
+nodes: 
+  - type: vertex_pass
+  - type: fragment_pass
 inputs: []
 outputs: []

@@ -1,6 +1,6 @@
-id: 0
+id: -1
 type: vertex_pass
-title: Vertex
+name: Vertex
 meta: []
 position: [0, 0]
 nodes: []

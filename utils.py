@@ -1,132 +1,150 @@
 import os
 import yaml
 
-nodes_root_path = os.path.join("data", "nodes")
 
-def add_node_to_graph(graph, node):
-    if node is None:
-        raise ValueError("Cannot add a None node to a None graph.")
-    if 'nodes' not in graph:
-        graph['nodes'] = []
-    node_index = len(graph['nodes']) if isinstance(graph['nodes'], list) else 0
-    if 'id' not in node:
-        node['id'] = -1
-    node['id'] = node_index
-    graph['nodes'].append(node)
-
-def create_node_of_type(node_name: str):
-    """
-    Creates a node of the specified type from existing node definitions.
-    """
-    for root, dirs, files in os.walk(nodes_root_path):
-        for file in files:
-            if file == f"{node_name}.yml":
-                # return the content of the yml file
+class GraphUtil:
+    def __init__(self):
+        self.nodes_root_path = os.path.join("data", "nodes")
+        self.templates = {}
+        self.last_id = -1
+        self.load_tempates()
+        
+    def load_tempates(self):
+        for root, dirs, files in os.walk(self.nodes_root_path):
+            for file in files:
                 with open(os.path.join(root, file), 'r') as f:
-                    return yaml.safe_load(f)
-    raise ValueError(f"Node type '{node_name}' not found in node definitions.")
-                
-def create_graph_of_type(name: str):
-    """
-    Creates a graph node of the specified type from existing node(graph) definitions.
-    """
-    return create_node_of_type(name)
+                    template_name = file.split('.')[0]
+                    self.templates[template_name] = yaml.safe_load(f)
+
+    def add_new_id(self):
+        self.last_id += 1
+        return self.last_id
     
-                
-def get_node_template(node_type: str, language_template: str):
-    """    
-    Retrieves the template for a specific node type from the language template for shader generation.
-    """
-    for node_name, node_data in language_template['nodes'].items():
-        if node_name == node_type:
-            return node_data['template']
-    raise ValueError(f"Node type '{node_type}' not found in language template for language '{language_template['name']}'.")
+    def set_id(self, node):
+        node['id'] = self.add_new_id()
+        # node = {'id': node['id'], **{k: v for k, v in node.items() if k != 'id'}}
 
-def get_pin_template(node_type: str, pin_name: str, language_template: dict):
-    """
-    Retrieves the template for a specific pin of a node type from the language template for shader generation.
-    """
-    for node_name, node_data in language_template['nodes'].items():
-        if node_name == node_type:
-            for pin in node_data['outputs']:
-                if pin['name'] == pin_name:
-                    return pin['template']
-    raise ValueError(f"Pin '{pin_name}' not found in node type '{node_type}' templates.")
-
-def generate_unique_node_name(node):
-    if node['id'] == -1:
-        raise ValueError("Node ID is not set in the graph. Please set a unique ID for the node.")
-    return f"{node['type']}_{node['id']}"
-
-def generate_unique_pin_name(node, pin_name):
-    """
-    Generates a unique name for a pin based on the node type and pin name.
-    This is useful for ensuring that pin names do not collide in the generated shader code.
-    """
-    if 'id' not in node or node['id'] == -1:
-        raise ValueError("Node ID is not set in the graph. Please set a unique ID for the node.")
-    return f"{node['type']}_{node['id']}_{pin_name}"
-
-def get_node_data(node):
-    if isinstance(node, str) and node.startswith("/"):
-        node_name = node.split("/")[-1]
-        node_data = create_node_of_type(node_name)
-    else:
-        node_data = node
-    return node_data
+    def add_node_to_graph(self, graph, node):
+        if node is None:
+            raise ValueError("Cannot add a None node to a None graph.")
+        if 'nodes' not in graph:
+            graph['nodes'] = []
+        graph['nodes'].append(node)
 
 
-def get_node_from_graph(graph, node_type):
-    print(f"Searching in graph '{graph['title']}' for node type '{node_type}'")
-    for i, node in enumerate(graph['nodes']):
-        if isinstance(node, str) and node.startswith('/'):
-            node_data = create_node_of_type(node.split('/')[-1])
-            if node_data['type'] == node_type:
-                graph['nodes'][i] = node_data
-                return node_data
-        elif node['type'] == node_type:
+    def create_node(self, graph, template: str):
+        """
+        Creates a node of the specified type from existing node definitions.
+        """
+        if template in self.templates:
+            node = self.templates[template].copy()
+            self.set_id(node)
+            if graph:
+                nodes = node['nodes'].copy()
+                node['nodes'] = []
+                graph['nodes'].append(node)
+                for child_node in nodes:
+                    self.create_node(node, child_node['type'])
             return node
-    return None
-
-def get_node_local_path(graph_node, target_node):
-    """
-    Finds the path of a node within the graph hierarchy.
-    The path is represented as a string like '/id1/id2/...'.
-    """
-    def find_path(current_node, target, path_prefix):
-        if 'nodes' in current_node and current_node['nodes']:
-            for node in current_node['nodes']:
-                current_path = f"{path_prefix}/{node['id']}"
-                if node is target:
-                    return current_path
+        raise ValueError(f"Node type '{template}' not found in node definitions.")
                 
-                found_path = find_path(node, target, current_path)
-                if found_path:
-                    return found_path
-        return None
+    def create_graph(self, template: str):
+        """
+        Creates a graph node of the specified type from existing node(graph) definitions.
+        """
+        graph = self.create_node(None, template)
+        
+        nodes = graph['nodes'].copy()
+        graph['nodes'] = []
+        for node in nodes:
+            self.create_node(graph, node['type'])
+        return graph
+        
+                
+    def get_node_template(self, node_type: str, language_template: str):
+        """    
+        Retrieves the template for a specific node type from the language template for shader generation.
+        """
+        # todo: not sure why we need language related data in the graph
+        # for node_name, node_data in language_template['nodes'].items():
+        #     if node_name == node_type:
+        #         return node_data['template']
+        raise ValueError(f"Node type '{node_type}' not found in language template for language '{language_template['name']}'.")
 
-    return find_path(graph_node, target_node, "")
+    def get_pin_template(self, node_type: str, pin_name: str, language_template: dict):
+        """
+        Retrieves the template for a specific pin of a node type from the language template for shader generation.
+        """
+        # todo: not sure why we need language related data in the graph
+        # for node_name, node_data in language_template['nodes'].items():
+        #     if node_name == node_type:
+        #         for pin in node_data['outputs']:
+        #             if pin['name'] == pin_name:
+        #                 return pin['template']
+        raise ValueError(f"Pin '{pin_name}' not found in node type '{node_type}' templates.")
 
-def connect_nodes(graph, from_node, to_node, from_pin, to_pin):
-    """
-    Connects two nodes in the graph by linking their specified input and output pins.
-    Args:
-        from_node (node): The node from which the connection originates.
-        to_node (node): The node to which the connection is made.
-        from_pin (str): The name of the output pin on the from_node.
-        to_pin (str): The name of the input pin on the to_node.
-    """
-    to_node_input = next((input for input in to_node['inputs'] if input['name'] == to_pin), None)
-    if to_node_input is None:
-        raise ValueError(f"Input pin '{to_pin}' not found in node '{to_node['type']}'.")
-    from_node_output = next((output for output in from_node['outputs'] if output['name'] == from_pin), None)
-    if from_node_output is None:
-        raise ValueError(f"Output pin '{from_pin}' not found in node '{from_node['type']}'.")
-    from_node_path = get_node_local_path(graph, from_node)
-    if from_node_path is None:
-        raise ValueError(f"Could not find path for node '{from_node['type']}' in the graph '{graph['title']}'.")
-    
-    to_node_input['value'] = f"{from_node_path}/{from_pin}"
+    def generate_unique_pin_name(self, node, pin_name):
+        """
+        Generates a unique name for a pin based on the node type and pin name.
+        This is useful for ensuring that pin names do not collide in the generated shader code.
+        """
+        if 'id' not in node or node['id'] == -1:
+            raise ValueError("Node ID is not set in the graph. Please set a unique ID for the node.")
+        return f"{node['type']}_{node['id']}_{pin_name}"
+
+
+    def get_node(self, graph, id):
+        print(f"Searching in graph '{graph['name']}' for node type '{id}'")
+        return graph['nodes'][id]
+
+    def get_node_by_type(self, graph, type):
+        if graph and 'type' in graph:
+            print(f"Searching in graph {graph['type']} for node type '{type}'")
+        result = [node for node in graph['nodes'] if node['type'] == type]
+        if result:
+            return result[0]
+
+    def get_node_by_name(self, graph, name):
+        if graph and 'type' in graph:
+            print(f"Searching in graph {graph['type']} for node name '{name}'")
+        result = [node for node in graph['nodes'] if node['name'] == name]
+        if result:
+            return result[0]
+
+    def get_node_local_path(self, graph_node, target_node):
+        """
+        Finds the path of a node within the graph hierarchy.
+        The path is represented as a string like '/id1/id2/...'.
+        """
+        return f'{graph_node['id']}/{target_node['id']}'
+
+    def get_input(self, node, id):
+        # todo: this is index based for now
+        return node['inputs'][int(id)]
+        # input = [input for input in node['inputs'] if input['id'] == id]
+        # let it threw error if it does not exist for now
+        # return input[0]
+
+    def get_output(self, node, id):
+        # todo: this is index based for now
+        return node['outputs'][int(id)]
+        # output = [output for output in node['outputs'] if output['id'] == id]
+        # let it threw error if it does not exist for now
+        # return output[0]
+        
+    def connect_nodes(self, from_node, to_node, from_pin, to_pin, address=''):
+        """
+        Connects two nodes in the graph by linking their specified input and output pins.
+        Args:
+            from_node (node): The node from which the connection originates.
+            to_node (node): The node to which the connection is made.
+            from_pin (str): The name of the output pin on the from_node.
+            to_pin (str): The name of the input pin on the to_node.
+        """
+        input = self.get_input(to_node, to_pin)
+        output = self.get_output(from_node, from_pin)
+        output['value'] = f'{address}{to_node['id']}/{input['id']}'
+        input['value'] = f'{address}{from_node['id']}/{output['id']}'
 
 
 def load_graph_from_file(file_path):
@@ -255,11 +273,11 @@ def get_node_with_local_path(graph, local_path):
     
     return None
 
-def add_meta(graph, key, value):
+def add_meta(graph, value):
     """
     Adds a meta key-value pair to the graph.
     If the meta dictionary does not exist, it creates one.
     """
     if 'meta' not in graph:
-        graph['meta'] = [{}]
-    graph['meta'].append({key: value})
+        graph['meta'] = []
+    graph['meta'].append(value)

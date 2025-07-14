@@ -18,14 +18,14 @@ if __name__ == "__main__":
 
     # Add float node to the fragment pass
     float_node_a = create_node_of_type('float')
-    fragment_pass_node = get_node_from_graph(surface_graph, 'fragment_pass')
+    fragment_pass_node = get_node(surface_graph, 'fragment_pass')
     add_node_to_graph(fragment_pass_node, float_node_a)
     add_meta(float_node_a, "exposable", True)
 
 
 
     # Connect color node to fragment output
-    fragment_output_node = get_node_from_graph(fragment_pass_node, 'fragment_output')
+    fragment_output_node = get_node(fragment_pass_node, 'fragment_output')
     # TODO: Roughness or ROUGHNESS?? is it case sensitive? if yes, then it godot its ROUGHNESS
     connect_nodes(graph=fragment_pass_node, from_node=float_node_a, to_node=fragment_output_node, from_pin='out',
                   to_pin='Roughness')

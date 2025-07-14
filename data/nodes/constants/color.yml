@@ -1,13 +1,15 @@
 id: -1
 type: color
-title: Color
+name: Color
 meta: []
 position: [0, 0]
 nodes: []
 inputs: 
-  - name: in
+  - id: 0
+    name: in
     type: float4
     value: [1.0, 1.0, 1.0, 1.0]
 outputs: 
-  - name: out
+  - id: 0
+    name: out
     type: float4

@@ -42,7 +42,7 @@ class ShaderGenerator:
                 return node
     
     def get_node_name(self, node):
-        return node['name'] if 'name' in node else node['title']
+        return node['name'] if 'name' else 'NO_NAME'
     
     def get_output(self, node, name):
         for output in node['outputs']:
@@ -147,9 +147,14 @@ class ShaderGenerator:
             self.process_node(child_node)
         self.compile_node(child_node)
 
-    def add_meta(self, node):
-        # for meta in self.graph_data['meta']:
-        pass
+    def get_meta_template(self, meta):
+        return self.lang_def['meta'][meta]['template']
+    
+    def add_meta(self):
+        meta_code = ''
+        for meta in self.graph_data['meta']:
+            meta_code += f'{self.get_meta_template(meta)}\n'
+        self.shader_code = self.shader_code.replace(r'{{meta}}', meta_code)
 
     def set_parents(self, node):
         if self.has_nodes(node):
@@ -159,10 +164,19 @@ class ShaderGenerator:
 
     def generate(self):
         pprint(graph_data)
+
         self.set_parents(graph_data)
+        self.shader_code = self.get_template(self.graph_data)
         self.process_node(graph_data)
+        self.add_meta()
+        # todo: don't like replacing {{exposed_nodes}} {{internal_nodes}} this way
+        # shader code needs to be caches as _internal_nodes then replaced with {{internal_nodes}}
+        self.shader_code = self.shader_code.replace(r'{{exposed_nodes}}', '')
+        self.shader_code = self.shader_code.replace(r'{{internal_nodes}}', '')
+
         log(['GENERATED SHADER:', self.shader_code])
 
+    
 if __name__ == '__main__':
     graph_path = os.path.join('', f'{SHADER_NAME}.yml')
     graph_data = load_yaml_file(graph_path)
@@ -182,5 +196,5 @@ if __name__ == '__main__':
         output_file = f'{SHADER_NAME}.{ext}'
         with open(output_file, 'w') as f:
             f.write(generator.shader_code)
-        break
+        
         # print(f'Shader saved to '{output_file}':\n{shader_code}\n')

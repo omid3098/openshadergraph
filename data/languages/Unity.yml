@@ -4,12 +4,12 @@ file_extensions: ["shader"]
 nodes:
   surface:
     template: |
-      Shader "Custom/{{title}}" {
+      Shader "Custom/{{name}}" {
           Properties {
-              {{exposable_nodes}}
+              {{exposed_nodes}}
           }
           SubShader {
-              {{meta.blend_mode}}
+              {{meta}}
               CGPROGRAM
               #pragma surface surf Standard
               struct Input {
@@ -29,14 +29,15 @@ nodes:
     template: "float4 {{var_name}} = _{{var_name}};"
   fragment_output:
     template: "o.Albedo = float3({{inputs.Color}}.rgb);"
-meta_templates:
-  blend_mode:
-    transparent: |
-          Tags { "Queue" = "Transparent" }
-          Blend SrcAlpha OneMinusSrcAlpha
-    opaque: ""
-exposable_nodes:
-  color:
-    template: |
-      [Header(Color)]
-      _{{var_name}} ("Color", Color) = (1,1,1,1)
+
+meta:
+  blend_mode_transparent:
+    template: Tags { "Queue" = "Transparent" }
+  blend_mode_opaque:
+    template: Tags { "Queue" = "Opaque" }
+  alpha_mode_SrcAlpha_OneMinusSrcAlpha:
+    template: Blend SrcAlpha OneMinusSrcAlpha
+  varing:
+    template: "varing {{definitaion}}"
+  exposed:
+    template: "uniform {{definition}}"
