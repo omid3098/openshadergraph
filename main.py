@@ -16,13 +16,13 @@ if __name__ == '__main__':
     gu = GraphUtil()
     surface_graph = gu.create_graph('surface')
 
-    add_meta(surface_graph, 'blend_mode_transparent')
-    add_meta(surface_graph, 'alpha_mode_SrcAlpha_OneMinusSrcAlpha')
+    gu.add_meta(surface_graph, 'blend_mode_transparent')
+    gu.add_meta(surface_graph, 'alpha_mode_SrcAlpha_OneMinusSrcAlpha')
     
     # Add color node to the fragment pass
     fragment_pass_node = gu.get_node_by_name(surface_graph, 'FragmentPass')
     color_node = gu.create_node(fragment_pass_node, 'color')
-    add_meta(color_node, 'exposed')
+    gu.add_meta(color_node, 'exposed')
 
     # Connect color node to fragment output
     fragment_out_node = gu.get_node_by_name(fragment_pass_node, 'FragmentOutput')

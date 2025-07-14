@@ -29,6 +29,7 @@ class GraphUtil:
             raise ValueError("Cannot add a None node to a None graph.")
         if 'nodes' not in graph:
             graph['nodes'] = []
+        self.set_id(node)
         graph['nodes'].append(node)
 
 
@@ -59,29 +60,21 @@ class GraphUtil:
         for node in nodes:
             self.create_node(graph, node['type'])
         return graph
+    
+    def create_external_node_to_graph(self, graph, file_path):
+        """
+        Loads a graph from an external YAML file.
+        Args:
+            file_path (str): The path to the YAML file containing the graph definition.
+        Returns:
+            dict: The loaded graph.
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Graph file '{file_path}' does not exist.")
         
-                
-    def get_node_template(self, node_type: str, language_template: str):
-        """    
-        Retrieves the template for a specific node type from the language template for shader generation.
-        """
-        # todo: not sure why we need language related data in the graph
-        # for node_name, node_data in language_template['nodes'].items():
-        #     if node_name == node_type:
-        #         return node_data['template']
-        raise ValueError(f"Node type '{node_type}' not found in language template for language '{language_template['name']}'.")
-
-    def get_pin_template(self, node_type: str, pin_name: str, language_template: dict):
-        """
-        Retrieves the template for a specific pin of a node type from the language template for shader generation.
-        """
-        # todo: not sure why we need language related data in the graph
-        # for node_name, node_data in language_template['nodes'].items():
-        #     if node_name == node_type:
-        #         for pin in node_data['outputs']:
-        #             if pin['name'] == pin_name:
-        #                 return pin['template']
-        raise ValueError(f"Pin '{pin_name}' not found in node type '{node_type}' templates.")
+        with open(file_path, 'r') as f:
+            external_graph = yaml.safe_load(f)
+            self.add_node_to_graph(graph, external_graph)
 
     def generate_unique_pin_name(self, node, pin_name):
         """
@@ -116,7 +109,7 @@ class GraphUtil:
         Finds the path of a node within the graph hierarchy.
         The path is represented as a string like '/id1/id2/...'.
         """
-        return f'{graph_node['id']}/{target_node['id']}'
+        return f'{graph_node["id"]}/{target_node["id"]}'
 
     def get_input(self, node, id):
         # todo: this is index based for now
@@ -143,8 +136,17 @@ class GraphUtil:
         """
         input = self.get_input(to_node, to_pin)
         output = self.get_output(from_node, from_pin)
-        output['value'] = f'{address}{to_node['id']}/{input['id']}'
-        input['value'] = f'{address}{from_node['id']}/{output['id']}'
+        output['value'] = f'{address}{to_node["id"]}/{input["id"]}'
+        input['value'] = f'{address}{from_node["id"]}/{output["id"]}'
+
+    def add_meta(self, graph, value):
+        """
+        Adds a meta key-value pair to the graph.
+        If the meta dictionary does not exist, it creates one.
+        """
+        if 'meta' not in graph:
+            graph['meta'] = []
+        graph['meta'].append(value)
 
 
 def load_graph_from_file(file_path):
@@ -272,12 +274,3 @@ def get_node_with_local_path(graph, local_path):
                 return node
     
     return None
-
-def add_meta(graph, value):
-    """
-    Adds a meta key-value pair to the graph.
-    If the meta dictionary does not exist, it creates one.
-    """
-    if 'meta' not in graph:
-        graph['meta'] = []
-    graph['meta'].append(value)
