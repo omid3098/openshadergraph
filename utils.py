@@ -1,5 +1,6 @@
 import os
 import yaml
+import copy
 
 
 class GraphUtil:
@@ -38,10 +39,10 @@ class GraphUtil:
         Creates a node of the specified type from existing node definitions.
         """
         if template in self.templates:
-            node = self.templates[template].copy()
+            node = copy.deepcopy(self.templates[template])
             self.set_id(node)
             if graph:
-                nodes = node['nodes'].copy()
+                nodes = copy.deepcopy(node['nodes'])
                 node['nodes'] = []
                 graph['nodes'].append(node)
                 for child_node in nodes:
@@ -281,8 +282,3 @@ def get_node_with_local_path(graph, local_path):
                 return node
     
     return None
-
-
-class NoAliasDumper(yaml.SafeDumper):
-    def ignore_aliases(self, data):
-        return True
