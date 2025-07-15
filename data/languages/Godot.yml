@@ -22,6 +22,8 @@ nodes:
     template: "vec4 {{name}} = vec4({{inputs:0}});"
   fragment_output:
     template: "ALBEDO = vec3({{inputs:0}}.rgb);"
+  add:
+    template: "float4 {{name}} = {{inputs:0}} + {{inputs:1}};"
 
 meta:
   blend_mode_transparent:

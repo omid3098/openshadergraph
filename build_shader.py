@@ -132,7 +132,10 @@ class ShaderGenerator:
                 self.shader_code += f'{code}\n'
 
     def get_template(self, node):
-        return self.lang_def['nodes'][node['type']]['template']
+        node_type = node['type']
+        if node_type not in self.lang_def['nodes'] or 'template' not in self.lang_def['nodes'][node_type]:
+            raise KeyError(f'No template found for node type "{node_type}" in language definition.')
+        return self.lang_def['nodes'][node_type]['template']
 
     
     def process_node(self, node):
@@ -164,11 +167,11 @@ class ShaderGenerator:
                 self.set_parents(child_node)
 
     def generate(self):
-        pprint(graph_data)
+        pprint(self.graph_data)
 
-        self.set_parents(graph_data)
+        self.set_parents(self.graph_data)
         self.shader_code = self.get_template(self.graph_data)
-        self.process_node(graph_data)
+        self.process_node(self.graph_data)
         self.add_meta()
         # todo: don't like replacing {{exposed_nodes}} {{internal_nodes}} this way
         # shader code needs to be caches as _internal_nodes then replaced with {{internal_nodes}}
@@ -178,24 +181,40 @@ class ShaderGenerator:
         log(['GENERATED SHADER:', self.shader_code])
 
     
-if __name__ == '__main__':
-    graph_path = os.path.join('', f'{SHADER_NAME}.yml')
+# if __name__ == '__main__':
+#     graph_path = os.path.join('', f'{SHADER_NAME}.yml')
+#     graph_data = load_yaml_file(graph_path)
+
+#     for language in LANGUAGES:
+#         log([f'\nGenerating {language} shader for {SHADER_NAME}'])
+
+#         lang_def_path = os.path.join('data', 'languages', f'{language}.yml')
+
+#         lang_def = load_yaml_file(lang_def_path)
+#         print(f'lang_def {type(lang_def)}')
+#         generator = ShaderGenerator(graph_data, lang_def)
+
+#         generator.generate()
+
+#         ext = lang_def['file_extensions'][0]
+#         output_file = f'{SHADER_NAME}.{ext}'
+#         with open(output_file, 'w') as f:
+#             f.write(generator.shader_code)
+        
+        # print(f'Shader saved to '{output_file}':\n{shader_code}\n')
+
+def build(shader_name):
+    graph_path = os.path.join('', f'{shader_name}.yml')
     graph_data = load_yaml_file(graph_path)
 
     for language in LANGUAGES:
-        log([f'\nGenerating {language} shader for {SHADER_NAME}'])
-
         lang_def_path = os.path.join('data', 'languages', f'{language}.yml')
-
         lang_def = load_yaml_file(lang_def_path)
-        print(f'lang_def {type(lang_def)}')
-        generator = ShaderGenerator(graph_data, lang_def)
 
+        generator = ShaderGenerator(graph_data, lang_def)
         generator.generate()
 
         ext = lang_def['file_extensions'][0]
         output_file = f'{SHADER_NAME}.{ext}'
         with open(output_file, 'w') as f:
             f.write(generator.shader_code)
-        
-        # print(f'Shader saved to '{output_file}':\n{shader_code}\n')

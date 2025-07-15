@@ -4,6 +4,7 @@ import yaml
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import *
+from build_shader import *
 
 SHADER_NAME = "AddNode_Test"
 SHADER_TYPE = "surface"
@@ -35,3 +36,4 @@ if __name__ == "__main__":
     gu.connect_nodes(add_node, fragment_output_node, 0, 0)
 
     save_graph(surface_graph)
+    build(SHADER_NAME)
