@@ -11,7 +11,7 @@ SHADER_TYPE = "surface"
 def save_graph(graph):
     graph_path = os.path.join('', f'{SHADER_NAME}.yml')
     with open(graph_path, 'w') as f:
-        yaml.dump(graph, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(graph, f, default_flow_style=False, sort_keys=False, Dumper=NoAliasDumper)
 
 if __name__ == "__main__":
     print("---------------------- Shader Generation Script ---------------------")
@@ -24,9 +24,10 @@ if __name__ == "__main__":
     fragment_output_node = gu.get_node_by_type(fragment_pass_node, 'fragment_output')
 
     # Add color node to the fragment pass
-    color1 = gu.create_node(fragment_pass_node, 'color')
+    color1 = gu.create_node(fragment_pass_node, 'color')    
     color2 = gu.create_node(fragment_pass_node, 'color')
-    add_node = gu.create_node(fragment_pass_node, 'add')
+    
+    # add_node = gu.create_node(fragment_pass_node, 'add')
 
     gu.add_meta(color1, 'exposed')
 

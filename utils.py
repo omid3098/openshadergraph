@@ -281,3 +281,8 @@ def get_node_with_local_path(graph, local_path):
                 return node
     
     return None
+
+
+class NoAliasDumper(yaml.SafeDumper):
+    def ignore_aliases(self, data):
+        return True
