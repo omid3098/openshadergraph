@@ -120,18 +120,16 @@ class GraphUtil:
         return f'{graph_node["id"]}/{target_node["id"]}'
 
     def get_input(self, node, id):
-        # todo: this is index based for now
-        return node['inputs'][int(id)]
-        # input = [input for input in node['inputs'] if input['id'] == id]
-        # let it threw error if it does not exist for now
-        # return input[0]
+        input = [input for input in node['inputs'] if input['id'] == id]
+        if not input:
+            raise ValueError(f"Input with id '{id}' not found in node '{node['type']}'")
+        return input[0]
 
     def get_output(self, node, id):
-        # todo: this is index based for now
-        return node['outputs'][int(id)]
-        # output = [output for output in node['outputs'] if output['id'] == id]
-        # let it threw error if it does not exist for now
-        # return output[0]
+        output = [output for output in node['outputs'] if output['id'] == id]
+        if not output:
+            raise ValueError(f"Output with id '{id}' not found in node '{node['type']}'")
+        return output[0]
         
     def connect_nodes(self, from_node, to_node, from_pin, to_pin, address=''):
         """
@@ -146,6 +144,13 @@ class GraphUtil:
         output = self.get_output(from_node, from_pin)
         output['value'] = f'{address}{to_node["id"]}/{input["id"]}'
         input['value'] = f'{address}{from_node["id"]}/{output["id"]}'
+
+    def connect_nodes(self, from_node, to_node, from_pin, to_pin):
+        # TODO: check pin types before connecting and raise an error if they are not compatible
+        input = self.get_input(to_node, to_pin)
+        output = self.get_output(from_node, from_pin)
+        output['value'] = f'{"../"}{to_node["id"]}/{input["id"]}'
+        input['value'] = f'{"../"}{from_node["id"]}/{output["id"]}'
 
     def add_meta(self, graph, value):
         """
