@@ -218,6 +218,6 @@ def build(shader_name):
         generator.generate()
 
         ext = lang_def['file_extensions'][0]
-        output_file = f'{SHADER_NAME}.{ext}'
+        output_file = f'{shader_name}.{ext}'
         with open(output_file, 'w') as f:
             f.write(generator.shader_code)
