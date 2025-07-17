@@ -42,8 +42,11 @@ class ShaderGenerator:
             if node['id'] == int(id):
                 return node
     
+    def get_unique_node_name(self, node):
+        return f"{node['type']}_{node['id']}" if 'type' in node else f"NO_TYPE_{node['id']}"
+
     def get_node_name(self, node):
-        return node['name'] if 'name' else 'NO_NAME'
+        return node['name'] if 'name' in node else 'NO_NAME'
     
     def get_output(self, node, name):
         for output in node['outputs']:
@@ -66,7 +69,7 @@ class ShaderGenerator:
         ref_node = self.get_node(ref_node, path[-2])
         self.process_node(ref_node)
         # todo: next line is temporary
-        input['value'] = self.get_node_name(ref_node)
+        input['value'] = self.get_unique_node_name(ref_node)
         # input['value'] = ref_node['value']
         # todo: need to reconsider ref values
         # value: ../1/out
@@ -85,7 +88,7 @@ class ShaderGenerator:
         log([f'resolve_template {node["type"]}'], False)
 
         if r'{{name}}' in node['_code']:
-            node['_code'] = node['_code'].replace(r'{{name}}', self.get_node_name(node))
+            node['_code'] = node['_code'].replace(r'{{name}}', self.get_unique_node_name(node))
         if r'{{inputs' in node['_code']:
             # todo: need to set node['inputs_code'] somewhere here,
             # then insert before the template later
