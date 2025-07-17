@@ -20,8 +20,10 @@ nodes:
       }
   color:
     template: "vec4 {{name}} = vec4({{inputs:0}});"
+  float:
+    template: "float {{name}} = {{inputs:0}};"
   fragment_output:
-    template: "ALBEDO = vec3({{inputs:0}}.rgb);"
+    template: "ALBEDO = vec3({{inputs:0}}.rgb);\n\tROUGHNESS = {{inputs:1}};"
   add:
     template: "float4 {{name}} = {{inputs:0}} + {{inputs:1}};"
 

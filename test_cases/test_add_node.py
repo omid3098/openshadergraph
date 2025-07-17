@@ -29,8 +29,6 @@ if __name__ == "__main__":
     color2 = gu.create_node(fragment_pass_node, 'color')
     add_node = gu.create_node(fragment_pass_node, 'add')
 
-    gu.add_meta(color1, 'exposed')
-
     gu.connect_nodes(color1, add_node, 0, 0)
     gu.connect_nodes(color2, add_node, 0, 1)
     gu.connect_nodes(add_node, fragment_output_node, 0, 0)
