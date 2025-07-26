@@ -1,7 +1,7 @@
 import os
 import yaml
 
-from core.graph_utils import GraphUtil
+from core.node import Node
 
 
 # --- Predefined Variables ---
@@ -13,26 +13,27 @@ SHADER_TYPE = 'surface'
 if __name__ == '__main__':
     print('---------------------- Shader Generation Script ---------------------')
     print(f'Generating a graph for shader {SHADER_NAME} of type {SHADER_TYPE}...')
-    gu = GraphUtil()
-    surface_graph = gu.create_graph('surface')
+    
+    # Create new graph instance
+    surface_graph = Node('surface')
 
-    gu.add_meta(surface_graph, 'blend_mode_transparent')
-    gu.add_meta(surface_graph, 'alpha_mode_SrcAlpha_OneMinusSrcAlpha')
+    surface_graph.add_meta('blend_mode_transparent')
+    surface_graph.add_meta('alpha_mode_SrcAlpha_OneMinusSrcAlpha')
     
     # Add color node to the fragment pass
-    fragment_pass_node = gu.get_node_by_name(surface_graph, 'FragmentPass')
-    color_node = gu.create_node(fragment_pass_node, 'color')
-    gu.add_meta(color_node, 'exposed')
+    fragment_pass_node = surface_graph.get_node_by_name('FragmentPass')
+    color_node = surface_graph.create_node('color', fragment_pass_node)
+    surface_graph.add_meta('exposed')  # Note: This might need adjustment for node-specific meta
 
     # Connect color node to fragment output
-    fragment_out_node = gu.get_node_by_name(fragment_pass_node, 'FragmentOutput')
-    gu.connect_nodes(color_node, fragment_out_node, 0, 0)
+    fragment_out_node = surface_graph.find_nested_node_by_name(fragment_pass_node, 'FragmentOutput')
+    surface_graph.connect_nodes(color_node, fragment_out_node, 0, 0)
 
     # print('------------------------ Loaded Surface Graph -----------------------')
-    # print(yaml.dump(surface_graph, default_flow_style=False, sort_keys=False))
+    # print(yaml.dump(surface_graph.to_dict(), default_flow_style=False, sort_keys=False))
 
     # save it as SHADER_NAME.yml in the project root directory
     shader_file_path = os.path.join(os.getcwd(), f'{SHADER_NAME}.yml')
     with open(shader_file_path, 'w') as f:
-        yaml.dump(surface_graph, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(surface_graph.to_dict(), f, default_flow_style=False, sort_keys=False)
 
