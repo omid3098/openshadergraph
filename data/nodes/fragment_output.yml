@@ -11,4 +11,8 @@ inputs:
     name: ROUGHNESS
     type: float
     value: [0.5]
+  - id: 2
+    name: METALLIC
+    type: float
+    value: [0.0]
 outputs: []

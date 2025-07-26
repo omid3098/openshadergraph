@@ -24,11 +24,13 @@ if __name__ == "__main__":
     fragment_pass_node = gu.get_node_by_type(surface_graph, 'fragment_pass')
 
     # Add float node to the fragment pass
-    float_node_a = gu.create_node(fragment_pass_node, 'float')
+    roughness_float = gu.create_node(fragment_pass_node, 'float')
+    metallic_float = gu.create_node(fragment_pass_node, 'float')
 
     # Connect float node to fragment output
     fragment_output_node = gu.get_node_by_type(fragment_pass_node, 'fragment_output')
-    gu.connect_nodes(float_node_a, fragment_output_node, 0, 1)
+    gu.connect_nodes(roughness_float, fragment_output_node, 0, 1)
+    # gu.connect_nodes(metallic_float, fragment_output_node, 0, 2)
 
     save_graph(surface_graph)
     build(SHADER_NAME)
