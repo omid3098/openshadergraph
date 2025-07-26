@@ -18,7 +18,7 @@ def build(shader_name):
     graph_path = os.path.join('', f'{shader_name}.yml')
     graph_data = load_yaml_file(graph_path)
 
-    for language in ['Godot']:
+    for language in LANGUAGES:
         lang_def_path = os.path.join('data', 'languages', f'{language}.yml')
         lang_def = load_yaml_file(lang_def_path)
 
