@@ -4,6 +4,7 @@ import yaml
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from core.graph_utils import GraphUtil
 from utils import *
 
 

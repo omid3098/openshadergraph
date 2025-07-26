@@ -1,6 +1,7 @@
 import os
 import yaml
 
+from core.graph_utils import GraphUtil
 from utils import *
 
 
@@ -26,7 +27,7 @@ if __name__ == '__main__':
 
     # Connect color node to fragment output
     fragment_out_node = gu.get_node_by_name(fragment_pass_node, 'FragmentOutput')
-    gu.connect_nodes(color_node, fragment_out_node, '0', '0', '../')
+    gu.connect_nodes(color_node, fragment_out_node, 0, 0)
 
     # print('------------------------ Loaded Surface Graph -----------------------')
     # print(yaml.dump(surface_graph, default_flow_style=False, sort_keys=False))
