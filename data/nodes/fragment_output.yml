@@ -6,7 +6,7 @@ inputs:
   - id: 0
     name: ALBEDO
     type: float3
-    value: [1.0, 1.0, 1.0]
+    value: vec4(1.0, 1.0, 1.0, 1.0)
   - id: 1
     name: ROUGHNESS
     type: float

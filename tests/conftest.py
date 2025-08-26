@@ -1,5 +1,6 @@
 import sys
 import shutil
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,6 +49,26 @@ def compile_graph():
         out_dir.mkdir(parents=True, exist_ok=True)
         out_file = out_dir / f"{name}.{ext}"
         out_file.write_text(compiler.result_code)
+
+        if engine.lower() == "godot":
+            godot_bin = (
+                shutil.which("godot")
+                or shutil.which("godot4")
+                or shutil.which("godot-headless")
+            )
+            if godot_bin:
+                script = Path(__file__).parent / "godot_compile_shader.gd"
+                proc = subprocess.run(
+                    [godot_bin, "--headless", "-s", str(script), str(out_file)],
+                    capture_output=True,
+                    text=True,
+                )
+                if proc.returncode != 0 or "Error" in proc.stderr or "ERROR" in proc.stderr:
+                    raise RuntimeError(
+                        f"Godot failed to compile {out_file}:\n{proc.stderr}"
+                    )
+            else:
+                print("Godot binary not found; skipping compilation check")
 
         return compiler.result_code
 
