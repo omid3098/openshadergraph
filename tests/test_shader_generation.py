@@ -3,50 +3,52 @@ import shutil
 import yaml
 
 from core.node import Node
-from core.graph_compiler import GraphCompiler
 from build_shader import build
 
 
-def _compile_graph(graph, language_file):
-    lang_def = yaml.safe_load(open(language_file))
-    compiler = GraphCompiler(graph, lang_def)
-    compiler.compile()
-    return compiler.result_code
-
-
-def test_godot_color_shader():
-    surface = Node("surface")
-    fragment_pass = surface.get_node_by_type("fragment_pass")
-    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
+def test_godot_color_shader(surface_graph, compile_graph):
+    surface, fragment_pass, fragment_output = surface_graph
 
     color = surface.create_node("color", fragment_pass)
     surface.connect_nodes(color, fragment_output, 0, 0)
 
-    shader_code = _compile_graph(surface.to_dict(), "data/languages/Godot.yml")
+    shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml")
 
     assert "shader_type spatial;" in shader_code
     assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
     assert re.search(r"ALBEDO = vec3\(\(color_\d+\)\.rgb\);", shader_code)
 
 
-def test_unity_color_shader():
-    surface = Node("surface")
-    fragment_pass = surface.get_node_by_type("fragment_pass")
-    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
+def test_unity_color_shader(surface_graph, compile_graph):
+    surface, fragment_pass, fragment_output = surface_graph
 
     color = surface.create_node("color", fragment_pass)
     surface.connect_nodes(color, fragment_output, 0, 0)
 
-    shader_code = _compile_graph(surface.to_dict(), "data/languages/Unity.yml")
+    shader_code = compile_graph(surface.to_dict(), "data/languages/Unity.yml")
 
     assert re.search(r"float4 color_\d+ = float4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
     assert re.search(r"o.Albedo = float3\(\(color_\d+\)\.rgb\);", shader_code)
 
 
-def test_godot_float_shader_file(tmp_path, monkeypatch):
-    surface = Node("surface")
-    fragment_pass = surface.get_node_by_type("fragment_pass")
-    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
+def test_godot_addition_shader(surface_graph, compile_graph):
+    surface, fragment_pass, fragment_output = surface_graph
+    color_a = surface.create_node("color", fragment_pass)
+    color_b = surface.create_node("color", fragment_pass)
+    add_node = surface.create_node("add", fragment_pass)
+
+    surface.connect_nodes(color_a, add_node, 0, 0)
+    surface.connect_nodes(color_b, add_node, 0, 1)
+    surface.connect_nodes(add_node, fragment_output, 0, 0)
+
+    shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml")
+
+    assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
+    assert re.search(r"ALBEDO = vec3\(\(add_\d+\)\.rgb\);", shader_code)
+
+
+def test_godot_float_shader_file(surface_graph, tmp_path, monkeypatch):
+    surface, fragment_pass, fragment_output = surface_graph
 
     roughness = surface.create_node("float", fragment_pass)
     surface.connect_nodes(roughness, fragment_output, 0, 1)
