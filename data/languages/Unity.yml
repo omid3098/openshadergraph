@@ -4,7 +4,7 @@ file_extensions: ["shader"]
 nodes:
   surface:
     template: |
-      Shader "Custom/{{name}}" {
+      Shader "{{name}}" {
           Properties {
               {{exposed_nodes}}
           }
@@ -26,9 +26,13 @@ nodes:
   fragment_pass:
     template: "{{internal_nodes}}"
   color:
-    template: "float4 {{var_name}} = _{{var_name}};"
+    template: "float4 {{name}} = float4({{inputs:0}});"
+  float:
+    template: "float {{name}} = {{inputs:0}};"
   fragment_output:
-    template: "o.Albedo = float3({{inputs.Color}}.rgb);"
+    template: "o.Albedo = float3(({{inputs:0}}).rgb);"
+  add:
+    template: "float4 {{name}} = {{inputs:0}} + {{inputs:1}};"
 
 meta:
   blend_mode_transparent:
