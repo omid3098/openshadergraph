@@ -1,4 +1,5 @@
 import sys
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -10,6 +11,15 @@ import yaml
 
 from core.node import Node
 from core.graph_compiler import GraphCompiler
+
+
+SHADERS_DIR = ROOT / "tests" / "shaders"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def clean_shader_dir():
+    if SHADERS_DIR.exists():
+        shutil.rmtree(SHADERS_DIR)
 
 
 @pytest.fixture
@@ -26,10 +36,19 @@ def surface_graph():
 @pytest.fixture
 def compile_graph():
     """Compile the provided graph using the given language definition."""
-    def _compile(graph, language_file):
-        lang_def = yaml.safe_load(open(language_file))
+
+    def _compile(graph, language_file, name="shader"):
+        lang_def = yaml.safe_load(open(ROOT / language_file))
         compiler = GraphCompiler(graph, lang_def)
         compiler.compile()
+
+        ext = lang_def["file_extensions"][0]
+        engine = Path(language_file).stem
+        out_dir = SHADERS_DIR / engine
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / f"{name}.{ext}"
+        out_file.write_text(compiler.result_code)
+
         return compiler.result_code
 
     return _compile

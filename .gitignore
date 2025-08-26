@@ -244,3 +244,4 @@ __marimo__/
 /.idea/workspace.xml
 
 .idea/
+tests/shaders/
