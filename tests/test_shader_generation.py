@@ -13,7 +13,7 @@ def test_godot_color_shader(compile_graph):
 
     assert "shader_type spatial;" in shader_code
     assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
-    assert re.search(r"ALBEDO = vec3\(\(color_\d+\)\.rgb\);", shader_code)
+    assert re.search(r"ALBEDO = vec3\(color_\d+\);", shader_code)
 
 
 def test_unity_color_shader(compile_graph):
@@ -31,7 +31,7 @@ def test_godot_addition_shader(compile_graph):
     shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "addition")
 
     assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
-    assert re.search(r"ALBEDO = vec3\(\(add_\d+\)\.rgb\);", shader_code)
+    assert re.search(r"ALBEDO = vec3\(add_\d+\);", shader_code)
 
 
 def test_godot_float_shader_file(tmp_path, monkeypatch, compile_graph):
