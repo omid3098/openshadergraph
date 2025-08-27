@@ -33,7 +33,7 @@ def test_external_graph_yaml(tmp_path):
 
 
 def test_nested_vertex_graph_yaml():
-    surface, vertex_pass, color = vertex_color_graph()
+    surface, vertex_pass, *_, color, _ = vertex_color_graph()
     nested = surface.find_nested_node_by_type(vertex_pass, "color")
     assert nested is not None
     assert nested["id"] == color["id"]

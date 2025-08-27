@@ -1,0 +1,14 @@
+id: -1
+type: vertex_output
+name: VertexOutput
+nodes: []
+inputs:
+  - id: 0
+    name: VERTEX
+    type: float3
+    value: VERTEX
+  - id: 1
+    name: COLOR
+    type: float4
+    value: COLOR
+outputs: []

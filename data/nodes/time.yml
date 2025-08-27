@@ -1,0 +1,9 @@
+id: -1
+type: time
+name: Time
+nodes: []
+inputs: []
+outputs:
+  - id: 0
+    name: out
+    type: float

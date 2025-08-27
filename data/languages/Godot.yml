@@ -25,7 +25,25 @@ nodes:
   fragment_output:
     template: "ALBEDO = vec3({{inputs:0}});\n\tROUGHNESS = {{inputs:1}};\n\tMETALLIC = {{inputs:2}};\n\tEMISSION = vec3({{inputs:3}});\n\tNORMAL = vec3({{inputs:4}});\n\tALPHA = {{inputs:5}};"
   add:
-    template: "vec4 {{name}} = {{inputs:0}} + {{inputs:1}};"
+    template: "{{type}} {{name}} = {{inputs:0}} + {{inputs:1}};"
+  vertex_output:
+    template: "VERTEX = {{inputs:0}};\n\tCOLOR = {{inputs:1}};"
+  vertex_color:
+    template: "vec4 {{name}} = COLOR;"
+  vertex:
+    template: "vec3 {{name}} = VERTEX;"
+  vec3:
+    template: "vec3 {{name}} = vec3({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+  xyz:
+    template: "float {{name}}_x = {{inputs:0}}.x;\n\tfloat {{name}}_y = {{inputs:0}}.y;\n\tfloat {{name}}_z = {{inputs:0}}.z;"
+  time:
+    template: "float {{name}} = TIME;"
+  sin:
+    template: "float {{name}} = sin({{inputs:0}});"
+  mul:
+    template: "float {{name}} = {{inputs:0}} * {{inputs:1}};"
+  mix:
+    template: "vec4 {{name}} = mix({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
 
 meta:
   blend_mode_transparent:
@@ -34,7 +52,5 @@ meta:
     template: ""
   alpha_mode_SrcAlpha_OneMinusSrcAlpha:
     template: render_mode blend_mul;
-  varing:
-    template: "varing {{definitaion}}"
   exposed:
     template: "uniform {{definition}}"

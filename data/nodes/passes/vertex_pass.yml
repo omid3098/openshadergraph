@@ -1,8 +1,8 @@
 id: -1
 type: vertex_pass
-name: Vertex
+name: VertexPass
 meta: []
-position: [0, 0]
-nodes: []
-inputs: []
+nodes:
+  - id: 0
+    type: vertex_output
 outputs: []

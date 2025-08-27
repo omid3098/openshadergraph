@@ -1,0 +1,17 @@
+id: -1
+type: mul
+name: Multiply
+nodes: []
+inputs:
+  - id: 0
+    name: a
+    type: float
+    value: [1.0]
+  - id: 1
+    name: b
+    type: float
+    value: [1.0]
+outputs:
+  - id: 0
+    name: out
+    type: float

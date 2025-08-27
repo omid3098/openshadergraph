@@ -1,0 +1,13 @@
+id: -1
+type: sin
+name: Sin
+nodes: []
+inputs:
+  - id: 0
+    name: in
+    type: float
+    value: [0.0]
+outputs:
+  - id: 0
+    name: out
+    type: float
