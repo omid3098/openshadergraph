@@ -115,6 +115,8 @@ nodes:
     template: "vec2 {{name}} = UV2;"
   vertex_normal:
     template: "vec3 {{name}} = NORMAL;"
+  screen_depth:
+    template: "float {{name}} = texture(DEPTH_TEXTURE, {{inputs:0}}).r;"
 
 meta:
   blend_mode_transparent:
