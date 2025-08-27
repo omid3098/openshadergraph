@@ -1,0 +1,31 @@
+id: -1
+type: remap
+name: Remap
+meta: []
+position: [0,0]
+nodes: []
+inputs:
+  - id: 0
+    name: in
+    type: float
+    value: [0.0]
+  - id: 1
+    name: in_min
+    type: float
+    value: [0.0]
+  - id: 2
+    name: in_max
+    type: float
+    value: [0.0]
+  - id: 3
+    name: out_min
+    type: float
+    value: [0.0]
+  - id: 4
+    name: out_max
+    type: float
+    value: [0.0]
+outputs:
+  - id: 0
+    name: out
+    type: float
