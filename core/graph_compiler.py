@@ -106,6 +106,9 @@ class GraphCompiler:
     def compile_node(self, node):
         if '_code' in node:
             return
+        if 'meta' in node and 'exposed' in node['meta']:
+            node['_code'] = ''
+            return
         log([f'compiling {node["type"]}'], False)
         code = self.resolve_internals(node)
         if code:
@@ -154,6 +157,19 @@ class GraphCompiler:
                 child_node['parent'] = node
                 self.set_parents(child_node)
 
+    def collect_exposed_nodes(self, node, exposed):
+        if 'meta' in node and 'exposed' in node['meta']:
+            code = self.lang_def['nodes'][node['type']]['template']
+            code = code.replace('{{name}}', self.get_unique_node_name(node))
+            for i, inp in enumerate(node.get('inputs', [])):
+                val = self.resolve_type(inp['value'])
+                code = code.replace(f'{{{{inputs:{i}}}}}', val)
+            template = self.lang_def['meta']['exposed']['template']
+            exposed.append(template.replace('{{definition}}', code))
+        if self.has_nodes(node):
+            for child in node['nodes']:
+                self.collect_exposed_nodes(child, exposed)
+
     def compile(self):
         pprint(self.graph_data)
 
@@ -161,9 +177,12 @@ class GraphCompiler:
         self.result_code = self.get_template(self.graph_data)
         self.process_node(self.graph_data)
         self.add_meta()
-        # todo: don't like replacing {{exposed_nodes}} {{internal_nodes}} this way
-        # shader code needs to be caches as _internal_nodes then replaced with {{internal_nodes}}
-        self.result_code = self.result_code.replace(r'{{exposed_nodes}}', '')
+        exposed = []
+        self.collect_exposed_nodes(self.graph_data, exposed)
+        exposed_code = ''
+        if exposed:
+            exposed_code = '\n'.join(exposed) + '\n'
+        self.result_code = self.result_code.replace(r'{{exposed_nodes}}', exposed_code)
         self.result_code = self.result_code.replace(r'{{internal_nodes}}', '')
 
         log(['GENERATED SHADER:', self.result_code])
