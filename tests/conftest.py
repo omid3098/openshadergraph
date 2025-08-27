@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import urllib.request
 import zipfile
+import platform
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ _GODOT_CACHE = None
 
 
 def ensure_godot():
-    """Download the Godot headless binary if needed and return paths."""
+    """Ensure a headless Godot binary is available for the host platform."""
     global _GODOT_CACHE
     if _GODOT_CACHE is not None:
         return _GODOT_CACHE
@@ -33,26 +34,41 @@ def ensure_godot():
     engine_dir = ENGINES_DIR / "godot"
     engine_dir.mkdir(parents=True, exist_ok=True)
     version = ENGINE_VERSIONS["godot"]
-    binary = engine_dir / f"Godot_v{version}_linux.x86_64"
-    script = engine_dir / "godot_compile_shader.gd"
+
+    system = platform.system().lower()
+    if system == "linux":
+        zip_name = f"Godot_v{version}_linux.x86_64.zip"
+        binary = engine_dir / f"Godot_v{version}_linux.x86_64"
+    elif system == "darwin":
+        zip_name = f"Godot_v{version}_macos.universal.zip"
+        binary = engine_dir / "Godot.app" / "Contents" / "MacOS" / "Godot"
+    elif system.startswith("win"):
+        zip_name = f"Godot_v{version}_win64.exe.zip"
+        binary = engine_dir / f"Godot_v{version}_win64.exe"
+    else:
+        raise RuntimeError(f"Unsupported platform for Godot download: {system}")
+
     if not binary.exists():
         url = (
             "https://github.com/godotengine/godot/releases/download/"
-            f"{version}/Godot_v{version}_linux.x86_64.zip"
+            f"{version}/{zip_name}"
         )
         zip_path = engine_dir / "godot.zip"
         try:
             urllib.request.urlretrieve(url, zip_path)
             with zipfile.ZipFile(zip_path) as zf:
                 zf.extractall(engine_dir)
-            binary.chmod(0o755)
+            if not binary.exists():
+                raise RuntimeError("Godot binary not found after extraction")
+            if system in {"linux", "darwin"}:
+                binary.chmod(0o755)
         except Exception as exc:
-            print(f"Failed to download Godot {version}: {exc}")
-            _GODOT_CACHE = False
-            return None
+            raise RuntimeError(f"Failed to download Godot {version}: {exc}")
         finally:
             if zip_path.exists():
                 zip_path.unlink()
+
+    script = engine_dir / "godot_compile_shader.gd"
     script.write_text(
         (
             """
@@ -78,12 +94,8 @@ func _init():
 
 
 def compile_with_godot(shader_path: Path) -> None:
-    """Compile a shader using the headless Godot binary if available."""
-    godot = ensure_godot()
-    if not godot:
-        print("Godot binary unavailable; skipping compilation check")
-        return
-    binary, script = godot
+    """Compile a shader using the headless Godot binary."""
+    binary, script = ensure_godot()
     proc = subprocess.run(
         [str(binary), "--headless", "-s", str(script), str(shader_path)],
         capture_output=True,
