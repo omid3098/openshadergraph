@@ -1,12 +1,14 @@
 id: -1
-type: xyz
-name: XYZ
+type: separate_xyz
+name: Separate XYZ
+meta: []
+position: [0,0]
 nodes: []
 inputs:
   - id: 0
-    name: vec
+    name: in
     type: float3
-    value: [0.0, 0.0, 0.0]
+    value: [0.0,0.0,0.0]
 outputs:
   - id: 0
     name: x
@@ -17,4 +19,3 @@ outputs:
   - id: 2
     name: z
     type: float
-

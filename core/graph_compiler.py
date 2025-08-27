@@ -86,11 +86,8 @@ class GraphCompiler:
             input['_ref_type'] = ref_node.get('_resolved_type', output_pin['type'][0])
         else:
             input['_ref_type'] = output_pin['type']
-        # determine variable name based on requested output
-        if len(ref_node.get('outputs', [])) == 1:
-            input['value'] = self.get_unique_node_name(ref_node)
-        else:
-            input['value'] = f"{self.get_unique_node_name(ref_node)}_{output_pin['name']}"
+        # todo: next line is temporary
+        input['value'] = self.get_unique_node_name(ref_node)
         # input['value'] = ref_node['value']
         # todo: need to reconsider ref values
         # value: ../1/out
@@ -127,19 +124,6 @@ class GraphCompiler:
             input_index = int(input_index)
             node['_resolving_input'] = True
             self.resolve_template_input(node, match, input_index)
-
-        if r'{{type}}' in node['_code']:
-            type_map = {
-                'float': 'float',
-                'float2': 'vec2',
-                'float3': 'vec3',
-                'float4': 'vec4',
-                'matrix2': 'mat2',
-                'matrix3': 'mat3',
-                'matrix4': 'mat4',
-            }
-            resolved = type_map.get(node.get('_resolved_type', 'float'), node.get('_resolved_type', 'float'))
-            node['_code'] = node['_code'].replace(r'{{type}}', resolved)
 
         if not node.get('outputs'):
             self.remove_default_inputs(node)
@@ -229,23 +213,15 @@ class GraphCompiler:
         for child_node in sorted_nodes:
             child_node['parent'] = node
             self.process_node(child_node)
-        self.compile_node(node)
+        self.compile_node(child_node)
 
     def get_meta_template(self, meta):
-        key = meta if isinstance(meta, str) else meta['type']
-        return self.lang_def['meta'][key]['template']
+        return self.lang_def['meta'][meta]['template']
 
     def add_meta(self):
         meta_code = ''
-        for meta in self.graph_data.get('meta', []):
-            template = self.get_meta_template(meta)
-            if isinstance(meta, dict):
-                definition = meta.get('definition', '')
-                template = template.replace('{{definition}}', definition)
-                template = template.replace('{{definitaion}}', definition)
-                meta_code += f'{template}\n'
-            else:
-                meta_code += f'{template}\n'
+        for meta in self.graph_data['meta']:
+            meta_code += f'{self.get_meta_template(meta)}\n'
         self.result_code = self.result_code.replace(r'{{meta}}', meta_code)
 
     def set_parents(self, node):

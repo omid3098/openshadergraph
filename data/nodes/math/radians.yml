@@ -1,6 +1,6 @@
 id: -1
-type: sin
-name: Sin
+type: radians
+name: Radians
 meta: []
 position: [0,0]
 nodes: []

@@ -1,6 +1,8 @@
 id: -1
 type: vertex_color
-name: VertexColor
+name: Vertex Color
+meta: []
+position: [0,0]
 nodes: []
 inputs: []
 outputs:

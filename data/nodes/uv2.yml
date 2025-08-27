@@ -1,6 +1,6 @@
 id: -1
-type: time
-name: Time
+type: uv2
+name: UV2
 meta: []
 position: [0,0]
 nodes: []
@@ -8,4 +8,4 @@ inputs: []
 outputs:
   - id: 0
     name: out
-    type: float
+    type: float2

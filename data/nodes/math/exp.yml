@@ -1,6 +1,6 @@
 id: -1
-type: sin
-name: Sin
+type: exp
+name: Exp
 meta: []
 position: [0,0]
 nodes: []

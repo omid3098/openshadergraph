@@ -1,22 +1,19 @@
 id: -1
-type: vec3
-name: Vec3
+type: divide
+name: Divide
+meta: []
+position: [0, 0]
 nodes: []
 inputs:
   - id: 0
-    name: x
+    name: a
     type: float
     value: [0.0]
   - id: 1
-    name: y
-    type: float
-    value: [0.0]
-  - id: 2
-    name: z
+    name: b
     type: float
     value: [0.0]
 outputs:
   - id: 0
     name: out
-    type: float3
-
+    type: float

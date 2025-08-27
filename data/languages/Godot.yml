@@ -25,25 +25,96 @@ nodes:
   fragment_output:
     template: "ALBEDO = vec3({{inputs:0}});\n\tROUGHNESS = {{inputs:1}};\n\tMETALLIC = {{inputs:2}};\n\tEMISSION = vec3({{inputs:3}});\n\tNORMAL = vec3({{inputs:4}});\n\tALPHA = {{inputs:5}};"
   add:
-    template: "{{type}} {{name}} = {{inputs:0}} + {{inputs:1}};"
-  vertex_output:
-    template: "VERTEX = {{inputs:0}};\n\tCOLOR = {{inputs:1}};"
-  vertex_color:
-    template: "vec4 {{name}} = COLOR;"
-  vertex:
-    template: "vec3 {{name}} = VERTEX;"
-  vec3:
-    template: "vec3 {{name}} = vec3({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
-  xyz:
-    template: "float {{name}}_x = {{inputs:0}}.x;\n\tfloat {{name}}_y = {{inputs:0}}.y;\n\tfloat {{name}}_z = {{inputs:0}}.z;"
-  time:
-    template: "float {{name}} = TIME;"
+    template: "vec4 {{name}} = {{inputs:0}} + {{inputs:1}};"
+
+  multiply:
+    template: "float {{name}} = {{inputs:0}} * {{inputs:1}};"
+  subtract:
+    template: "float {{name}} = {{inputs:0}} - {{inputs:1}};"
+  divide:
+    template: "float {{name}} = {{inputs:0}} / {{inputs:1}};"
+  remainder:
+    template: "float {{name}} = mod({{inputs:0}}, {{inputs:1}});"
+  power:
+    template: "float {{name}} = pow({{inputs:0}}, {{inputs:1}});"
+  pow:
+    template: "float {{name}} = pow({{inputs:0}}, {{inputs:1}});"
+  max:
+    template: "float {{name}} = max({{inputs:0}}, {{inputs:1}});"
+  min:
+    template: "float {{name}} = min({{inputs:0}}, {{inputs:1}});"
+  atan2:
+    template: "float {{name}} = atan({{inputs:0}}, {{inputs:1}});"
+  reflect:
+    template: "vec3 {{name}} = reflect({{inputs:0}}, {{inputs:1}});"
+  step:
+    template: "float {{name}} = step({{inputs:0}}, {{inputs:1}});"
+  cross:
+    template: "vec3 {{name}} = cross({{inputs:0}}, {{inputs:1}});"
+  lerp:
+    template: "float {{name}} = mix({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+  abs:
+    template: "float {{name}} = abs({{inputs:0}});"
+  acos:
+    template: "float {{name}} = acos({{inputs:0}});"
+  asin:
+    template: "float {{name}} = asin({{inputs:0}});"
+  atan:
+    template: "float {{name}} = atan({{inputs:0}});"
+  ceil:
+    template: "float {{name}} = ceil({{inputs:0}});"
+  clamp:
+    template: "float {{name}} = clamp({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+  cos:
+    template: "float {{name}} = cos({{inputs:0}});"
+  exp:
+    template: "float {{name}} = exp({{inputs:0}});"
+  floor:
+    template: "float {{name}} = floor({{inputs:0}});"
+  fract:
+    template: "float {{name}} = fract({{inputs:0}});"
+  inversesqrt:
+    template: "float {{name}} = inversesqrt({{inputs:0}});"
+  log:
+    template: "float {{name}} = log({{inputs:0}});"
+  log2:
+    template: "float {{name}} = log2({{inputs:0}});"
+  negate:
+    template: "float {{name}} = -{{inputs:0}};"
+  oneminus:
+    template: "float {{name}} = 1.0 - {{inputs:0}};"
+  radians:
+    template: "float {{name}} = radians({{inputs:0}});"
+  reciprocal:
+    template: "float {{name}} = 1.0 / {{inputs:0}};"
+  remap:
+    template: "float {{name}} = ({{inputs:0}} - {{inputs:1}}) / ({{inputs:2}} - {{inputs:1}}) * ({{inputs:4}} - {{inputs:3}}) + {{inputs:3}};"
+  round:
+    template: "float {{name}} = round({{inputs:0}});"
+  saturate:
+    template: "float {{name}} = clamp({{inputs:0}}, 0.0, 1.0);"
   sin:
     template: "float {{name}} = sin({{inputs:0}});"
-  mul:
-    template: "float {{name}} = {{inputs:0}} * {{inputs:1}};"
-  mix:
-    template: "vec4 {{name}} = mix({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+  sqrt:
+    template: "float {{name}} = sqrt({{inputs:0}});"
+  smoothstep:
+    template: "float {{name}} = smoothstep({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+  tan:
+    template: "float {{name}} = tan({{inputs:0}});"
+  separate_xyz:
+    template: "vec3 {{name}} = {{inputs:0}};"
+  time:
+    template: "float {{name}} = TIME;"
+  vertex_color:
+    template: "vec4 {{name}} = COLOR;"
+  vertex_position:
+    template: "vec3 {{name}} = VERTEX;"
+  uv:
+    template: "vec2 {{name}} = UV;"
+  uv2:
+    template: "vec2 {{name}} = UV2;"
+  vertex_normal:
+    template: "vec3 {{name}} = NORMAL;"
 
 meta:
   blend_mode_transparent:
@@ -52,5 +123,7 @@ meta:
     template: ""
   alpha_mode_SrcAlpha_OneMinusSrcAlpha:
     template: render_mode blend_mul;
+  varing:
+    template: "varing {{definitaion}}"
   exposed:
     template: "uniform {{definition}}"

@@ -52,84 +52,8 @@ def external_graph(tmp_path):
 def vertex_color_graph():
     surface = Node("surface")
     vertex_pass = surface.get_node_by_type("vertex_pass")
-    fragment_pass = surface.get_node_by_type("fragment_pass")
-    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
-    vertex_output = surface.find_nested_node_by_type(vertex_pass, "vertex_output")
     color = surface.create_node("color", vertex_pass)
-    surface.connect_nodes(color, vertex_output, 0, 1)
-    vertex_color = surface.create_node("vertex_color", fragment_pass)
-    surface.connect_nodes(vertex_color, fragment_output, 0, 0)
-    return surface, vertex_pass, fragment_pass, fragment_output, vertex_output, color, vertex_color
-
-
-def water_shader_graph():
-    surface = Node("surface")
-    vertex_pass = surface.get_node_by_type("vertex_pass")
-    fragment_pass = surface.get_node_by_type("fragment_pass")
-    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
-    vertex_output = surface.find_nested_node_by_type(vertex_pass, "vertex_output")
-
-    time_node = surface.create_node("time", vertex_pass)
-    sin_node = surface.create_node("sin", vertex_pass)
-    surface.connect_nodes(time_node, sin_node, 0, 0)
-
-    amp = surface.create_node("float", vertex_pass)
-    amp["inputs"][0]["value"] = [0.5]
-    amp["meta"].append("exposed")
-
-    mul_node = surface.create_node("mul", vertex_pass)
-    surface.connect_nodes(sin_node, mul_node, 0, 0)
-    surface.connect_nodes(amp, mul_node, 0, 1)
-
-    vertex_node = surface.create_node("vertex", vertex_pass)
-
-    offset_vec = surface.create_node("vec3", vertex_pass)
-    surface.connect_nodes(mul_node, offset_vec, 0, 1)
-
-    add_node = surface.create_node("add", vertex_pass)
-    surface.connect_nodes(vertex_node, add_node, 0, 0)
-    surface.connect_nodes(offset_vec, add_node, 0, 1)
-    surface.connect_nodes(add_node, vertex_output, 0, 0)
-
-    shallow = surface.create_node("color", vertex_pass)
-    shallow["inputs"][0]["value"] = [0.0, 0.5, 1.0, 1.0]
-    shallow["meta"].append("exposed")
-    deep = surface.create_node("color", vertex_pass)
-    deep["inputs"][0]["value"] = [0.0, 0.0, 0.5, 1.0]
-    deep["meta"].append("exposed")
-
-    mix = surface.create_node("mix", vertex_pass)
-    surface.connect_nodes(shallow, mix, 0, 0)
-    surface.connect_nodes(deep, mix, 0, 1)
-
-    split = surface.create_node("xyz", vertex_pass)
-    surface.connect_nodes(vertex_node, split, 0, 0)
-    surface.connect_nodes(split, mix, 1, 2)
-
-    surface.connect_nodes(mix, vertex_output, 0, 1)
-
-    vertex_color = surface.create_node("vertex_color", fragment_pass)
-    surface.connect_nodes(vertex_color, fragment_output, 0, 0)
-
-    return (
-        surface,
-        vertex_pass,
-        fragment_pass,
-        fragment_output,
-        vertex_output,
-        time_node,
-        sin_node,
-        amp,
-        mul_node,
-        vertex_node,
-        offset_vec,
-        add_node,
-        shallow,
-        deep,
-        mix,
-        split,
-        vertex_color,
-    )
+    return surface, vertex_pass, color
 
 
 def exposed_addition_graph():

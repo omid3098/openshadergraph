@@ -1,12 +1,16 @@
 id: -1
-type: sin
-name: Sin
+type: multiply
+name: Multiply
 meta: []
-position: [0,0]
+position: [0, 0]
 nodes: []
 inputs:
   - id: 0
-    name: in
+    name: a
+    type: float
+    value: [0.0]
+  - id: 1
+    name: b
     type: float
     value: [0.0]
 outputs:

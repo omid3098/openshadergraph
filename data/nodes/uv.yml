@@ -1,10 +1,11 @@
 id: -1
-type: vertex
-name: Vertex
+type: uv
+name: UV
+meta: []
+position: [0,0]
 nodes: []
 inputs: []
 outputs:
   - id: 0
     name: out
-    type: float3
-
+    type: float2
