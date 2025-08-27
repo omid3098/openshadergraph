@@ -24,7 +24,7 @@ def test_godot_color_shader(compile_graph):
 
     assert "shader_type spatial;" in shader_code
     assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
-    assert re.search(r"ALBEDO = vec3\(color_\d+\);", shader_code)
+    assert re.search(r"ALBEDO = vec3\(color_\d+\.rgb\);", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "basic_color.gdshader"
     assert out_file.exists()
 
@@ -35,7 +35,7 @@ def test_godot_addition_shader(compile_graph):
     shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "addition")
 
     assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
-    assert re.search(r"ALBEDO = vec3\(add_\d+\);", shader_code)
+    assert re.search(r"ALBEDO = vec3\(add_\d+\.rgb\);", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "addition.gdshader"
     assert out_file.exists()
 
@@ -99,7 +99,7 @@ def test_godot_exposed_addition_shader(compile_graph):
     assert re.search(r"uniform vec4 color_\d+ = vec4\(1.0, 0.0, 0.0, 1.0\);", shader_code)
     assert re.search(r"uniform vec4 color_\d+ = vec4\(0.0, 1.0, 0.0, 1.0\);", shader_code)
     assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
-    assert re.search(r"ALBEDO = vec3\(add_\d+\);", shader_code)
+    assert re.search(r"ALBEDO = vec3\(add_\d+\.rgb\);", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "exposed.gdshader"
     assert out_file.exists()
 
@@ -109,11 +109,11 @@ def test_godot_fragment_output_features(compile_graph):
 
     shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "fragment_features")
 
-    assert re.search(r"ALBEDO = vec3\(color_\d+\);", shader_code)
+    assert re.search(r"ALBEDO = vec3\(color_\d+\.rgb\);", shader_code)
     assert re.search(r"ROUGHNESS = float_\d+;", shader_code)
     assert re.search(r"METALLIC = float_\d+;", shader_code)
-    assert re.search(r"EMISSION = vec3\(color_\d+\);", shader_code)
-    assert re.search(r"NORMAL = vec3\(color_\d+\);", shader_code)
+    assert re.search(r"EMISSION = vec3\(color_\d+\.rgb\);", shader_code)
+    assert re.search(r"NORMAL = vec3\(color_\d+\.rgb\);", shader_code)
     assert re.search(r"ALPHA = float_\d+;", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "fragment_features.gdshader"
     assert out_file.exists()
