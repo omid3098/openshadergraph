@@ -43,6 +43,47 @@ class GraphCompiler:
             return re.sub(r'[\[\]]', '', str(value))
         return value
 
+    def _dim(self, type_name):
+        """Return dimension of a float vector type."""
+        if not type_name:
+            return 0
+        if type_name == 'float':
+            return 1
+        m = re.match(r"float(\d)", str(type_name))
+        return int(m.group(1)) if m else 0
+
+    def convert_type(self, value, src_type, dst_type):
+        """Convert value from src_type to dst_type when possible."""
+        if not src_type or not dst_type or src_type == dst_type:
+            return value
+
+        src_dim = self._dim(src_type)
+        dst_dim = self._dim(dst_type)
+        if src_dim and dst_dim:
+            comps = 'rgba'
+            if src_dim > dst_dim:
+                return f"{value}.{comps[:dst_dim]}"
+            if src_dim < dst_dim:
+                if src_dim == 1:
+                    return f"vec{dst_dim}({value})"
+                extras = ["1.0" if i == 3 else "0.0" for i in range(src_dim, dst_dim)]
+                extra = ', '.join(extras)
+                return f"vec{dst_dim}({value}, {extra})" if extra else f"vec{dst_dim}({value})"
+        return value
+
+    def get_resolved_output_type(self, node):
+        """Infer a node's output type based on its connected inputs."""
+        types = []
+        for inp in node.get('inputs', []):
+            t = inp.get('_resolved_type') or inp.get('type')
+            if isinstance(t, list):
+                continue
+            types.append(self._dim(t))
+        if types:
+            dim = max(types)
+            return 'float' if dim == 1 else f'float{dim}'
+        return 'float'
+
     def resolve_ref(self, node, input):
         log([f"resolve_ref {node['type']} {input}"], False)
         path = input['value'].split('/')
@@ -53,8 +94,23 @@ class GraphCompiler:
 
         ref_node = self.get_node(ref_node, path[-2])
         self.process_node(ref_node)
-        # todo: next line is temporary
-        input['value'] = self.get_unique_node_name(ref_node)
+
+        output_id = int(path[-1])
+        ref_type = None
+        for out in ref_node.get('outputs', []):
+            if out['id'] == output_id:
+                ref_type = out.get('type')
+                break
+        if isinstance(ref_type, list):
+            ref_type = self.get_resolved_output_type(ref_node)
+
+        dst_type = input.get('type')
+        if isinstance(dst_type, list):
+            dst_type = ref_type
+
+        value = self.get_unique_node_name(ref_node)
+        input['value'] = self.convert_type(value, ref_type, dst_type)
+        input['_resolved_type'] = ref_type
         # input['value'] = ref_node['value']
         # todo: need to reconsider ref values
         # value: ../1/out
