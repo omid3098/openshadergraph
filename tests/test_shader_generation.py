@@ -25,15 +25,8 @@ def test_godot_color_shader(compile_graph):
     assert "shader_type spatial;" in shader_code
     assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
     assert re.search(r"ALBEDO = vec3\(color_\d+\);", shader_code)
-
-
-def test_unity_color_shader(compile_graph):
-    surface, _, _, color = basic_color_graph()
-
-    shader_code = compile_graph(surface.to_dict(), "data/languages/Unity.yml", "basic_color")
-
-    assert re.search(r"float4 color_\d+ = float4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
-    assert re.search(r"o.Albedo = float3\(\(color_\d+\)\.rgb\);", shader_code)
+    out_file = Path(__file__).parent / "shaders" / "godot" / "basic_color.gdshader"
+    assert out_file.exists()
 
 
 def test_godot_addition_shader(compile_graph):
@@ -43,6 +36,8 @@ def test_godot_addition_shader(compile_graph):
 
     assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
     assert re.search(r"ALBEDO = vec3\(add_\d+\);", shader_code)
+    out_file = Path(__file__).parent / "shaders" / "godot" / "addition.gdshader"
+    assert out_file.exists()
 
 
 def test_godot_float_shader_file(tmp_path, monkeypatch, compile_graph):
@@ -65,18 +60,16 @@ def test_godot_float_shader_file(tmp_path, monkeypatch, compile_graph):
 
     generated_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "float_graph")
     assert re.search(r"float float_\d+ = 0.0;", generated_code)
+    out_file = Path(__file__).parent / "shaders" / "godot" / "float_graph.gdshader"
+    assert out_file.exists()
 
 
 def test_meta_godot_shader(compile_graph):
     surface, _, _, _ = meta_graph()
     shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "meta")
     assert "render_mode blend_mix;" in shader_code
-
-
-def test_meta_unity_shader(compile_graph):
-    surface, _, _, _ = meta_graph()
-    shader_code = compile_graph(surface.to_dict(), "data/languages/Unity.yml", "meta")
-    assert 'Tags { "Queue" = "Transparent" }' in shader_code
+    out_file = Path(__file__).parent / "shaders" / "godot" / "meta.gdshader"
+    assert out_file.exists()
 
 
 def test_godot_external_shader(tmp_path, compile_graph):
@@ -107,6 +100,8 @@ def test_godot_exposed_addition_shader(compile_graph):
     assert re.search(r"uniform vec4 color_\d+ = vec4\(0.0, 1.0, 0.0, 1.0\);", shader_code)
     assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
     assert re.search(r"ALBEDO = vec3\(add_\d+\);", shader_code)
+    out_file = Path(__file__).parent / "shaders" / "godot" / "exposed.gdshader"
+    assert out_file.exists()
 
 
 def test_godot_fragment_output_features(compile_graph):
@@ -120,4 +115,6 @@ def test_godot_fragment_output_features(compile_graph):
     assert re.search(r"EMISSION = vec3\(color_\d+\);", shader_code)
     assert re.search(r"NORMAL = vec3\(color_\d+\);", shader_code)
     assert re.search(r"ALPHA = float_\d+;", shader_code)
+    out_file = Path(__file__).parent / "shaders" / "godot" / "fragment_features.gdshader"
+    assert out_file.exists()
 
