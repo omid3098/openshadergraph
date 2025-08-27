@@ -84,6 +84,9 @@ func _init():
     var code = FileAccess.get_file_as_string(shader_path)
     var shader = Shader.new()
     shader.code = code
+    var material = ShaderMaterial.new()
+    material.shader = shader
+    RenderingServer.force_sync()
     quit()
 """
         ).strip()
@@ -96,13 +99,19 @@ func _init():
 def compile_with_godot(shader_path: Path) -> None:
     """Compile a shader using the headless Godot binary."""
     binary, script = ensure_godot()
+    code = shader_path.read_text()
+    if not code.strip():
+        raise RuntimeError(
+            f"Godot failed to compile {shader_path}: shader code is empty"
+        )
     proc = subprocess.run(
         [str(binary), "--headless", "-s", str(script), str(shader_path)],
         capture_output=True,
         text=True,
     )
-    if proc.returncode != 0 or "Error" in proc.stderr or "ERROR" in proc.stderr:
-        raise RuntimeError(f"Godot failed to compile {shader_path}:\n{proc.stderr}")
+    output = f"{proc.stdout}\n{proc.stderr}"
+    if proc.returncode != 0 or "error" in output.lower():
+        raise RuntimeError(f"Godot failed to compile {shader_path}:\n{output}")
 
 
 ENGINE_COMPILERS = {"godot": compile_with_godot}

@@ -2,6 +2,7 @@ import re
 import shutil
 from pathlib import Path
 
+import pytest
 import yaml
 
 from build_shader import build
@@ -117,4 +118,13 @@ def test_godot_fragment_output_features(compile_graph):
     assert re.search(r"ALPHA = float_\d+;", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "fragment_features.gdshader"
     assert out_file.exists()
+
+
+def test_godot_invalid_shader(tmp_path):
+    shader = tmp_path / "invalid.gdshader"
+    shader.write_text("")
+    from tests.conftest import compile_with_godot
+
+    with pytest.raises(RuntimeError):
+        compile_with_godot(shader)
 
