@@ -26,6 +26,10 @@ nodes:
     template: "ALBEDO = vec3({{inputs:0}});\n\tROUGHNESS = {{inputs:1}};\n\tMETALLIC = {{inputs:2}};\n\tEMISSION = vec3({{inputs:3}});\n\tNORMAL = vec3({{inputs:4}});\n\tALPHA = {{inputs:5}};"
   add:
     template: "vec4 {{name}} = {{inputs:0}} + {{inputs:1}};"
+  vertex_output:
+    template: "COLOR = {{inputs:0}};"
+  vertex_color:
+    template: "vec4 {{name}} = COLOR;"
 
 meta:
   blend_mode_transparent:

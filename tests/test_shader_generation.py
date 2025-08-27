@@ -83,11 +83,25 @@ def test_godot_external_shader(tmp_path, compile_graph):
 
 
 def test_godot_vertex_color_shader(compile_graph):
-    surface, vertex_pass, color = vertex_color_graph()
+    (
+        surface,
+        vertex_pass,
+        vertex_output,
+        color,
+        fragment_pass,
+        fragment_output,
+        vertex_color,
+    ) = vertex_color_graph()
+
     shader_code = compile_graph(
         surface.to_dict(), "data/languages/Godot.yml", "vertex_color"
     )
-    assert "void fragment()" in shader_code
+
+    assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
+    assert re.search(r"COLOR = color_\d+;", shader_code)
+    assert re.search(r"vec4 vertex_color_\d+ = COLOR;", shader_code)
+    assert re.search(r"ALBEDO = vec3\(vertex_color_\d+\.rgb\);", shader_code)
+
     out_file = Path(__file__).parent / "shaders" / "godot" / "vertex_color.gdshader"
     assert out_file.exists()
 

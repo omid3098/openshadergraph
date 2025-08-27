@@ -52,8 +52,24 @@ def external_graph(tmp_path):
 def vertex_color_graph():
     surface = Node("surface")
     vertex_pass = surface.get_node_by_type("vertex_pass")
+    vertex_output = surface.find_nested_node_by_type(vertex_pass, "vertex_output")
     color = surface.create_node("color", vertex_pass)
-    return surface, vertex_pass, color
+    surface.connect_nodes(color, vertex_output, 0, 0)
+
+    fragment_pass = surface.get_node_by_type("fragment_pass")
+    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
+    vertex_color = surface.create_node("vertex_color", fragment_pass)
+    surface.connect_nodes(vertex_color, fragment_output, 0, 0)
+
+    return (
+        surface,
+        vertex_pass,
+        vertex_output,
+        color,
+        fragment_pass,
+        fragment_output,
+        vertex_color,
+    )
 
 
 def exposed_addition_graph():

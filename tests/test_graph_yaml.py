@@ -33,10 +33,29 @@ def test_external_graph_yaml(tmp_path):
 
 
 def test_nested_vertex_graph_yaml():
-    surface, vertex_pass, color = vertex_color_graph()
-    nested = surface.find_nested_node_by_type(vertex_pass, "color")
-    assert nested is not None
-    assert nested["id"] == color["id"]
+    (
+        surface,
+        vertex_pass,
+        vertex_output,
+        color,
+        fragment_pass,
+        fragment_output,
+        vertex_color,
+    ) = vertex_color_graph()
+
+    nested_color = surface.find_nested_node_by_type(vertex_pass, "color")
+    assert nested_color is not None
+    assert nested_color["id"] == color["id"]
+
+    nested_output = surface.find_nested_node_by_type(vertex_pass, "vertex_output")
+    assert nested_output is not None
+    assert nested_output["id"] == vertex_output["id"]
+    assert vertex_output["inputs"][0]["value"] == f"../{color['id']}/0"
+
+    nested_vcolor = surface.find_nested_node_by_type(fragment_pass, "vertex_color")
+    assert nested_vcolor is not None
+    assert nested_vcolor["id"] == vertex_color["id"]
+    assert fragment_output["inputs"][0]["value"] == f"../{vertex_color['id']}/0"
 
 
 def test_node_meta_yaml():

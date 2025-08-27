@@ -196,7 +196,7 @@ class GraphCompiler:
         for child_node in sorted_nodes:
             child_node['parent'] = node
             self.process_node(child_node)
-        self.compile_node(child_node)
+        self.compile_node(node)
 
     def get_meta_template(self, meta):
         return self.lang_def['meta'][meta]['template']
