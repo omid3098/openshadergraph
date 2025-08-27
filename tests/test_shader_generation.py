@@ -1,9 +1,18 @@
 import re
 import shutil
+from pathlib import Path
+
 import yaml
 
 from build_shader import build
-from tests.graph_samples import addition_graph, basic_color_graph, float_graph, meta_graph
+from tests.graph_samples import (
+    addition_graph,
+    basic_color_graph,
+    external_graph,
+    float_graph,
+    meta_graph,
+    vertex_color_graph,
+)
 
 
 def test_godot_color_shader(compile_graph):
@@ -66,4 +75,23 @@ def test_meta_unity_shader(compile_graph):
     surface, _, _, _ = meta_graph()
     shader_code = compile_graph(surface.to_dict(), "data/languages/Unity.yml", "meta")
     assert 'Tags { "Queue" = "Transparent" }' in shader_code
+
+
+def test_godot_external_shader(tmp_path, compile_graph):
+    surface, initial = external_graph(tmp_path)
+    shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "external")
+    assert "void vertex()" in shader_code
+    assert len(surface.graph_data["nodes"]) == initial + 1
+    out_file = Path(__file__).parent / "shaders" / "godot" / "external.gdshader"
+    assert out_file.exists()
+
+
+def test_godot_vertex_color_shader(compile_graph):
+    surface, vertex_pass, color = vertex_color_graph()
+    shader_code = compile_graph(
+        surface.to_dict(), "data/languages/Godot.yml", "vertex_color"
+    )
+    assert "void fragment()" in shader_code
+    out_file = Path(__file__).parent / "shaders" / "godot" / "vertex_color.gdshader"
+    assert out_file.exists()
 
