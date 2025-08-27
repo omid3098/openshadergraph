@@ -12,6 +12,8 @@ from tests.graph_samples import (
     float_graph,
     meta_graph,
     vertex_color_graph,
+    exposed_addition_graph,
+    full_fragment_graph,
 )
 
 
@@ -94,4 +96,28 @@ def test_godot_vertex_color_shader(compile_graph):
     assert "void fragment()" in shader_code
     out_file = Path(__file__).parent / "shaders" / "godot" / "vertex_color.gdshader"
     assert out_file.exists()
+
+
+def test_godot_exposed_addition_shader(compile_graph):
+    surface, _, _, red, green, add_node = exposed_addition_graph()
+
+    shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "exposed")
+
+    assert re.search(r"uniform vec4 color_\d+ = vec4\(1.0, 0.0, 0.0, 1.0\);", shader_code)
+    assert re.search(r"uniform vec4 color_\d+ = vec4\(0.0, 1.0, 0.0, 1.0\);", shader_code)
+    assert re.search(r"vec4 add_\d+ = color_\d+ \+ color_\d+;", shader_code)
+    assert re.search(r"ALBEDO = vec3\(add_\d+\);", shader_code)
+
+
+def test_godot_fragment_output_features(compile_graph):
+    surface, _, fragment_output, albedo, rough, metallic, emission, normal, alpha = full_fragment_graph()
+
+    shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "fragment_features")
+
+    assert re.search(r"ALBEDO = vec3\(color_\d+\);", shader_code)
+    assert re.search(r"ROUGHNESS = float_\d+;", shader_code)
+    assert re.search(r"METALLIC = float_\d+;", shader_code)
+    assert re.search(r"EMISSION = vec3\(color_\d+\);", shader_code)
+    assert re.search(r"NORMAL = vec3\(color_\d+\);", shader_code)
+    assert re.search(r"ALPHA = float_\d+;", shader_code)
 

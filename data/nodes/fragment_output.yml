@@ -15,4 +15,16 @@ inputs:
     name: METALLIC
     type: float
     value: [0.0]
+  - id: 3
+    name: EMISSION
+    type: float3
+    value: [0.0, 0.0, 0.0]
+  - id: 4
+    name: NORMAL
+    type: float3
+    value: [0.0, 0.0, 1.0]
+  - id: 5
+    name: ALPHA
+    type: float
+    value: [1.0]
 outputs: []

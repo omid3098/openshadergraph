@@ -30,7 +30,7 @@ nodes:
   float:
     template: "float {{name}} = {{inputs:0}};"
   fragment_output:
-    template: "o.Albedo = float3(({{inputs:0}}).rgb);"
+    template: "o.Albedo = float3(({{inputs:0}}).rgb);\n\to.Roughness = {{inputs:1}};\n\to.Metallic = {{inputs:2}};\n\to.Emission = float3(({{inputs:3}}).rgb);\n\to.Normal = float3(({{inputs:4}}).rgb);\n\to.Alpha = {{inputs:5}};"
   add:
     template: "float4 {{name}} = {{inputs:0}} + {{inputs:1}};"
 
