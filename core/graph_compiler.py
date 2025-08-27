@@ -93,7 +93,11 @@ class GraphCompiler:
                 ref_node = ref_node['parent']
 
         ref_node = self.get_node(ref_node, path[-2])
+        ref_node['_resolving_input'] = True
+        ref_node['_input_parent'] = node
         self.process_node(ref_node)
+        ref_node.pop('_input_parent', None)
+        ref_node['_code_used'] = True
 
         output_id = int(path[-1])
         ref_type = None
@@ -120,7 +124,10 @@ class GraphCompiler:
     def resolve_template_input(self, node, match, index):
         log([f'resolve_template_input {node["type"]} {match} {index}'], False)
         input = node['inputs'][index]
-        if '../' in input['value']:
+        if 'value' not in input:
+            node['_code'] = node['_code'].replace(match, '')
+            return
+        if isinstance(input['value'], str) and '../' in input['value']:
             self.resolve_ref(node, input)
         input['_code'] = self.resolve_type(input['value'])
         node['_code'] = node['_code'].replace(match, node['inputs'][index]['_code'])
@@ -137,7 +144,6 @@ class GraphCompiler:
         matches = re.findall(r"(\{\{inputs:(\d+)\}\})", node['_code'])
         for match, input_index in matches:
             input_index = int(input_index)
-            node['_resolving_input'] = True
             self.resolve_template_input(node, match, input_index)
 
     def resolve_internals(self, node):
@@ -155,6 +161,8 @@ class GraphCompiler:
             else:
                 internal_code = ''
                 for child_node in node['nodes']:
+                    if child_node.get('_code_used'):
+                        continue
                     internal_code += f'\t{child_node["_code"]}\n'
                 node['_code'] = node['_code'].replace(r'{{internal_nodes}}', internal_code)
         return node['_code']
@@ -166,17 +174,62 @@ class GraphCompiler:
             node['_code'] = ''
             return
         log([f'compiling {node["type"]}'], False)
+
+        # Special-case nodes that may have optional inputs
+        if node['type'] == 'vertex_output':
+            inp = node['inputs'][0] if node.get('inputs') else None
+            if not inp or 'value' not in inp:
+                node['_code'] = ''
+                return
+            if isinstance(inp['value'], str) and '../' in inp['value']:
+                self.resolve_ref(node, inp)
+            expr = self.resolve_type(inp['value'])
+            code = f"COLOR = {expr};"
+            if '_input_code' in node:
+                code = node['_input_code'].rstrip() + '\n' + code
+            node['_code'] = code
+            return
+
+        if node['type'] == 'fragment_output':
+            lines = []
+            mapping = [
+                ('ALBEDO', 0, 'vec3({})'),
+                ('ROUGHNESS', 1, '{}'),
+                ('METALLIC', 2, '{}'),
+                ('EMISSION', 3, 'vec3({})'),
+                ('NORMAL', 4, 'vec3({})'),
+                ('ALPHA', 5, '{}'),
+            ]
+            for name, idx, fmt in mapping:
+                if idx >= len(node.get('inputs', [])):
+                    continue
+                inp = node['inputs'][idx]
+                if 'value' not in inp:
+                    continue
+                if isinstance(inp['value'], str) and '../' in inp['value']:
+                    self.resolve_ref(node, inp)
+                expr = self.resolve_type(inp['value'])
+                lines.append(f"{name} = {fmt.format(expr)};")
+            if '_input_code' in node:
+                lines.insert(0, node['_input_code'].rstrip())
+            node['_code'] = '\n\t'.join(lines)
+            return
+
         code = self.resolve_internals(node)
         if code:
             log([f'adding code {node["type"]}', code])
-            node['_code'] = code
             if '_resolving_input' in node:
-                if '_input_code' not in node['parent']:
-                    node['parent']['_input_code'] = ''
-                node['parent']['_input_code'] += f'\t{code}\n'
+                parent = node.get('_input_parent', node['parent'])
+                if code:
+                    if '_input_code' not in parent:
+                        parent['_input_code'] = ''
+                    parent['_input_code'] += f'\t{code}\n'
                 del node['_resolving_input']
+                node['_code'] = code
+                node['_code_used'] = True
+                node.pop('_input_parent', None)
             else:
-                self.result_code += f'{code}\n'
+                node['_code'] = code
 
     def get_template(self, node):
         node_type = node['type']
@@ -230,8 +283,8 @@ class GraphCompiler:
         pprint(self.graph_data)
 
         self.set_parents(self.graph_data)
-        self.result_code = self.get_template(self.graph_data)
         self.process_node(self.graph_data)
+        self.result_code = self.graph_data.get('_code', '')
         self.add_meta()
         exposed = []
         self.collect_exposed_nodes(self.graph_data, exposed)

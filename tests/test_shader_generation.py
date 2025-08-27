@@ -23,7 +23,8 @@ def test_godot_color_shader(compile_graph):
 
     shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "basic_color")
 
-    assert "shader_type spatial;" in shader_code
+    assert shader_code.count("shader_type spatial;") == 1
+    assert "COLOR =" not in shader_code
     assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
     assert re.search(r"ALBEDO = vec3\(color_\d+\.rgb\);", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "basic_color.gdshader"
