@@ -2,6 +2,8 @@
 import re
 from pprint import pprint
 
+from .node import Node
+
 
 def log(logs, separated=True):
     if separated:
@@ -122,6 +124,38 @@ class GraphCompiler:
             input_index = int(input_index)
             node['_resolving_input'] = True
             self.resolve_template_input(node, match, input_index)
+
+        if not node.get('outputs'):
+            self.remove_default_inputs(node)
+
+    def remove_default_inputs(self, node):
+        """Remove code lines for inputs left at their default values."""
+        Node._load_templates()
+        template = Node._templates.get(node['type'])
+        if not template:
+            return
+
+        defaults = {inp['name']: inp['value'] for inp in template.get('inputs', [])}
+        lines = node['_code'].split('\n')
+        new_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                new_lines.append(line)
+                continue
+            prop = stripped.split('=')[0].strip()
+            input_pin = next((i for i in node.get('inputs', []) if i['name'] == prop), None)
+            default_val = defaults.get(prop)
+            if not input_pin or default_val is None:
+                new_lines.append(line)
+                continue
+            value = input_pin['value']
+            if isinstance(value, str) and '../' in value:
+                new_lines.append(line)
+                continue
+            if value != default_val:
+                new_lines.append(line)
+        node['_code'] = '\n'.join(new_lines)
 
     def resolve_internals(self, node):
         node['_code'] = self.get_template(node)

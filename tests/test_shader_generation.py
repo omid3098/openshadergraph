@@ -25,6 +25,11 @@ def test_godot_color_shader(compile_graph):
     assert "shader_type spatial;" in shader_code
     assert re.search(r"vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);", shader_code)
     assert re.search(r"ALBEDO = vec3\(color_\d+\.rgb\);", shader_code)
+    assert "ROUGHNESS" not in shader_code
+    assert "METALLIC" not in shader_code
+    assert "EMISSION" not in shader_code
+    assert "NORMAL" not in shader_code
+    assert "ALPHA" not in shader_code
     out_file = Path(__file__).parent / "shaders" / "godot" / "basic_color.gdshader"
     assert out_file.exists()
 
