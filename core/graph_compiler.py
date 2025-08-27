@@ -43,6 +43,32 @@ class GraphCompiler:
             return re.sub(r'[\[\]]', '', str(value))
         return value
 
+    def convert_type(self, value, from_type, to_type):
+        type_order = {"float": 1, "float2": 2, "float3": 3, "float4": 4}
+
+        if isinstance(from_type, list):
+            from_type = from_type[0]
+        if isinstance(to_type, list):
+            to_type = to_type[0]
+
+        if not from_type or not to_type or from_type == to_type:
+            return value
+
+        if from_type in type_order and to_type in type_order:
+            from_n = type_order[from_type]
+            to_n = type_order[to_type]
+            if from_n > to_n:
+                swizzles = {1: "x", 2: "xy", 3: "xyz", 4: "xyzw"}
+                swizzle = swizzles[to_n]
+                if from_n == 4 and to_n == 3:
+                    swizzle = "rgb"
+                if from_n == 4 and to_n == 2:
+                    swizzle = "rg"
+                return f"{value}.{swizzle}"
+            if from_n < to_n:
+                return f"vec{to_n}({value})"
+        return value
+
     def resolve_ref(self, node, input):
         log([f"resolve_ref {node['type']} {input}"], False)
         path = input['value'].split('/')
@@ -53,6 +79,11 @@ class GraphCompiler:
 
         ref_node = self.get_node(ref_node, path[-2])
         self.process_node(ref_node)
+        output_pin = [o for o in ref_node['outputs'] if o['id'] == int(path[-1])][0]
+        if isinstance(output_pin['type'], list):
+            input['_ref_type'] = ref_node.get('_resolved_type', output_pin['type'][0])
+        else:
+            input['_ref_type'] = output_pin['type']
         # todo: next line is temporary
         input['value'] = self.get_unique_node_name(ref_node)
         # input['value'] = ref_node['value']
@@ -66,8 +97,16 @@ class GraphCompiler:
         input = node['inputs'][index]
         if '../' in input['value']:
             self.resolve_ref(node, input)
-        input['_code'] = self.resolve_type(input['value'])
-        node['_code'] = node['_code'].replace(match, node['inputs'][index]['_code'])
+        expected_type = input.get('type')
+        if isinstance(expected_type, list):
+            expected_type = node.get('_resolved_type', input.get('_ref_type', expected_type[0]))
+        if '_resolved_type' not in node and isinstance(expected_type, str):
+            node['_resolved_type'] = expected_type
+        code = self.resolve_type(input['value'])
+        if '_ref_type' in input:
+            code = self.convert_type(code, input['_ref_type'], expected_type)
+        input['_code'] = code
+        node['_code'] = node['_code'].replace(match, input['_code'])
 
     def resolve_template(self, node):
         log([f'resolve_template {node["type"]}'], False)
