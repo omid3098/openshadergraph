@@ -41,5 +41,5 @@ def test_nested_vertex_graph_yaml():
 
 def test_node_meta_yaml():
     surface, _, _, _ = meta_graph()
-    assert surface.graph_data["meta"] == ["blend_mode_transparent"]
+    assert "blend_mode_transparent" in surface.graph_data["meta"]
 

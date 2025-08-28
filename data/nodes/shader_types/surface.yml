@@ -1,7 +1,7 @@
 id: -1
 type: surface
 name: Surface
-meta: []
+meta: [root]
 position: [0, 0]
 nodes: 
   - type: vertex_pass

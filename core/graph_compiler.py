@@ -192,12 +192,13 @@ class GraphCompiler:
                     node['parent']['_input_code'] = ''
                 node['parent']['_input_code'] += f'\t{code}\n'
                 del node['_resolving_input']
-            elif node.get('parent'):
-                if '_input_code' not in node['parent']:
-                    node['parent']['_input_code'] = ''
-                node['parent']['_input_code'] += f'\t{code}\n'
             else:
-                self.result_code += f'{code}\n'
+                if node.get('parent'):
+                    if '_input_code' not in node['parent']:
+                        node['parent']['_input_code'] = ''
+                    node['parent']['_input_code'] += f'\t{code}\n'
+                else:
+                    self.result_code += f'{code}\n'
 
     def get_template(self, node):
         node_type = node['type']
@@ -217,7 +218,7 @@ class GraphCompiler:
         for child_node in sorted_nodes:
             child_node['parent'] = node
             self.process_node(child_node)
-        if node['type'] != 'surface':
+        if 'meta' not in node or 'root' not in node['meta']:
             self.compile_node(node)
 
     def get_meta_template(self, meta):
@@ -226,7 +227,9 @@ class GraphCompiler:
     def add_meta(self):
         meta_code = ''
         for meta in self.graph_data['meta']:
-            meta_code += f'{self.get_meta_template(meta)}\n'
+            template = self.lang_def['meta'].get(meta, {}).get('template')
+            if template:
+                meta_code += f'{template}\n'
         self.result_code = self.result_code.replace(r'{{meta}}', meta_code)
 
     def set_parents(self, node):

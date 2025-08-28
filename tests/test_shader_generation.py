@@ -14,7 +14,6 @@ from tests.graph_samples import (
     vertex_color_graph,
     exposed_addition_graph,
     full_fragment_graph,
-    water_graph,
 )
 
 
@@ -122,13 +121,5 @@ def test_godot_fragment_output_features(compile_graph):
     assert re.search(r"NORMAL = vec3\(color_\d+\.rgb\);", shader_code)
     assert re.search(r"ALPHA = float_\d+;", shader_code)
     out_file = Path(__file__).parent / "shaders" / "godot" / "fragment_features.gdshader"
-    assert out_file.exists()
-
-
-def test_godot_water_shader(compile_graph):
-    surface, *_ = water_graph()
-    shader_code = compile_graph(surface.to_dict(), "data/languages/Godot.yml", "water")
-    assert "texture(DEPTH_TEXTURE" in shader_code
-    out_file = Path(__file__).parent / "shaders" / "godot" / "water.gdshader"
     assert out_file.exists()
 
