@@ -192,7 +192,7 @@ class GraphCompiler:
                     node['parent']['_input_code'] = ''
                 node['parent']['_input_code'] += f'\t{code}\n'
                 del node['_resolving_input']
-            elif node.get('parent') and node['parent']['type'] != 'surface':
+            elif node.get('parent'):
                 if '_input_code' not in node['parent']:
                     node['parent']['_input_code'] = ''
                 node['parent']['_input_code'] += f'\t{code}\n'
@@ -261,6 +261,7 @@ class GraphCompiler:
         if exposed:
             exposed_code = '\n'.join(exposed) + '\n'
         self.result_code = self.result_code.replace(r'{{exposed_nodes}}', exposed_code)
-        self.result_code = self.result_code.replace(r'{{internal_nodes}}', '')
+        internal_code = self.graph_data.get('_input_code', '')
+        self.result_code = self.result_code.replace(r'{{internal_nodes}}', internal_code)
 
         log(['GENERATED SHADER:', self.result_code])
