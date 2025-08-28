@@ -113,6 +113,8 @@ nodes:
     template: "vec2 {{name}} = UV;"
   uv2:
     template: "vec2 {{name}} = UV2;"
+  screen_depth:
+    template: "float {{name}} = texture(DEPTH_TEXTURE, {{inputs:0}}).r;"
   vertex_normal:
     template: "vec3 {{name}} = NORMAL;"
 

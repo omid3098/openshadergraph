@@ -112,3 +112,40 @@ def full_fragment_graph():
         normal,
         alpha,
     )
+
+
+def water_graph():
+    """Graph that samples screen depth to blend shallow and deep water colors."""
+    surface = Node("surface")
+    fragment_pass = surface.get_node_by_type("fragment_pass")
+    fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")
+
+    uv = surface.create_node("uv", fragment_pass)
+    screen_depth = surface.create_node("screen_depth", fragment_pass)
+    surface.connect_nodes(uv, screen_depth, 0, 0)
+
+    depth_scale = surface.create_node("float", fragment_pass)
+    depth_scale["inputs"][0]["value"] = [5.0]
+
+    multiply = surface.create_node("multiply", fragment_pass)
+    surface.connect_nodes(screen_depth, multiply, 0, 0)
+    surface.connect_nodes(depth_scale, multiply, 0, 1)
+
+    saturate = surface.create_node("saturate", fragment_pass)
+    surface.connect_nodes(multiply, saturate, 0, 0)
+
+    shallow = surface.create_node("color", fragment_pass)
+    shallow["inputs"][0]["value"] = [0.0, 0.5, 1.0, 1.0]
+    shallow["meta"].append("exposed")
+
+    deep = surface.create_node("color", fragment_pass)
+    deep["inputs"][0]["value"] = [0.0, 0.0, 0.5, 1.0]
+    deep["meta"].append("exposed")
+
+    lerp = surface.create_node("lerp", fragment_pass)
+    surface.connect_nodes(shallow, lerp, 0, 0)
+    surface.connect_nodes(deep, lerp, 0, 1)
+    surface.connect_nodes(saturate, lerp, 0, 2)
+    surface.connect_nodes(lerp, fragment_output, 0, 0)
+
+    return surface, fragment_pass, fragment_output, shallow, deep, lerp
