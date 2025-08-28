@@ -192,6 +192,10 @@ class GraphCompiler:
                     node['parent']['_input_code'] = ''
                 node['parent']['_input_code'] += f'\t{code}\n'
                 del node['_resolving_input']
+            elif node.get('parent') and node['parent']['type'] != 'surface':
+                if '_input_code' not in node['parent']:
+                    node['parent']['_input_code'] = ''
+                node['parent']['_input_code'] += f'\t{code}\n'
             else:
                 self.result_code += f'{code}\n'
 
@@ -213,7 +217,8 @@ class GraphCompiler:
         for child_node in sorted_nodes:
             child_node['parent'] = node
             self.process_node(child_node)
-        self.compile_node(child_node)
+        if node['type'] != 'surface':
+            self.compile_node(node)
 
     def get_meta_template(self, meta):
         return self.lang_def['meta'][meta]['template']
