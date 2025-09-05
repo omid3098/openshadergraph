@@ -1,0 +1,63 @@
+{
+  "id": -1,
+  "type": "fragment_output",
+  "name": "FragmentOutput",
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "ALBEDO",
+      "type": "float3",
+      "value": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": 1,
+      "name": "ROUGHNESS",
+      "type": "float",
+      "value": [
+        0.5
+      ]
+    },
+    {
+      "id": 2,
+      "name": "METALLIC",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 3,
+      "name": "EMISSION",
+      "type": "float3",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 4,
+      "name": "NORMAL",
+      "type": "float3",
+      "value": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": 5,
+      "name": "ALPHA",
+      "type": "float",
+      "value": [
+        1.0
+      ]
+    }
+  ],
+  "outputs": []
+}

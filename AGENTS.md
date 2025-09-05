@@ -3,7 +3,7 @@
 This document is the source-of-truth for how agents design, implement, and validate the TypeScript core and GUI layer for OpenShaderGraph. It reflects the updated goal: port all logic to TypeScript and treat the Python directory as reference only.
 
 ## Project Snapshot
-- Goal: Build a TypeScript core + GUI editor that authors shader graphs in YAML and compiles them to shader code for any platform defined by a language YAML.
+- Goal: Build a TypeScript core + GUI editor that authors shader graphs in JSON and compiles them to shader code for any platform defined by a language JSON.
 - Canonical Data: `data/` at repo root is language‑agnostic and the heart of the system (node templates, base node schema, language packs). This must remain the single source of truth for nodes and languages.
 - Python Reference: `python_backup/` contains the prior implementation; use it strictly as behavioral reference while porting.
 - Stack
@@ -15,13 +15,13 @@ This document is the source-of-truth for how agents design, implement, and valid
 
 ## Canonical Data Model
 Authoritative files to follow:
-- Node templates (palette): `data/nodes/**.yml`
-- Base node schema: `data/node.yml`
-- Language packs (templating rules): `data/languages/*.yml` (e.g., `Godot.yml`)
+- Node templates (palette): `data/nodes/**.json`
+- Base node schema: `data/node.json`
+- Language packs (templating rules): `data/languages/*.json` (e.g., `Godot.json`)
 - Behavioral reference only: `python_backup/core/node.py`, `python_backup/core/graph_compiler.py`, `python_backup/tests/*.py`
 
-### Graph Schema (YAML)
-Root and nodes share a common structure (see `python_backup/data/node.yml` and examples under `python_backup/data/nodes/`):
+### Graph Schema (JSON)
+Root and nodes share a common structure (see `data/node.json` and examples under `data/nodes/`):
 - id: integer (unique within the containing graph)
 - type: string (node kind; must match a template under `data/nodes` or be a container like `surface`, `vertex_pass`, `fragment_pass`)
 - name: string (display name; optional in some templates)
@@ -39,10 +39,10 @@ Connection encoding (authoritative behavior in `Node.connect_nodes`):
   - Input value: `../<fromNodeId>/<fromPinId>`
 
 Type resolution rules (see `GraphCompiler.convert_type`):
-- Supports widening/narrowing among float vectors (float ↔ float2/3/4). Narrowing uses swizzles (`.x`, `.xy`, `.rgb`, `.xyzw`). currently Widening wraps via `vecN(value)` for godot. it may differ per language and later needs to be templated in the language yml.
+- Supports widening/narrowing among float vectors (float ↔ float2/3/4). Narrowing uses swizzles (`.x`, `.xy`, `.rgb`, `.xyzw`). Currently, widening wraps via `vecN(value)` for Godot; this may differ per language and should be templated in the language JSON.
 - Inputs may declare multiple allowed types; the resolved type is captured on node as `_resolved_type` during template resolution.
 
-Template tokens (example from `data/languages/Godot.yml`):
+Template tokens (example from `data/languages/Godot.json`):
 - `{{name}}`, `{{inputs:i}}`, `{{internal_nodes}}`, `{{meta}}`, `{{exposed_nodes}}`
 - Node meta `exposed` wraps node definition in a `uniform` declaration.
 - Graph/meta like `blend_mode_transparent` injects `render_mode` lines.
@@ -52,9 +52,9 @@ We are implementing the core graph/runtime and compiler in TypeScript. The UI co
 
 Core modules (proposed structure):
 - `src/core/schema`
-  - Load/validate YAML (`data/node.yml` as schema reference)
-  - Registry for node templates under `data/nodes/**.yml`
-  - Registry for language packs under `data/languages/*.yml`
+  - Load/validate JSON (`data/node.json` as schema reference)
+  - Registry for node templates under `data/nodes/**.json`
+  - Registry for language packs under `data/languages/*.json`
 - `src/core/graph`
   - Graph/Node/Pin types and factories
   - ID allocator (single counter per graph instance, matching Python behavior)
@@ -69,7 +69,7 @@ Core modules (proposed structure):
   - Type conversion: widening/narrowing (float ↔ float2/3/4) with swizzles
   - Default‑input elision (remove code lines matching default template values)
 - `src/core/io`
-  - YAML serialize/deserialize preserving order and values
+  - JSON import/export preserving arrays and values
   - Language selection, compile entrypoints
 
 Public API (sketch):
@@ -79,7 +79,7 @@ Public API (sketch):
 - `createNode(graph, type: string, parent?: Node): Node`
 - `connect(graph, from: {nodeId, pinId}, to: {nodeId, pinId})`
 - `compile(graph, language: LanguagePack): string`
-- `toYAML(graph): string` / `fromYAML(text: string): Graph`
+- `toJSON(graph): string | object` / `fromJSON(data: string | object): Graph`
 
 Porting parity checklist (must match Python):
 - Single `last_id` counter per graph instance; IDs unique across entire graph hierarchy
@@ -130,7 +130,7 @@ The editor must be a faithful, reversible view over the YAML model. Round‑trip
 - Validation: ensure every ref `../<nodeId>/<pinId>` resolves within the correct parent chain.
 
 ### Compile
-- The UI calls the TypeScript `compile` with a selected language pack loaded from `data/languages`. No Python is involved at runtime.
+- The UI calls the TypeScript `compile` with a selected language pack loaded from `data/languages` (JSON). No Python is involved at runtime.
 /- To support multiple targets, ensure all node `type` names used in the graph have templates in the selected language pack; surface missing templates clearly.
 
 ## Runtime & Scripts (bun)
@@ -144,7 +144,7 @@ Define these tasks in `package.json` (names reserved; do not implement in this s
 
 ## Testing Strategy
 - Unit (vitest)
-  - YAML round‑trip: serialize → deserialize → deepEqual
+  - JSON round‑trip: export → import → deepEqual
   - Type resolution utilities: inputs with lists, conversions (floatN swizzles)
   - Edge encoding: ensure bidirectional `value` updates on connect
   - Template loading/indexing from `data/nodes`
@@ -174,18 +174,18 @@ Example agent flow (conceptual):
 - Data Integrity: Never change ids, pin order, or connection encoding during round‑trip.
 - Error Handling: Fail safe on unknown node templates; surface actionable messages in UI.
 - Naming
-  - ReactFlow node/edge ids: strings; mirror YAML ints for node ids by stringifying
-  - YAML strictly follows the schema shown above
+  - ReactFlow node/edge ids: strings; mirror JSON ints for node ids by stringifying
+  - JSON strictly follows the schema shown above
 - Accessibility: Favor keyboard navigation for node selection and port connections where feasible.
 
 ## Milestones (Proposed)
-1) Schema Loader + Palette Index (no UI) – read templates, build internal registry
+1) Schema Loader + Palette Index (no UI) – read templates, build internal registry (JSON)
 2) Minimal Canvas – render root `surface` with passes and drop a few nodes
 3) Connections – enforce types, encode/decode refs exactly
-4) Persistence – full YAML save/load parity
+4) Persistence – full JSON save/load parity
 5) Visual Polish – grouping, alignment, search, meta controls
 6) Tests – unit + baseline E2E for the MVP flows
-7) Optional Preview – shell out to Python compiler for text preview
+7) Optional Preview – shell out to Python compiler for text comparison only (optional during porting)
 
 ## Open Decisions (Document As Resolved)
 - State manager: local state/React Context vs. a lightweight store (e.g., Zustand). Default to React state unless complexity demands otherwise.
@@ -193,49 +193,44 @@ Example agent flow (conceptual):
 - Drag/Drop: how palette items become instantiated (sidebar vs. context menu).
 
 ## Appendix A – Quick Node Examples
-Color (constant): `data/nodes/constants/color.yml`
-```yaml
-id: -1
-type: color
-name: Color
-meta: []
-position: [0, 0]
-nodes: []
-inputs:
-  - id: 0
-    name: in
-    type: float4
-    value: [1.0, 1.0, 1.0, 1.0]
-outputs:
-  - id: 0
-    name: out
-    type: float4
+Color (constant): `data/nodes/constants/color.json`
+```json
+{
+  "id": -1,
+  "type": "color",
+  "name": "Color",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "in", "type": "float4", "value": [1.0, 1.0, 1.0, 1.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float4" }
+  ]
+}
 ```
 
-Add (polymorphic): `data/nodes/math/add.yml`
-```yaml
-id: -1
-type: add
-name: Add
-meta: [{ current_pintype: float }]
-position: [0, 0]
-nodes: []
-inputs:
-  - id: 0
-    name: a
-    type: [float, float2, float3, float4, matrix2, matrix3, matrix4]
-    value: [1.0]
-  - id: 1
-    name: b
-    type: [float, float2, float3, float4, matrix2, matrix3, matrix4]
-    value: [1.0]
-outputs:
-  - id: 0
-    name: out
-    type: [float, float2, float3, float4, matrix2, matrix3, matrix4]
+Add (polymorphic): `data/nodes/math/add.json`
+```json
+{
+  "id": -1,
+  "type": "add",
+  "name": "Add",
+  "meta": [{ "current_pintype": "float" }],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "a", "type": ["float", "float2", "float3", "float4", "matrix2", "matrix3", "matrix4"], "value": [1.0] },
+    { "id": 1, "name": "b", "type": ["float", "float2", "float3", "float4", "matrix2", "matrix3", "matrix4"], "value": [1.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": ["float", "float2", "float3", "float4", "matrix2", "matrix3", "matrix4"] }
+  ]
+}
 ```
 
-Fragment output: `data/nodes/fragment_output.yml` pairs with language template `fragment_output` in `data/languages/Godot.yml`. Multiple platforms are supported by adding more language packs.
+Fragment output: `data/nodes/fragment_output.json` pairs with language template `fragment_output` in `data/languages/Godot.json`. Multiple platforms are supported by adding more language packs.
 
 ---
-If any ambiguity arises, first defer to the data and language packs in `data/`. Use `python_backup/core/*.py` and `python_backup/tests/` as behavioral reference only while porting. The shipped runtime and compiler are the TypeScript implementations.
+If any ambiguity arises, first defer to the data and language packs in `data/` (JSON). Use `python_backup/core/*.py` and `python_backup/tests/` as behavioral reference only while porting. The shipped runtime and compiler are the TypeScript implementations.

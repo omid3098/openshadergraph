@@ -1,0 +1,13 @@
+{
+  "id": -1,
+  "type": "fragment_pass",
+  "name": "FragmentPass",
+  "meta": [],
+  "nodes": [
+    {
+      "id": 0,
+      "type": "fragment_output"
+    }
+  ],
+  "outputs": []
+}

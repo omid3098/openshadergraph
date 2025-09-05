@@ -1,0 +1,36 @@
+{
+  "id": -1,
+  "type": "cross",
+  "name": "Cross",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "a",
+      "type": "float3",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 1,
+      "name": "b",
+      "type": "float3",
+      "value": [
+        0.0
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "out",
+      "type": "float3"
+    }
+  ]
+}
