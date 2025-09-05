@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
-import type { NodePalette } from "@/core/schema/nodes";
+import type { NodePalette, NodePaletteItem } from "@/core/schema/nodes";
 
 export type ContextKind = "background" | "node" | "edge";
 
@@ -13,11 +13,13 @@ export type GraphContextMenuProps = {
   y: number;
   palette?: NodePalette;
   targetId?: string; // node/edge id when kind !== background
+  onAddNode?: (item: NodePaletteItem) => void;
+  onDeleteNode?: (id: string) => void;
   onClose: () => void;
 };
 
 export function GraphContextMenu(props: GraphContextMenuProps) {
-  const { open, kind, x, y, palette, targetId, onClose } = props;
+  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode } = props;
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -114,12 +116,10 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                           className={cn(
                             "px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground",
                           )}
-                          // Placeholder: no-op for now. Hook up later to create a node.
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            // Not adding nodes yet; close menu.
-                            onClose();
+                            if (onAddNode) onAddNode(n);
                           }}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -133,6 +133,19 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 ))}
               </div>
             </>
+          ) : kind === "node" ? (
+            <div className="flex flex-col gap-2">
+              <button
+                className="px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (targetId && onDeleteNode) onDeleteNode(targetId);
+                }}
+              >
+                Delete Node
+              </button>
+            </div>
           ) : (
             <div className="text-sm text-muted-foreground">Actions coming soon…</div>
           )}
@@ -141,4 +154,3 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     </div>
   );
 }
-

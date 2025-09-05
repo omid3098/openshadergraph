@@ -21,3 +21,22 @@ export async function fetchNodePalette(signal?: AbortSignal): Promise<NodePalett
   };
 }
 
+export type NodeTemplate = {
+  id?: number;
+  type: string;
+  name?: string;
+  meta?: any[];
+  position?: [number, number];
+  nodes?: any[];
+  inputs?: Array<{ id?: number; name: string; type: any; value?: any }>;
+  outputs?: Array<{ id?: number; name: string; type: any }>;
+};
+
+export async function fetchNodeTemplate(path: string, signal?: AbortSignal): Promise<NodeTemplate> {
+  const u = new URL("/api/node-template", location.origin);
+  u.searchParams.set("path", path);
+  const res = await fetch(u.toString(), { signal });
+  if (!res.ok) throw new Error(`Failed to load node template: ${res.status}`);
+  const data = (await res.json()) as NodeTemplate;
+  return data;
+}

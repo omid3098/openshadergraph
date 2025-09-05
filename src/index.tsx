@@ -80,6 +80,23 @@ const routes = {
       return new Response("Internal Server Error", { status: 500 });
     }
   },
+  "/api/node-template": async (req: Request) => {
+    try {
+      const url = new URL(req.url);
+      const rel = url.searchParams.get("path");
+      if (!rel) return new Response("Missing path", { status: 400 });
+      const root = path.resolve(process.cwd(), "data", "nodes");
+      // Normalize and ensure path stays within data/nodes
+      const abs = path.resolve(root, rel);
+      if (!abs.startsWith(root)) return new Response("Invalid path", { status: 400 });
+      const raw = await fs.readFile(abs, "utf8");
+      const json = JSON.parse(raw);
+      return Response.json(json);
+    } catch (err) {
+      console.error("/api/node-template failed:", err);
+      return new Response("Internal Server Error", { status: 500 });
+    }
+  },
 } as const;
 
 const development = (Bun.env.NODE_ENV ?? process.env.NODE_ENV) !== "production";
