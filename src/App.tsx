@@ -1,39 +1,63 @@
 import "./index.css";
-import { APITester } from "./APITester";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  Position,
+  type Connection,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
 
-import logo from "./logo.svg";
-import reactLogo from "./react.svg";
+const nodeDefaults = {
+  sourcePosition: Position.Right,
+  targetPosition: Position.Left,
+};
+
+const initialNodes: Node[] = [
+  {
+    id: "1",
+    position: { x: 0, y: 150 },
+    data: { label: "Node 1" },
+    ...nodeDefaults,
+  },
+  {
+    id: "2",
+    position: { x: 300, y: 150 },
+    data: { label: "Node 2" },
+    ...nodeDefaults,
+  },
+];
+
+const initialEdges: Edge[] = [
+  { id: "e1-2", source: "1", target: "2" },
+];
 
 export function App() {
-  return (
-    <div className="container mx-auto p-8 text-center relative z-10">
-      <div className="flex justify-center items-center gap-8 mb-8">
-        <img
-          src={logo}
-          alt="Bun Logo"
-          className="h-36 p-6 transition-all duration-300 hover:drop-shadow-[0_0_2em_#646cffaa] scale-120"
-        />
-        <img
-          src={reactLogo}
-          alt="React Logo"
-          className="h-36 p-6 transition-all duration-300 hover:drop-shadow-[0_0_2em_#61dafbaa] [animation:spin_20s_linear_infinite]"
-        />
-      </div>
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-      <Card className="bg-card/50 backdrop-blur-sm border-muted">
-        <CardContent className="pt-6">
-          <h1 className="text-5xl font-bold my-4 leading-tight">Bun + React</h1>
-          <p>
-            Edit{" "}
-            <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm">
-              src/App.tsx
-            </code>{" "}
-            and save to test HMR
-          </p>
-          <APITester />
-        </CardContent>
-      </Card>
+  const onConnect = (params: Connection) =>
+    setEdges((eds) => addEdge(params, eds));
+
+  return (
+    <div className="w-screen h-screen">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        fitView
+      >
+        <Background />
+        <Controls />
+        <MiniMap />
+      </ReactFlow>
     </div>
   );
 }

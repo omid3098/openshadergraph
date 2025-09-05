@@ -7,12 +7,19 @@
 
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
+import { ReactFlowProvider } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import { App } from "./App";
 
 const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>
-    <App />
+    {/* Ensure the ReactFlow parent has explicit size */}
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <ReactFlowProvider>
+        <App />
+      </ReactFlowProvider>
+    </div>
   </StrictMode>
 );
 
