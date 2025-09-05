@@ -7,19 +7,19 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
-  getNodesBounds,
   Position,
   SelectionMode,
   type Connection,
   type Edge,
   type Node,
 } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate, type NodePalette, type NodePaletteItem, type NodeTemplate } from "./core/schema/nodes";
 import { GraphDataPanel } from "./components/GraphDataPanel";
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -37,7 +37,9 @@ export function App() {
   const [palette, setPalette] = useState<NodePalette | null>(null);
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
-  const [graphName] = useState<string>("UntitledGraph");
+  const [graphName, setGraphName] = useState<string>("UntitledGraph");
+  const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
+  const [selectedExample, setSelectedExample] = useState<string | undefined>(undefined);
   const [menu, setMenu] = useState<{
     open: boolean;
     kind: ContextKind;
@@ -215,6 +217,139 @@ export function App() {
     return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
   }, [edges, visibleNodeIds]);
 
+  // Helpers to load an example graph JSON into the canvas
+  type GNode = {
+    id: number;
+    type: string;
+    name?: string;
+    meta?: any[];
+    position?: [number, number];
+    nodes?: GNode[];
+    inputs?: Array<{ id: number; name: string; type: any; value?: any }>;
+    outputs?: Array<{ id: number; name: string; type: any }>;
+  };
+  const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
+    try {
+      const url = new URL("/api/example-graphs", location.origin);
+      url.searchParams.set("name", ex.key);
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const graph = data.graph as GNode;
+
+      // Flatten graph nodes and build ReactFlow nodes/edges
+      const createdNodes: Node[] = [];
+      const createdEdges: Edge[] = [];
+      const depthX = 240; // x step per depth
+      const rowY = 120; // y step per item
+      const baseX = 80;
+      const baseY = 40;
+      const perParentRow: Record<string, number> = {};
+      const all: Record<string, GNode> = {};
+
+      const walk = (n: GNode, parentId?: string, depth = 0) => {
+        const idStr = String(n.id);
+        all[idStr] = n;
+        const row = perParentRow[parentId ?? "root"] ?? 0;
+        const pos = n.position
+          ? { x: n.position[0], y: n.position[1] }
+          : { x: baseX + depth * depthX, y: baseY + row * rowY };
+        perParentRow[parentId ?? "root"] = row + 1;
+        createdNodes.push({
+          id: idStr,
+          type: "graphNode",
+          position: pos,
+          data: {
+            label: n.name ?? n.type,
+            type: n.type,
+            template: {
+              id: n.id,
+              type: n.type,
+              name: n.name,
+              meta: n.meta ?? [],
+              position: n.position ?? [pos.x, pos.y],
+              nodes: n.nodes ?? [],
+              inputs: n.inputs ?? [],
+              outputs: n.outputs ?? [],
+            },
+          },
+          ...(parentId ? { parentId } : {}),
+          ...nodeDefaults,
+        } as any);
+        // children
+        for (const child of n.nodes ?? []) {
+          walk(child, idStr, depth + 1);
+        }
+      };
+      walk(graph, undefined, 0);
+
+      // Build edges from input pin refs ../<nodeId>/<pinId>
+      const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+      for (const gid of Object.keys(all)) {
+        const gn = all[gid];
+        for (const pin of gn.inputs ?? []) {
+          if (typeof pin.value !== "string") continue;
+          const m = pin.value.match(refRe);
+          if (!m) continue;
+          const fromId = m[1];
+          const fromPin = Number(m[2]);
+          const toId = gid;
+          const toPin = pin.id;
+          createdEdges.push({
+            id: `e${fromId}-${toId}-${fromPin}-${toPin}`,
+            source: String(fromId),
+            target: String(toId),
+            sourceHandle: `out-${fromPin}`,
+            targetHandle: `in-${toPin}`,
+          });
+        }
+      }
+
+      // Compute idCounter from max id
+      const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
+      idCounter.current = maxId;
+
+      // Choose default view: fragment_pass if present, else vertex_pass, else surface
+      const surfaceId = String(graph.id);
+      const fragmentPass = (graph.nodes ?? []).find((n) => n.type === "fragment_pass");
+      const vertexPass = (graph.nodes ?? []).find((n) => n.type === "vertex_pass");
+      const defaultPath = fragmentPass
+        ? [surfaceId, String(fragmentPass.id)]
+        : vertexPass
+          ? [surfaceId, String(vertexPass.id)]
+          : [surfaceId];
+
+      setNodes(createdNodes);
+      setEdges(createdEdges);
+      setGraphName(ex.label ?? "UntitledGraph");
+      setSelectedExample(ex.key);
+      setViewPath(defaultPath);
+    } catch (err) {
+      console.warn("Failed to load example graph", ex, err);
+    }
+  }, [setNodes, setEdges, setGraphName, setViewPath]);
+
+  // Fetch example graphs and load the first by default
+  useEffect(() => {
+    const abort = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch("/api/example-graphs", { signal: abort.signal });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
+        setExamples(list);
+        if (list.length) {
+          // Default: load the first example
+          await loadExampleGraph(list[0]);
+        }
+      } catch (err) {
+        console.warn("Failed to load example graphs", err);
+      }
+    })();
+    return () => abort.abort();
+  }, [loadExampleGraph]);
+
   const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
     const nextId = String(++idCounter.current);
@@ -300,8 +435,9 @@ export function App() {
         selectionOnDrag
         selectionMode={SelectionMode.Partial}
         onNodeDoubleClick={(e, node) => {
-          // Drill into group nodes via double click
-          if ((node.data as any)?.type === "group") {
+          // Drill into container nodes via double click
+          const t = (node.data as any)?.type;
+          if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
             setViewPath((p) => [...p, node.id]);
           }
         }}
@@ -332,8 +468,27 @@ export function App() {
         <MiniMap />
       </ReactFlow>
       <GraphDataPanel data={graphData} />
-      {/* Breadcrumbs for nested view */}
-      <div className="absolute left-2 top-2 z-10 flex items-center gap-1 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
+      {/* Example selector + Breadcrumbs for nested view */}
+      <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
+        <div className="min-w-[200px]">
+          <Select
+            value={selectedExample}
+            onValueChange={(v) => {
+              const ex = examples.find((e) => e.key === v);
+              if (ex) loadExampleGraph(ex);
+            }}
+          >
+            <SelectTrigger aria-label="Example Graph">
+              <SelectValue placeholder="Select example graph" />
+            </SelectTrigger>
+            <SelectContent>
+              {examples.map((e) => (
+                <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <span className="text-muted-foreground">•</span>
         <button className="hover:underline" onClick={() => setViewPath([])}>{graphName}</button>
         {viewPath.map((id, i) => {
           const n = nodes.find((nn) => nn.id === id);
