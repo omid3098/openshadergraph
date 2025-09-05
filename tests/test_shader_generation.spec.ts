@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
 import { basic_color_graph, addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph } from "./graph_samples";
@@ -114,4 +114,3 @@ describe("Godot shader generation", () => {
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 });
-

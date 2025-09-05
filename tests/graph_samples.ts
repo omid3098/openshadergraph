@@ -1,5 +1,4 @@
 import { NodeBuilder } from "../src/core/graph/node";
-import type { GraphNode } from "../src/core/graph/types";
 
 export function basic_color_graph() {
   const surface = new NodeBuilder("surface");
@@ -97,4 +96,3 @@ export function full_fragment_graph() {
   surface.connect_nodes(alpha, fragment_output, 0, 5);
   return { surface, fragment_pass, fragment_output, albedo, rough, metallic, emission, normal, alpha };
 }
-

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { NodeProps } from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, Position, useNodeId, useReactFlow, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
@@ -7,7 +7,12 @@ import { Input } from "./ui/input";
 import { RgbaColorPicker } from "react-colorful";
 import { createPortal } from "react-dom";
 
-type Pin = { id?: number; name: string; type: any; value?: any };
+type Pin = {
+  id?: number;
+  name: string;
+  type: string | string[];
+  value?: number[] | string | number;
+};
 
 export type GraphNodeData = {
   label?: string;
@@ -21,7 +26,7 @@ export type GraphNodeData = {
   };
 };
 
-export function GraphNode({ data }: NodeProps<GraphNodeData>) {
+export function GraphNode({ data }: NodeProps<RFNode<GraphNodeData>>) {
   const name = data?.label ?? data?.type ?? "Node";
   const inputs: Pin[] = Array.isArray(data?.template?.inputs) ? data!.template!.inputs! : [];
   const outputs: Pin[] = Array.isArray(data?.template?.outputs) ? data!.template!.outputs! : [];
@@ -90,10 +95,7 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
   const to255 = (v?: number) => Math.max(0, Math.min(255, Math.round((v ?? 1) * 255)));
   const to01 = (v?: number) => Math.max(0, Math.min(1, (v ?? 255) / 255));
 
-  const stop = (e: React.SyntheticEvent | Event) => {
-    e.stopPropagation?.();
-    // don't preventDefault to preserve focus/typing
-  };
+  // no-op helper removed; rely on inline stopPropagation handlers
 
   return (
     <Card className={cn("min-w-[130px] w-[160px]")}
@@ -117,7 +119,12 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
                   <span className="text-xs text-muted-foreground">{pin.name}</span>
                   {/* Editors for default values when not connected; inline after the pin name */}
                   {!connected && Array.isArray(val) && (
-                    <div className="flex items-center gap-1 ml-auto overflow-x-auto" onMouseDown={stop as any} onPointerDown={stop as any} onWheel={stop as any}>
+                    <div
+                      className="flex items-center gap-1 ml-auto overflow-x-auto"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onWheel={(e) => e.stopPropagation()}
+                    >
                       {showColor ? (
                         <>
                           {/* Color swatch; click to open RGBA picker popover */}

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { basic_color_graph, addition_graph, external_graph, vertex_color_graph, meta_graph } from "./graph_samples";
 import { mkdtempSync } from "fs";
 import { tmpdir } from "os";
@@ -38,4 +38,3 @@ describe("Graph JSON structure", () => {
     expect(surface.graph_data.meta).toEqual(["blend_mode_transparent"]);
   });
 });
-

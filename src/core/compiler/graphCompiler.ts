@@ -1,8 +1,6 @@
 import type { Graph, GraphNode, InputPin, LanguagePack } from "../graph/types";
 import { getNodeTemplate } from "../schema/registry";
 
-function isList(v: any): v is any[] { return Array.isArray(v); }
-
 function fmtNum(n: number): string {
   if (Number.isInteger(n)) return n.toFixed(1);
   // keep a reasonable precision but strip trailing zeros

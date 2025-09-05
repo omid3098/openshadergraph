@@ -8,13 +8,13 @@ const routes = {
   "/*": index,
 
   "/api/hello": {
-    async GET(req: Request) {
+    async GET(_req: Request) {
       return Response.json({
         message: "Hello, world!",
         method: "GET",
       });
     },
-    async PUT(req: Request) {
+    async PUT(_req: Request) {
       return Response.json({
         message: "Hello, world!",
         method: "PUT",
