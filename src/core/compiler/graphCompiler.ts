@@ -86,6 +86,8 @@ export class GraphCompiler {
     } else {
       (input as any)._ref_type = output_pin.type as string;
     }
+    // Track the referring node id for reachability analysis
+    (input as any)._ref_node_id = target.id;
     // For code substitution, use the unique node name
     (input as any).value = getUniqueNodeName(target);
   }
@@ -162,9 +164,57 @@ export class GraphCompiler {
       node._code = node._code.replace("{{internal_nodes}}", "");
     } else {
       // Build internal code by embedding each child's compiled code.
+      // Filter out orphan nodes (those not reachable from pass sinks like fragment_output).
       const indent = node.type === "surface" ? "" : "\t";
+
+      // Compute reachable child ids only for known pass containers; otherwise include all.
+      const reachable = new Set<number>();
+      const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
+      if (isPass) {
+        // Map consumers to their local producers based on ../<id>/<pinId> refs
+        const byId = new Map<number, GraphNode>(node.nodes.map((c) => [c.id, c] as const));
+        const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+        const producersByConsumer = new Map<number, number[]>();
+        for (const c of node.nodes) {
+          for (const pin of c.inputs ?? []) {
+            let fromId: number | undefined;
+            const maybeRef = (pin as any)._ref_node_id;
+            if (typeof maybeRef === "number") {
+              fromId = maybeRef;
+            } else if (typeof pin.value === "string") {
+              const m = pin.value.match(refRe);
+              if (m) fromId = Number(m[1]);
+            }
+            if (fromId === undefined) continue;
+            if (!byId.has(fromId)) continue; // external dep; ignore at this scope
+            let list = producersByConsumer.get(c.id);
+            if (!list) { list = []; producersByConsumer.set(c.id, list); }
+            list.push(fromId);
+          }
+        }
+        // Start from sink nodes (e.g., fragment_output) and walk upstream to include dependencies.
+        const stack: number[] = [];
+        for (const c of node.nodes) {
+          if (c.type === "fragment_output") {
+            reachable.add(c.id);
+            stack.push(c.id);
+          }
+        }
+        while (stack.length) {
+          const cid = stack.pop()!;
+          const producers = producersByConsumer.get(cid) ?? [];
+          for (const pid of producers) {
+            if (!reachable.has(pid)) {
+              reachable.add(pid);
+              stack.push(pid);
+            }
+          }
+        }
+      }
+
       let internal = "";
       for (const child of node.nodes) {
+        if (isPass && !reachable.has(child.id)) continue; // skip orphans in passes
         const c = (child._code ?? "").split("\n");
         for (const line of c) {
           if (line.length === 0) { internal += "\n"; continue; }

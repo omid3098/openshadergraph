@@ -174,7 +174,7 @@ export function CompilePanel({ graph, className }: CompilePanelProps) {
                   <SelectValue placeholder="Compiler" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Default (root→leaf)</SelectItem>
+                  <SelectItem value="default">Default</SelectItem>
                 </SelectContent>
               </Select>
             </div>
