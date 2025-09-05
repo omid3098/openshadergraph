@@ -104,12 +104,14 @@ export function App() {
       return undefined;
     };
 
-    // Encode edges into input pin values. If targetHandle encodes an input id (e.g., "in-<id>"), use it.
+    // Encode edges into both input and output pin values per spec.
+    // Input value:  ../<fromNodeId>/<fromPinId>
+    // Output value: ../<toNodeId>/<toPinId>
     for (const e of edges) {
       const src = map[e.source];
       const dst = map[e.target];
       if (!src || !dst) continue;
-      const tgtIdx = (() => {
+      const tgtId = (() => {
         if (e.targetHandle) {
           const m = String(e.targetHandle).match(/(in|input)-(?<id>\d+)/);
           if (m?.groups?.id) return Number(m.groups.id);
@@ -117,16 +119,25 @@ export function App() {
         // fallback: first input id or index 0
         return typeof dst.inputs?.[0]?.id === "number" ? dst.inputs[0].id : 0;
       })();
-      const outPin = (() => {
+      const srcOutId = (() => {
         if (e.sourceHandle) {
           const m = String(e.sourceHandle).match(/(out|output)-(?<id>\d+)/);
           if (m?.groups?.id) return Number(m.groups.id);
         }
         return typeof src.outputs?.[0]?.id === "number" ? src.outputs[0].id : 0;
       })();
-      const dstPinIndex = dst.inputs.findIndex((p: any) => p.id === tgtIdx);
-      const idx = dstPinIndex >= 0 ? dstPinIndex : 0;
-      dst.inputs[idx].value = `../${Number(e.source)}/${outPin}`;
+      // Set input side reference
+      const dstPinIndex = dst.inputs.findIndex((p: any) => p.id === tgtId);
+      const inIdx = dstPinIndex >= 0 ? dstPinIndex : 0;
+      if (dst.inputs?.[inIdx]) {
+        dst.inputs[inIdx].value = `../${Number(e.source)}/${srcOutId}`;
+      }
+      // Set output side reference
+      const srcOutIndex = src.outputs.findIndex((p: any) => p.id === srcOutId);
+      const outIdx = srcOutIndex >= 0 ? srcOutIndex : 0;
+      if (src.outputs?.[outIdx]) {
+        src.outputs[outIdx].value = `../${Number(e.target)}/${tgtId}`;
+      }
     }
 
     // Resolve polymorphic pin types by inspecting connections and defaults
