@@ -1,5 +1,7 @@
 import { serve } from "bun";
 import index from "./index.html";
+import { promises as fs } from "fs";
+import path from "path";
 
 const routes = {
   // Serve index.html for all unmatched routes.
@@ -25,6 +27,58 @@ const routes = {
     return Response.json({
       message: `Hello, ${name}!`,
     });
+  },
+  "/api/nodes": async () => {
+    try {
+      const root = path.resolve(process.cwd(), "data", "nodes");
+      // Recursively gather all .json files under data/nodes
+      const glob = new Bun.Glob("**/*.json");
+      const filePaths = Array.from(glob.scanSync({ cwd: root }));
+
+      const items: Array<{
+        type: string;
+        name: string;
+        path: string;
+        category: string;
+      }> = [];
+
+      for (const relPath of filePaths) {
+        try {
+          const absPath = path.join(root, relPath);
+          const raw = await fs.readFile(absPath, "utf8");
+          const json = JSON.parse(raw);
+          const type = String(json.type ?? "");
+          if (!type) continue;
+          const name = String(json.name ?? type);
+          const category = relPath.split(path.sep)[0] ?? "root";
+          items.push({ type, name, path: relPath, category });
+        } catch (err) {
+          console.warn("Failed parsing node template:", relPath, err);
+        }
+      }
+
+      // Group by category for convenience
+      const categories: Record<string, typeof items> = {};
+      for (const it of items) {
+        (categories[it.category] ??= []).push(it);
+      }
+
+      // Sort categories and items alphabetically for a consistent palette
+      const orderedCategories = Object.keys(categories)
+        .sort((a, b) => a.localeCompare(b))
+        .map((name) => ({
+          name,
+          nodes: categories[name].sort((a, b) => a.name.localeCompare(b.name)),
+        }));
+
+      return Response.json({
+        categories: orderedCategories,
+        flat: items.sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    } catch (err) {
+      console.error("/api/nodes failed:", err);
+      return new Response("Internal Server Error", { status: 500 });
+    }
   },
 } as const;
 

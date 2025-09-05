@@ -4,6 +4,7 @@ node_modules
 # output
 out
 dist
+.tmp-build
 *.tgz
 
 # code coverage
@@ -30,5 +31,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # IntelliJ based IDEs
 .idea
 
-# Finder (MacOS) folder config
+# Finder (macOS) artifacts
 .DS_Store
+**/.DS_Store
