@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
+import { isAbortError } from "@/lib/errors";
+import { isCompilableGraph } from "@/core/io/guards";
 
 type CompilePanelProps = {
   graph: unknown;
@@ -50,7 +52,9 @@ export function CompilePanel({ graph, className }: CompilePanelProps) {
         const list: LanguageItem[] = Array.isArray(data.languages) ? data.languages : [];
         setLanguages(list);
         setLanguage((prev) => (prev && prev.length ? prev : (list[0]?.key ?? prev)));
-      } catch (err) {
+      } catch (err: any) {
+        // Ignore expected aborts during unmount/HMR to avoid noisy console
+        if (isAbortError(err)) return;
         console.warn("Failed to fetch languages", err);
       }
     })();
@@ -80,6 +84,12 @@ export function CompilePanel({ graph, className }: CompilePanelProps) {
       try {
         setWorking(true);
         setError("");
+        // Guard: only compile when graph is compilable (wrapper with surface or direct surface)
+        const canCompile = isCompilableGraph(stableGraph as any);
+        if (!canCompile) {
+          setCode("");
+          return;
+        }
         const res = await fetch("/api/compile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -95,6 +105,7 @@ export function CompilePanel({ graph, className }: CompilePanelProps) {
         setCode(String(data.code ?? ""));
       } catch (err: any) {
         if (cancelled) return;
+        if (isAbortError(err)) return;
         setError(typeof err?.message === "string" ? err.message : "Compile failed");
         setCode("");
       } finally {

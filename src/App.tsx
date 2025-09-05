@@ -21,6 +21,8 @@ import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
+import { isAbortError } from "./lib/errors";
+import { prepareVisibleNodes } from "./core/ui/visible";
 import { CompilePanel } from "./components/CompilePanel";
 
 const nodeDefaults = {
@@ -41,7 +43,7 @@ export function App() {
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
-  const [selectedExample, setSelectedExample] = useState<string | undefined>(undefined);
+  const [selectedExample, setSelectedExample] = useState<string>("");
   const [menu, setMenu] = useState<{
     open: boolean;
     kind: ContextKind;
@@ -57,7 +59,10 @@ export function App() {
     const ctrl = new AbortController();
     fetchNodePalette(ctrl.signal)
       .then(setPalette)
-      .catch((err) => console.warn("Failed to load node palette", err));
+      .catch((err: any) => {
+        if (isAbortError(err)) return;
+        console.warn("Failed to load node palette", err);
+      });
     return () => ctrl.abort();
   }, []);
 
@@ -209,10 +214,7 @@ export function App() {
   // Visible graph based on current viewPath (root vs. inside a group)
   const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
   const visibleNodes = useMemo(() => {
-    return nodes.filter((n) => {
-      const pid = (n as any).parentId as string | undefined;
-      return (pid ?? undefined) === (currentParentId ?? undefined);
-    });
+    return prepareVisibleNodes(nodes as any, currentParentId) as any;
   }, [nodes, currentParentId]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
   const visibleEdges = useMemo(() => {
@@ -345,7 +347,8 @@ export function App() {
           // Default: load the first example
           await loadExampleGraph(list[0]);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (isAbortError(err)) return;
         console.warn("Failed to load example graphs", err);
       }
     })();
