@@ -4,7 +4,7 @@ import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
 import type { NodePalette, NodePaletteItem } from "@/core/schema/nodes";
 
-export type ContextKind = "background" | "node" | "edge";
+export type ContextKind = "background" | "node" | "edge" | "selection";
 
 export type GraphContextMenuProps = {
   open: boolean;
@@ -15,11 +15,15 @@ export type GraphContextMenuProps = {
   targetId?: string; // node/edge id when kind !== background
   onAddNode?: (item: NodePaletteItem) => void;
   onDeleteNode?: (id: string) => void;
+  onGroupSelected?: () => void;
+  selectedCount?: number;
+  canUngroup?: boolean;
+  onUngroupNode?: (id: string) => void;
   onClose: () => void;
 };
 
 export function GraphContextMenu(props: GraphContextMenuProps) {
-  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode } = props;
+  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode, onGroupSelected, selectedCount, canUngroup, onUngroupNode } = props;
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -87,6 +91,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
         <CardHeader>
           <CardTitle className="text-sm">
             {kind === "background" && "Add Node"}
+            {kind === "selection" && `Selection • ${selectedCount ?? 0} nodes`}
             {kind === "node" && `Node • ${targetId ?? "(unknown)"}`}
             {kind === "edge" && `Connection • ${targetId ?? "(unknown)"}`}
           </CardTitle>
@@ -133,8 +138,59 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 ))}
               </div>
             </>
+          ) : kind === "selection" ? (
+            <div className="flex flex-col gap-2">
+              <button
+                className={cn(
+                  "px-2 py-1.5 rounded-md text-sm",
+                  selectedCount && selectedCount > 0
+                    ? "bg-primary/10 text-primary hover:bg-primary/15"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+                disabled={!selectedCount || selectedCount <= 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
+                }}
+              >
+                Group Selected{selectedCount ? ` (${selectedCount})` : ""}
+              </button>
+            </div>
           ) : kind === "node" ? (
             <div className="flex flex-col gap-2">
+              <button
+                className={cn(
+                  "px-2 py-1.5 rounded-md text-sm",
+                  canUngroup
+                    ? "bg-primary/10 text-primary hover:bg-primary/15"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+                disabled={!canUngroup}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (canUngroup && targetId && onUngroupNode) onUngroupNode(targetId);
+                }}
+              >
+                Ungroup
+              </button>
+              <button
+                className={cn(
+                  "px-2 py-1.5 rounded-md text-sm",
+                  selectedCount && selectedCount > 0
+                    ? "bg-primary/10 text-primary hover:bg-primary/15"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+                disabled={!selectedCount || selectedCount <= 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
+                }}
+              >
+                Group Selected{selectedCount ? ` (${selectedCount})` : ""}
+              </button>
               <button
                 className="px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20"
                 onClick={(e) => {

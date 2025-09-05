@@ -7,7 +7,9 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
+  getNodesBounds,
   Position,
+  SelectionMode,
   type Connection,
   type Edge,
   type Node,
@@ -34,6 +36,8 @@ export function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [palette, setPalette] = useState<NodePalette | null>(null);
   const idCounter = useRef(0);
+  const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
+  const [graphName] = useState<string>("UntitledGraph");
   const [menu, setMenu] = useState<{
     open: boolean;
     kind: ContextKind;
@@ -57,15 +61,16 @@ export function App() {
     // Root graph follows data/node.json shape
     const root: any = {
       type: "",
-      name: "",
+      name: graphName,
       meta: [],
       nodes: [] as any[],
       inputs: [],
       outputs: [],
     };
 
-    // Build node JSONs from stored templates on nodes
+    // Build node JSONs from stored templates on nodes, preserving hierarchy via parentId
     const map: Record<string, any> = {};
+    const parentMap: Record<string, string | undefined> = {};
     for (const n of nodes) {
       const t = (n.data as any)?.template as NodeTemplate | undefined;
       const base = t
@@ -83,7 +88,16 @@ export function App() {
       // Strip redundant meta like current_pintype from instance view
       base.meta = base.meta.filter((m: any) => !(m && typeof m === "object" && "current_pintype" in m));
       map[n.id] = base;
-      root.nodes.push(base);
+      parentMap[n.id] = (n as any).parentId;
+    }
+    // Attach children to parents
+    for (const id of Object.keys(map)) {
+      const parentId = parentMap[id];
+      if (parentId && map[parentId]) {
+        map[parentId].nodes.push(map[id]);
+      } else {
+        root.nodes.push(map[id]);
+      }
     }
 
     // Helpers
@@ -186,7 +200,20 @@ export function App() {
     resolveNodeTypes();
 
     return root;
-  }, [nodes, edges]);
+  }, [nodes, edges, graphName]);
+
+  // Visible graph based on current viewPath (root vs. inside a group)
+  const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
+  const visibleNodes = useMemo(() => {
+    return nodes.filter((n) => {
+      const pid = (n as any).parentId as string | undefined;
+      return (pid ?? undefined) === (currentParentId ?? undefined);
+    });
+  }, [nodes, currentParentId]);
+  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
+  const visibleEdges = useMemo(() => {
+    return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+  }, [edges, visibleNodeIds]);
 
   const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
@@ -235,19 +262,49 @@ export function App() {
   };
 
   const deleteNodeById = (id: string) => {
+    const node = rf.getNode(id);
+    if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
     setNodes((ns) => ns.filter((n) => n.id !== id));
     setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+  };
+
+  // Group selected nodes into a new container node with dynamic I/O
+  const groupSelected = () => {
+    const selected = rf.getNodes().filter((n) => n.selected);
+    if (!selected.length) return;
+    const selectedIds = new Set(selected.map((n) => n.id));
+    const idGen = () => String(++idCounter.current);
+    const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
+    setNodes(res.nodes as any);
+    setEdges(res.edges as any);
+  };
+
+  // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
+  const ungroupGroup = (groupId: string) => {
+    const res = utilUngroupGroup(nodes as any, edges as any, groupId);
+    setNodes(res.nodes as any);
+    setEdges(res.edges as any);
+    setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 
   return (
     <div className="w-screen h-screen relative">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={visibleNodes}
+        edges={visibleEdges}
         nodeTypes={{ graphNode: GraphNode }}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        panOnDrag={[1]}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        onNodeDoubleClick={(e, node) => {
+          // Drill into group nodes via double click
+          if ((node.data as any)?.type === "group") {
+            setViewPath((p) => [...p, node.id]);
+          }
+        }}
         onPaneClick={() => {
           // Close context menu when clicking the background pane
           setMenu((m) => (m.open ? { ...m, open: false } : m));
@@ -255,6 +312,10 @@ export function App() {
         onPaneContextMenu={(e) => {
           e.preventDefault();
           setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
+        }}
+        onSelectionContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
         }}
         onNodeContextMenu={(e, node) => {
           e.preventDefault();
@@ -271,6 +332,24 @@ export function App() {
         <MiniMap />
       </ReactFlow>
       <GraphDataPanel data={graphData} />
+      {/* Breadcrumbs for nested view */}
+      <div className="absolute left-2 top-2 z-10 flex items-center gap-1 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
+        <button className="hover:underline" onClick={() => setViewPath([])}>{graphName}</button>
+        {viewPath.map((id, i) => {
+          const n = nodes.find((nn) => nn.id === id);
+          const isLast = i === viewPath.length - 1;
+          return (
+            <span key={id} className="flex items-center gap-1">
+              <span>/</span>
+              {isLast ? (
+                <span className="font-medium">{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</span>
+              ) : (
+                <button className="hover:underline" onClick={() => setViewPath(viewPath.slice(0, i + 1))}>{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</button>
+              )}
+            </span>
+          );
+        })}
+      </div>
       <GraphContextMenu
         open={menu.open}
         kind={menu.kind}
@@ -278,6 +357,20 @@ export function App() {
         y={menu.y}
         targetId={menu.targetId}
         palette={palette ?? undefined}
+        selectedCount={rf.getNodes().filter((n) => n.selected).length}
+        onGroupSelected={() => {
+          groupSelected();
+          setMenu((m) => ({ ...m, open: false }));
+        }}
+        canUngroup={(() => {
+          if (!menu.targetId) return false;
+          const n = rf.getNode(menu.targetId);
+          return (n?.data as any)?.type === "group";
+        })()}
+        onUngroupNode={(id) => {
+          ungroupGroup(id);
+          setMenu((m) => ({ ...m, open: false }));
+        }}
         onAddNode={async (item) => {
           if (!item) return;
           await addNodeAt({ item, x: menu.x, y: menu.y });
@@ -295,3 +388,4 @@ export function App() {
 }
 
 export default App;
+import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { RgbaColorPicker } from "react-colorful";
 import { createPortal } from "react-dom";
+import { THEME } from "@/styles/theme";
 
 type Pin = {
   id?: number;
@@ -26,7 +27,7 @@ export type GraphNodeData = {
   };
 };
 
-export function GraphNode({ data }: NodeProps<RFNode<GraphNodeData>>) {
+export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) {
   const name = data?.label ?? data?.type ?? "Node";
   const inputs: Pin[] = Array.isArray(data?.template?.inputs) ? data!.template!.inputs! : [];
   const outputs: Pin[] = Array.isArray(data?.template?.outputs) ? data!.template!.outputs! : [];
@@ -98,8 +99,9 @@ export function GraphNode({ data }: NodeProps<RFNode<GraphNodeData>>) {
   // no-op helper removed; rely on inline stopPropagation handlers
 
   return (
-    <Card className={cn("min-w-[130px] w-[160px]")}
-      style={{ userSelect: "none" }}
+    <Card
+      className={cn("min-w-[130px] w-[160px]", selected && "border-2")}
+      style={{ userSelect: "none", borderColor: selected ? THEME.selectionColor : undefined }}
     >
       <CardHeader className="py-2 px-3">
         <CardTitle className="text-sm">{name}</CardTitle>
