@@ -112,14 +112,12 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
               const nodeType = data?.template?.type ?? data?.type ?? "";
               const showColor = !connected && nodeType === "color" && pin.name === "in" && Array.isArray(val) && val.length >= 3;
               return (
-                <div key={`in-${pid}`} className="relative flex flex-col gap-1 min-h-[24px]">
+                <div key={`in-${pid}`} className="relative flex items-center gap-2 justify-between min-h-[24px] w-full">
                   <Handle id={`in-${pid}`} type="target" position={Position.Left} style={{ left: -8 }} />
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{pin.name}</span>
-                  </div>
-                  {/* Inline editors for default values when not connected */}
+                  <span className="text-xs text-muted-foreground">{pin.name}</span>
+                  {/* Editors for default values when not connected; inline after the pin name */}
                   {!connected && Array.isArray(val) && (
-                    <div className="flex items-center gap-1" onMouseDown={stop as any} onPointerDown={stop as any} onWheel={stop as any}>
+                    <div className="flex items-center gap-1 ml-auto overflow-x-auto" onMouseDown={stop as any} onPointerDown={stop as any} onWheel={stop as any}>
                       {showColor ? (
                         <>
                           {/* Color swatch; click to open RGBA picker popover */}
@@ -199,7 +197,7 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
                               key={i}
                               type="number"
                               step="0.01"
-                              className="h-6 w-12 text-[11px] px-2 no-spinner"
+                              className="h-6 w-10 text-[11px] px-2 no-spinner shrink-0"
                               value={typeof n === "number" ? n : 0}
                               onMouseDown={(e) => e.stopPropagation()}
                               onPointerDown={(e) => e.stopPropagation()}
