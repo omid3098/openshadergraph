@@ -1,0 +1,36 @@
+{
+  "name": "ThreeJS GLSL",
+  "version": "1.0",
+  "file_extensions": [
+    "glsl"
+  ],
+  "nodes": {
+    "surface": {
+      "template": "precision highp float;\n{{meta}}\n{{exposed_nodes}}\n{{internal_nodes}}\n"
+    },
+    "vertex_pass": {
+      "template": "// vertex pass\n"
+    },
+    "fragment_pass": {
+      "template": "void main() {\n{{internal_nodes}}\n}\n"
+    },
+    "color": {
+      "template": "vec4 {{name}} = vec4({{inputs:0}});"
+    },
+    "float": {
+      "template": "float {{name}} = {{inputs:0}};"
+    },
+    "fragment_output": {
+      "template": "gl_FragColor = vec4({{inputs:0}}, {{inputs:5}});"
+    },
+    "add": {
+      "template": "vec4 {{name}} = {{inputs:0}} + {{inputs:1}};"
+    }
+  },
+  "meta": {
+    "blend_mode_transparent": { "template": "" },
+    "blend_mode_opaque": { "template": "" },
+    "alpha_mode_SrcAlpha_OneMinusSrcAlpha": { "template": "" },
+    "exposed": { "template": "uniform {{definition}}" }
+  }
+}
