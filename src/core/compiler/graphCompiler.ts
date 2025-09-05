@@ -161,15 +161,17 @@ export class GraphCompiler {
     if (!this.has_nodes(node)) {
       node._code = node._code.replace("{{internal_nodes}}", "");
     } else {
-      if (node._input_code) {
-        node._code = node._code.replace("{{internal_nodes}}", node._input_code);
-      } else {
-        let internal = "";
-        for (const child of node.nodes) {
-          internal += `\t${child._code ?? ""}\n`;
+      // Build internal code by embedding each child's compiled code.
+      const indent = node.type === "surface" ? "" : "\t";
+      let internal = "";
+      for (const child of node.nodes) {
+        const c = (child._code ?? "").split("\n");
+        for (const line of c) {
+          if (line.length === 0) { internal += "\n"; continue; }
+          internal += `${indent}${line}\n`;
         }
-        node._code = node._code.replace("{{internal_nodes}}", internal);
       }
+      node._code = node._code.replace("{{internal_nodes}}", internal);
     }
     return node._code;
   }
@@ -183,25 +185,68 @@ export class GraphCompiler {
     const code = this.resolve_internals(node);
     if (code) {
       node._code = code;
-      if ((node as any)._resolving_input) {
-        if (!node.parent!._input_code) node.parent!._input_code = "";
-        node.parent!._input_code += `\t${code}\n`;
-        delete (node as any)._resolving_input;
-      } else {
-        this.result_code += `${code}\n`;
-      }
+      // Do not append to global result here; parent nodes will embed child code via {{internal_nodes}}.
+      // Root result is assigned after processing in compile().
     }
   }
 
   private process_node(node: GraphNode) {
     if (this.has_code(node)) return;
     if (!this.has_nodes(node)) { this.compile_node(node); return; }
-    const sorted = [...node.nodes].sort((a, b) => a.id - b.id);
+    const sorted = this.sort_children_by_dependencies(node);
+    // Ensure embedding order respects dependencies
+    node.nodes = sorted;
     for (const child of sorted) {
       child.parent = node;
       this.process_node(child);
     }
-    if (sorted.length) this.compile_node(sorted[sorted.length - 1]);
+    // After children are processed and have _code, compile the parent to embed them.
+    this.compile_node(node);
+  }
+
+  private sort_children_by_dependencies(node: GraphNode): GraphNode[] {
+    const children = [...(node.nodes ?? [])];
+    const byId = new Map(children.map((c) => [c.id, c] as const));
+    const indeg = new Map<number, number>();
+    const adj = new Map<number, number[]>();
+    for (const c of children) { indeg.set(c.id, 0); adj.set(c.id, []); }
+    const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+    for (const c of children) {
+      for (const pin of c.inputs ?? []) {
+        if (typeof pin.value !== "string") continue;
+        const m = pin.value.match(refRe);
+        if (!m) continue;
+        const fromId = Number(m[1]);
+        if (!byId.has(fromId)) continue; // external dependency, ignore for local order
+        adj.get(fromId)!.push(c.id);
+        indeg.set(c.id, (indeg.get(c.id) ?? 0) + 1);
+      }
+    }
+    // Kahn's algorithm with stability by id
+    const queue: number[] = [];
+    for (const [id, d] of indeg.entries()) if (d === 0) queue.push(id);
+    queue.sort((a, b) => a - b);
+    const out: GraphNode[] = [];
+    while (queue.length) {
+      const id = queue.shift()!;
+      const n = byId.get(id);
+      if (n) out.push(n);
+      for (const v of adj.get(id) ?? []) {
+        indeg.set(v, (indeg.get(v) ?? 0) - 1);
+        if ((indeg.get(v) ?? 0) === 0) {
+          // insert in sorted position to keep stability
+          let i = 0; while (i < queue.length && queue[i] < v) i++;
+          queue.splice(i, 0, v);
+        }
+      }
+    }
+    // If cycle or unresolved, append remaining by id
+    if (out.length < children.length) {
+      const seen = new Set(out.map((n) => n.id));
+      const rest = children.filter((c) => !seen.has(c.id)).sort((a, b) => a.id - b.id);
+      out.push(...rest);
+    }
+    return out;
   }
 
   private add_meta_to_result() {
@@ -237,13 +282,15 @@ export class GraphCompiler {
 
   public compile() {
     this.set_parents(this.graph_data);
-    this.result_code = this.get_template(this.graph_data);
     this.process_node(this.graph_data);
+    // Use the compiled root code as the base result
+    this.result_code = this.graph_data._code ?? "";
     this.add_meta_to_result();
     const exposed: string[] = [];
     this.collect_exposed_nodes(this.graph_data, exposed);
     const exposed_code = exposed.length ? exposed.join("\n") + "\n" : "";
     this.result_code = this.result_code.replace("{{exposed_nodes}}", exposed_code);
+    // Ensure no unresolved placeholders remain
     this.result_code = this.result_code.replace("{{internal_nodes}}", "");
   }
 }

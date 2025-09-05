@@ -2,6 +2,7 @@ import { serve } from "bun";
 import index from "./index.html";
 import { promises as fs } from "fs";
 import path from "path";
+import { compileHandler, languagesHandler } from "./server/handlers";
 
 const routes = {
   // Serve index.html for all unmatched routes.
@@ -96,6 +97,14 @@ const routes = {
       console.error("/api/node-template failed:", err);
       return new Response("Internal Server Error", { status: 500 });
     }
+  },
+  // List available language packs under data/languages
+  "/api/languages": languagesHandler,
+  // Compile a graph to code with a given language pack
+  "/api/compile": {
+    async POST(req: Request) {
+      return compileHandler(req);
+    },
   },
   
   // Example graphs: list and fetch prebuilt sample graphs for the UI

@@ -20,6 +20,8 @@ import { GraphDataPanel } from "./components/GraphDataPanel";
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
+import { CompilePanel } from "./components/CompilePanel";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -360,40 +362,15 @@ export function App() {
     } catch (err) {
       console.warn("Failed to fetch node template", item.path, err);
     }
-    // Prepare node JSON for graph view
-    const graphNode: NodeTemplate = template
-      ? {
-          ...template,
-          id: Number(nextId),
-          position: [Math.round(pos.x), Math.round(pos.y)],
-        }
-      : {
-          id: Number(nextId),
-          type: item.type,
-          name: item.name,
-          meta: [],
-          position: [Math.round(pos.x), Math.round(pos.y)],
-          nodes: [],
-          inputs: [],
-          outputs: [],
-        };
-
-    setNodes((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        type: "graphNode",
-        position: pos,
-        data: {
-          label: graphNode.name ?? item.name,
-          type: graphNode.type,
-          templatePath: item.path,
-          category: item.category,
-          template: graphNode,
-        },
-        ...nodeDefaults,
-      },
-    ]);
+    const rfNode = buildRFNodeFromTemplate({
+      id: nextId,
+      item,
+      template,
+      position: pos,
+      parentId: currentParentId,
+      nodeDefaults,
+    });
+    setNodes((prev) => [...prev, rfNode as any]);
   };
 
   const deleteNodeById = (id: string) => {
@@ -468,6 +445,7 @@ export function App() {
         <MiniMap />
       </ReactFlow>
       <GraphDataPanel data={graphData} />
+      <CompilePanel graph={graphData} />
       {/* Example selector + Breadcrumbs for nested view */}
       <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
         <div className="min-w-[200px]">

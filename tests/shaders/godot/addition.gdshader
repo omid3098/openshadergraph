@@ -1,7 +1,6 @@
 shader_type spatial;
 
 
-
 void vertex() {
 
 }
@@ -13,4 +12,5 @@ void fragment() {
 	ALBEDO = vec3(add_6.rgb);
 
 }
+
 

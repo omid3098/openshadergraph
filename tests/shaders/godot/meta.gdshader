@@ -2,7 +2,6 @@ shader_type spatial;
 render_mode blend_mix;
 
 
-
 void vertex() {
 
 }
@@ -12,4 +11,5 @@ void fragment() {
 	ALBEDO = vec3(color_4.rgb);
 
 }
+
 

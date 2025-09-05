@@ -1,7 +1,6 @@
 shader_type spatial;
 
 
-
 void vertex() {
 
 }
@@ -11,4 +10,5 @@ void fragment() {
 		ROUGHNESS = float_4;
 
 }
+
 

@@ -39,6 +39,21 @@ describe("Godot shader generation", () => {
     expect(shader_code).not.toMatch(/EMISSION\s*=/);
     expect(shader_code).not.toMatch(/NORMAL\s*=/);
     expect(shader_code).not.toMatch(/ALPHA\s*=/);
+    // No duplicates: one vertex(), one fragment(), one ALBEDO assignment, one color var decl
+    const count = (re: RegExp) => (shader_code.match(re) ?? []).length;
+    expect(count(/^void vertex\(\)/gm)).toBe(1);
+    expect(count(/^void fragment\(\)/gm)).toBe(1);
+    expect(count(/\bALBEDO\s*=/g)).toBe(1);
+    expect(count(/\bvec4\s+color_\d+\s*=\s*vec4\(/g)).toBe(1);
+    // No leading tab before top-level function definitions
+    expect(shader_code).not.toMatch(/^\tvoid vertex\(\)/m);
+    expect(shader_code).not.toMatch(/^\tvoid fragment\(\)/m);
+    // Declaration comes before usage
+    const firstDecl = shader_code.indexOf("vec4 ");
+    const firstUse = shader_code.indexOf("ALBEDO = vec3(");
+    expect(firstDecl).toBeGreaterThan(-1);
+    expect(firstUse).toBeGreaterThan(-1);
+    expect(firstDecl).toBeLessThan(firstUse);
     const out_file = path.join(SHADERS_DIR, "godot", "basic_color.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
