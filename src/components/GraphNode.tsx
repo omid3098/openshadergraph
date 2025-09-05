@@ -1,9 +1,11 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position, useNodeId, useReactFlow, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
+import { RgbaColorPicker } from "react-colorful";
+import { createPortal } from "react-dom";
 
 type Pin = { id?: number; name: string; type: any; value?: any };
 
@@ -28,15 +30,7 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
 
-  const isConnected = useCallback(
-    (pid: number) => {
-      if (!nodeId) return false;
-      const handleId = `in-${pid}`;
-      return edges.some((e) => e.target === nodeId && e.targetHandle === handleId);
-    },
-    [edges, nodeId]
-  );
-
+  // Updater must be defined before effects that reference it
   const updateInputValue = useCallback(
     (pinId: number, next: number[] | string | number) => {
       if (!nodeId) return;
@@ -55,17 +49,50 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
     [nodeId, rf]
   );
 
-  const parseHex = (hex: string): [number, number, number] => {
-    const m = hex.replace("#", "");
-    const r = parseInt(m.slice(0, 2), 16) / 255;
-    const g = parseInt(m.slice(2, 4), 16) / 255;
-    const b = parseInt(m.slice(4, 6), 16) / 255;
-    return [r, g, b];
-  };
+  // Local UI state for popover color picker
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerPos, setPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [pickerColor, setPickerColor] = useState<{ r: number; g: number; b: number; a: number } | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<number | null>(null);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const openPickerAt = useCallback((x: number, y: number, init?: { r: number; g: number; b: number; a: number }, targetPin?: number) => {
+    if (init) setPickerColor(init);
+    setPickerPos({ x, y });
+    if (typeof targetPin === "number") setPickerTarget(targetPin);
+    setPickerOpen(true);
+  }, []);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (pickerColor && typeof pickerTarget === "number") {
+          const next: number[] = [to01(pickerColor.r), to01(pickerColor.g), to01(pickerColor.b), typeof pickerColor.a === "number" ? Math.round(pickerColor.a * 100) / 100 : 1];
+          // Commit on ESC
+          updateInputValue(pickerTarget, next);
+        }
+        setPickerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickerOpen, pickerColor, pickerTarget, updateInputValue]);
 
-  const fmtHex = (rgb01: [number, number, number]) => {
-    const toCh = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255))).toString(16).padStart(2, "0");
-    return `#${toCh(rgb01[0])}${toCh(rgb01[1])}${toCh(rgb01[2])}`;
+  const isConnected = useCallback(
+    (pid: number) => {
+      if (!nodeId) return false;
+      const handleId = `in-${pid}`;
+      return edges.some((e) => e.target === nodeId && e.targetHandle === handleId);
+    },
+    [edges, nodeId]
+  );
+
+  // RGBA helpers for 0..1 <-> 0..255 conversion
+  const to255 = (v?: number) => Math.max(0, Math.min(255, Math.round((v ?? 1) * 255)));
+  const to01 = (v?: number) => Math.max(0, Math.min(1, (v ?? 255) / 255));
+
+  const stop = (e: React.SyntheticEvent | Event) => {
+    e.stopPropagation?.();
+    // don't preventDefault to preserve focus/typing
   };
 
   return (
@@ -89,42 +116,80 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
                   <Handle id={`in-${pid}`} type="target" position={Position.Left} style={{ left: -8 }} />
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">{pin.name}</span>
-                    {connected && (
-                      <span className="text-[10px] text-emerald-600">connected</span>
-                    )}
                   </div>
                   {/* Inline editors for default values when not connected */}
                   {!connected && Array.isArray(val) && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" onMouseDown={stop as any} onPointerDown={stop as any} onWheel={stop as any}>
                       {showColor ? (
                         <>
-                          {/* Color (RGB) */}
-                          <input
-                            type="color"
-                            className="h-5 w-7 p-0 border-0 bg-transparent"
-                            value={fmtHex([val[0] ?? 1, val[1] ?? 1, val[2] ?? 1])}
-                            onChange={(e) => {
-                              const [r, g, b] = parseHex(e.target.value);
-                              const next: number[] = [r, g, b, val[3] ?? 1];
-                              updateInputValue(pid, next);
+                          {/* Color swatch; click to open RGBA picker popover */}
+                          <button
+                            type="button"
+                            className="h-5 w-8 rounded border"
+                            style={{
+                              backgroundColor: pickerOpen && pickerColor
+                                ? `rgba(${pickerColor.r}, ${pickerColor.g}, ${pickerColor.b}, ${pickerColor.a})`
+                                : `rgba(${to255(val[0])}, ${to255(val[1])}, ${to255(val[2])}, ${typeof val[3] === "number" ? val[3] : 1})`,
                             }}
-                            aria-label="Color"
-                          />
-                          {/* Alpha */}
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="1"
-                            className="h-6 w-12 text-[11px] px-2"
-                            value={typeof val[3] === "number" ? val[3] : 1}
-                            onChange={(e) => {
-                              const a = Math.max(0, Math.min(1, Number(e.target.value)));
-                              const next: number[] = [val[0] ?? 1, val[1] ?? 1, val[2] ?? 1, Number.isFinite(a) ? a : 1];
-                              updateInputValue(pid, next);
+                            aria-label="Edit color"
+                            onMouseDown={(e) => {
+                              // Prevent node drag/selection
+                              e.stopPropagation();
                             }}
-                            aria-label="Alpha"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = (e.target as HTMLElement).getBoundingClientRect();
+                              openPickerAt(rect.left, rect.bottom + 6, {
+                                r: to255(val[0]),
+                                g: to255(val[1]),
+                                b: to255(val[2]),
+                                a: typeof val[3] === "number" ? Math.round(val[3] * 100) / 100 : 1,
+                              }, pid);
+                            }}
                           />
+                          {pickerOpen && createPortal(
+                            <div
+                              role="dialog"
+                              aria-modal
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                            >
+                              {/* Backdrop commits and closes */}
+                              <div
+                                className="fixed inset-0 z-[1000]"
+                                style={{ background: "transparent" }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Commit selected color to graph
+                                  if (pickerColor && typeof pickerTarget === "number") {
+                                    const next: number[] = [to01(pickerColor.r), to01(pickerColor.g), to01(pickerColor.b), typeof pickerColor.a === "number" ? Math.round(pickerColor.a * 100) / 100 : 1];
+                                    updateInputValue(pickerTarget, next);
+                                  }
+                                  setPickerOpen(false);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                              />
+                              {/* Picker panel */}
+                              <div
+                                ref={pickerRef}
+                                className="fixed z-[1001] rounded-md border bg-card p-2 shadow-lg"
+                                style={{ left: pickerPos.x, top: pickerPos.y }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                              >
+                                <RgbaColorPicker
+                                  color={pickerColor ?? { r: to255(val[0]), g: to255(val[1]), b: to255(val[2]), a: typeof val[3] === "number" ? Math.round(val[3] * 100) / 100 : 1 }}
+                                  onChange={(c) => {
+                                    // Update only local picker color; commit on close to avoid update loops
+                                    setPickerColor({ r: c.r, g: c.g, b: c.b, a: typeof c.a === "number" ? Math.round(c.a * 100) / 100 : 1 });
+                                  }}
+                                  style={{ width: 180, height: 180 }}
+                                />
+                              </div>
+                            </div>,
+                            document.body
+                          )}
                         </>
                       ) : (
                         // Generic float/floatN editor based on array length
@@ -134,8 +199,11 @@ export function GraphNode({ data }: NodeProps<GraphNodeData>) {
                               key={i}
                               type="number"
                               step="0.01"
-                              className="h-6 w-12 text-[11px] px-2"
+                              className="h-6 w-12 text-[11px] px-2 no-spinner"
                               value={typeof n === "number" ? n : 0}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onWheel={(e) => e.stopPropagation()}
                               onChange={(e) => {
                                 const next = [...val];
                                 next[i] = Number(e.target.value);

@@ -142,3 +142,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide number input spinners for float editors */
+input.no-spinner[type="number"]::-webkit-outer-spin-button,
+input.no-spinner[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input.no-spinner[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
