@@ -171,12 +171,22 @@ Example agent flow (conceptual):
 - Planning: For multi‑step tasks, maintain a short plan and update status as you go.
 - Preambles: Before running grouped commands or large edits, state what you are about to do.
 - Validation First: Prefer unit tests close to the code you touch; run E2E only when meaningful.
+- Tests & Lint Required: Before proposing or finalizing changes, run all tests and ensure there are no linting errors across the entire TypeScript codebase.
 - Data Integrity: Never change ids, pin order, or connection encoding during round‑trip.
 - Error Handling: Fail safe on unknown node templates; surface actionable messages in UI.
 - Naming
   - ReactFlow node/edge ids: strings; mirror JSON ints for node ids by stringifying
   - JSON strictly follows the schema shown above
 - Accessibility: Favor keyboard navigation for node selection and port connections where feasible.
+
+## Pre‑Submit Checklist (TypeScript Project)
+- Run unit tests: `bun run test` (vitest).
+- Run E2E/visual tests: `bun run test:e2e` (Playwright).
+- Run linter across the repo: `bun run lint` and ensure 0 errors.
+- Optional type check: `bun x tsc -p tsconfig.json --noEmit` returns clean.
+
+Notes
+- If scripts are not yet wired, adhere to the same intent: execute unit/E2E tests and linter with the project’s chosen tools (vitest, Playwright, ESLint) and ensure a clean run before submitting changes.
 
 ## Milestones (Proposed)
 1) Schema Loader + Palette Index (no UI) – read templates, build internal registry (JSON)
