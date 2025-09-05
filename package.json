@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "bun --hot src/index.tsx",
     "start": "NODE_ENV=production bun src/index.tsx",
-    "build": "bun run build.ts"
+    "build": "bun run build.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",
@@ -32,6 +33,8 @@
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/node": "^22.5.4",
+    "vitest": "^2.1.1"
   }
 }
