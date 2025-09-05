@@ -7,6 +7,7 @@ import { loadLanguage } from "../src/core/schema/registry";
 
 const ROOT = process.cwd();
 const SHADERS_DIR = path.join(ROOT, "tests", "shaders");
+const ENGINE_DIR = path.join(SHADERS_DIR, "threejs_glsl");
 
 async function compile_graph(graph: any, languageFile: string, name = "shader") {
   const lang = await loadLanguage(languageFile.endsWith(".json") ? languageFile : `${languageFile}`);
@@ -23,7 +24,7 @@ async function compile_graph(graph: any, languageFile: string, name = "shader") 
 
 describe("ThreeJS GLSL shader generation", () => {
   beforeAll(() => {
-    rmSync(SHADERS_DIR, { recursive: true, force: true });
+    rmSync(ENGINE_DIR, { recursive: true, force: true });
   });
 
   it("basic color shader", async () => {
@@ -66,4 +67,3 @@ describe("ThreeJS GLSL shader generation", () => {
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 });
-

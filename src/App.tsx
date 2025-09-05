@@ -23,7 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
+import { buildGraphData } from "./core/ui/graphData";
 import { CompilePanel } from "./components/CompilePanel";
+import { PreviewPanel } from "./components/PreviewPanel";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -66,150 +68,7 @@ export function App() {
     return () => ctrl.abort();
   }, []);
 
-  const graphData = useMemo(() => {
-    // Root graph follows data/node.json shape
-    const root: any = {
-      type: "",
-      name: graphName,
-      meta: [],
-      nodes: [] as any[],
-      inputs: [],
-      outputs: [],
-    };
-
-    // Build node JSONs from stored templates on nodes, preserving hierarchy via parentId
-    const map: Record<string, any> = {};
-    const parentMap: Record<string, string | undefined> = {};
-    for (const n of nodes) {
-      const t = (n.data as any)?.template as NodeTemplate | undefined;
-      const base = t
-        ? JSON.parse(JSON.stringify(t))
-        : { type: (n.data as any)?.type ?? "", name: (n.data as any)?.label ?? "", meta: [], nodes: [], inputs: [], outputs: [] };
-      // Update id/position from current RF state
-      const idNum = Number(n.id);
-      if (Number.isFinite(idNum)) base.id = idNum;
-      base.position = [Math.round(n.position.x), Math.round(n.position.y)];
-      // Ensure arrays exist
-      base.meta ??= [];
-      base.nodes ??= [];
-      base.inputs ??= [];
-      base.outputs ??= [];
-      // Strip redundant meta like current_pintype from instance view
-      base.meta = base.meta.filter((m: any) => !(m && typeof m === "object" && "current_pintype" in m));
-      map[n.id] = base;
-      parentMap[n.id] = (n as any).parentId;
-    }
-    // Attach children to parents
-    for (const id of Object.keys(map)) {
-      const parentId = parentMap[id];
-      if (parentId && map[parentId]) {
-        map[parentId].nodes.push(map[id]);
-      } else {
-        root.nodes.push(map[id]);
-      }
-    }
-
-    // Helpers
-    const parseRef = (v: any): { nodeId: string; pinId: number } | null => {
-      if (typeof v !== "string") return null;
-      const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
-      if (!m) return null;
-      return { nodeId: m[1], pinId: Number(m[2]) };
-    };
-    const inferScalarFromLiteral = (val: any): string | undefined => {
-      if (Array.isArray(val) && val.every((n) => typeof n === "number")) {
-        const len = val.length;
-        if (len === 1) return "float";
-        if (len === 2) return "float2";
-        if (len === 3) return "float3";
-        if (len === 4) return "float4";
-      }
-      return undefined;
-    };
-
-    // Encode edges into both input and output pin values per spec.
-    // Input value:  ../<fromNodeId>/<fromPinId>
-    // Output value: ../<toNodeId>/<toPinId>
-    for (const e of edges) {
-      const src = map[e.source];
-      const dst = map[e.target];
-      if (!src || !dst) continue;
-      const tgtId = (() => {
-        if (e.targetHandle) {
-          const m = String(e.targetHandle).match(/(in|input)-(?<id>\d+)/);
-          if (m?.groups?.id) return Number(m.groups.id);
-        }
-        // fallback: first input id or index 0
-        return typeof dst.inputs?.[0]?.id === "number" ? dst.inputs[0].id : 0;
-      })();
-      const srcOutId = (() => {
-        if (e.sourceHandle) {
-          const m = String(e.sourceHandle).match(/(out|output)-(?<id>\d+)/);
-          if (m?.groups?.id) return Number(m.groups.id);
-        }
-        return typeof src.outputs?.[0]?.id === "number" ? src.outputs[0].id : 0;
-      })();
-      // Set input side reference
-      const dstPinIndex = dst.inputs.findIndex((p: any) => p.id === tgtId);
-      const inIdx = dstPinIndex >= 0 ? dstPinIndex : 0;
-      if (dst.inputs?.[inIdx]) {
-        dst.inputs[inIdx].value = `../${Number(e.source)}/${srcOutId}`;
-      }
-      // Set output side reference
-      const srcOutIndex = src.outputs.findIndex((p: any) => p.id === srcOutId);
-      const outIdx = srcOutIndex >= 0 ? srcOutIndex : 0;
-      if (src.outputs?.[outIdx]) {
-        src.outputs[outIdx].value = `../${Number(e.target)}/${tgtId}`;
-      }
-    }
-
-    // Resolve polymorphic pin types by inspecting connections and defaults
-    const getOutputType = (node: any, outId: number): string | undefined => {
-      const out = (node.outputs ?? []).find((p: any) => (typeof p.id === "number" ? p.id === outId : false)) ?? node.outputs?.[0];
-      if (!out) return undefined;
-      const t = out.type;
-      if (typeof t === "string") return t;
-      if (Array.isArray(t) && t.length) return t[0];
-      return undefined;
-    };
-    const resolveNodeTypes = () => {
-      for (const key of Object.keys(map)) {
-        const node = map[key];
-        // Resolve inputs
-        for (const pin of node.inputs) {
-          const t = pin.type;
-          if (Array.isArray(t)) {
-            let resolved: string | undefined;
-            // Prefer source connection type
-            const ref = parseRef(pin.value);
-            if (ref) {
-              const src = map[ref.nodeId];
-              if (src) {
-                const st = getOutputType(src, ref.pinId);
-                if (st && t.includes(st)) resolved = st;
-              }
-            }
-            // Fallback to literal default
-            if (!resolved) resolved = inferScalarFromLiteral(pin.value);
-            // Final fallback: first declared type
-            if (!resolved && t.length) resolved = t[0];
-            if (resolved) pin.type = resolved;
-          }
-        }
-        // Resolve outputs to match first resolved input type when polymorphic
-        const firstResolvedInput = node.inputs.find((p: any) => typeof p.type === "string")?.type;
-        for (const pin of node.outputs) {
-          const t = pin.type;
-          if (Array.isArray(t)) {
-            pin.type = (firstResolvedInput && t.includes(firstResolvedInput)) ? firstResolvedInput : t[0];
-          }
-        }
-      }
-    };
-    resolveNodeTypes();
-
-    return root;
-  }, [nodes, edges, graphName]);
+  const graphData = useMemo(() => buildGraphData(nodes as any, edges as any, graphName), [nodes, edges, graphName]);
 
   // Visible graph based on current viewPath (root vs. inside a group)
   const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
@@ -220,6 +79,22 @@ export function App() {
   const visibleEdges = useMemo(() => {
     return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
   }, [edges, visibleNodeIds]);
+
+  // Centralized updater to modify node template inputs while preserving parentId
+  const updateNodeInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const tpl = (n.data as any)?.template;
+        if (!tpl || !Array.isArray(tpl.inputs)) return n;
+        const idx = tpl.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
+        if (idx < 0) return n;
+        const normalized = Array.isArray(next) ? next : typeof next === "number" ? [next] : next;
+        const nextTpl = { ...tpl, inputs: tpl.inputs.map((p: any, i: number) => (i === idx ? { ...p, value: normalized } : p)) };
+        return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
+      })
+    );
+  }, [setNodes]);
 
   // Helpers to load an example graph JSON into the canvas
   type GNode = {
@@ -323,7 +198,8 @@ export function App() {
           ? [surfaceId, String(vertexPass.id)]
           : [surfaceId];
 
-      setNodes(createdNodes);
+      // Attach update function to node data for safe edits from GraphNode
+      setNodes(createdNodes.map((n) => ({ ...n, data: { ...(n.data as any), updateInputValue: updateNodeInputValue } })) as any);
       setEdges(createdEdges);
       setGraphName(ex.label ?? "UntitledGraph");
       setSelectedExample(ex.key);
@@ -373,6 +249,8 @@ export function App() {
       parentId: currentParentId,
       nodeDefaults,
     });
+    // Inject updater on the new node
+    (rfNode as any).data = { ...(rfNode as any).data, updateInputValue: updateNodeInputValue };
     setNodes((prev) => [...prev, rfNode as any]);
   };
 
@@ -449,6 +327,7 @@ export function App() {
       </ReactFlow>
       <GraphDataPanel data={graphData} />
       <CompilePanel graph={graphData} />
+      <PreviewPanel graph={graphData} />
       {/* Example selector + Breadcrumbs for nested view */}
       <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
         <div className="min-w-[200px]">

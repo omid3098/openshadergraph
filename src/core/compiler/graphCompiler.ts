@@ -34,7 +34,18 @@ export class GraphCompiler {
   }
   private get_node(parent: GraphNode, id: number | string): GraphNode | undefined {
     const n = Number(id);
-    return parent.nodes.find((x) => x.id === n);
+    const direct = parent.nodes.find((x) => x.id === n);
+    if (direct) return direct;
+    // Fallback: search anywhere in the graph to be resilient to mis-parented nodes
+    const stack: GraphNode[] = [this.graph_data];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      for (const ch of cur.nodes ?? []) {
+        if (ch.id === n) return ch;
+        stack.push(ch);
+      }
+    }
+    return undefined;
   }
   private get_template(node: GraphNode): string {
     const node_type = node.type;

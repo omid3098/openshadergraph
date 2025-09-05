@@ -40,6 +40,12 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const updateInputValue = useCallback(
     (pinId: number, next: number[] | string | number) => {
       if (!nodeId) return;
+      const external = (data as any)?.updateInputValue as ((id: string, pinId: number, val: number[] | string | number) => void) | undefined;
+      if (typeof external === "function") {
+        external(nodeId, pinId, next);
+        return;
+      }
+      // Fallback: update via ReactFlow store (may lose parentId when using filtered nodes)
       rf.setNodes((prev) =>
         prev.map((n) => {
           if (n.id !== nodeId) return n;
@@ -52,7 +58,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         })
       );
     },
-    [nodeId, rf]
+    [nodeId, rf, data]
   );
 
   // Local UI state for popover color picker
