@@ -6,7 +6,9 @@ import { createPortal } from "react-dom";
 const to255 = (v?: number) => Math.max(0, Math.min(255, Math.round((v ?? 1) * 255)));
 const to01 = (v?: number) => Math.max(0, Math.min(1, (v ?? 255) / 255));
 
-export function ColorInput({ value, onCommit, disabled }: { value: number[]; onCommit: (rgba: number[]) => void; disabled?: boolean }) {
+type Size = "normal" | "mini";
+
+export function ColorInput({ value, onCommit, disabled, size = "normal" }: { value: number[]; onCommit: (rgba: number[]) => void; disabled?: boolean; size?: Size }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerPos, setPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [pickerColor, setPickerColor] = useState<{ r: number; g: number; b: number; a: number } | null>(null);
@@ -34,12 +36,13 @@ export function ColorInput({ value, onCommit, disabled }: { value: number[]; onC
   }, [pickerOpen, pickerColor, onCommit]);
 
   const rgba = [value?.[0] ?? 1, value?.[1] ?? 1, value?.[2] ?? 1, value?.[3] ?? 1];
+  const btnCls = size === "mini" ? "h-5 w-8" : "h-6 w-12";
   return (
     <>
       <Input
         type="button"
         disabled={disabled}
-        className="h-6 w-12 shrink-0"
+        className={`${btnCls} shrink-0`}
         style={{ backgroundColor: `rgba(${to255(rgba[0])}, ${to255(rgba[1])}, ${to255(rgba[2])}, ${rgba[3] ?? 1})`, cursor: disabled ? "not-allowed" : "pointer" }}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
@@ -92,4 +95,3 @@ export function ColorInput({ value, onCommit, disabled }: { value: number[]; onC
 }
 
 export default ColorInput;
-

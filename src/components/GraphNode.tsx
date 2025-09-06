@@ -95,23 +95,28 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
               const showColor = !connected && nodeType === "color" && pin.name === "in" && Array.isArray(val) && val.length >= 3;
               return (
                 <div key={`in-${pid}`} className="relative flex items-center gap-2 justify-between min-h-[24px] w-full">
+                  {/* Mini default-value editor docked to the left of the node, similar to Unity */}
+                  {!connected && Array.isArray(val) && (
+                    <>
+                      <div
+                        className="absolute z-[2] flex items-center gap-1 px-1 py-[2px] rounded-md border bg-background/90 backdrop-blur"
+                        style={{ right: "calc(100% + 15px)", transform: "scale(0.8)", transformOrigin: "right center" }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {showColor ? (
+                          <ColorInput value={val} disabled={false} size="mini" onCommit={(next) => updateInputValue(pid, next)} />
+                        ) : (
+                          <NumericVectorInput value={val} size="mini" onChange={(next) => updateInputValue(pid, next)} />
+                        )}
+                      </div>
+                      {/* Visual connector from editor → pin (purely decorative) across the 10px gap */}
+                      <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-[-10px] w-[10px] h-px bg-border/60" />
+                    </>
+                  )}
                   <Handle id={`in-${pid}`} type="target" position={Position.Left} style={{ left: -8 }} />
                   <span className="text-xs text-muted-foreground">{pin.name}</span>
-                  {/* Editors for default values when not connected; inline after the pin name */}
-                  {!connected && Array.isArray(val) && (
-                    <div
-                      className="flex items-center gap-1 ml-auto overflow-x-auto"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onWheel={(e) => e.stopPropagation()}
-                    >
-                      {showColor ? (
-                        <ColorInput value={val} disabled={false} onCommit={(next) => updateInputValue(pid, next)} />
-                      ) : (
-                        <NumericVectorInput value={val} onChange={(next) => updateInputValue(pid, next)} />
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
