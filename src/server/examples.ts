@@ -25,18 +25,14 @@ export async function examplesHandler(req: Request): Promise<Response> {
       {
         key: "addition",
         label: "Addition (Color + Color)",
-        build: () => {
-          const surface = new NodeBuilder("surface");
-          const fragment_pass = surface.get_node_by_type("fragment_pass")!;
-          const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
-          const a = surface.create_node("color", fragment_pass);
-          const b = surface.create_node("color", fragment_pass);
-          const add = surface.create_node("add", fragment_pass);
-          surface.connect_nodes(a, add, 0, 0);
-          surface.connect_nodes(b, add, 0, 1);
-          fragment_output.meta!.push("shading_pbr");
-          surface.connect_nodes(add, fragment_output, 0, 0);
-          return surface.to_dict();
+        build: async () => {
+          const abs = path.resolve(process.cwd(), "examples", "addition_color_color.json");
+          const raw = await fs.readFile(abs, "utf8");
+          const json = JSON.parse(raw);
+          const surface = Array.isArray(json.nodes)
+            ? json.nodes.find((n: any) => n && typeof n === "object" && n.type === "surface")
+            : undefined;
+          return surface ?? json;
         },
       },
       {
