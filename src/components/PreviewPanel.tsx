@@ -244,6 +244,25 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         uniforms[key] = { value: val };
       }
     }
+    // Ensure preview-owned environment/lighting uniforms exist with sensible defaults
+    // Directions are provided in view space (updated every frame), initialize now to avoid a black first frame
+    try {
+      const cam = three.camera;
+      cam.updateMatrixWorld();
+      cam.updateProjectionMatrix();
+      const view = cam.matrixWorldInverse;
+      const keyDir = new THREE.Vector3(-0.35, 0.8, 0.6).normalize().applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
+      const fillDir = new THREE.Vector3(0.6, 0.2, 0.2).normalize().applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
+      const rimDir = new THREE.Vector3(-0.2, 0.3, -0.9).normalize().applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
+      if (!uniforms.uKeyDir) uniforms.uKeyDir = { value: new THREE.Vector3(keyDir.x, keyDir.y, keyDir.z) };
+      if (!uniforms.uFillDir) uniforms.uFillDir = { value: new THREE.Vector3(fillDir.x, fillDir.y, fillDir.z) };
+      if (!uniforms.uRimDir) uniforms.uRimDir = { value: new THREE.Vector3(rimDir.x, rimDir.y, rimDir.z) };
+    } catch { }
+    if (!uniforms.uKeyColor) uniforms.uKeyColor = { value: new THREE.Vector3(3.0, 3.0, 3.0) } as any;
+    if (!uniforms.uFillColor) uniforms.uFillColor = { value: new THREE.Vector3(1.2, 1.2, 1.2) } as any;
+    if (!uniforms.uRimColor) uniforms.uRimColor = { value: new THREE.Vector3(2.0, 2.0, 2.0) } as any;
+    if (!uniforms.uAmbient) uniforms.uAmbient = { value: new THREE.Vector3(0.08, 0.08, 0.08) } as any;
+    if (!uniforms.uExposure) uniforms.uExposure = { value: 1.3 } as any;
     const mat = new THREE.ShaderMaterial({
       vertexShader: defaultVertexShader(),
       fragmentShader: parsed.fragment,

@@ -35,19 +35,38 @@ describe("preview integration (ThreeJS_GLSL)", () => {
     expect(parsed.fragment).toMatch(/gl_FragColor\s*=\s*vec4\(/);
   });
 
-  it("includes three-point light uniforms and sanitizes initializers", async () => {
+  it("declares preview uniforms without initializers (owned by preview)", async () => {
     const { surface } = basic_color_graph();
     const code = await compileThree(surface.to_dict());
     const parsed = parseUniformsAndSanitize(code);
-    // uniforms should be present without initializers in sanitized code
+    // preview uniforms are declared (no defaults baked in)
     expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uKeyDir\s*;/);
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uKeyColor\s*;/);
     expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uFillDir\s*;/);
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uFillColor\s*;/);
     expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uRimDir\s*;/);
-    // captured values should include these names
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uRimColor\s*;/);
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uAmbient\s*;/);
+    expect(parsed.fragment).toMatch(/uniform\s+float\s+uExposure\s*;/);
+    // raw code must not have initializers for these preview uniforms
+    expect(code).not.toMatch(/uniform\s+vec3\s+uKeyDir\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+vec3\s+uKeyColor\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+vec3\s+uFillDir\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+vec3\s+uFillColor\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+vec3\s+uRimDir\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+vec3\s+uRimColor\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+vec3\s+uAmbient\s*=\s*[^;]+;/);
+    expect(code).not.toMatch(/uniform\s+float\s+uExposure\s*=\s*[^;]+;/);
+    // sanitizer should not capture values for preview uniforms (since none exist)
     const names = parsed.uniforms.map((u) => u.name);
-    expect(names).toContain("uKeyDir");
-    expect(names).toContain("uFillDir");
-    expect(names).toContain("uRimDir");
+    expect(names).not.toContain("uKeyDir");
+    expect(names).not.toContain("uKeyColor");
+    expect(names).not.toContain("uFillDir");
+    expect(names).not.toContain("uFillColor");
+    expect(names).not.toContain("uRimDir");
+    expect(names).not.toContain("uRimColor");
+    expect(names).not.toContain("uAmbient");
+    expect(names).not.toContain("uExposure");
   });
 
   it("does not include viewMatrix transforms for light directions (handled in preview)", async () => {

@@ -39,6 +39,8 @@ Minimal graph rules:
  - Preview source of truth: preview panel always renders using a ThreeJS GLSL fragment shader compiled from the current graph. Always compile `ThreeJS_GLSL` under the hood for preview, regardless of the selected output language.
  - Default compiler: default compile output language is `ThreeJS_GLSL`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
  - Centralized updates: define node update callbacks in `App` (e.g., `updateInputValue`, `updateNodeLabel`, `addNodeMeta`, `removeNodeMeta`) and attach them to `node.data`. Panels and renderers MUST use these callbacks instead of calling `rf.setNodes` directly.
+ - Environment & lighting ownership: Never hardcode environment/lighting defaults inside shader templates. Declare uniforms only; do not assign default values in language packs. The ThreeJS 3D Preview owns and configures preview lighting (three‑point rig), ambient term, and exposure, and passes them as uniforms at runtime. The generated shader code must be environment‑agnostic so it can be embedded in other engines that provide their own lighting.
+ - Exposure policy: Do not bake exposure into shader templates. If exposure is needed for preview, set it from the preview panel via a uniform or renderer option. Templates must not include exposure initializers.
 
 ## Pitfalls & Guardrails (Retro)
 - Duplicate type definitions: never redefine core types in multiple files. Source them from a single `src/core/schema/types.ts` module.
@@ -52,6 +54,7 @@ Minimal graph rules:
  - Meta hygiene: Treat `meta` as `string[]` for canonical data. UI-only/transient objects (e.g., polymorphic helpers) must not be rendered as text and must be filtered out during graph build (see `src/core/ui/graphData.ts`).
 - Example graphs coupling: keep example-building logic in `src/server/examples.ts`, not in the server bootstrap. Handlers live in `src/server/**`.
 - Type safety drift: turn on TypeScript `strict` and favor precise types in `src/core/**`. Add tests when tightening types to avoid regressions.
+ - Hardcoded preview environment: Language templates must not include default values for preview uniforms like `uKeyDir`, `uKeyColor`, `uFillDir`, `uFillColor`, `uRimDir`, `uRimColor`, `uAmbient`, or `uExposure`. These are preview concerns and must be supplied by the preview panel. Unit tests enforce this.
 
 These are non-negotiable to ship green and stay maintainable.
 
