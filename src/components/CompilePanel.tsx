@@ -9,11 +9,12 @@ import { isCompilableGraph } from "@/core/io/guards";
 type CompilePanelProps = {
   graph: unknown;
   className?: string;
+  variant?: "overlay" | "docked";
 };
 
 type LanguageItem = { key: string; name: string; path: string };
 
-export function CompilePanel({ graph, className }: CompilePanelProps) {
+export function CompilePanel({ graph, className, variant = "overlay" }: CompilePanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     const stored = typeof localStorage !== "undefined" ? Number(localStorage.getItem("compilePanel.width")) : 0;
@@ -139,6 +140,51 @@ export function CompilePanel({ graph, className }: CompilePanelProps) {
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   };
+
+  if (variant === "docked") {
+    return (
+      <Card className={cn("h-full flex flex-col", className)}>
+        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Compile Output</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="min-w-[140px]">
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger aria-label="Language">
+                  <SelectValue placeholder="Language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((l) => (
+                    <SelectItem key={l.key} value={l.key}>{l.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[120px]">
+              <Select value={engine} onValueChange={setEngine}>
+                <SelectTrigger aria-label="Compiler">
+                  <SelectValue placeholder="Compiler" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 flex-1 overflow-auto">
+          <div className="rounded-md bg-muted p-2 overflow-auto h-full">
+            {working ? (
+              <pre className="text-xs leading-relaxed opacity-70">Compiling…</pre>
+            ) : error ? (
+              <pre className="text-xs leading-relaxed text-red-500">{error}</pre>
+            ) : (
+              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words">{code}</pre>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (collapsed) {
     return (

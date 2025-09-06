@@ -6,9 +6,33 @@ import { cn } from "@/lib/utils";
 type GraphDataPanelProps = {
   data: unknown;
   className?: string;
+  variant?: "overlay" | "docked";
 };
 
-export function GraphDataPanel({ data, className }: GraphDataPanelProps) {
+function GraphDataPanelDocked({ data, className }: { data: unknown; className?: string }) {
+  const pretty = useMemo(() => {
+    try { return JSON.stringify(data, null, 2); } catch { return String(data ?? ""); }
+  }, [data]);
+  return (
+    <Card className={cn("h-full flex flex-col", className)}>
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-sm">Graph Data</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 flex-1 overflow-auto">
+        <div className="rounded-md bg-muted p-2 h-full overflow-auto">
+          <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words">{pretty}</pre>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function GraphDataPanel({ data, className, variant = "overlay" }: GraphDataPanelProps) {
+  if (variant === "docked") return <GraphDataPanelDocked data={data} className={className} />;
+  return <GraphDataPanelOverlay data={data} className={className} />;
+}
+
+function GraphDataPanelOverlay({ data, className }: { data: unknown; className?: string }) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     const stored = typeof localStorage !== "undefined" ? Number(localStorage.getItem("graphPanel.width")) : 0;
@@ -99,4 +123,3 @@ export function GraphDataPanel({ data, className }: GraphDataPanelProps) {
 }
 
 export default GraphDataPanel;
-

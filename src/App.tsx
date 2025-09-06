@@ -16,7 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate, type NodePalette, type NodePaletteItem, type NodeTemplate } from "./core/schema/nodes";
-import { GraphDataPanel } from "./components/GraphDataPanel";
+// Panels are now hosted inside a unified dock overlay
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
@@ -24,8 +24,7 @@ import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
-import { CompilePanel } from "./components/CompilePanel";
-import { PreviewPanel } from "./components/PreviewPanel";
+import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -207,7 +206,7 @@ export function App() {
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
     }
-  }, [setNodes, setEdges, setGraphName, setViewPath]);
+  }, [setNodes, setEdges, setGraphName, setViewPath, updateNodeInputValue]);
 
   // Fetch example graphs and load the first by default
   useEffect(() => {
@@ -325,9 +324,7 @@ export function App() {
         <Controls />
         <MiniMap />
       </ReactFlow>
-      <GraphDataPanel data={graphData} />
-      <CompilePanel graph={graphData} />
-      <PreviewPanel graph={graphData} />
+      <PanelsOverlay graph={graphData} />
       {/* Example selector + Breadcrumbs for nested view */}
       <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
         <div className="min-w-[200px]">

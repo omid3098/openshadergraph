@@ -11,11 +11,12 @@ import * as THREE from "three";
 type PreviewPanelProps = {
   graph: unknown;
   className?: string;
+  variant?: "overlay" | "docked";
 };
 
 type Primitive = "sphere" | "cube" | "cylinder";
 
-export function PreviewPanel({ graph, className }: PreviewPanelProps) {
+export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     const stored = typeof localStorage !== "undefined" ? Number(localStorage.getItem("previewPanel.width")) : 0;
@@ -213,6 +214,42 @@ export function PreviewPanel({ graph, className }: PreviewPanelProps) {
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   };
+
+  if (variant === "docked") {
+    return (
+      <Card className={cn("h-full flex flex-col", className)}>
+        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Three.js Preview</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="min-w-[120px]">
+              <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
+                <SelectTrigger aria-label="Primitive">
+                  <SelectValue placeholder="Primitive" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sphere">Sphere</SelectItem>
+                  <SelectItem value="cube">Cube</SelectItem>
+                  <SelectItem value="cylinder">Cylinder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate</label>
+            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe</label>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 flex-1 overflow-hidden">
+          <div className="rounded-md bg-muted overflow-hidden w-full h-full min-h-[240px]">
+            <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
+          </div>
+          {working ? (
+            <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
+          ) : compileError ? (
+            <div className="mt-2 text-[11px] text-red-500">{compileError}</div>
+          ) : null}
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (collapsed) {
     return (
