@@ -1,4 +1,6 @@
 import { NodeBuilder } from "../core/graph/node";
+import { promises as fs } from "fs";
+import path from "path";
 
 export async function examplesHandler(req: Request): Promise<Response> {
   try {
@@ -9,14 +11,15 @@ export async function examplesHandler(req: Request): Promise<Response> {
       {
         key: "basic_color",
         label: "Basic Color",
-        build: () => {
-          const surface = new NodeBuilder("surface");
-          const fragment_pass = surface.get_node_by_type("fragment_pass")!;
-          const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
-          const color = surface.create_node("color", fragment_pass);
-          fragment_output.meta!.push("shading_pbr");
-          surface.connect_nodes(color, fragment_output, 0, 0);
-          return surface.to_dict();
+        build: async () => {
+          const abs = path.resolve(process.cwd(), "examples", "basic_color.json");
+          const raw = await fs.readFile(abs, "utf8");
+          const json = JSON.parse(raw);
+          // The example file wraps the surface node in a root object with empty type
+          const surface = Array.isArray(json.nodes)
+            ? json.nodes.find((n: any) => n && typeof n === "object" && n.type === "surface")
+            : undefined;
+          return surface ?? json;
         },
       },
       {
@@ -58,8 +61,10 @@ export async function examplesHandler(req: Request): Promise<Response> {
           const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
           const red = surface.create_node("color", fragment_pass);
           const green = surface.create_node("color", fragment_pass);
-          red.inputs[0].value = [1.0, 0.0, 0.0, 1.0];
-          green.inputs[0].value = [0.0, 1.0, 0.0, 1.0];
+          const red0 = Array.isArray(red.inputs) ? red.inputs[0] : undefined;
+          if (red0) red0.value = [1.0, 0.0, 0.0, 1.0];
+          const green0 = Array.isArray(green.inputs) ? green.inputs[0] : undefined;
+          if (green0) green0.value = [0.0, 1.0, 0.0, 1.0];
           red.meta!.push("exposed");
           green.meta!.push("exposed");
           const add = surface.create_node("add", fragment_pass);
@@ -98,7 +103,7 @@ export async function examplesHandler(req: Request): Promise<Response> {
     if (name) {
       const found = registry.find((r) => r.key === name);
       if (!found) return new Response("Not Found", { status: 404 });
-      const graph = found.build();
+      const graph = await Promise.resolve(found.build());
       return Response.json({ key: found.key, label: found.label, graph });
     }
 
