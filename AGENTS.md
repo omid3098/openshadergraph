@@ -36,6 +36,18 @@ Minimal graph rules:
 - Small, surgical diffs; prefer targeted fixes over broad refactors.
 - When adding core features, extend the TypeScript core under `src/core/**` and keep UI as a thin consumer.
 
+## Pitfalls & Guardrails (Retro)
+- Duplicate type definitions: never redefine core types in multiple files. Source them from a single `src/core/schema/types.ts` module.
+- Unvalidated JSON: always validate `data/nodes/**.json` and `data/languages/*.json` at load time using zod. Fail with clear, actionable errors.
+- Mixed runtime APIs: avoid Bun-only utilities (e.g., `Bun.Glob`) inside reusable handlers. Prefer Node FS (`fs.readdir` + recursion) for portability and testability.
+- UI monoliths: do not cram complex editors into node renderers. Extract inputs (color, numeric vector, etc.) into `src/components/inputs/**` and keep `GraphNode` focused on layout.
+- Handle id regex drift: centralize handle helpers (`parseHandleId`, `makeInHandle`, `makeOutHandle`) in `src/core/ui/handles.ts`. Reuse everywhere.
+- Serialization ownership: keep graph (de)serialization UI-agnostic and tested under `src/core/graph/**`. Do not reorder IDs, pins, or children.
+- Example graphs coupling: keep example-building logic in `src/server/examples.ts`, not in the server bootstrap. Handlers live in `src/server/**`.
+- Type safety drift: turn on TypeScript `strict` and favor precise types in `src/core/**`. Add tests when tightening types to avoid regressions.
+
+These are non-negotiable to ship green and stay maintainable.
+
 ## Quick Commands
 - Run unit tests: `bun run test`
 - Run E2E tests: `bun run test:e2e`

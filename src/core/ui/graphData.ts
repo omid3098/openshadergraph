@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { NodeTemplate } from "../schema/nodes";
+import { parseHandleId as _parseHandleId } from "./handles";
 
 // Build the canonical graph JSON from ReactFlow nodes/edges.
 // Mirrors the logic in App.tsx but extracted for testability and reuse.
@@ -66,17 +67,13 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
     const dst = map[e.target];
     if (!src || !dst) continue;
     const tgtId = (() => {
-      if (e.targetHandle) {
-        const m = String(e.targetHandle).match(/(in|input)-(?<id>\d+)/);
-        if (m?.groups?.id) return Number(m.groups.id);
-      }
+      const h = _parseHandleId(e.targetHandle as any);
+      if (h) return h;
       return typeof dst.inputs?.[0]?.id === "number" ? dst.inputs[0].id : 0;
     })();
     const srcOutId = (() => {
-      if (e.sourceHandle) {
-        const m = String(e.sourceHandle).match(/(out|output)-(?<id>\d+)/);
-        if (m?.groups?.id) return Number(m.groups.id);
-      }
+      const h = _parseHandleId(e.sourceHandle as any);
+      if (h) return h;
       return typeof src.outputs?.[0]?.id === "number" ? src.outputs[0].id : 0;
     })();
     // input side
@@ -132,4 +129,3 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
 
   return root;
 }
-

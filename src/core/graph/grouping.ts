@@ -22,12 +22,7 @@ export type RFEdge = {
   targetHandle?: string;
 };
 
-const parseHandleId = (handle?: string): number => {
-  if (!handle) return 0;
-  const m = String(handle).match(/(in|input|out|output)-(\d+)/);
-  if (m) return Number(m[2]);
-  return 0;
-};
+import { parseHandleId } from "../ui/handles";
 
 export type GroupResult = { nodes: RFNode[]; edges: RFEdge[]; groupId: string; groupInputId: string; groupOutputId: string };
 

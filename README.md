@@ -1,4 +1,4 @@
-# bun-react-tailwind-shadcn-template
+# OpenShaderGraph (Bun + ReactFlow)
 
 To install dependencies:
 
@@ -18,4 +18,13 @@ To run for production:
 bun start
 ```
 
-This project was created using `bun init` in bun v1.2.11. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+This project implements a TypeScript-first node-based shader graph with ReactFlow and a Bun server, using canonical node templates in `data/nodes/**` and language packs in `data/languages/**`.
+
+Quick commands:
+
+- Run unit tests: `bun run test`
+- Run linter: `bun run lint`
+- Start dev server: `bun run dev`
+- Build for production: `bun run build`
+
+See `AGENTS.md` for the minimal working agreement and gates.

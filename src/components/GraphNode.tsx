@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, Position, useNodeId, useReactFlow, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
-import { Input } from "./ui/input";
-import { RgbaColorPicker } from "react-colorful";
-import { createPortal } from "react-dom";
+// inputs are provided by extracted components
+import ColorInput from "./inputs/ColorInput";
+import NumericVectorInput from "./inputs/NumericVectorInput";
 import { THEME } from "@/styles/theme";
 
 type Pin = {
@@ -61,33 +61,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     [nodeId, rf, data]
   );
 
-  // Local UI state for popover color picker
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerPos, setPickerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [pickerColor, setPickerColor] = useState<{ r: number; g: number; b: number; a: number } | null>(null);
-  const [pickerTarget, setPickerTarget] = useState<number | null>(null);
-  const pickerRef = useRef<HTMLDivElement | null>(null);
-  const openPickerAt = useCallback((x: number, y: number, init?: { r: number; g: number; b: number; a: number }, targetPin?: number) => {
-    if (init) setPickerColor(init);
-    setPickerPos({ x, y });
-    if (typeof targetPin === "number") setPickerTarget(targetPin);
-    setPickerOpen(true);
-  }, []);
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (pickerColor && typeof pickerTarget === "number") {
-          const next: number[] = [to01(pickerColor.r), to01(pickerColor.g), to01(pickerColor.b), typeof pickerColor.a === "number" ? Math.round(pickerColor.a * 100) / 100 : 1];
-          // Commit on ESC
-          updateInputValue(pickerTarget, next);
-        }
-        setPickerOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pickerOpen, pickerColor, pickerTarget, updateInputValue]);
+  // Color picker state moved into ColorInput component
 
   const isConnected = useCallback(
     (pid: number) => {
@@ -98,9 +72,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     [edges, nodeId]
   );
 
-  // RGBA helpers for 0..1 <-> 0..255 conversion
-  const to255 = (v?: number) => Math.max(0, Math.min(255, Math.round((v ?? 1) * 255)));
-  const to01 = (v?: number) => Math.max(0, Math.min(1, (v ?? 255) / 255));
+  // RGBA helpers moved into ColorInput
 
   // no-op helper removed; rely on inline stopPropagation handlers
 
@@ -134,98 +106,9 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                       onWheel={(e) => e.stopPropagation()}
                     >
                       {showColor ? (
-                        <>
-                          {/* Color swatch; click to open RGBA picker popover */}
-                          <button
-                            type="button"
-                            className="h-5 w-8 rounded border"
-                            style={{
-                              backgroundColor: pickerOpen && pickerColor
-                                ? `rgba(${pickerColor.r}, ${pickerColor.g}, ${pickerColor.b}, ${pickerColor.a})`
-                                : `rgba(${to255(val[0])}, ${to255(val[1])}, ${to255(val[2])}, ${typeof val[3] === "number" ? val[3] : 1})`,
-                            }}
-                            aria-label="Edit color"
-                            onMouseDown={(e) => {
-                              // Prevent node drag/selection
-                              e.stopPropagation();
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const rect = (e.target as HTMLElement).getBoundingClientRect();
-                              openPickerAt(rect.left, rect.bottom + 6, {
-                                r: to255(val[0]),
-                                g: to255(val[1]),
-                                b: to255(val[2]),
-                                a: typeof val[3] === "number" ? Math.round(val[3] * 100) / 100 : 1,
-                              }, pid);
-                            }}
-                          />
-                          {pickerOpen && createPortal(
-                            <div
-                              role="dialog"
-                              aria-modal
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onPointerDown={(e) => e.stopPropagation()}
-                            >
-                              {/* Backdrop commits and closes */}
-                              <div
-                                className="fixed inset-0 z-[1000]"
-                                style={{ background: "transparent" }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Commit selected color to graph
-                                  if (pickerColor && typeof pickerTarget === "number") {
-                                    const next: number[] = [to01(pickerColor.r), to01(pickerColor.g), to01(pickerColor.b), typeof pickerColor.a === "number" ? Math.round(pickerColor.a * 100) / 100 : 1];
-                                    updateInputValue(pickerTarget, next);
-                                  }
-                                  setPickerOpen(false);
-                                }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onPointerDown={(e) => e.stopPropagation()}
-                              />
-                              {/* Picker panel */}
-                              <div
-                                ref={pickerRef}
-                                className="fixed z-[1001] rounded-md border bg-card p-2 shadow-lg"
-                                style={{ left: pickerPos.x, top: pickerPos.y }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onPointerDown={(e) => e.stopPropagation()}
-                              >
-                                <RgbaColorPicker
-                                  color={pickerColor ?? { r: to255(val[0]), g: to255(val[1]), b: to255(val[2]), a: typeof val[3] === "number" ? Math.round(val[3] * 100) / 100 : 1 }}
-                                  onChange={(c) => {
-                                    // Update only local picker color; commit on close to avoid update loops
-                                    setPickerColor({ r: c.r, g: c.g, b: c.b, a: typeof c.a === "number" ? Math.round(c.a * 100) / 100 : 1 });
-                                  }}
-                                  style={{ width: 180, height: 180 }}
-                                />
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </>
+                        <ColorInput value={val} disabled={false} onCommit={(next) => updateInputValue(pid, next)} />
                       ) : (
-                        // Generic float/floatN editor based on array length
-                        <>
-                          {val.slice(0, 4).map((n, i) => (
-                            <Input
-                              key={i}
-                              type="number"
-                              step="0.01"
-                              className="h-6 w-10 text-[11px] px-2 no-spinner shrink-0"
-                              value={typeof n === "number" ? n : 0}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onWheel={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                const next = [...val];
-                                next[i] = Number(e.target.value);
-                                updateInputValue(pid, next);
-                              }}
-                              aria-label={`v${i}`}
-                            />)
-                          )}
-                        </>
+                        <NumericVectorInput value={val} onChange={(next) => updateInputValue(pid, next)} />
                       )}
                     </div>
                   )}

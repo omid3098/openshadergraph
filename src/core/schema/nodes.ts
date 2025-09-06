@@ -1,14 +1,4 @@
-export type NodePaletteItem = {
-  type: string;
-  name: string;
-  path: string; // relative to data/nodes
-  category: string; // top-level folder name or 'root'
-};
-
-export type NodePalette = {
-  categories: Array<{ name: string; nodes: NodePaletteItem[] }>;
-  flat: NodePaletteItem[];
-};
+import type { NodePalette, NodeTemplate } from "./types";
 
 export async function fetchNodePalette(signal?: AbortSignal): Promise<NodePalette> {
   const res = await fetch("/api/nodes", { signal });
@@ -20,17 +10,6 @@ export async function fetchNodePalette(signal?: AbortSignal): Promise<NodePalett
     flat: Array.isArray(data.flat) ? data.flat : [],
   };
 }
-
-export type NodeTemplate = {
-  id?: number;
-  type: string;
-  name?: string;
-  meta?: any[];
-  position?: [number, number];
-  nodes?: any[];
-  inputs?: Array<{ id?: number; name: string; type: any; value?: any }>;
-  outputs?: Array<{ id?: number; name: string; type: any }>;
-};
 
 export async function fetchNodeTemplate(path: string, signal?: AbortSignal): Promise<NodeTemplate> {
   const u = new URL("/api/node-template", location.origin);

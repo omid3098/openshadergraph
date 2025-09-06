@@ -1,13 +1,7 @@
 import { promises as fs, readFileSync } from "fs";
 import path from "path";
-import type { GraphNode, LanguagePack } from "../graph/types";
-
-export type NodeTemplate = Omit<GraphNode, "id" | "nodes" | "inputs" | "outputs"> & {
-  id?: number;
-  nodes?: Array<{ type: string }>;
-  inputs?: Array<{ id?: number; name: string; type: any; value?: any }>;
-  outputs?: Array<{ id?: number; name: string; type: any }>;
-};
+import type { LanguagePack, NodeTemplate } from "./types";
+import { validateLanguagePack, validateNodeTemplate } from "./validators";
 
 const NODE_ROOT = path.resolve(process.cwd(), "data", "nodes");
 const LANG_ROOT = path.resolve(process.cwd(), "data", "languages");
@@ -27,9 +21,12 @@ function loadTemplatesSyncOnce() {
       else if (e.isFile() && e.name.endsWith(".json")) {
         try {
           const raw = readFileSync(abs, "utf8");
-          const json = JSON.parse(raw) as NodeTemplate;
-          if (json && typeof json.type === "string" && json.type) {
-            templateMap.set(json.type, json);
+          const json = JSON.parse(raw);
+          // Ignore base/skeleton files that don't define a concrete node type
+          if (!json || typeof json.type !== "string" || json.type.length === 0) continue;
+          const valid = validateNodeTemplate(json);
+          if (valid && typeof valid.type === "string" && valid.type) {
+            templateMap.set(valid.type, valid);
           }
         } catch (err) {
           console.warn("Failed to parse node template:", rel, err);
@@ -65,5 +62,6 @@ export async function loadLanguage(nameOrPath: string): Promise<LanguagePack> {
     abs = path.join(LANG_ROOT, abs);
   }
   const raw = await fs.readFile(abs, "utf8");
-  return JSON.parse(raw) as LanguagePack;
+  const parsed = JSON.parse(raw);
+  return validateLanguagePack(parsed);
 }
