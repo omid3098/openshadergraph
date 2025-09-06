@@ -1,5 +1,5 @@
 import index from "../index.html";
-import { languagesHandler, compileHandler } from "./handlers";
+import { languagesHandler, languagePackHandler, compileHandler } from "./handlers";
 import { nodesListHandler, nodeTemplateHandler } from "./nodes";
 import { examplesHandler } from "./examples";
 
@@ -21,10 +21,10 @@ export function buildRoutes() {
     "/api/nodes": nodesListHandler,
     "/api/node-template": nodeTemplateHandler,
     "/api/languages": languagesHandler,
+    "/api/language": languagePackHandler,
     "/api/compile": { async POST(req: Request) { return compileHandler(req); } },
     "/api/example-graphs": examplesHandler,
   } as const;
 }
 
 export type Routes = ReturnType<typeof buildRoutes>;
-

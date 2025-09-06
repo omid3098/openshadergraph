@@ -95,6 +95,42 @@ export function App() {
     );
   }, [setNodes]);
 
+  // Centralized updaters for node label and metas to preserve parentId
+  const updateNodeLabel = useCallback((id: string, label: string) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const tpl = (n.data as any)?.template;
+        const nextTpl = tpl ? { ...tpl, name: label } : tpl;
+        return { ...n, data: { ...(n.data as any), label, template: nextTpl } } as any;
+      })
+    );
+  }, [setNodes]);
+
+  const addNodeMeta = useCallback((id: string, metaKey: string) => {
+    if (!metaKey) return;
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const tpl = (n.data as any)?.template ?? {};
+        const meta: string[] = Array.isArray((tpl as any).meta) ? ([...(tpl as any).meta] as string[]) : [];
+        if (!meta.includes(metaKey)) meta.push(metaKey);
+        return { ...n, data: { ...(n.data as any), template: { ...tpl, meta } } } as any;
+      })
+    );
+  }, [setNodes]);
+
+  const removeNodeMeta = useCallback((id: string, metaKey: string) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const tpl = (n.data as any)?.template ?? {};
+        const meta: string[] = (Array.isArray((tpl as any).meta) ? (tpl as any).meta : []).filter((m: any) => m !== metaKey);
+        return { ...n, data: { ...(n.data as any), template: { ...tpl, meta } } } as any;
+      })
+    );
+  }, [setNodes]);
+
   // Helpers to load an example graph JSON into the canvas
   type GNode = {
     id: number;
@@ -198,7 +234,18 @@ export function App() {
           : [surfaceId];
 
       // Attach update function to node data for safe edits from GraphNode
-      setNodes(createdNodes.map((n) => ({ ...n, data: { ...(n.data as any), updateInputValue: updateNodeInputValue } })) as any);
+      setNodes(
+        createdNodes.map((n) => ({
+          ...n,
+          data: {
+            ...(n.data as any),
+            updateInputValue: updateNodeInputValue,
+            updateNodeLabel,
+            addNodeMeta,
+            removeNodeMeta,
+          },
+        })) as any
+      );
       setEdges(createdEdges);
       setGraphName(ex.label ?? "UntitledGraph");
       setSelectedExample(ex.key);
@@ -206,7 +253,7 @@ export function App() {
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
     }
-  }, [setNodes, setEdges, setGraphName, setViewPath, updateNodeInputValue]);
+  }, [setNodes, setEdges, setGraphName, setViewPath, updateNodeInputValue, updateNodeLabel, addNodeMeta, removeNodeMeta]);
 
   // Fetch example graphs and load the first by default
   useEffect(() => {
@@ -249,7 +296,13 @@ export function App() {
       nodeDefaults,
     });
     // Inject updater on the new node
-    (rfNode as any).data = { ...(rfNode as any).data, updateInputValue: updateNodeInputValue };
+    (rfNode as any).data = {
+      ...(rfNode as any).data,
+      updateInputValue: updateNodeInputValue,
+      updateNodeLabel,
+      addNodeMeta,
+      removeNodeMeta,
+    };
     setNodes((prev) => [...prev, rfNode as any]);
   };
 

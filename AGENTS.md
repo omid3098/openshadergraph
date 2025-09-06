@@ -33,10 +33,12 @@ Minimal graph rules:
 
 ## Development Rules
 - Data integrity first: adhere to `data/node.json` and language packs; fail safe with clear errors on unknown/missing templates.
+- ALWAYS Tests first: add/modify unit tests in `src/core/**` and E2E tests in `e2e/**` for all new features and bug fixes.
 - Small, surgical diffs; prefer targeted fixes over broad refactors.
 - When adding core features, extend the TypeScript core under `src/core/**` and keep UI as a thin consumer.
  - Preview source of truth: preview panel always renders using a ThreeJS GLSL fragment shader compiled from the current graph. Always compile `ThreeJS_GLSL` under the hood for preview, regardless of the selected output language.
  - Default compiler: default compile output language is `ThreeJS_GLSL`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
+ - Centralized updates: define node update callbacks in `App` (e.g., `updateInputValue`, `updateNodeLabel`, `addNodeMeta`, `removeNodeMeta`) and attach them to `node.data`. Panels and renderers MUST use these callbacks instead of calling `rf.setNodes` directly.
 
 ## Pitfalls & Guardrails (Retro)
 - Duplicate type definitions: never redefine core types in multiple files. Source them from a single `src/core/schema/types.ts` module.
@@ -45,6 +47,9 @@ Minimal graph rules:
 - UI monoliths: do not cram complex editors into node renderers. Extract inputs (color, numeric vector, etc.) into `src/components/inputs/**` and keep `GraphNode` focused on layout.
 - Handle id regex drift: centralize handle helpers (`parseHandleId`, `makeInHandle`, `makeOutHandle`) in `src/core/ui/handles.ts`. Reuse everywhere.
 - Serialization ownership: keep graph (de)serialization UI-agnostic and tested under `src/core/graph/**`. Do not reorder IDs, pins, or children.
+ - Visible-nodes trap (parent loss): `prepareVisibleNodes` may strip `parentId` for display-only purposes. Never persist nodes coming from this filtered/derived list. Always update the canonical ReactFlow nodes via the centralized callbacks to preserve `parentId` and hierarchy.
+ - Parent/child integrity: All UI edits (name, metas, inputs) must preserve `parentId`, `position`, and children. Do not move nodes across parents as a side effect of panel edits.
+ - Meta hygiene: Treat `meta` as `string[]` for canonical data. UI-only/transient objects (e.g., polymorphic helpers) must not be rendered as text and must be filtered out during graph build (see `src/core/ui/graphData.ts`).
 - Example graphs coupling: keep example-building logic in `src/server/examples.ts`, not in the server bootstrap. Handlers live in `src/server/**`.
 - Type safety drift: turn on TypeScript `strict` and favor precise types in `src/core/**`. Add tests when tightening types to avoid regressions.
 

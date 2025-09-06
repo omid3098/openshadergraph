@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { loadLanguage } from "../core/schema/registry";
 
 export type LanguageItem = { key: string; name: string; path: string };
 
@@ -33,6 +34,20 @@ export async function languagesHandler(): Promise<Response> {
     return Response.json({ languages: items });
   } catch (err) {
     console.error("languagesHandler failed:", err);
+    return new Response("Internal Server Error", { status: 500 });
+  }
+}
+
+export async function languagePackHandler(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const name = url.searchParams.get("name") ?? "ThreeJS_GLSL";
+    // Accept both key without extension and full filename
+    const key = name.endsWith(".json") ? name : `${name}.json`;
+    const lang = await loadLanguage(key);
+    return Response.json(lang);
+  } catch (err) {
+    console.error("languagePackHandler failed:", err);
     return new Response("Internal Server Error", { status: 500 });
   }
 }
