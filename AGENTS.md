@@ -1,6 +1,6 @@
 # AGENTS – Minimal Working Agreement
 
-Purpose: Keep agents aligned on the absolute essentials needed to build, test, and ship the TypeScript-first OpenShaderGraph. Be brief. Be consistent. Ship green.
+Purpose: Keep agents aligned on the absolute essentials needed to build, test, and ship the TypeScript-first OpenShaderGraph. Be brief. Be consistent. Ship green. Focus on clean, maintainable and extensible code.
 
 ## Tech Stack
 - Runtime: `bun` (package manager + task runner)
@@ -32,7 +32,6 @@ Minimal graph rules:
 - Keep token caps reasonable and request specific topics (e.g., "parent/child nodes", "edges API").
 
 ## Development Rules
-- Scope discipline: do not touch `python_backup/**`.
 - Data integrity first: adhere to `data/node.json` and language packs; fail safe with clear errors on unknown/missing templates.
 - Small, surgical diffs; prefer targeted fixes over broad refactors.
 - When adding core features, extend the TypeScript core under `src/core/**` and keep UI as a thin consumer.
