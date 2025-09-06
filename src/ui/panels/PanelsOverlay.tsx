@@ -31,24 +31,40 @@ export function PanelsOverlay({ graph, className, forceTabsFallback, includePrev
     const v = Number(localStorage.getItem("dock.width"));
     return Number.isFinite(v) && v >= 320 ? v : 520;
   });
-  const [topHeightRatio, setTopHeightRatio] = useState<number>(() => {
-    if (typeof localStorage === "undefined") return 0.6; // 60% tabs, 40% preview
-    const v = Number(localStorage.getItem("dock.topRatio"));
-    return Number.isFinite(v) && v > 0.2 && v < 0.85 ? v : 0.6;
-  });
   const resizing = useRef(false);
   const startX = useRef(0);
   const startW = useRef(0);
-  const resizingY = useRef(false);
-  const startY = useRef(0);
-  const startRatio = useRef(0.6);
+
+  // Panels enabled state (Properties, Compile, Graph Data, Preview)
+  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>(() => {
+    if (typeof localStorage === "undefined") return { properties: true, compile: includeCompile, graphdata: includeGraphData, preview: includePreview };
+    try {
+      const raw = localStorage.getItem("dock.panels.state");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          properties: parsed.properties !== false,
+          compile: parsed.compile !== false,
+          graphdata: parsed.graphdata !== false,
+          preview: parsed.preview !== false,
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return { properties: true, compile: includeCompile, graphdata: includeGraphData, preview: includePreview };
+  });
+
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") localStorage.setItem("dock.panels.state", JSON.stringify(panels));
+  }, [panels]);
+
+  const [menu, setMenu] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 });
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") localStorage.setItem("dock.width", String(width));
   }, [width]);
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") localStorage.setItem("dock.topRatio", String(topHeightRatio));
-  }, [topHeightRatio]);
+  // no vertical split anymore
 
   const onMove = useCallback((e: MouseEvent) => {
     if (!resizing.current) return;
@@ -71,7 +87,7 @@ export function PanelsOverlay({ graph, className, forceTabsFallback, includePrev
   };
 
   const items = useMemo(() => {
-    const desc = buildDockItemDescriptors({ includePreview: false, includeCompile, includeGraphData, includeProperties: true });
+    const desc = buildDockItemDescriptors({ includePreview: panels.preview, includeCompile: panels.compile, includeGraphData: panels.graphdata, includeProperties: panels.properties });
     return desc.map((d) => ({
       id: d.id,
       name: d.name,
@@ -79,42 +95,15 @@ export function PanelsOverlay({ graph, className, forceTabsFallback, includePrev
         <PropertiesPanel variant="docked" />
       ) : d.id === "compile" ? (
         <CompilePanel variant="docked" graph={graph} />
-      ) : (
+      ) : d.id === "graphdata" ? (
         <GraphDataPanel variant="docked" data={graph} />
+      ) : (
+        <PreviewPanel variant="docked" graph={graph} />
       ),
     }));
-  }, [graph, includeCompile, includeGraphData]);
+  }, [graph, panels]);
 
-  const onMoveY = useCallback((e: MouseEvent) => {
-    if (!resizingY.current) return;
-    // Compute next ratio based on pointer movement within dock container
-    const container = document.getElementById("dock-container");
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const dy = e.clientY - startY.current;
-    const height = rect.height;
-    const currentTopHeight = startRatio.current * height;
-    let nextTop = currentTopHeight + dy;
-    const minTop = Math.max(160, 0.2 * height);
-    const maxTop = Math.min(height - 160, 0.85 * height);
-    nextTop = Math.max(minTop, Math.min(maxTop, nextTop));
-    setTopHeightRatio(nextTop / height);
-  }, []);
-  const stopY = useCallback(() => {
-    resizingY.current = false;
-    window.removeEventListener("mousemove", onMoveY);
-    window.removeEventListener("mouseup", stopY);
-  }, [onMoveY]);
-  const startYResize = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const container = document.getElementById("dock-container");
-    if (!container) return;
-    resizingY.current = true;
-    startY.current = e.clientY;
-    startRatio.current = topHeightRatio;
-    window.addEventListener("mousemove", onMoveY);
-    window.addEventListener("mouseup", stopY);
-  };
+  // removed vertical resizing code
 
   return (
     <div className={cn("fixed top-0 right-0 h-screen z-40 pointer-events-none", className)} style={{ width }}>
@@ -126,24 +115,56 @@ export function PanelsOverlay({ graph, className, forceTabsFallback, includePrev
         onMouseDown={start}
         className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
       />
-      <div id="dock-container" className="w-full h-full bg-background border-l pointer-events-auto flex flex-col">
-        <div style={{ height: `${topHeightRatio * 100}%` }} className="min-h-[160px]">
-          <DockLayout items={items} forceTabsFallback={forceTabsFallback} className="w-full h-full" />
-        </div>
-        {/* Horizontal resizer between tabs and preview */}
-        <div
-          role="separator"
-          aria-orientation="horizontal"
-          title="Drag to resize"
-          onMouseDown={startYResize}
-          className="h-[6px] cursor-row-resize bg-transparent hover:bg-muted/60"
-        />
-        <div className="flex-1 min-h-[160px] overflow-hidden">
-          {includePreview ? <PreviewPanel variant="docked" graph={graph} /> : null}
-        </div>
+      <div id="dock-container" className="w-full h-full bg-background border-l pointer-events-auto">
+        <DockLayout items={items} forceTabsFallback={forceTabsFallback} className="w-full h-full" onHeaderContextMenu={(e) => {
+          setMenu({ open: true, x: e.clientX, y: e.clientY });
+        }} />
       </div>
+      {/* Simple context menu to toggle panels */}
+      {menu.open ? (
+        <PanelToggleMenu
+          x={menu.x}
+          y={menu.y}
+          state={panels}
+          onChange={(next) => setPanels(next)}
+          onClose={() => setMenu({ open: false, x: 0, y: 0 })}
+        />
+      ) : null}
     </div>
   );
 }
 
 export default PanelsOverlay;
+
+function PanelToggleMenu({ x, y, state, onChange, onClose }: { x: number; y: number; state: { properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }; onChange: (s: { properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }) => void; onClose: () => void }) {
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => { const target = e.target as HTMLElement | null; if (!target?.closest?.("[data-panel-menu]")) onClose(); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [onClose]);
+  // Position relative to the dock container so it aligns with right panel
+  const [left, top] = (() => {
+    const container = document.getElementById("dock-container");
+    if (!container) return [x, y] as const;
+    const rect = container.getBoundingClientRect();
+    return [x - rect.left, y - rect.top] as const;
+  })();
+  const Item = ({ id, label }: { id: keyof typeof state; label: string }) => (
+    <label className="flex items-center gap-2 px-3 py-1 text-xs cursor-pointer select-none hover:bg-muted rounded">
+      <input type="checkbox" checked={state[id]} onChange={(e) => onChange({ ...state, [id]: e.target.checked })} />
+      {label}
+    </label>
+  );
+  return (
+    <div data-panel-menu className="absolute z-50 pointer-events-auto bg-background border rounded-md shadow-md text-foreground" style={{ left, top }}>
+      <div className="p-2">
+        <div className="px-2 pb-1 text-[11px] text-muted-foreground">Panels</div>
+        <Item id="properties" label="Properties" />
+        <Item id="compile" label="Compile" />
+        <Item id="graphdata" label="Graph Data" />
+        <div className="h-[1px] bg-border my-1" />
+        <Item id="preview" label="Preview (bottom)" />
+      </div>
+    </div>
+  );
+}

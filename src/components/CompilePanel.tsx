@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
 import { isCompilableGraph } from "@/core/io/guards";
+import { Check, Copy } from "lucide-react";
 
 type CompilePanelProps = {
   graph: unknown;
@@ -36,6 +37,30 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
   const [code, setCode] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [working, setWorking] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const copyToClipboard = useCallback(async (text: string) => {
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = text;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // noop
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") {
@@ -173,6 +198,11 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
                 </SelectContent>
               </Select>
             </div>
+            <Button size="icon" variant="ghost" aria-label="Copy compile code" title="Copy"
+              onClick={() => copyToClipboard(code)} disabled={!code || !!error || working}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex-1 overflow-auto">
@@ -239,6 +269,11 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
                 </SelectContent>
               </Select>
             </div>
+            <Button size="icon" variant="ghost" aria-label="Copy compile code" title="Copy"
+              onClick={() => copyToClipboard(code)} disabled={!code || !!error || working}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </Button>
             <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>
               ▾
             </Button>

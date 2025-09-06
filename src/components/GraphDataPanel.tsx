@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
+import { Check, Copy } from "lucide-react";
 
 type GraphDataPanelProps = {
   data: unknown;
@@ -13,10 +14,39 @@ function GraphDataPanelDocked({ data, className }: { data: unknown; className?: 
   const pretty = useMemo(() => {
     try { return JSON.stringify(data, null, 2); } catch { return String(data ?? ""); }
   }, [data]);
+  const [copied, setCopied] = useState(false);
+  const copyToClipboard = useCallback(async () => {
+    const text = pretty;
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = text;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // noop
+    }
+  }, [pretty]);
   return (
     <Card className={cn("h-full flex flex-col", className)}>
-      <CardHeader className="py-3 px-4">
+      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
         <CardTitle className="text-sm">Graph Data</CardTitle>
+        <div className="flex items-center gap-2">
+          <Button size="icon" variant="ghost" aria-label="Copy graph data" title="Copy" onClick={copyToClipboard} disabled={!pretty}>
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 flex-1 overflow-auto">
         <div className="rounded-md bg-muted p-2 h-full overflow-auto">
@@ -41,6 +71,7 @@ function GraphDataPanelOverlay({ data, className }: { data: unknown; className?:
   const resizing = useRef(false);
   const startX = useRef(0);
   const startW = useRef(0);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") {
@@ -78,6 +109,30 @@ function GraphDataPanelOverlay({ data, className }: { data: unknown; className?:
     }
   }, [data]);
 
+  const copyToClipboard = useCallback(async () => {
+    const text = pretty;
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = text;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // noop
+    }
+  }, [pretty]);
+
   if (collapsed) {
     return (
       <div className={cn("absolute right-2 top-2 z-40", className)}>
@@ -105,6 +160,9 @@ function GraphDataPanelOverlay({ data, className }: { data: unknown; className?:
         <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-sm">Graph Data</CardTitle>
           <div className="flex items-center gap-2">
+            <Button size="icon" variant="ghost" aria-label="Copy graph data" title="Copy" onClick={copyToClipboard} disabled={!pretty}>
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </Button>
             <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>
               ▸
             </Button>

@@ -15,6 +15,10 @@ type DockLayoutProps = {
    * Useful for tests where the dependency is unavailable.
    */
   forceTabsFallback?: boolean;
+  /**
+   * Called when user right-clicks the tab header area (for context menu).
+   */
+  onHeaderContextMenu?: (e: React.MouseEvent) => void;
 };
 
 /**
@@ -22,7 +26,7 @@ type DockLayoutProps = {
  * it renders a full docking Layout inside the given container. Otherwise it
  * falls back to a lightweight tabstrip implementation to keep the UI usable.
  */
-export function DockLayout({ items, className, forceTabsFallback }: DockLayoutProps) {
+export function DockLayout({ items, className, forceTabsFallback, onHeaderContextMenu }: DockLayoutProps) {
   const [flexMod, setFlexMod] = useState<any | null>(null);
   const [active, setActive] = useState<string>(() => {
     if (typeof localStorage !== "undefined") return localStorage.getItem("dock.activeTab") ?? (items[0]?.id ?? "");
@@ -49,8 +53,8 @@ export function DockLayout({ items, className, forceTabsFallback }: DockLayoutPr
 
   if (!flexMod) {
     return (
-      <div className={className} data-testid="dock-fallback">
-        <div className="flex items-center gap-1 px-2 py-1 border-b bg-background/80 backdrop-blur text-xs">
+      <div className={(className ? className + " " : "") + "relative"} data-testid="dock-fallback">
+        <div className="flex items-center gap-1 px-2 py-1 border-b bg-background/80 backdrop-blur text-xs" onContextMenu={(e) => { e.preventDefault(); onHeaderContextMenu?.(e); }}>
           {items.map((it) => (
             <button
               key={it.id}
@@ -73,11 +77,11 @@ export function DockLayout({ items, className, forceTabsFallback }: DockLayoutPr
     );
   }
 
-  return <FlexDock className={className} mod={flexMod} items={items} />;
+  return <FlexDock className={className} mod={flexMod} items={items} onHeaderContextMenu={onHeaderContextMenu} />;
 }
 
-function FlexDock({ className, mod, items }: { className?: string; mod: any; items: DockItem[] }) {
-  const { Layout, Model } = mod as { Layout: any; Model: any };
+function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: string; mod: any; items: DockItem[]; onHeaderContextMenu?: (e: React.MouseEvent) => void }) {
+  const { Layout, Model, Actions } = mod as { Layout: any; Model: any; Actions: any };
   const stored = typeof localStorage !== "undefined" ? localStorage.getItem("dock.model") : null;
   const defaultModel = useMemo(() => {
     return {
@@ -99,8 +103,44 @@ function FlexDock({ className, mod, items }: { className?: string; mod: any; ite
   useEffect(() => {
     if (typeof localStorage !== "undefined") localStorage.setItem("dock.model", JSON.stringify(model.toJson()));
   }, [model]);
+
+  // When the set of items changes (enabled/disabled panels), ensure model reflects it
+  useEffect(() => {
+    try {
+      const json = model.toJson();
+      const present = new Set<string>();
+      const walk = (node: any) => {
+        if (!node) return;
+        if (node.type === "tab" && node.component) present.add(String(node.component));
+        for (const child of node.children ?? []) walk(child);
+      };
+      walk(json.layout);
+      const desired = new Set(items.map((i) => i.id));
+      const missing = [...desired].filter((id) => !present.has(id));
+      const extra = [...present].filter((id) => !desired.has(id));
+      if (missing.length || extra.length) {
+        // Simplest approach: rebuild model from desired items
+        setModel(Model.fromJson(defaultModel));
+      }
+    } catch {
+      // If anything goes wrong, reset to default
+      setModel(Model.fromJson(defaultModel));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
   return (
-    <div className={className} data-testid="dock-flexlayout">
+    <div className={(className ? className + " " : "") + "relative"} data-testid="dock-flexlayout" onContextMenu={(e) => {
+      // Only trigger when right-clicking the tab header area
+      const target = e.target as HTMLElement | null;
+      let el: HTMLElement | null = target;
+      let isHeader = false;
+      while (el) {
+        const cls = String((el as any).className ?? "");
+        if (cls.includes("flexlayout__tabset_header") || cls.includes("flexlayout__tab_button")) { isHeader = true; break; }
+        el = el.parentElement;
+      }
+      if (isHeader) { e.preventDefault(); onHeaderContextMenu?.(e); }
+    }}>
       <Layout
         model={model}
         factory={(node: any) => {
