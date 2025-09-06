@@ -35,6 +35,8 @@ Minimal graph rules:
 - Data integrity first: adhere to `data/node.json` and language packs; fail safe with clear errors on unknown/missing templates.
 - Small, surgical diffs; prefer targeted fixes over broad refactors.
 - When adding core features, extend the TypeScript core under `src/core/**` and keep UI as a thin consumer.
+ - Preview source of truth: preview panel always renders using a ThreeJS GLSL fragment shader compiled from the current graph. Always compile `ThreeJS_GLSL` under the hood for preview, regardless of the selected output language.
+ - Default compiler: default compile output language is `ThreeJS_GLSL`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
 
 ## Pitfalls & Guardrails (Retro)
 - Duplicate type definitions: never redefine core types in multiple files. Source them from a single `src/core/schema/types.ts` module.

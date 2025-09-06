@@ -26,8 +26,8 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
 
   const [languages, setLanguages] = useState<LanguageItem[]>([]);
   const [language, setLanguage] = useState<string>(() => {
-    if (typeof localStorage !== "undefined") return localStorage.getItem("compilePanel.language") ?? "Godot";
-    return "Godot";
+    if (typeof localStorage !== "undefined") return localStorage.getItem("compilePanel.language") ?? "ThreeJS_GLSL";
+    return "ThreeJS_GLSL";
   });
   const [engine, setEngine] = useState<string>(() => {
     if (typeof localStorage !== "undefined") return localStorage.getItem("compilePanel.engine") ?? "default";
@@ -52,7 +52,11 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
         const data = await res.json();
         const list: LanguageItem[] = Array.isArray(data.languages) ? data.languages : [];
         setLanguages(list);
-        setLanguage((prev) => (prev && prev.length ? prev : (list[0]?.key ?? prev)));
+        setLanguage((prev) => {
+          if (prev && prev.length) return prev;
+          const preferred = list.find((l) => l.key === "ThreeJS_GLSL");
+          return preferred?.key ?? (list[0]?.key ?? prev);
+        });
       } catch (err: any) {
         // Ignore expected aborts during unmount/HMR to avoid noisy console
         if (isAbortError(err)) return;

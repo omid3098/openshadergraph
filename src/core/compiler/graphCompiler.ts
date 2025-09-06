@@ -126,8 +126,9 @@ export class GraphCompiler {
   private remove_default_inputs(node: GraphNode) {
     const t = getNodeTemplate(node.type);
     if (!t) return;
+    // Normalize defaults by uppercased name for case-insensitive matching
     const defaults = new Map<string, any>(
-      (t.inputs ?? []).map((i) => [i.name, i.value]) as [string, any][]
+      (t.inputs ?? []).map((i) => [String(i.name).toUpperCase(), i.value]) as [string, any][]
     );
     const lines = (node._code ?? "").split("\n");
     const out: string[] = [];
@@ -135,8 +136,9 @@ export class GraphCompiler {
       const stripped = line.trim();
       if (!stripped) { out.push(line); continue; }
       const prop = stripped.split("=")[0]?.trim();
-      const input_pin = node.inputs.find((i) => i.name === prop);
-      const defVal = defaults.get(prop);
+      const propKey = String(prop).toUpperCase();
+      const input_pin = node.inputs.find((i) => String(i.name).toUpperCase() === propKey);
+      const defVal = defaults.get(propKey);
       if (!input_pin || defVal === undefined) { out.push(line); continue; }
       const value = input_pin.value;
       if (typeof value === "string" && value.includes("../")) { out.push(line); continue; }

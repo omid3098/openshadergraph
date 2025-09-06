@@ -41,7 +41,7 @@ export async function compileHandler(req: Request): Promise<Response> {
   try {
     const body = await req.json().catch(() => ({}));
     const graph = body?.graph ?? null;
-    const language = body?.language ?? "Godot";
+    const language = body?.language ?? "ThreeJS_GLSL";
     if (!graph || typeof graph !== "object") return new Response("Missing graph", { status: 400 });
     // Normalize root: If wrapper root has empty type, find the first 'surface'
     let rootGraph = graph as any;
