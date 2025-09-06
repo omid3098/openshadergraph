@@ -34,5 +34,28 @@ describe("preview integration (ThreeJS_GLSL)", () => {
     expect(parsed.fragment).toMatch(/void\s+main\s*\(\s*\)\s*\{/);
     expect(parsed.fragment).toMatch(/gl_FragColor\s*=\s*vec4\(/);
   });
+
+  it("includes three-point light uniforms and sanitizes initializers", async () => {
+    const { surface } = basic_color_graph();
+    const code = await compileThree(surface.to_dict());
+    const parsed = parseUniformsAndSanitize(code);
+    // uniforms should be present without initializers in sanitized code
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uKeyDir\s*;/);
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uFillDir\s*;/);
+    expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uRimDir\s*;/);
+    // captured values should include these names
+    const names = parsed.uniforms.map((u) => u.name);
+    expect(names).toContain("uKeyDir");
+    expect(names).toContain("uFillDir");
+    expect(names).toContain("uRimDir");
+  });
+
+  it("does not include viewMatrix transforms for light directions (handled in preview)", async () => {
+    const { surface } = basic_color_graph();
+    const code = await compileThree(surface.to_dict());
+    expect(code).not.toMatch(/viewMatrix\s*\*\s*vec4\(uKeyDir,\s*0\.0\)/);
+    expect(code).not.toMatch(/viewMatrix\s*\*\s*vec4\(uFillDir,\s*0\.0\)/);
+    expect(code).not.toMatch(/viewMatrix\s*\*\s*vec4\(uRimDir,\s*0\.0\)/);
+  });
 });
 

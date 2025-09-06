@@ -15,3 +15,9 @@ declare module "*.module.css" {
   const classes: { readonly [key: string]: string };
   export = classes;
 }
+
+// Fallback types for Three.js examples modules used at runtime
+declare module "three/examples/jsm/environments/RoomEnvironment.js" {
+  import type { Scene } from "three";
+  export class RoomEnvironment extends Scene { }
+}

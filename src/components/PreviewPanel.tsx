@@ -7,6 +7,7 @@ import { isAbortError } from "@/lib/errors";
 import { defaultVertexShader, parseUniformsAndSanitize, toThreeUniforms } from "@/core/preview/shaderUtils";
 import { isCompilableGraph } from "@/core/io/guards";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 type PreviewPanelProps = {
   graph: unknown;
@@ -38,11 +39,21 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     const v = typeof localStorage !== "undefined" ? localStorage.getItem("previewPanel.wireframe") : null;
     return v === "true";
   });
+  const [useEnv, setUseEnv] = useState<boolean>(() => {
+    const v = typeof localStorage !== "undefined" ? localStorage.getItem("previewPanel.useEnv") : null;
+    return v === "true";
+  });
+  const [useEnvBg, setUseEnvBg] = useState<boolean>(() => {
+    const v = typeof localStorage !== "undefined" ? localStorage.getItem("previewPanel.useEnvBg") : null;
+    return v === "true";
+  });
 
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.width", String(width)); }, [width]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.primitive", primitive); }, [primitive]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.autoRotate", String(autoRotate)); }, [autoRotate]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.wireframe", String(wireframe)); }, [wireframe]);
+  useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.useEnv", String(useEnv)); }, [useEnv]);
+  useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.useEnvBg", String(useEnvBg)); }, [useEnvBg]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const threeRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh | null } | null>(null);
@@ -50,6 +61,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
   const rafRef = useRef<number | null>(null);
   const autoRotateRef = useRef<boolean>(false);
+  const pmremRef = useRef<THREE.PMREMGenerator | null>(null);
+  const envRTRef = useRef<THREE.WebGLRenderTarget | null>(null);
+  const lightDirsViewRef = useRef<{ key: THREE.Vector3; fill: THREE.Vector3; rim: THREE.Vector3 } | null>(null);
 
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
@@ -104,6 +118,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     if (!canvas) return;
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     camera.position.set(0, 0, 3);
@@ -129,6 +146,24 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         threeRef.current.mesh.rotation.y += 0.01;
         threeRef.current.mesh.rotation.x += 0.005;
       }
+      // Update view-space light directions every frame (camera may move)
+      const threeNow = threeRef.current;
+      if (threeNow && materialRef.current) {
+        const cam = threeNow.camera;
+        cam.updateMatrixWorld();
+        cam.updateProjectionMatrix();
+        const view = cam.matrixWorldInverse;
+        const key = new THREE.Vector3(-0.35, 0.8, 0.6).normalize();
+        const fill = new THREE.Vector3(0.6, 0.2, 0.2).normalize();
+        const rim = new THREE.Vector3(-0.2, 0.3, -0.9).normalize();
+        key.transformDirection(view);
+        fill.transformDirection(view);
+        rim.transformDirection(view);
+        const u = (materialRef.current.uniforms as any);
+        if (u.uKeyDir?.value?.set) u.uKeyDir.value.set(key.x, key.y, key.z);
+        if (u.uFillDir?.value?.set) u.uFillDir.value.set(fill.x, fill.y, fill.z);
+        if (u.uRimDir?.value?.set) u.uRimDir.value.set(rim.x, rim.y, rim.z);
+      }
       renderer.render(scene, camera);
     };
     render();
@@ -138,10 +173,29 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       ro.disconnect();
       if (materialRef.current) materialRef.current.dispose();
       if (geometryRef.current) geometryRef.current.dispose();
+      if (envRTRef.current) { envRTRef.current.dispose(); envRTRef.current = null; }
+      if (pmremRef.current) { pmremRef.current.dispose(); pmremRef.current = null; }
       renderer.dispose();
       threeRef.current = null;
     };
   }, []);
+
+  // Toggle default HDRI environment (RoomEnvironment via PMREM)
+  useEffect(() => {
+    const three = threeRef.current;
+    if (!three) return;
+    if (useEnv) {
+      const pmrem = pmremRef.current ?? new THREE.PMREMGenerator(three.renderer);
+      pmremRef.current = pmrem;
+      const envRT = envRTRef.current ?? pmrem.fromScene(new RoomEnvironment(), 0.04);
+      envRTRef.current = envRT;
+      three.scene.environment = envRT.texture as any;
+      three.scene.background = useEnvBg ? (envRT.texture as any) : null;
+    } else {
+      three.scene.environment = null as any;
+      three.scene.background = null as any;
+    }
+  }, [useEnv, useEnvBg]);
 
   // Build or update geometry when primitive changes
   useEffect(() => {
@@ -163,6 +217,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       // If we used fallback, remember it so later updates can dispose correctly
       if (!materialRef.current) materialRef.current = mat;
       const mesh = new THREE.Mesh(geom, mat);
+      mesh.frustumCulled = false;
       three.mesh = mesh;
       three.scene.add(mesh);
     }
@@ -194,7 +249,13 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       fragmentShader: parsed.fragment,
       uniforms,
       wireframe,
-    });
+      depthTest: true,
+      depthWrite: true,
+      transparent: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      fog: false,
+    } as any);
     if (materialRef.current) materialRef.current.dispose();
     materialRef.current = mat;
     if (three.mesh) three.mesh.material = mat;
@@ -242,6 +303,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
             </div>
             <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate</label>
             <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe</label>
+            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnv} onChange={(e) => setUseEnv(e.target.checked)} /> env</label>
+            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnvBg} onChange={(e) => setUseEnvBg(e.target.checked)} disabled={!useEnv} /> bg</label>
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex-1 overflow-hidden">
@@ -299,6 +362,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
             </div>
             <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate</label>
             <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe</label>
+            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnv} onChange={(e) => setUseEnv(e.target.checked)} /> env</label>
+            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnvBg} onChange={(e) => setUseEnvBg(e.target.checked)} disabled={!useEnv} /> bg</label>
             <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>▸</Button>
           </div>
         </CardHeader>
