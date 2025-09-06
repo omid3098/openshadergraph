@@ -28,6 +28,9 @@ export type GraphNodeData = {
 };
 
 export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) {
+  // Handle (pin) visual size. Doubling from default.
+  const HANDLE_SIZE = 8; // px
+  const HANDLE_OFFSET = -Math.ceil(HANDLE_SIZE / 2 + 8);
   const name = data?.label ?? data?.type ?? "Node";
   const inputs: Pin[] = Array.isArray(data?.template?.inputs) ? data!.template!.inputs! : [];
   const outputs: Pin[] = Array.isArray(data?.template?.outputs) ? data!.template!.outputs! : [];
@@ -115,7 +118,12 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                       <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-[-10px] w-[10px] h-px bg-border/60" />
                     </>
                   )}
-                  <Handle id={`in-${pid}`} type="target" position={Position.Left} style={{ left: -8 }} />
+                  <Handle
+                    id={`in-${pid}`}
+                    type="target"
+                    position={Position.Left}
+                    style={{ left: HANDLE_OFFSET, width: HANDLE_SIZE, height: HANDLE_SIZE, borderRadius: 9999 }}
+                  />
                   <span className="text-xs text-muted-foreground">{pin.name}</span>
                 </div>
               );
@@ -127,7 +135,12 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
               return (
                 <div key={`out-${pid}`} className="relative flex items-center gap-2 min-h-[24px]">
                   <span className="text-xs text-muted-foreground">{pin.name}</span>
-                  <Handle id={`out-${pid}`} type="source" position={Position.Right} style={{ right: -8 }} />
+                  <Handle
+                    id={`out-${pid}`}
+                    type="source"
+                    position={Position.Right}
+                    style={{ right: HANDLE_OFFSET, width: HANDLE_SIZE, height: HANDLE_SIZE, borderRadius: 9999 }}
+                  />
                 </div>
               );
             })}
