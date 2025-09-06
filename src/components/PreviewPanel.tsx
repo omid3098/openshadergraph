@@ -49,6 +49,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
   const rafRef = useRef<number | null>(null);
+  const autoRotateRef = useRef<boolean>(false);
 
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
@@ -94,6 +95,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     return () => { cancelled = true; abort.abort(); };
   }, [stableGraph]);
 
+  // Keep auto-rotate flag in a ref to avoid re-initializing renderer
+  useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
+
   // Initialize Three.js renderer/scene once
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -121,7 +125,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
 
     const render = () => {
       rafRef.current = requestAnimationFrame(render);
-      if (autoRotate && threeRef.current?.mesh) {
+      if (autoRotateRef.current && threeRef.current?.mesh) {
         threeRef.current.mesh.rotation.y += 0.01;
         threeRef.current.mesh.rotation.x += 0.005;
       }
@@ -137,7 +141,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       renderer.dispose();
       threeRef.current = null;
     };
-  }, [autoRotate]);
+  }, []);
 
   // Build or update geometry when primitive changes
   useEffect(() => {
@@ -153,8 +157,11 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     if (three.mesh) {
       three.mesh.geometry = geom;
     } else {
-      const mat = new THREE.ShaderMaterial({ vertexShader: defaultVertexShader(), fragmentShader: "void main(){ gl_FragColor = vec4(1.0); }" });
-      materialRef.current = mat;
+      // Reuse compiled shader material if available; otherwise use a simple default
+      const fallbackMat = new THREE.ShaderMaterial({ vertexShader: defaultVertexShader(), fragmentShader: "void main(){ gl_FragColor = vec4(1.0); }" });
+      const mat = materialRef.current ?? fallbackMat;
+      // If we used fallback, remember it so later updates can dispose correctly
+      if (!materialRef.current) materialRef.current = mat;
       const mesh = new THREE.Mesh(geom, mat);
       three.mesh = mesh;
       three.scene.add(mesh);
@@ -219,7 +226,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     return (
       <Card className={cn("h-full flex flex-col", className)}>
         <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Three.js Preview</CardTitle>
+          <CardTitle className="text-sm">3D Preview</CardTitle>
           <div className="flex items-center gap-2">
             <div className="min-w-[120px]">
               <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
@@ -254,7 +261,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   if (collapsed) {
     return (
       <div className={cn("absolute right-2 top-1/2 -translate-y-1/2 z-40", className)}>
-        <Button size="sm" variant="outline" onClick={() => setCollapsed(false)} aria-label="Open Three.js preview">
+        <Button size="sm" variant="outline" onClick={() => setCollapsed(false)} aria-label="Open 3D Preview">
           Preview
         </Button>
       </div>
@@ -276,7 +283,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       />
       <Card className="pointer-events-auto">
         <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Three.js Preview</CardTitle>
+          <CardTitle className="text-sm">3D Preview</CardTitle>
           <div className="flex items-center gap-2">
             <div className="min-w-[120px]">
               <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
