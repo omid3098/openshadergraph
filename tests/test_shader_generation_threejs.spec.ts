@@ -66,4 +66,10 @@ describe("ThreeJS GLSL shader generation", () => {
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "exposed.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
+
+  it("does not leak '{{definition}}' placeholder into output (ThreeJS)", async () => {
+    const { surface } = exposed_addition_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "exposed_no_placeholder");
+    expect(shader_code).not.toContain("{{definition}}");
+  });
 });

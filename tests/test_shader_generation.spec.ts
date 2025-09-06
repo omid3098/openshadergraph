@@ -117,6 +117,12 @@ describe("Godot shader generation", () => {
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 
+  it("does not leak '{{definition}}' placeholder into output (Godot)", async () => {
+    const { surface } = exposed_addition_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "exposed_no_placeholder");
+    expect(shader_code).not.toContain("{{definition}}");
+  });
+
   it("fragment output features", async () => {
     const { surface } = full_fragment_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "fragment_features");

@@ -23,7 +23,7 @@ function getUniqueNodeName(node: GraphNode): string {
 }
 
 export class GraphCompiler {
-  constructor(private graph_data: Graph, private lang_def: LanguagePack) {}
+  constructor(private graph_data: Graph, private lang_def: LanguagePack) { }
   public result_code = "";
 
   private has_nodes(node: GraphNode) {
@@ -324,6 +324,9 @@ export class GraphCompiler {
     walk(this.graph_data);
     let meta_code = "";
     for (const m of allMeta) {
+      // 'exposed' is a wrapper used for emitting uniform definitions, not a
+      // standalone meta directive to inject at the top of the shader.
+      if (m === "exposed") continue;
       const tpl = this.lang_def.meta?.[m]?.template ?? "";
       if (tpl) meta_code += `${tpl}\n`;
     }
