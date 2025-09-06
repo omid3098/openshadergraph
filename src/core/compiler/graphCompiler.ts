@@ -313,11 +313,19 @@ export class GraphCompiler {
   }
 
   private add_meta_to_result() {
-    if (!Array.isArray(this.graph_data.meta)) return;
+    // Collect meta from entire graph (deduped), not just root
+    const allMeta = new Set<string>();
+    const walk = (n: GraphNode) => {
+      if (Array.isArray(n.meta)) {
+        for (const m of n.meta) if (typeof m === "string") allMeta.add(m);
+      }
+      for (const c of n.nodes ?? []) walk(c);
+    };
+    walk(this.graph_data);
     let meta_code = "";
-    for (const m of this.graph_data.meta) {
+    for (const m of allMeta) {
       const tpl = this.lang_def.meta?.[m]?.template ?? "";
-      meta_code += `${tpl}\n`;
+      if (tpl) meta_code += `${tpl}\n`;
     }
     this.result_code = this.result_code.replace("{{meta}}", meta_code);
   }

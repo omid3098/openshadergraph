@@ -63,9 +63,16 @@ export function defaultVertexShader(): string {
   return `
 precision highp float;
 varying vec2 vUv;
+varying vec3 vNormal;
+varying vec3 vViewPosition;
 void main() {
   vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // normal in view space
+  vNormal = normalize(normalMatrix * normal);
+  // view position (camera space)
+  vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+  vViewPosition = -mvPos.xyz;
+  gl_Position = projectionMatrix * mvPos;
 }`.trim();
 }
 

@@ -57,6 +57,7 @@ export async function compileHandler(req: Request): Promise<Response> {
     const body = await req.json().catch(() => ({}));
     const graph = body?.graph ?? null;
     const language = body?.language ?? "ThreeJS_GLSL";
+    const engine = body?.engine ?? "default";
     if (!graph || typeof graph !== "object") return new Response("Missing graph", { status: 400 });
     // Normalize root: If wrapper root has empty type, find the first 'surface'
     let rootGraph = graph as any;
@@ -65,6 +66,21 @@ export async function compileHandler(req: Request): Promise<Response> {
       if (surface) rootGraph = surface;
       else return new Response("Root graph must include a 'surface' node", { status: 400 });
     }
+    // For preview engine, default to PBR shading unless user explicitly selects a shading_* meta
+    if (engine === "preview") {
+      const applyDefaultShading = (n: any) => {
+        if (n && typeof n === "object") {
+          if (n.type === "fragment_output") {
+            n.meta ??= [];
+            const hasShading = Array.isArray(n.meta) && n.meta.some((m: any) => typeof m === "string" && m.startsWith("shading_"));
+            if (!hasShading) n.meta.push("shading_pbr");
+          }
+          for (const c of n.nodes ?? []) applyDefaultShading(c);
+        }
+      };
+      applyDefaultShading(rootGraph);
+    }
+
     const { loadLanguage } = await import("../core/schema/registry");
     const { GraphCompiler } = await import("../core/compiler/graphCompiler");
     const lang = await loadLanguage(language);

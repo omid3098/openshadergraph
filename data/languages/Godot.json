@@ -169,6 +169,9 @@
     "alpha_mode_SrcAlpha_OneMinusSrcAlpha": {
       "template": "render_mode blend_mul;"
     },
+    "shading_unlit": {
+      "template": "render_mode unshaded;"
+    },
     "varing": {
       "template": "varing {{definitaion}}"
     },

@@ -75,7 +75,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: abort.signal,
-          body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL" }),
+          body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
         });
         if (!res.ok) {
           const msg = await res.text().catch(() => String(res.status));

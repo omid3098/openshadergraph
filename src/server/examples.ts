@@ -14,6 +14,7 @@ export async function examplesHandler(req: Request): Promise<Response> {
           const fragment_pass = surface.get_node_by_type("fragment_pass")!;
           const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
           const color = surface.create_node("color", fragment_pass);
+          fragment_output.meta!.push("shading_pbr");
           surface.connect_nodes(color, fragment_output, 0, 0);
           return surface.to_dict();
         },
@@ -30,6 +31,7 @@ export async function examplesHandler(req: Request): Promise<Response> {
           const add = surface.create_node("add", fragment_pass);
           surface.connect_nodes(a, add, 0, 0);
           surface.connect_nodes(b, add, 0, 1);
+          fragment_output.meta!.push("shading_pbr");
           surface.connect_nodes(add, fragment_output, 0, 0);
           return surface.to_dict();
         },
@@ -42,6 +44,7 @@ export async function examplesHandler(req: Request): Promise<Response> {
           const fragment_pass = surface.get_node_by_type("fragment_pass")!;
           const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
           const flt = surface.create_node("float", fragment_pass);
+          fragment_output.meta!.push("shading_pbr");
           surface.connect_nodes(flt, fragment_output, 0, 1);
           return surface.to_dict();
         },
@@ -62,6 +65,7 @@ export async function examplesHandler(req: Request): Promise<Response> {
           const add = surface.create_node("add", fragment_pass);
           surface.connect_nodes(red, add, 0, 0);
           surface.connect_nodes(green, add, 0, 1);
+          fragment_output.meta!.push("shading_pbr");
           surface.connect_nodes(add, fragment_output, 0, 0);
           return surface.to_dict();
         },
@@ -84,6 +88,7 @@ export async function examplesHandler(req: Request): Promise<Response> {
           surface.connect_nodes(metallic, fragment_output, 0, 2);
           surface.connect_nodes(emission, fragment_output, 0, 3);
           surface.connect_nodes(normal, fragment_output, 0, 4);
+          fragment_output.meta!.push("shading_pbr");
           surface.connect_nodes(alpha, fragment_output, 0, 5);
           return surface.to_dict();
         },
@@ -103,4 +108,3 @@ export async function examplesHandler(req: Request): Promise<Response> {
     return new Response("Internal Server Error", { status: 500 });
   }
 }
-
