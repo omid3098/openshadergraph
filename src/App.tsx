@@ -24,7 +24,12 @@ import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
-import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
+import { DockLayout } from "./ui/layout/DockLayout";
+import { PreviewPanel } from "@/components/PreviewPanel";
+import { CompilePanel } from "@/components/CompilePanel";
+import { GraphDataPanel } from "@/components/GraphDataPanel";
+import { PropertiesPanel } from "@/components/PropertiesPanel";
+import { buildDockItemDescriptors } from "./ui/panels/items";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -332,8 +337,8 @@ export function App() {
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 
-  return (
-    <div className="w-screen h-screen relative">
+  const editor = () => (
+    <div className="w-full h-full relative">
       <ReactFlow
         nodes={visibleNodes}
         edges={visibleEdges}
@@ -345,14 +350,12 @@ export function App() {
         selectionOnDrag
         selectionMode={SelectionMode.Partial}
         onNodeDoubleClick={(e, node) => {
-          // Drill into container nodes via double click
           const t = (node.data as any)?.type;
           if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
             setViewPath((p) => [...p, node.id]);
           }
         }}
         onPaneClick={() => {
-          // Close context menu when clicking the background pane
           setMenu((m) => (m.open ? { ...m, open: false } : m));
         }}
         onPaneContextMenu={(e) => {
@@ -377,7 +380,6 @@ export function App() {
         <Controls />
         <MiniMap />
       </ReactFlow>
-      <PanelsOverlay graph={graphData} />
       {/* Example selector + Breadcrumbs for nested view */}
       <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
         <div className="min-w-[200px]">
@@ -450,6 +452,27 @@ export function App() {
       />
     </div>
   );
+
+  const desc = buildDockItemDescriptors({});
+  const items = [
+    { id: "editor", name: "Editor", render: editor },
+    ...desc.map((d) => ({
+      id: d.id,
+      name: d.name,
+      render: () =>
+        d.id === "properties" ? (
+          <PropertiesPanel variant="docked" />
+        ) : d.id === "compile" ? (
+          <CompilePanel variant="docked" graph={graphData} />
+        ) : d.id === "graphdata" ? (
+          <GraphDataPanel variant="docked" data={graphData} />
+        ) : (
+          <PreviewPanel variant="docked" graph={graphData} />
+        ),
+    })),
+  ];
+
+  return <DockLayout items={items} className="w-screen h-screen" />;
 }
 
 export default App;
