@@ -59,6 +59,30 @@ window.addEventListener(
   true
 );
 
+// Bun's dev overlay listens to `window.onerror` and will display a red runtime
+// banner even when the error object is `null` (common for failed resource
+// loads from extensions). Swallow those to avoid the unhelpful `err: null`
+// overlay while still surfacing context in the console.
+window.onerror = (
+  message,
+  source,
+  lineno,
+  colno,
+  error,
+) => {
+  if (error == null) {
+    const payload = JSON.stringify(
+      { message, source, lineno, colno },
+      null,
+      2,
+    );
+    console.warn("window.onerror (null error):\n", payload);
+    // Returning true prevents the default handler which triggers Bun's overlay
+    return true;
+  }
+  return false;
+};
+
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason as any;
   const payload = JSON.stringify({ reason, stack: reason?.stack }, null, 2);
