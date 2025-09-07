@@ -14,18 +14,31 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Capture uncaught errors and unhandled promise rejections with rich context
 window.addEventListener("error", (event) => {
-  console.error("Uncaught error", {
+  const info = {
     message: event.message,
     source: event.filename,
     lineno: event.lineno,
     colno: event.colno,
     stack: event.error?.stack,
     error: event.error,
-  });
+    target: (event.target as HTMLElement | null)?.tagName,
+  } as const;
+  if (event.error == null) {
+    // Resource errors (e.g. extension issues) often surface with a null error.
+    // Prevent the dev overlay from showing "error null" while still logging context.
+    console.error("Resource error", info);
+    event.preventDefault();
+    return;
+  }
+  console.error("Uncaught error", info);
 });
 
 window.addEventListener("unhandledrejection", (event) => {
-  console.error("Unhandled rejection", event.reason);
+  const reason = event.reason as any;
+  console.error("Unhandled rejection", {
+    reason,
+    stack: reason?.stack,
+  });
 });
 
 const elem = document.getElementById("root")!;
