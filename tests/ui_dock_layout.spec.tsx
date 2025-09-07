@@ -4,8 +4,8 @@ import { buildDockItemDescriptors } from "../src/ui/panels/items";
 describe("Dock items builder", () => {
   it("builds items in expected order with all panels", () => {
     const items = buildDockItemDescriptors({ includePreview: true, includeCompile: true, includeGraphData: true, includeProperties: true });
-    expect(items.map((i) => i.id)).toEqual(["properties", "compile", "graphdata"]);
-    expect(items.map((i) => i.name)).toEqual(["Properties", "Compile", "Graph Data"]);
+    expect(items.map((i) => i.id)).toEqual(["properties", "compile", "graphdata", "preview"]);
+    expect(items.map((i) => i.name)).toEqual(["Properties", "Compile", "Graph Data", "Preview"]);
   });
 
   it("respects include flags", () => {

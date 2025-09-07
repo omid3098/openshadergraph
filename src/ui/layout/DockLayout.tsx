@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { persistGet, persistSet } from "@/lib/storage";
 
 type DockItem = {
   id: string;
@@ -9,16 +10,16 @@ type DockItem = {
 type DockLayoutProps = {
   items: DockItem[];
   /** fixed width in px of the dock container (external) */
-  className?: string;
+  className?: string | undefined;
   /**
    * Force simple tabs fallback (disables dynamic import of flexlayout-react).
    * Useful for tests where the dependency is unavailable.
    */
-  forceTabsFallback?: boolean;
+  forceTabsFallback?: boolean | undefined;
   /**
    * Called when user right-clicks the tab header area (for context menu).
    */
-  onHeaderContextMenu?: (e: React.MouseEvent) => void;
+  onHeaderContextMenu?: ((e: React.MouseEvent) => void) | undefined;
 };
 
 /**
@@ -28,13 +29,21 @@ type DockLayoutProps = {
  */
 export function DockLayout({ items, className, forceTabsFallback, onHeaderContextMenu }: DockLayoutProps) {
   const [flexMod, setFlexMod] = useState<any | null>(null);
-  const [active, setActive] = useState<string>(() => {
-    if (typeof localStorage !== "undefined") return localStorage.getItem("dock.activeTab") ?? (items[0]?.id ?? "");
-    return items[0]?.id ?? "";
-  });
+  const [active, setActive] = useState<string>(items[0]?.id ?? "");
+
+  // Load/save active tab via IndexedDB (fallbacks internally if unavailable)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const saved = await persistGet<string>("dock.activeTab");
+      if (!mounted) return;
+      if (saved && items.some((it) => it.id === saved)) setActive(saved);
+    })();
+    return () => { mounted = false; };
+  }, [items]);
 
   useEffect(() => {
-    if (typeof localStorage !== "undefined") localStorage.setItem("dock.activeTab", active);
+    void persistSet("dock.activeTab", active);
   }, [active]);
 
   useEffect(() => {
@@ -80,9 +89,8 @@ export function DockLayout({ items, className, forceTabsFallback, onHeaderContex
   return <FlexDock className={className} mod={flexMod} items={items} onHeaderContextMenu={onHeaderContextMenu} />;
 }
 
-function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: string; mod: any; items: DockItem[]; onHeaderContextMenu?: (e: React.MouseEvent) => void }) {
-  const { Layout, Model, Actions } = mod as { Layout: any; Model: any; Actions: any };
-  const stored = typeof localStorage !== "undefined" ? localStorage.getItem("dock.model") : null;
+function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: string | undefined; mod: any; items: DockItem[]; onHeaderContextMenu?: ((e: React.MouseEvent) => void) | undefined }) {
+  const { Layout, Model } = mod as { Layout: any; Model: any };
   const defaultModel = useMemo(() => {
     return {
       global: { tabEnableFloat: true },
@@ -99,10 +107,36 @@ function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: 
       },
     } as any;
   }, [items]);
-  const [model, setModel] = useState<any>(() => Model.fromJson(stored ? JSON.parse(stored) : defaultModel));
+  const [model, setModel] = useState<any>(() => Model.fromJson(defaultModel));
+  const [hydrated, setHydrated] = useState<boolean>(false);
+
+  // Load persisted layout model
   useEffect(() => {
-    if (typeof localStorage !== "undefined") localStorage.setItem("dock.model", JSON.stringify(model.toJson()));
-  }, [model]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const json = await persistGet<any>("dock.model");
+        if (cancelled) return;
+        if (json) setModel(Model.fromJson(json));
+      } catch {
+        // ignore; use default
+      }
+      if (!cancelled) setHydrated(true);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist on changes (only after initial hydration to avoid overwriting saved state)
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const json = model.toJson();
+      void persistSet("dock.model", json);
+    } catch {
+      // ignore
+    }
+  }, [model, hydrated]);
 
   // When the set of items changes (enabled/disabled panels), ensure model reflects it
   useEffect(() => {
@@ -148,7 +182,12 @@ function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: 
           const found = items.find((it) => it.id === id);
           return found ? <div style={{ height: "100%" }}>{found.render()}</div> : <div />;
         }}
-        onModelChange={(m: any) => setModel(m)}
+        onModelChange={(m: any) => {
+          setModel(m);
+          if (hydrated) {
+            try { const json = m.toJson(); void persistSet("dock.model", json); } catch { /* ignore */ }
+          }
+        }}
       />
     </div>
   );

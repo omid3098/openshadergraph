@@ -6,6 +6,7 @@ import { GraphDataPanel } from "@/components/GraphDataPanel";
 import { PropertiesPanel } from "@/components/PropertiesPanel";
 import { cn } from "@/lib/utils";
 import { buildDockItemDescriptors } from "./items";
+import { persistGet, persistSet } from "@/lib/storage";
 
 type PanelsOverlayProps = {
   graph: unknown;
@@ -26,44 +27,47 @@ type PanelsOverlayProps = {
  * It lives outside the ReactFlow canvas to prevent overlap and z-index issues.
  */
 export function PanelsOverlay({ graph, className, forceTabsFallback, includePreview = true, includeCompile = true, includeGraphData = true }: PanelsOverlayProps) {
-  const [width, setWidth] = useState<number>(() => {
-    if (typeof localStorage === "undefined") return 520;
-    const v = Number(localStorage.getItem("dock.width"));
-    return Number.isFinite(v) && v >= 320 ? v : 520;
-  });
+  const [width, setWidth] = useState<number>(520);
   const resizing = useRef(false);
   const startX = useRef(0);
   const startW = useRef(0);
+  const [hydrated, setHydrated] = useState(false);
 
   // Panels enabled state (Properties, Compile, Graph Data, Preview)
-  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>(() => {
-    if (typeof localStorage === "undefined") return { properties: true, compile: includeCompile, graphdata: includeGraphData, preview: includePreview };
-    try {
-      const raw = localStorage.getItem("dock.panels.state");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        return {
-          properties: parsed.properties !== false,
-          compile: parsed.compile !== false,
-          graphdata: parsed.graphdata !== false,
-          preview: parsed.preview !== false,
-        };
+  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>({ properties: true, compile: includeCompile, graphdata: includeGraphData, preview: includePreview });
+
+  // Load persisted width and panel state
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const w = await persistGet<number>("dock.width");
+      const s = await persistGet<any>("dock.panels.state");
+      if (cancelled) return;
+      if (typeof w === "number" && Number.isFinite(w) && w >= 320) setWidth(w);
+      if (s && typeof s === "object") {
+        setPanels({
+          properties: s.properties !== false,
+          compile: s.compile !== false,
+          graphdata: s.graphdata !== false,
+          preview: s.preview !== false,
+        });
       }
-    } catch {
-      // ignore
-    }
-    return { properties: true, compile: includeCompile, graphdata: includeGraphData, preview: includePreview };
-  });
+      setHydrated(true);
+    })();
+    return () => { cancelled = true; };
+  }, [includeCompile, includeGraphData, includePreview]);
 
   useEffect(() => {
-    if (typeof localStorage !== "undefined") localStorage.setItem("dock.panels.state", JSON.stringify(panels));
-  }, [panels]);
+    if (!hydrated) return;
+    void persistSet("dock.panels.state", panels);
+  }, [panels, hydrated]);
 
   const [menu, setMenu] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 });
 
   useEffect(() => {
-    if (typeof localStorage !== "undefined") localStorage.setItem("dock.width", String(width));
-  }, [width]);
+    if (!hydrated) return;
+    void persistSet("dock.width", width);
+  }, [width, hydrated]);
   // no vertical split anymore
 
   const onMove = useCallback((e: MouseEvent) => {
