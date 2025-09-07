@@ -13,43 +13,50 @@ import { App } from "./App";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Capture uncaught errors and unhandled promise rejections with rich context
-window.addEventListener("error", (event) => {
-  const target = event.target as HTMLElement | null;
-  const info = {
-    message: event.message,
-    source: event.filename,
-    lineno: event.lineno,
-    colno: event.colno,
-    stack: event.error?.stack,
-    error: event.error,
-    resource:
-      target && target !== window
-        ? {
-            tag: target.tagName,
-            id: target.id,
-            className: target.className,
-            src: (target as HTMLImageElement).src,
-            href: (target as HTMLLinkElement).href,
-            outerHTML: target.outerHTML?.slice(0, 200),
-          }
-        : undefined,
-  } as const;
-  if (event.error == null) {
-    // Resource errors (e.g. extension issues) often surface with a null error.
-    // Prevent the dev overlay from showing "error null" while still logging context.
-    console.error("Resource error", info);
-    event.preventDefault();
-    return;
-  }
-  console.error("Uncaught error", info);
-});
+window.addEventListener(
+  "error",
+  (event) => {
+    const target = event.target as HTMLElement | null;
+    const info = {
+      message: event.message,
+      source: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+      stack: event.error?.stack,
+      error: event.error,
+      resource:
+        target && target !== window
+          ? {
+              tag: target.tagName,
+              id: target.id,
+              className: target.className,
+              src: (target as HTMLImageElement).src,
+              href: (target as HTMLLinkElement).href,
+              outerHTML: target.outerHTML?.slice(0, 200),
+            }
+          : undefined,
+    } as const;
+    const payload = JSON.stringify(info, null, 2);
+    if (event.error == null) {
+      // Resource errors (e.g. extension issues) often surface with a null error.
+      // Prevent the dev overlay from showing "error null" while still logging context.
+      console.error("Resource error:\n", payload);
+      console.error("Resource error event:", event);
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      return;
+    }
+    console.error("Uncaught error:\n", payload);
+    console.error("Uncaught error event:", event);
+  },
+  true
+);
 
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason as any;
-  console.error("Unhandled rejection", {
-    reason,
-    stack: reason?.stack,
-  });
+  const payload = JSON.stringify({ reason, stack: reason?.stack }, null, 2);
+  console.error("Unhandled rejection:\n", payload);
+  console.error("Unhandled rejection event:", event);
 });
 
 const elem = document.getElementById("root")!;
