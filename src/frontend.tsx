@@ -16,6 +16,13 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 window.addEventListener(
   "error",
   (event) => {
+    if (
+      event.message ===
+      "ResizeObserver loop completed with undelivered notifications."
+    ) {
+      event.preventDefault();
+      return;
+    }
     const target = event.target as HTMLElement | null;
     const info = {
       message: event.message,
