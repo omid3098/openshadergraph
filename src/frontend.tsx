@@ -10,6 +10,23 @@ import { StrictMode } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { App } from "./App";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Capture uncaught errors and unhandled promise rejections with rich context
+window.addEventListener("error", (event) => {
+  console.error("Uncaught error", {
+    message: event.message,
+    source: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    stack: event.error?.stack,
+    error: event.error,
+  });
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled rejection", event.reason);
+});
 
 const elem = document.getElementById("root")!;
 const app = (
@@ -17,7 +34,9 @@ const app = (
     {/* Ensure the ReactFlow parent has explicit size */}
     <div style={{ width: "100vw", height: "100vh" }}>
       <ReactFlowProvider>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </ReactFlowProvider>
     </div>
   </StrictMode>
