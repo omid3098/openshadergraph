@@ -87,19 +87,57 @@ export class GraphCompiler {
     for (const p of path) {
       if (p === "..") ref_node = ref_node.parent!;
     }
-    const target = this.get_node(ref_node, path[path.length - 2]);
+    let target = this.get_node(ref_node, path[path.length - 2]);
     if (!target) throw new Error(`Cannot resolve ref node from ${input.value}`);
+    let output_id = Number(path[path.length - 1]);
+
+    // Route through grouping meta-nodes
+    if (target.type === "group") {
+      // Map group output pin -> internal producer via group_output child
+      const groupOut = (target.nodes ?? []).find((n) => n.type === "group_output");
+      const pin = groupOut?.inputs?.find((p) => p.id === output_id);
+      const v = pin?.value;
+      if (typeof v === "string") {
+        const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
+        if (m) {
+          const internalId = Number(m[1]);
+          const internalOutId = Number(m[2]);
+          const reroute = this.get_node(target, internalId) ?? this.get_node(this.graph_data, internalId);
+          if (reroute) {
+            target = reroute;
+            output_id = internalOutId;
+          }
+        }
+      }
+    } else if (target.type === "group_input") {
+      // Map group_input output pin -> group's external input source
+      const parent = target.parent;
+      if (parent && parent.type === "group") {
+        const pin = parent.inputs?.find((p) => p.id === output_id);
+        const v = pin?.value;
+        if (typeof v === "string") {
+          const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
+          if (m) {
+            const extId = Number(m[1]);
+            const extOutId = Number(m[2]);
+            const extNode = this.get_node(parent, extId) ?? this.get_node(this.graph_data, extId);
+            if (extNode) {
+              target = extNode;
+              output_id = extOutId;
+            }
+          }
+        }
+      }
+    }
+
     this.process_node(target);
-    const output_id = Number(path[path.length - 1]);
     const output_pin = target.outputs.find((o) => o.id === output_id)!;
     if (Array.isArray(output_pin.type)) {
       (input as any)._ref_type = (target as any)._resolved_type ?? output_pin.type[0];
     } else {
       (input as any)._ref_type = output_pin.type as string;
     }
-    // Track the referring node id for reachability analysis
     (input as any)._ref_node_id = target.id;
-    // For code substitution, use the unique node name
     (input as any).value = getUniqueNodeName(target);
   }
 
@@ -169,7 +207,17 @@ export class GraphCompiler {
   }
 
   private resolve_internals(node: GraphNode): string {
-    node._code = this.get_template(node);
+    // Special handling for grouping meta-nodes
+    if (node.type === "group_input" || node.type === "group_output") {
+      node._code = "";
+      return node._code;
+    }
+    if (node.type === "group") {
+      // Transparent container: just emit internal nodes where this node appears
+      node._code = "{{internal_nodes}}";
+    } else {
+      node._code = this.get_template(node);
+    }
     this.resolve_template(node);
     if (!node._code?.includes("{{internal_nodes}}")) return node._code ?? "";
 
@@ -178,11 +226,13 @@ export class GraphCompiler {
     } else {
       // Build internal code by embedding each child's compiled code.
       // Filter out orphan nodes (those not reachable from pass sinks like fragment_output).
-      const indent = node.type === "surface" ? "" : "\t";
+      // Only indent inside real pass blocks (e.g., function bodies). Transparent containers like
+      // 'group' should not add indentation; their parent (e.g., fragment_pass) will handle it.
+      const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
+      const indent = isPass ? "\t" : "";
 
       // Compute reachable child ids only for known pass containers; otherwise include all.
       const reachable = new Set<number>();
-      const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
       if (isPass) {
         // Map consumers to their local producers based on ../<id>/<pinId> refs
         const byId = new Map<number, GraphNode>(node.nodes.map((c) => [c.id, c] as const));
@@ -223,10 +273,23 @@ export class GraphCompiler {
             }
           }
         }
+        // Ensure transparent groups are always included so their internal declarations are emitted
+        for (const c of node.nodes) {
+          if (c.type === "group") reachable.add(c.id);
+        }
       }
 
+      // For passes, embed groups first to ensure their declarations appear before consumers,
+      // but preserve the original relative order within each bucket.
+      const childrenForEmbed = isPass
+        ? ([
+          ...node.nodes.filter((c) => c.type === "group"),
+          ...node.nodes.filter((c) => c.type !== "group"),
+        ])
+        : node.nodes;
+
       let internal = "";
-      for (const child of node.nodes) {
+      for (const child of childrenForEmbed) {
         if (isPass && !reachable.has(child.id)) continue; // skip orphans in passes
         const c = (child._code ?? "").split("\n");
         for (const line of c) {
