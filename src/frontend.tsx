@@ -70,6 +70,14 @@ window.onerror = (
   colno,
   error,
 ) => {
+  if (
+    error == null &&
+    typeof message === "string" &&
+    message.includes("ResizeObserver loop completed")
+  ) {
+    // Ignore benign ResizeObserver loops entirely
+    return true;
+  }
   if (error == null) {
     const payload = JSON.stringify(
       { message, source, lineno, colno },
