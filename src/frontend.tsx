@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Capture uncaught errors and unhandled promise rejections with rich context
 window.addEventListener("error", (event) => {
+  const target = event.target as HTMLElement | null;
   const info = {
     message: event.message,
     source: event.filename,
@@ -21,7 +22,17 @@ window.addEventListener("error", (event) => {
     colno: event.colno,
     stack: event.error?.stack,
     error: event.error,
-    target: (event.target as HTMLElement | null)?.tagName,
+    resource:
+      target && target !== window
+        ? {
+            tag: target.tagName,
+            id: target.id,
+            className: target.className,
+            src: (target as HTMLImageElement).src,
+            href: (target as HTMLLinkElement).href,
+            outerHTML: target.outerHTML?.slice(0, 200),
+          }
+        : undefined,
   } as const;
   if (event.error == null) {
     // Resource errors (e.g. extension issues) often surface with a null error.
