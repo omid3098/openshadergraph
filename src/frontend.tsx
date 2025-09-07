@@ -5,41 +5,9 @@ import "@xyflow/react/dist/style.css";
 import "./index.css";
 import { App } from "@/app/App";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { installGlobalErrorHandlers } from "@/lib/errorHandler";
 
-// Surface runtime errors but mute noisy resource errors that provide no `error` object
-window.addEventListener(
-  "error",
-  (e) => {
-    const { message, filename, lineno, colno, error, target } = e;
-    const detail: Record<string, unknown> = { message, filename, lineno, colno, error };
-    if (target && target !== window && target instanceof HTMLElement) {
-      detail.target = {
-        tag: target.tagName,
-        id: target.id,
-        class: target.className,
-        src: (target as HTMLImageElement).src || (target as HTMLLinkElement).href || null,
-      };
-    }
-    if (error == null) {
-      console.warn("Resource error", detail);
-      // Stop Bun's dev runtime from displaying a null-error overlay
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
-    console.error("Uncaught error", detail);
-  },
-  true,
-);
-
-window.addEventListener(
-  "unhandledrejection",
-  (e) => {
-    console.error("Unhandled rejection", e.reason);
-    e.preventDefault();
-  },
-  true,
-);
+installGlobalErrorHandlers();
 
 const elem = document.getElementById("root")!;
 const app = (
