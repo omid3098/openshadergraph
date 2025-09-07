@@ -30,6 +30,7 @@ import { CompilePanel } from "@/components/CompilePanel";
 import { GraphDataPanel } from "@/components/GraphDataPanel";
 import { PropertiesPanel } from "@/components/PropertiesPanel";
 import { buildDockItemDescriptors } from "./ui/panels/items";
+import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -282,10 +283,38 @@ export function App() {
     return () => abort.abort();
   }, [loadExampleGraph]);
 
+  const screenToFlow = useCallback((pos: { x: number; y: number }) => {
+    try {
+      return rf.screenToFlowPosition(pos);
+    } catch (err) {
+      console.error("screenToFlowPosition failed", pos, err);
+      return pos;
+    }
+  }, [rf]);
+
+  const getNodeSafe = useCallback((id: string | undefined) => {
+    if (!id) return undefined;
+    try {
+      return rf.getNode(id);
+    } catch (err) {
+      console.error("getNode failed", id, err);
+      return undefined;
+    }
+  }, [rf]);
+
+  const getNodesSafe = useCallback(() => {
+    try {
+      return rf.getNodes();
+    } catch (err) {
+      console.error("getNodes failed", err);
+      return [];
+    }
+  }, [rf]);
+
   const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
     const nextId = String(++idCounter.current);
-    const pos = rf.screenToFlowPosition({ x, y });
+    const pos = screenToFlow({ x, y });
     let template: NodeTemplate | undefined;
     try {
       template = await fetchNodeTemplate(item.path);
@@ -312,25 +341,31 @@ export function App() {
   };
 
   const deleteNodeById = (id: string) => {
-    const node = rf.getNode(id);
-    if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
+    const node = getNodeSafe(id);
+    if (node && (node as any).deletable === false) {
+      console.debug("Refused to delete protected node", id);
+      return; // protect mandatory IO nodes
+    }
+    console.debug("Deleting node", id);
     setNodes((ns) => ns.filter((n) => n.id !== id));
     setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
   };
 
   // Group selected nodes into a new container node with dynamic I/O
   const groupSelected = () => {
-    const selected = rf.getNodes().filter((n) => n.selected);
+    const selected = getNodesSafe().filter((n) => n.selected);
     if (!selected.length) return;
     const selectedIds = new Set(selected.map((n) => n.id));
     const idGen = () => String(++idCounter.current);
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
+    console.debug("Grouped nodes", [...selectedIds]);
     setNodes(res.nodes as any);
     setEdges(res.edges as any);
   };
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
+    console.debug("Ungrouping node", groupId);
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
     setNodes(res.nodes as any);
     setEdges(res.edges as any);
@@ -424,14 +459,14 @@ export function App() {
         y={menu.y}
         targetId={menu.targetId}
         palette={palette ?? undefined}
-        selectedCount={rf.getNodes().filter((n) => n.selected).length}
+        selectedCount={getNodesSafe().filter((n) => n.selected).length}
         onGroupSelected={() => {
           groupSelected();
           setMenu((m) => ({ ...m, open: false }));
         }}
         canUngroup={(() => {
           if (!menu.targetId) return false;
-          const n = rf.getNode(menu.targetId);
+          const n = getNodeSafe(menu.targetId);
           return (n?.data as any)?.type === "group";
         })()}
         onUngroupNode={(id) => {
@@ -476,4 +511,3 @@ export function App() {
 }
 
 export default App;
-import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";

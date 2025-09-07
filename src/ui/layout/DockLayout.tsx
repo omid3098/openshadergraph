@@ -53,8 +53,8 @@ export function DockLayout({ items, className, forceTabsFallback, onHeaderContex
       try {
         const mod = await import("flexlayout-react");
         if (!cancelled) setFlexMod(mod);
-      } catch {
-        // keep fallback
+      } catch (err) {
+        console.error("Failed to load flexlayout-react", err);
       }
     })();
     return () => { cancelled = true; };
@@ -118,8 +118,8 @@ function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: 
         const json = await persistGet<any>("dock.model");
         if (cancelled) return;
         if (json) setModel(Model.fromJson(json));
-      } catch {
-        // ignore; use default
+      } catch (err) {
+        console.warn("Failed to load dock model", err);
       }
       if (!cancelled) setHydrated(true);
     })();
@@ -133,8 +133,8 @@ function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: 
     try {
       const json = model.toJson();
       void persistSet("dock.model", json);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("Failed to persist dock model", err);
     }
   }, [model, hydrated]);
 
@@ -154,9 +154,11 @@ function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: 
       const extra = [...present].filter((id) => !desired.has(id));
       if (missing.length || extra.length) {
         // Simplest approach: rebuild model from desired items
+        console.debug("Resetting dock model due to items mismatch", { missing, extra });
         setModel(Model.fromJson(defaultModel));
       }
-    } catch {
+    } catch (err) {
+      console.warn("Failed to reconcile dock items", err);
       // If anything goes wrong, reset to default
       setModel(Model.fromJson(defaultModel));
     }
@@ -185,7 +187,12 @@ function FlexDock({ className, mod, items, onHeaderContextMenu }: { className?: 
         onModelChange={(m: any) => {
           setModel(m);
           if (hydrated) {
-            try { const json = m.toJson(); void persistSet("dock.model", json); } catch { /* ignore */ }
+            try {
+              const json = m.toJson();
+              void persistSet("dock.model", json);
+            } catch (err) {
+              console.warn("Failed to persist dock model change", err);
+            }
           }
         }}
       />
