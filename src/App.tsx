@@ -24,11 +24,7 @@ import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
-import { DockLayout } from "./ui/layout/DockLayout";
-import { PropertiesPanel } from "./components/PropertiesPanel";
-import { CompilePanel } from "./components/CompilePanel";
-import { GraphDataPanel } from "./components/GraphDataPanel";
-import { PreviewPanel } from "./components/PreviewPanel";
+import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -336,135 +332,122 @@ export function App() {
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 
-  const items = [
-    {
-      id: "editor",
-      name: "Editor",
-      render: () => (
-        <div className="w-full h-full relative">
-          <ReactFlow
-            nodes={visibleNodes}
-            edges={visibleEdges}
-            nodeTypes={{ graphNode: GraphNode }}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            panOnDrag={[1]}
-            selectionOnDrag
-            selectionMode={SelectionMode.Partial}
-            onNodeDoubleClick={(e, node) => {
-              const t = (node.data as any)?.type;
-              if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
-                setViewPath((p) => [...p, node.id]);
-              }
-            }}
-            onPaneClick={() => {
-              setMenu((m) => (m.open ? { ...m, open: false } : m));
-            }}
-            onPaneContextMenu={(e) => {
-              e.preventDefault();
-              setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
-            }}
-            onSelectionContextMenu={(e) => {
-              e.preventDefault();
-              setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
-            }}
-            onNodeContextMenu={(e, node) => {
-              e.preventDefault();
-              setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
-            }}
-            onEdgeContextMenu={(e, edge) => {
-              e.preventDefault();
-              setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
-            }}
-            fitView
-          >
-            <Background />
-            <Controls />
-            <MiniMap />
-          </ReactFlow>
-          {/* Example selector + Breadcrumbs for nested view */}
-          <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
-            <div className="min-w-[200px]">
-              <Select
-                value={selectedExample}
-                onValueChange={(v) => {
-                  const ex = examples.find((e) => e.key === v);
-                  if (ex) loadExampleGraph(ex);
-                }}
-              >
-                <SelectTrigger aria-label="Example Graph">
-                  <SelectValue placeholder="Select example graph" />
-                </SelectTrigger>
-                <SelectContent>
-                  {examples.map((e) => (
-                    <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <span className="text-muted-foreground">•</span>
-            <button className="hover:underline" onClick={() => setViewPath([])}>{graphName}</button>
-            {viewPath.map((id, i) => {
-              const n = nodes.find((nn) => nn.id === id);
-              const isLast = i === viewPath.length - 1;
-              return (
-                <span key={id} className="flex items-center gap-1">
-                  <span>/</span>
-                  {isLast ? (
-                    <span className="font-medium">{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</span>
-                  ) : (
-                    <button className="hover:underline" onClick={() => setViewPath(viewPath.slice(0, i + 1))}>{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</button>
-                  )}
-                </span>
-              );
-            })}
-          </div>
-          <GraphContextMenu
-            open={menu.open}
-            kind={menu.kind}
-            x={menu.x}
-            y={menu.y}
-            targetId={menu.targetId}
-            palette={palette ?? undefined}
-            selectedCount={rf.getNodes().filter((n) => n.selected).length}
-            onGroupSelected={() => {
-              groupSelected();
-              setMenu((m) => ({ ...m, open: false }));
-            }}
-            canUngroup={(() => {
-              if (!menu.targetId) return false;
-              const n = rf.getNode(menu.targetId);
-              return (n?.data as any)?.type === "group";
-            })()}
-            onUngroupNode={(id) => {
-              ungroupGroup(id);
-              setMenu((m) => ({ ...m, open: false }));
-            }}
-            onAddNode={async (item) => {
-              if (!item) return;
-              await addNodeAt({ item, x: menu.x, y: menu.y });
-              setMenu((m) => ({ ...m, open: false }));
-            }}
-            onDeleteNode={(id) => {
-              if (!id) return;
-              deleteNodeById(id);
-              setMenu((m) => ({ ...m, open: false }));
-            }}
-            onClose={() => setMenu((m) => ({ ...m, open: false }))}
-          />
-        </div>
-      ),
-    },
-    { id: "properties", name: "Properties", render: () => <PropertiesPanel variant="docked" /> },
-    { id: "compile", name: "Compile", render: () => <CompilePanel variant="docked" graph={graphData} /> },
-    { id: "graphdata", name: "Graph Data", render: () => <GraphDataPanel variant="docked" data={graphData} /> },
-    { id: "preview", name: "Preview", render: () => <PreviewPanel variant="docked" graph={graphData} /> },
-  ];
-
   return (
     <div className="w-screen h-screen relative">
-      <DockLayout className="w-full h-full" items={items} />
+      <ReactFlow
+        nodes={visibleNodes}
+        edges={visibleEdges}
+        nodeTypes={{ graphNode: GraphNode }}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        panOnDrag={[1]}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        onNodeDoubleClick={(e, node) => {
+          // Drill into container nodes via double click
+          const t = (node.data as any)?.type;
+          if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
+            setViewPath((p) => [...p, node.id]);
+          }
+        }}
+        onPaneClick={() => {
+          // Close context menu when clicking the background pane
+          setMenu((m) => (m.open ? { ...m, open: false } : m));
+        }}
+        onPaneContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
+        }}
+        onSelectionContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
+        }}
+        onNodeContextMenu={(e, node) => {
+          e.preventDefault();
+          setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
+        }}
+        onEdgeContextMenu={(e, edge) => {
+          e.preventDefault();
+          setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
+        }}
+        fitView
+      >
+        <Background />
+        <Controls />
+        <MiniMap />
+      </ReactFlow>
+      <PanelsOverlay graph={graphData} />
+      {/* Example selector + Breadcrumbs for nested view */}
+      <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
+        <div className="min-w-[200px]">
+          <Select
+            value={selectedExample}
+            onValueChange={(v) => {
+              const ex = examples.find((e) => e.key === v);
+              if (ex) loadExampleGraph(ex);
+            }}
+          >
+            <SelectTrigger aria-label="Example Graph">
+              <SelectValue placeholder="Select example graph" />
+            </SelectTrigger>
+            <SelectContent>
+              {examples.map((e) => (
+                <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <span className="text-muted-foreground">•</span>
+        <button className="hover:underline" onClick={() => setViewPath([])}>{graphName}</button>
+        {viewPath.map((id, i) => {
+          const n = nodes.find((nn) => nn.id === id);
+          const isLast = i === viewPath.length - 1;
+          return (
+            <span key={id} className="flex items-center gap-1">
+              <span>/</span>
+              {isLast ? (
+                <span className="font-medium">{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</span>
+              ) : (
+                <button className="hover:underline" onClick={() => setViewPath(viewPath.slice(0, i + 1))}>{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</button>
+              )}
+            </span>
+          );
+        })}
+      </div>
+      <GraphContextMenu
+        open={menu.open}
+        kind={menu.kind}
+        x={menu.x}
+        y={menu.y}
+        targetId={menu.targetId}
+        palette={palette ?? undefined}
+        selectedCount={rf.getNodes().filter((n) => n.selected).length}
+        onGroupSelected={() => {
+          groupSelected();
+          setMenu((m) => ({ ...m, open: false }));
+        }}
+        canUngroup={(() => {
+          if (!menu.targetId) return false;
+          const n = rf.getNode(menu.targetId);
+          return (n?.data as any)?.type === "group";
+        })()}
+        onUngroupNode={(id) => {
+          ungroupGroup(id);
+          setMenu((m) => ({ ...m, open: false }));
+        }}
+        onAddNode={async (item) => {
+          if (!item) return;
+          await addNodeAt({ item, x: menu.x, y: menu.y });
+          setMenu((m) => ({ ...m, open: false }));
+        }}
+        onDeleteNode={(id) => {
+          if (!id) return;
+          deleteNodeById(id);
+          setMenu((m) => ({ ...m, open: false }));
+        }}
+        onClose={() => setMenu((m) => ({ ...m, open: false }))}
+      />
     </div>
   );
 }
