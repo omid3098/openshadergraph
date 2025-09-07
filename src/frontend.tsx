@@ -6,18 +6,12 @@ import "./index.css";
 import { App } from "@/app/App";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-// Surface any runtime errors without letting Bun's dev overlay swallow them
+// Surface runtime errors but mute noisy resource errors that provide no `error` object
 window.addEventListener(
   "error",
   (e) => {
     const { message, filename, lineno, colno, error, target } = e;
-    const detail: Record<string, unknown> = {
-      message,
-      filename,
-      lineno,
-      colno,
-      error,
-    };
+    const detail: Record<string, unknown> = { message, filename, lineno, colno, error };
     if (target && target !== window && target instanceof HTMLElement) {
       detail.target = {
         tag: target.tagName,
@@ -26,9 +20,14 @@ window.addEventListener(
         src: (target as HTMLImageElement).src || (target as HTMLLinkElement).href || null,
       };
     }
-    console.error("Global error", detail);
-    // Prevent Bun's dev runtime from showing the red overlay for null errors
-    e.preventDefault();
+    if (error == null) {
+      console.warn("Resource error", detail);
+      // Stop Bun's dev runtime from displaying a null-error overlay
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    console.error("Uncaught error", detail);
   },
   true,
 );
