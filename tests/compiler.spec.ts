@@ -1,10 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { GraphCompiler } from "../src/core/compiler/graphCompiler";
-import { loadLanguage } from "../src/core/schema/registry";
+import { compileToGLSL } from "../src/core/compiler/materialxCompiler";
 
 describe("GraphCompiler", () => {
   it("compiles a simple graph to GLSL", async () => {
-    const lang = await loadLanguage("ThreeJS_GLSL");
     const graph = {
       id: 0,
       type: "surface",
@@ -41,10 +39,9 @@ describe("GraphCompiler", () => {
       outputs: [],
     } as any;
 
-    const compiler = new GraphCompiler(graph, lang);
-    compiler.compile();
-    expect(compiler.result_code).toContain("gl_FragColor");
-    expect(compiler.result_code).toContain("vec4 n1 = vec4(1,0,0,1);");
+    const code = await compileToGLSL(graph as any);
+    expect(code).toContain("gl_FragColor");
+    expect(code).toContain("vec4 n1 = vec4(1,0,0,1);");
   });
 });
 

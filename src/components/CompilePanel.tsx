@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
 import { isCompilableGraph } from "@/core/io/guards";
+import { compileToGLSL } from "@/core/compiler/materialxCompiler";
 import { Check, Copy } from "lucide-react";
 import CodeBlock from "./CodeBlock";
 
@@ -124,25 +125,28 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
       try {
         setWorking(true);
         setError("");
-        // Guard: only compile when graph is compilable (wrapper with surface or direct surface)
         const canCompile = isCompilableGraph(stableGraph as any);
         if (!canCompile) {
           setCode("");
           return;
         }
-        const res = await fetch("/api/compile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: abort.signal,
-          body: JSON.stringify({ graph: stableGraph, language, engine }),
-        });
-        if (!res.ok) {
-          const msg = await res.text().catch(() => String(res.status));
-          throw new Error(msg || String(res.status));
+        if (language === "ThreeJS_GLSL") {
+          const code = await compileToGLSL(stableGraph as any);
+          if (!cancelled) setCode(code);
+        } else {
+          const res = await fetch("/api/compile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abort.signal,
+            body: JSON.stringify({ graph: stableGraph, language, engine }),
+          });
+          if (!res.ok) {
+            const msg = await res.text().catch(() => String(res.status));
+            throw new Error(msg || String(res.status));
+          }
+          const data = await res.json();
+          if (!cancelled) setCode(String(data.code ?? ""));
         }
-        const data = await res.json();
-        if (cancelled) return;
-        setCode(String(data.code ?? ""));
       } catch (err: any) {
         if (cancelled) return;
         if (isAbortError(err)) return;

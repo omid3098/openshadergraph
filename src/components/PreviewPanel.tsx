@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
 import { defaultVertexShader, parseUniformsAndSanitize, toThreeUniforms } from "@/core/preview/shaderUtils";
 import { isCompilableGraph } from "@/core/io/guards";
+import { compileToGLSL } from "@/core/compiler/materialxCompiler";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
@@ -75,7 +76,6 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
 
   // Compile the graph to ThreeJS GLSL fragment shader
   useEffect(() => {
-    const abort = new AbortController();
     let cancelled = false;
     (async () => {
       try {
@@ -85,18 +85,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           setFragCode("");
           return;
         }
-        const res = await fetch("/api/compile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: abort.signal,
-          body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
-        });
-        if (!res.ok) {
-          const msg = await res.text().catch(() => String(res.status));
-          throw new Error(msg || String(res.status));
-        }
-        const data = await res.json();
-        if (!cancelled) setFragCode(String(data.code ?? ""));
+        const code = await compileToGLSL(stableGraph as any);
+        if (!cancelled) setFragCode(code);
       } catch (err: any) {
         if (cancelled) return;
         if (isAbortError(err)) return;
@@ -106,7 +96,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         if (!cancelled) setWorking(false);
       }
     })();
-    return () => { cancelled = true; abort.abort(); };
+    return () => {
+      cancelled = true;
+    };
   }, [stableGraph]);
 
   // Keep auto-rotate flag in a ref to avoid re-initializing renderer
