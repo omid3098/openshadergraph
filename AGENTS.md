@@ -19,6 +19,7 @@ Purpose: Keep agents aligned on the absolute essentials needed to build, test, a
 
 - `bun run test` → all unit tests green (vitest)
 - `bun run lint` → 0 errors, 0 warnings (ESLint)
+- `bun dev` and ping the server to make sure loading the main page does not produce any errors.
 - If Playwright is configured: `bun run test:e2e` → all E2E tests green
 - Optional: `bun x tsc -p tsconfig.json --noEmit` → clean typecheck
 
