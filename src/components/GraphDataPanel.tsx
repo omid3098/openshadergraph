@@ -40,8 +40,7 @@ function GraphDataPanelDocked({ data, className }: { data: unknown; className?: 
   }, [pretty]);
   return (
     <Card className={cn("h-full flex flex-col", className)}>
-      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">Graph Data</CardTitle>
+      <CardHeader className="py-3 px-4 flex flex-row items-center justify-end">
         <div className="flex items-center gap-2">
           <Button size="icon" variant="ghost" aria-label="Copy graph data" title="Copy" onClick={copyToClipboard} disabled={!pretty}>
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}

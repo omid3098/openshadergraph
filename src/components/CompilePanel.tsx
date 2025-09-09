@@ -173,8 +173,7 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
   if (variant === "docked") {
     return (
       <Card className={cn("h-full flex flex-col", className)}>
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Compile Output</CardTitle>
+        <CardHeader className="py-3 px-4 flex flex-row items-center justify-end">
           <div className="flex items-center gap-2">
             <div className="min-w-[140px]">
               <Select value={language} onValueChange={setLanguage}>

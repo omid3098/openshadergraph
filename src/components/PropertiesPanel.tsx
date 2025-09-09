@@ -170,9 +170,6 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
   if (variant === "docked") {
     return (
       <Card className={cn("h-full flex flex-col", className)}>
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Properties</CardTitle>
-        </CardHeader>
         <CardContent className="px-4 pb-4 flex-1 overflow-auto">{body}</CardContent>
       </Card>
     );
