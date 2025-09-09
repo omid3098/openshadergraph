@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import ColorInput from "./inputs/ColorInput";
 import NumericVectorInput from "./inputs/NumericVectorInput";
 import { THEME } from "@/styles/theme";
+import { toNumericArray, fromNumericArray } from "@/core/ui/pinValues";
 
 type Pin = {
   id?: number;
@@ -93,13 +94,18 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             {inputs.map((pin, idx) => {
               const pid = typeof pin.id === "number" ? pin.id : idx;
               const connected = isConnected(pid);
-              const val = Array.isArray(pin.value) ? (pin.value as number[]) : undefined;
-              const nodeType = data?.template?.type ?? data?.type ?? "";
-              const showColor = !connected && nodeType === "color" && pin.name === "in" && Array.isArray(val) && val.length >= 3;
+              const pinType = Array.isArray(pin.type) ? pin.type[0] : typeof pin.type === "string" ? pin.type : "";
+              const sizeMatch = typeof pinType === "string" ? pinType.match(/\d+/) : null;
+              const dim = sizeMatch ? Number.parseInt(sizeMatch[0]) : 1;
+              const isColor = typeof pinType === "string" && pinType.startsWith("color");
+              let val = toNumericArray(pin.value);
+              if (!val) val = new Array(dim).fill(0);
+              const showEditor = !connected;
+              const showColor = showEditor && isColor && val.length >= 3;
               return (
                 <div key={`in-${pid}`} className="relative flex items-center gap-2 justify-between min-h-[24px] w-full">
                   {/* Mini default-value editor docked to the left of the node, similar to Unity */}
-                  {!connected && Array.isArray(val) && (
+                  {showEditor && (
                     <>
                       <div
                         className="absolute z-[2] flex items-center gap-1 px-1 py-[2px] rounded-md border bg-background/90 backdrop-blur"
@@ -109,9 +115,18 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                         onWheel={(e) => e.stopPropagation()}
                       >
                         {showColor ? (
-                          <ColorInput value={val} disabled={false} size="mini" onCommit={(next) => updateInputValue(pid, next)} />
+                          <ColorInput
+                            value={val}
+                            disabled={false}
+                            size="mini"
+                            onCommit={(next) => updateInputValue(pid, fromNumericArray(next))}
+                          />
                         ) : (
-                          <NumericVectorInput value={val} size="mini" onChange={(next) => updateInputValue(pid, next)} />
+                          <NumericVectorInput
+                            value={val}
+                            size="mini"
+                            onChange={(next) => updateInputValue(pid, fromNumericArray(next))}
+                          />
                         )}
                       </div>
                       {/* Visual connector from editor → pin (purely decorative) across the 10px gap */}
