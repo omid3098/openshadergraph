@@ -94,10 +94,14 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             {inputs.map((pin, idx) => {
               const pid = typeof pin.id === "number" ? pin.id : idx;
               const connected = isConnected(pid);
-              const val = toNumericArray(pin.value);
-              const nodeType = data?.template?.type ?? data?.type ?? "";
-              const showEditor = !connected && typeof val !== "undefined";
-              const showColor = showEditor && nodeType === "color" && pin.name === "in" && val.length >= 3;
+              const pinType = Array.isArray(pin.type) ? pin.type[0] : typeof pin.type === "string" ? pin.type : "";
+              const sizeMatch = typeof pinType === "string" ? pinType.match(/\d+/) : null;
+              const dim = sizeMatch ? Number.parseInt(sizeMatch[0]) : 1;
+              const isColor = typeof pinType === "string" && pinType.startsWith("color");
+              let val = toNumericArray(pin.value);
+              if (!val) val = new Array(dim).fill(0);
+              const showEditor = !connected;
+              const showColor = showEditor && isColor && val.length >= 3;
               return (
                 <div key={`in-${pid}`} className="relative flex items-center gap-2 justify-between min-h-[24px] w-full">
                   {/* Mini default-value editor docked to the left of the node, similar to Unity */}

@@ -14,6 +14,11 @@ describe("pinValues", () => {
     expect(toNumericArray("a" as any)).toBeUndefined();
   });
 
+  it("parses numeric strings", () => {
+    expect(toNumericArray("1,2,3")).toEqual([1, 2, 3]);
+    expect(toNumericArray("4 5 6")).toEqual([4, 5, 6]);
+  });
+
   it("reduces single-element arrays to number", () => {
     expect(fromNumericArray([5])).toBe(5);
   });
