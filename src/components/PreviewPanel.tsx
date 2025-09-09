@@ -307,8 +307,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   if (variant === "docked") {
     return (
       <Card className={cn("h-full flex flex-col", className)}>
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">3D Preview</CardTitle>
+        <CardHeader className="py-3 px-4 flex flex-row items-center justify-end">
           <div className="flex items-center gap-2">
             <div className="min-w-[120px]">
               <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
