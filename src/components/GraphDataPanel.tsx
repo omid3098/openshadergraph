@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
 import CodeBlock from "./CodeBlock";
+import { graphToMaterialX } from "@/core/io/materialx";
 
 type GraphDataPanelProps = {
   data: unknown;
@@ -14,7 +15,7 @@ type GraphDataPanelProps = {
 function GraphDataPanelDocked({ data, className }: { data: unknown; className?: string }) {
   const pretty = useMemo(() => {
     try {
-      return JSON.stringify(data, null, 2);
+      return graphToMaterialX(data);
     } catch {
       return String(data ?? "");
     }
@@ -46,7 +47,7 @@ function GraphDataPanelDocked({ data, className }: { data: unknown; className?: 
 
   return (
     <Card className={cn("relative h-full", className)}>
-      <CodeBlock code={pretty} language="json" className="h-full pt-10" />
+      <CodeBlock code={pretty} language="xml" className="h-full pt-10" />
       <div className="absolute top-2 right-2 flex items-center gap-2">
         <Button
           size="icon"
@@ -109,7 +110,7 @@ function GraphDataPanelOverlay({ data, className }: { data: unknown; className?:
 
   const pretty = useMemo(() => {
     try {
-      return JSON.stringify(data, null, 2);
+      return graphToMaterialX(data);
     } catch {
       return String(data ?? "");
     }
@@ -163,7 +164,7 @@ function GraphDataPanelOverlay({ data, className }: { data: unknown; className?:
         className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
       />
       <Card className="pointer-events-auto relative">
-        <CodeBlock code={pretty} language="json" className="h-[60vh] pt-10" />
+        <CodeBlock code={pretty} language="xml" className="h-[60vh] pt-10" />
         <div className="absolute top-2 right-2 flex items-center gap-2">
           <Button
             size="icon"

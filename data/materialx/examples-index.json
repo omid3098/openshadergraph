@@ -1,0 +1,64 @@
+{
+  "DisneyPrincipled": [
+    "disney_principled_carpaint",
+    "disney_principled_default",
+    "disney_principled_glass",
+    "disney_principled_gold",
+    "disney_principled_plastic"
+  ],
+  "GltfPbr": [
+    "gltf_pbr_boombox",
+    "gltf_pbr_carpaint",
+    "gltf_pbr_default",
+    "gltf_pbr_glass",
+    "gltf_pbr_gold",
+    "gltf_pbr_plastic"
+  ],
+  "OpenPbr": [
+    "open_pbr_aluminum_brushed",
+    "open_pbr_carpaint",
+    "open_pbr_default",
+    "open_pbr_glass",
+    "open_pbr_honey",
+    "open_pbr_ketchup",
+    "open_pbr_lightbulb",
+    "open_pbr_pearl",
+    "open_pbr_soapbubble",
+    "open_pbr_velvet"
+  ],
+  "SimpleHair": [
+    "simple_hair_default"
+  ],
+  "StandardSurface": [
+    "standard_surface_brass_tiled",
+    "standard_surface_brick_procedural",
+    "standard_surface_carpaint",
+    "standard_surface_chess_set",
+    "standard_surface_chrome",
+    "standard_surface_copper",
+    "standard_surface_default",
+    "standard_surface_glass",
+    "standard_surface_glass_tinted",
+    "standard_surface_gold",
+    "standard_surface_greysphere",
+    "standard_surface_greysphere_calibration",
+    "standard_surface_jade",
+    "standard_surface_look_brass_tiled",
+    "standard_surface_look_wood_tiled",
+    "standard_surface_marble_solid",
+    "standard_surface_metal_brushed",
+    "standard_surface_plastic",
+    "standard_surface_thin_film",
+    "standard_surface_velvet",
+    "standard_surface_wood_tiled"
+  ],
+  "UsdPreviewSurface": [
+    "usd_preview_surface_brass_tiled",
+    "usd_preview_surface_carpaint",
+    "usd_preview_surface_default",
+    "usd_preview_surface_glass",
+    "usd_preview_surface_gold",
+    "usd_preview_surface_plastic"
+  ]
+}
+

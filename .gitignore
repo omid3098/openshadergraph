@@ -37,3 +37,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Generated test outputs
 tests/shaders/
+
+# cached MaterialX examples
+data/materialx/examples/

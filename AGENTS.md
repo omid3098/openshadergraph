@@ -38,6 +38,16 @@ Purpose: Keep agents aligned on the absolute essentials needed to build, test, a
 - Default compiler: default compile output language is `ThreeJS_GLSL`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
 - Centralized updates: define node update callbacks in `App` (e.g., `updateInputValue`, `updateNodeLabel`, `addNodeMeta`, `removeNodeMeta`) and attach them to `node.data`. Panels and renderers MUST use these callbacks instead of calling `rf.setNodes` directly.
 
+## Lessons Learned
+
+- Avoid leaving stub implementations in shared utilities. Provide safe fallbacks and unit tests so missing preview helpers cannot crash the app at runtime.
+- Keep server endpoints in sync with MaterialX as the canonical node source. Tests should cover node palette generation and MaterialX serialization so UI menus and graph data reflect the true graph.
+- Load example graphs from MaterialX XML files and ensure graph data updates whenever nodes or connections change.
+- Source example graphs from MaterialX's `resources/Materials/Examples` directory and keep the parser in sync with typed nodes and graph outputs used there.
+- Mirror MaterialX's example directory structure so all upstream materials are available and grouped by their folders.
+- Avoid committing large or binary example assets (textures, images). Fetch MaterialX examples on demand and cache them locally so pushes stay light.
+- Ensure the MaterialX parser handles top-level shader nodes and multiple nodegraphs so example selections never load empty; cover both styles in tests.
+
 ## Quick Commands
 
 - Run unit tests: `bun run test`
