@@ -190,12 +190,12 @@ export function App() {
           ...(parentId ? { parentId } : {}),
           ...nodeDefaults,
         } as any);
-        // children
         for (const child of n.nodes ?? []) {
           walk(child, idStr, depth + 1);
         }
       };
-      walk(graph, undefined, 0);
+      const roots = graph.type === "" ? graph.nodes ?? [] : [graph];
+      for (const r of roots) walk(r, undefined, 0);
 
       // Build edges from input pin refs ../<nodeId>/<pinId>
       const refRe = /^\.\.\/(\d+)\/(\d+)$/;
@@ -223,15 +223,18 @@ export function App() {
       const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
       idCounter.current = maxId;
 
-      // Choose default view: fragment_pass if present, else vertex_pass, else surface
-      const surfaceId = String(graph.id);
-      const fragmentPass = (graph.nodes ?? []).find((n) => n.type === "fragment_pass");
-      const vertexPass = (graph.nodes ?? []).find((n) => n.type === "vertex_pass");
-      const defaultPath = fragmentPass
-        ? [surfaceId, String(fragmentPass.id)]
-        : vertexPass
-          ? [surfaceId, String(vertexPass.id)]
-          : [surfaceId];
+      // Choose default view if graph has standard passes
+      let defaultPath: string[] = [];
+      if (graph.type === "surface") {
+        const surfaceId = String(graph.id);
+        const fragmentPass = (graph.nodes ?? []).find((n) => n.type === "fragment_pass");
+        const vertexPass = (graph.nodes ?? []).find((n) => n.type === "vertex_pass");
+        defaultPath = fragmentPass
+          ? [surfaceId, String(fragmentPass.id)]
+          : vertexPass
+            ? [surfaceId, String(vertexPass.id)]
+            : [surfaceId];
+      }
 
       // Attach update function to node data for safe edits from GraphNode
       setNodes(
@@ -247,7 +250,7 @@ export function App() {
         })) as any
       );
       setEdges(createdEdges);
-      setGraphName(ex.label ?? "UntitledGraph");
+      setGraphName(ex.label ?? graph.name ?? "UntitledGraph");
       setSelectedExample(ex.key);
       setViewPath(defaultPath);
     } catch (err) {

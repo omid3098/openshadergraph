@@ -1,4 +1,21 @@
 <?xml version="1.0"?>
-<materialx version="1.38" colorspace="lin_rec709" xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="cycle.mtlx" />
+<materialx version="1.39">
+  <nodegraph name="Cycle">
+    <node name="color1" type="constant">
+      <input name="in" type="color3" value="1,0,0" />
+      <output name="out" type="color3" />
+    </node>
+    <node name="color2" type="constant">
+      <input name="in" type="color3" value="0,1,0" />
+      <output name="out" type="color3" />
+    </node>
+    <node name="add1" type="add">
+      <input name="in1" type="color3" node="color1" output="out" />
+      <input name="in2" type="color3" node="color2" output="out" />
+      <output name="out" type="color3" />
+    </node>
+    <node name="output" type="output">
+      <input name="in" type="color3" node="add1" output="out" />
+    </node>
+  </nodegraph>
 </materialx>
