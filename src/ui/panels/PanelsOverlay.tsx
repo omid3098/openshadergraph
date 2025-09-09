@@ -30,6 +30,10 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
   const startX = useRef(0);
   const startW = useRef(0);
   const [hydrated, setHydrated] = useState(false);
+  const [previewHeight, setPreviewHeight] = useState<number>(280);
+  const vResizing = useRef(false);
+  const startY = useRef(0);
+  const startH = useRef(0);
 
   // Panels enabled state (Properties, Compile, Graph Data, Preview)
   const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>({
@@ -39,12 +43,13 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
     preview: includePreview,
   });
 
-  // Load persisted width and panel state
+  // Load persisted width, panel state, and preview height
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const w = await persistGet<number>("dock.width");
       const s = await persistGet<any>("dock.panels.state");
+      const ph = await persistGet<number>("dock.previewHeight");
       if (cancelled) return;
       if (typeof w === "number" && Number.isFinite(w) && w >= 320) setWidth(w);
       if (s && typeof s === "object") {
@@ -55,6 +60,7 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
           preview: s.preview !== false,
         });
       }
+      if (typeof ph === "number" && Number.isFinite(ph) && ph >= 240) setPreviewHeight(ph);
       setHydrated(true);
     })();
     return () => { cancelled = true; };
@@ -71,7 +77,11 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
     if (!hydrated) return;
     void persistSet("dock.width", width);
   }, [width, hydrated]);
-  // no vertical split anymore
+
+  useEffect(() => {
+    if (!hydrated) return;
+    void persistSet("dock.previewHeight", previewHeight);
+  }, [previewHeight, hydrated]);
 
   const onMove = useCallback((e: MouseEvent) => {
     if (!resizing.current) return;
@@ -91,6 +101,27 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
     startW.current = width;
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", stop);
+  };
+
+  const onMoveV = useCallback((e: MouseEvent) => {
+    if (!vResizing.current) return;
+    const dy = startY.current - e.clientY; // dragging up handle increases preview height
+    const max = Math.max(window.innerHeight - 160, 240);
+    const next = Math.min(Math.max(startH.current + dy, 240), max);
+    setPreviewHeight(next);
+  }, []);
+  const stopV = useCallback(() => {
+    vResizing.current = false;
+    window.removeEventListener("mousemove", onMoveV);
+    window.removeEventListener("mouseup", stopV);
+  }, [onMoveV]);
+  const startV = (e: React.MouseEvent) => {
+    e.preventDefault();
+    vResizing.current = true;
+    startY.current = e.clientY;
+    startH.current = previewHeight;
+    window.addEventListener("mousemove", onMoveV);
+    window.addEventListener("mouseup", stopV);
   };
 
   const items = useMemo(() => {
@@ -114,8 +145,6 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
     }));
   }, [graph, panels]);
 
-  // removed vertical resizing code
-
   return (
     <div className={cn("fixed top-0 right-0 h-screen z-40 pointer-events-none", className)} style={{ width }}>
       {/* resize handle on the left edge */}
@@ -130,15 +159,26 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
         id="dock-container"
         className="w-full h-full bg-background border-l pointer-events-auto flex flex-col"
       >
-        <DockLayout
-          items={items}
-          className="flex-1 min-h-0"
-          onHeaderContextMenu={(e) => {
-            setMenu({ open: true, x: e.clientX, y: e.clientY });
-          }}
-        />
+        <div className="relative flex-1 min-h-[160px]">
+          <DockLayout
+            items={items}
+            className="h-full"
+            onHeaderContextMenu={(e) => {
+              setMenu({ open: true, x: e.clientX, y: e.clientY });
+            }}
+          />
+          {panels.preview ? (
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              title="Drag to resize"
+              onMouseDown={startV}
+              className="absolute bottom-[-4px] left-0 right-0 h-2 cursor-row-resize bg-transparent"
+            />
+          ) : null}
+        </div>
         {panels.preview ? (
-          <div className="h-[40%] min-h-[240px] border-t">
+          <div className="border-t" style={{ height: previewHeight }}>
             <PreviewPanel variant="docked" graph={graph} />
           </div>
         ) : null}

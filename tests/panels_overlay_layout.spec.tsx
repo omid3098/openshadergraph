@@ -22,5 +22,7 @@ describe("PanelsOverlay", () => {
     // dock-items lists tab names; should not include Preview
     const match = html.match(/data-testid="dock-items">([^<]+)</);
     expect(match?.[1].includes("Preview")).toBe(false);
+    // should render a separator for vertical resizing
+    expect(html).toMatch(/aria-orientation="horizontal"/);
   });
 });
