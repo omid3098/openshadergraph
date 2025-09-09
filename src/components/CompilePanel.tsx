@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
 import { isCompilableGraph } from "@/core/io/guards";
 import { Check, Copy } from "lucide-react";
+import CodeBlock from "./CodeBlock";
 
 type CompilePanelProps = {
   graph: unknown;
@@ -14,6 +15,15 @@ type CompilePanelProps = {
 };
 
 type LanguageItem = { key: string; name: string; path: string };
+
+const getPrismLang = (key: string): string => {
+  const lower = key.toLowerCase();
+  if (lower.includes("json")) return "json";
+  if (lower.includes("glsl")) return "clike";
+  if (lower.includes("wgsl")) return "clike";
+  if (lower.includes("metal")) return "clike";
+  return "clike";
+};
 
 export function CompilePanel({ graph, className, variant = "overlay" }: CompilePanelProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -171,50 +181,51 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
   };
 
   if (variant === "docked") {
+    const display = working ? "Compiling…" : error || code;
+    const lang = error ? "text" : getPrismLang(language);
     return (
-      <Card className={cn("h-full flex flex-col", className)}>
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-end">
-          <div className="flex items-center gap-2">
-            <div className="min-w-[140px]">
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger aria-label="Language">
-                  <SelectValue placeholder="Language" />
-                </SelectTrigger>
-                <SelectContent>
-                  {languages.map((l) => (
-                    <SelectItem key={l.key} value={l.key}>{l.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="min-w-[120px]">
-              <Select value={engine} onValueChange={setEngine}>
-                <SelectTrigger aria-label="Compiler">
-                  <SelectValue placeholder="Compiler" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button size="icon" variant="ghost" aria-label="Copy compile code" title="Copy"
-              onClick={() => copyToClipboard(code)} disabled={!code || !!error || working}
-            >
-              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            </Button>
+      <Card className={cn("relative h-full", className)}>
+        <CodeBlock
+          code={display}
+          language={lang}
+          className={cn("h-full pt-16", error && "text-red-500")}
+        />
+        <div className="absolute top-2 right-2 flex items-start gap-2">
+          <div className="min-w-[140px]">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger aria-label="Language">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map((l) => (
+                  <SelectItem key={l.key} value={l.key}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 flex-1 overflow-auto">
-          <div className="rounded-md bg-muted p-2 overflow-auto h-full">
-            {working ? (
-              <pre className="text-xs leading-relaxed opacity-70">Compiling…</pre>
-            ) : error ? (
-              <pre className="text-xs leading-relaxed text-red-500">{error}</pre>
-            ) : (
-              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words">{code}</pre>
-            )}
+          <div className="min-w-[120px]">
+            <Select value={engine} onValueChange={setEngine}>
+              <SelectTrigger aria-label="Compiler">
+                <SelectValue placeholder="Compiler" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Copy compile code"
+            title="Copy"
+            onClick={() => copyToClipboard(code)}
+            disabled={!code || !!error || working}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -229,6 +240,8 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     );
   }
 
+  const display = working ? "Compiling…" : error || code;
+  const lang = error ? "text" : getPrismLang(language);
   return (
     <div
       className={cn("fixed bottom-2 right-2 z-40 pointer-events-none", className)}
@@ -242,53 +255,51 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
         onMouseDown={onHandleMouseDown}
         className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
       />
-      <Card className="pointer-events-auto">
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Compile Output</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="min-w-[160px]">
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger aria-label="Language">
-                  <SelectValue placeholder="Language" />
-                </SelectTrigger>
-                <SelectContent>
-                  {languages.map((l) => (
-                    <SelectItem key={l.key} value={l.key}>{l.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="min-w-[160px]">
-              <Select value={engine} onValueChange={setEngine}>
-                <SelectTrigger aria-label="Compiler">
-                  <SelectValue placeholder="Compiler" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button size="icon" variant="ghost" aria-label="Copy compile code" title="Copy"
-              onClick={() => copyToClipboard(code)} disabled={!code || !!error || working}
-            >
-              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            </Button>
-            <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>
-              ▾
-            </Button>
+      <Card className="pointer-events-auto relative">
+        <CodeBlock
+          code={display}
+          language={lang}
+          className={cn("h-[50vh] pt-16", error && "text-red-500")}
+        />
+        <div className="absolute top-2 right-2 flex items-start gap-2">
+          <div className="min-w-[160px]">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger aria-label="Language">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map((l) => (
+                  <SelectItem key={l.key} value={l.key}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="rounded-md bg-muted p-2 overflow-auto max-h-[50vh]">
-            {working ? (
-              <pre className="text-xs leading-relaxed opacity-70">Compiling…</pre>
-            ) : error ? (
-              <pre className="text-xs leading-relaxed text-red-500">{error}</pre>
-            ) : (
-              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words">{code}</pre>
-            )}
+          <div className="min-w-[160px]">
+            <Select value={engine} onValueChange={setEngine}>
+              <SelectTrigger aria-label="Compiler">
+                <SelectValue placeholder="Compiler" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Copy compile code"
+            title="Copy"
+            onClick={() => copyToClipboard(code)}
+            disabled={!code || !!error || working}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </Button>
+          <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>
+            ▾
+          </Button>
+        </div>
       </Card>
     </div>
   );
