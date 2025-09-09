@@ -41,6 +41,7 @@ Purpose: Keep agents aligned on the absolute essentials needed to build, test, a
 ## Lessons Learned
 
 - Avoid leaving stub implementations in shared utilities. Provide safe fallbacks and unit tests so missing preview helpers cannot crash the app at runtime.
+- Keep server endpoints in sync with MaterialX as the canonical node source. Tests should cover node palette generation and MaterialX serialization so UI menus and graph data reflect the true graph.
 
 ## Quick Commands
 
