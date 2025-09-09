@@ -32,7 +32,12 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
   const [hydrated, setHydrated] = useState(false);
 
   // Panels enabled state (Properties, Compile, Graph Data, Preview)
-  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>({ properties: true, compile: includeCompile, graphdata: includeGraphData, preview: includePreview });
+  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>({
+    properties: true,
+    compile: includeCompile,
+    graphdata: includeGraphData,
+    preview: includePreview,
+  });
 
   // Load persisted width and panel state
   useEffect(() => {
@@ -89,19 +94,23 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
   };
 
   const items = useMemo(() => {
-    const desc = buildDockItemDescriptors({ includePreview: panels.preview, includeCompile: panels.compile, includeGraphData: panels.graphdata, includeProperties: panels.properties });
+    const desc = buildDockItemDescriptors({
+      includePreview: false,
+      includeCompile: panels.compile,
+      includeGraphData: panels.graphdata,
+      includeProperties: panels.properties,
+    });
     return desc.map((d) => ({
       id: d.id,
       name: d.name,
-      render: () => d.id === "properties" ? (
-        <PropertiesPanel variant="docked" />
-      ) : d.id === "compile" ? (
-        <CompilePanel variant="docked" graph={graph} />
-      ) : d.id === "graphdata" ? (
-        <GraphDataPanel variant="docked" data={graph} />
-      ) : (
-        <PreviewPanel variant="docked" graph={graph} />
-      ),
+      render: () =>
+        d.id === "properties" ? (
+          <PropertiesPanel variant="docked" />
+        ) : d.id === "compile" ? (
+          <CompilePanel variant="docked" graph={graph} />
+        ) : (
+          <GraphDataPanel variant="docked" data={graph} />
+        ),
     }));
   }, [graph, panels]);
 
@@ -117,10 +126,22 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
         onMouseDown={start}
         className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
       />
-      <div id="dock-container" className="w-full h-full bg-background border-l pointer-events-auto">
-        <DockLayout items={items} className="w-full h-full" onHeaderContextMenu={(e) => {
-          setMenu({ open: true, x: e.clientX, y: e.clientY });
-        }} />
+      <div
+        id="dock-container"
+        className="w-full h-full bg-background border-l pointer-events-auto flex flex-col"
+      >
+        <DockLayout
+          items={items}
+          className="flex-1 min-h-0"
+          onHeaderContextMenu={(e) => {
+            setMenu({ open: true, x: e.clientX, y: e.clientY });
+          }}
+        />
+        {panels.preview ? (
+          <div className="h-[40%] min-h-[240px] border-t">
+            <PreviewPanel variant="docked" graph={graph} />
+          </div>
+        ) : null}
       </div>
       {/* Simple context menu to toggle panels */}
       {menu.open ? (
