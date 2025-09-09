@@ -11,8 +11,6 @@ import { persistGet, persistSet } from "@/lib/storage";
 type PanelsOverlayProps = {
   graph: unknown;
   className?: string;
-  /** test helper: force simple tabs instead of flexlayout */
-  forceTabsFallback?: boolean;
   /** test/helper: omit heavy WebGL preview in constrained envs */
   includePreview?: boolean;
   /** test/helper: omit compile panel */
@@ -26,7 +24,7 @@ type PanelsOverlayProps = {
  * Preview, Compile Output, and Graph Data as dockable tabs.
  * It lives outside the ReactFlow canvas to prevent overlap and z-index issues.
  */
-export function PanelsOverlay({ graph, className, forceTabsFallback, includePreview = true, includeCompile = true, includeGraphData = true }: PanelsOverlayProps) {
+export function PanelsOverlay({ graph, className, includePreview = true, includeCompile = true, includeGraphData = true }: PanelsOverlayProps) {
   const [width, setWidth] = useState<number>(520);
   const resizing = useRef(false);
   const startX = useRef(0);
@@ -120,7 +118,7 @@ export function PanelsOverlay({ graph, className, forceTabsFallback, includePrev
         className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
       />
       <div id="dock-container" className="w-full h-full bg-background border-l pointer-events-auto">
-        <DockLayout items={items} forceTabsFallback={forceTabsFallback} className="w-full h-full" onHeaderContextMenu={(e) => {
+        <DockLayout items={items} className="w-full h-full" onHeaderContextMenu={(e) => {
           setMenu({ open: true, x: e.clientX, y: e.clientY });
         }} />
       </div>
