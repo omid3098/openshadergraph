@@ -1,5 +1,5 @@
 import React from "react";
-import Highlight, { themes, type Language } from "prism-react-renderer";
+import { Highlight, themes, type Language } from "prism-react-renderer";
 import { cn } from "@/lib/utils";
 
 export type CodeBlockProps = {
