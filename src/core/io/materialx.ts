@@ -60,16 +60,28 @@ export function materialxToGraph(xml: string) {
   const doc = parser.parse(xml);
   const ng = doc?.materialx?.nodegraph;
   const graphName = ng?.name ?? "Graph";
-  const rawNodes = ng?.node ? (Array.isArray(ng.node) ? ng.node : [ng.node]) : [];
+  const rawNodes: any[] = [];
+  if (ng) {
+    for (const [key, val] of Object.entries(ng)) {
+      if (key === "name" || key === "output" || key === "input") continue;
+      const arr = Array.isArray(val) ? val : [val];
+      for (const item of arr) {
+        if (item && typeof item === "object" && "name" in item) {
+          rawNodes.push({ ...item, __tag: key });
+        }
+      }
+    }
+  }
   const nodeByName: Record<string, any> = {};
   const nodes: any[] = [];
   let id = 1;
   for (const rn of rawNodes) {
     const inputsRaw = rn.input ? (Array.isArray(rn.input) ? rn.input : [rn.input]) : [];
     const outputsRaw = rn.output ? (Array.isArray(rn.output) ? rn.output : [rn.output]) : [];
+    if (outputsRaw.length === 0) outputsRaw.push({ name: "out", type: rn.type ?? "" });
     const node = {
       id: id++,
-      type: rn.type ?? "",
+      type: rn.type ?? rn.__tag ?? "",
       name: rn.name ?? "",
       meta: [],
       nodes: [],
@@ -78,7 +90,7 @@ export function materialxToGraph(xml: string) {
         name: inp.name,
         type: inp.type,
         value: inp.value,
-        __node: inp.node,
+        __node: inp.node ?? inp.nodename,
         __output: inp.output,
       })),
       outputs: outputsRaw.map((out: any, idx: number) => ({ id: idx, name: out.name, type: out.type })),
@@ -86,17 +98,33 @@ export function materialxToGraph(xml: string) {
     nodeByName[node.name] = node;
     nodes.push(node);
   }
+  const graphOutputs = ng?.output ? (Array.isArray(ng.output) ? ng.output : [ng.output]) : [];
+  for (const out of graphOutputs) {
+    const src = nodeByName[out.nodename];
+    const srcOut = src?.outputs.find((o: any) => o.name === out.output) ?? src?.outputs?.[0];
+    const outId = srcOut?.id ?? 0;
+    const node = {
+      id: id++,
+      type: "output",
+      name: out.name,
+      meta: [],
+      nodes: [],
+      inputs: [{ id: 0, name: "in", type: out.type, value: src ? `../${src.id}/${outId}` : undefined }],
+      outputs: [],
+    };
+    if (src && srcOut) srcOut.value = `../${node.id}/0`;
+    nodes.push(node);
+  }
   for (const n of nodes) {
     for (const pin of n.inputs) {
-      if (pin.__node) {
-        const src = nodeByName[pin.__node];
-        if (src) {
-          const out = src.outputs.find((o: any) => o.name === pin.__output) ?? src.outputs[0];
-          const outId = out?.id ?? 0;
-          pin.value = `../${src.id}/${outId}`;
-          if (out) {
-            out.value = `../${n.id}/${pin.id}`;
-          }
+      if (pin.value) continue;
+      const src = nodeByName[pin.__node];
+      if (src) {
+        const out = src.outputs.find((o: any) => o.name === pin.__output) ?? src.outputs[0];
+        const outId = out?.id ?? 0;
+        pin.value = `../${src.id}/${outId}`;
+        if (out) {
+          out.value = `../${n.id}/${pin.id}`;
         }
       }
       delete (pin as any).__node;
