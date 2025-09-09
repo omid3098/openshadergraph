@@ -38,6 +38,10 @@ Purpose: Keep agents aligned on the absolute essentials needed to build, test, a
 - Default compiler: default compile output language is `ThreeJS_GLSL`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
 - Centralized updates: define node update callbacks in `App` (e.g., `updateInputValue`, `updateNodeLabel`, `addNodeMeta`, `removeNodeMeta`) and attach them to `node.data`. Panels and renderers MUST use these callbacks instead of calling `rf.setNodes` directly.
 
+## Lessons Learned
+
+- Avoid leaving stub implementations in shared utilities. Provide safe fallbacks and unit tests so missing preview helpers cannot crash the app at runtime.
+
 ## Quick Commands
 
 - Run unit tests: `bun run test`
