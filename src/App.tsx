@@ -19,7 +19,7 @@ import { fetchNodePalette, fetchNodeTemplate, type NodePalette, type NodePalette
 // Panels are now hosted inside a unified dock overlay
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "./components/ui/select";
 import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
@@ -43,7 +43,8 @@ export function App() {
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
-  const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
+  const [exampleGroups, setExampleGroups] = useState<Array<{ key: string; label: string; examples: Array<{ key: string; label: string }> }>>([]);
+  const examples = useMemo(() => exampleGroups.flatMap((g) => g.examples), [exampleGroups]);
   const [selectedExample, setSelectedExample] = useState<string>("");
   const [menu, setMenu] = useState<{
     open: boolean;
@@ -190,12 +191,12 @@ export function App() {
           ...(parentId ? { parentId } : {}),
           ...nodeDefaults,
         } as any);
-        // children
         for (const child of n.nodes ?? []) {
           walk(child, idStr, depth + 1);
         }
       };
-      walk(graph, undefined, 0);
+      const roots = graph.type === "" ? graph.nodes ?? [] : [graph];
+      for (const r of roots) walk(r, undefined, 0);
 
       // Build edges from input pin refs ../<nodeId>/<pinId>
       const refRe = /^\.\.\/(\d+)\/(\d+)$/;
@@ -223,15 +224,18 @@ export function App() {
       const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
       idCounter.current = maxId;
 
-      // Choose default view: fragment_pass if present, else vertex_pass, else surface
-      const surfaceId = String(graph.id);
-      const fragmentPass = (graph.nodes ?? []).find((n) => n.type === "fragment_pass");
-      const vertexPass = (graph.nodes ?? []).find((n) => n.type === "vertex_pass");
-      const defaultPath = fragmentPass
-        ? [surfaceId, String(fragmentPass.id)]
-        : vertexPass
-          ? [surfaceId, String(vertexPass.id)]
-          : [surfaceId];
+      // Choose default view if graph has standard passes
+      let defaultPath: string[] = [];
+      if (graph.type === "surface") {
+        const surfaceId = String(graph.id);
+        const fragmentPass = (graph.nodes ?? []).find((n) => n.type === "fragment_pass");
+        const vertexPass = (graph.nodes ?? []).find((n) => n.type === "vertex_pass");
+        defaultPath = fragmentPass
+          ? [surfaceId, String(fragmentPass.id)]
+          : vertexPass
+            ? [surfaceId, String(vertexPass.id)]
+            : [surfaceId];
+      }
 
       // Attach update function to node data for safe edits from GraphNode
       setNodes(
@@ -247,7 +251,7 @@ export function App() {
         })) as any
       );
       setEdges(createdEdges);
-      setGraphName(ex.label ?? "UntitledGraph");
+      setGraphName(ex.label ?? graph.name ?? "UntitledGraph");
       setSelectedExample(ex.key);
       setViewPath(defaultPath);
     } catch (err) {
@@ -263,11 +267,12 @@ export function App() {
         const res = await fetch("/api/example-graphs", { signal: abort.signal });
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
-        const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
-        setExamples(list);
-        if (list.length) {
+        const groups: Array<{ key: string; label: string; examples: Array<{ key: string; label: string }> }> = Array.isArray(data.groups) ? data.groups : [];
+        setExampleGroups(groups);
+        const flat = groups.flatMap((g) => g.examples);
+        if (flat.length) {
           // Default: load the first example
-          await loadExampleGraph(list[0]);
+          await loadExampleGraph(flat[0]);
         }
       } catch (err: any) {
         if (isAbortError(err)) return;
@@ -392,8 +397,15 @@ export function App() {
               <SelectValue placeholder="Select example graph" />
             </SelectTrigger>
             <SelectContent>
-              {examples.map((e) => (
-                <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+              {exampleGroups.map((g) => (
+                <SelectGroup key={g.key}>
+                  <SelectLabel>{g.label}</SelectLabel>
+                  {g.examples.map((e) => (
+                    <SelectItem key={e.key} value={e.key}>
+                      {e.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               ))}
             </SelectContent>
           </Select>
