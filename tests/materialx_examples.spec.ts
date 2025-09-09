@@ -32,18 +32,43 @@ const brassXML = `<?xml version="1.0"?>
   </surfacematerial>
 </materialx>`;
 
+const defaultRel = "StandardSurface/standard_surface_default";
+const defaultXML = `<?xml version="1.0"?>
+<materialx version="1.39" colorspace="lin_rec709">
+  <standard_surface name="SR_default" type="surfaceshader">
+    <input name="base" type="float" value="1.0" />
+  </standard_surface>
+  <surfacematerial name="Default" type="material">
+    <input name="surfaceshader" type="surfaceshader" nodename="SR_default" />
+  </surfacematerial>
+</materialx>`;
+
 describe("MaterialX examples", () => {
   it("parses standard_surface_brass_tiled.mtlx into graph", async () => {
     const graph = materialxToGraph(brassXML);
-    expect(graph.nodes.length).toBe(4);
+    expect(graph.nodes.length).toBe(6);
     const image = graph.nodes.find((n: any) => n.name === "image_color");
-    expect(image).toBeTruthy();
+    const shader = graph.nodes.find((n: any) => n.name === "SR_brass1");
+    const mat = graph.nodes.find((n: any) => n.name === "Tiled_Brass");
+    expect(image && shader && mat).toBeTruthy();
     const out = graph.nodes.find((n: any) => n.type === "output" && n.name === "out_color");
     expect(out?.inputs[0]?.value).toBe(`../${image?.id}/0`);
+    const matIn = mat?.inputs[0];
+    expect(matIn?.value).toBe(`../${shader?.id}/0`);
+  });
+
+  it("parses standard_surface_default.mtlx without nodegraph", () => {
+    const graph = materialxToGraph(defaultXML);
+    expect(graph.nodes.length).toBe(2);
+    const surface = graph.nodes.find((n: any) => n.name === "SR_default");
+    const mat = graph.nodes.find((n: any) => n.name === "Default");
+    expect(mat?.inputs[0]?.value).toBe(`../${surface?.id}/0`);
   });
 
   it("serves MaterialX example via API and groups by directory", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(brassXML));
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(new Response(url.includes("standard_surface_default") ? defaultXML : brassXML))
+    );
     const spy = vi.spyOn(globalThis, "fetch").mockImplementation(fetchMock as any);
 
     const listRes = await examplesHandler(new Request("http://localhost/api/example-graphs"));
@@ -53,9 +78,17 @@ describe("MaterialX examples", () => {
     const entry = group.examples.find((e: any) => e.key === exampleRel);
     expect(entry).toBeTruthy();
 
-    const graphRes = await examplesHandler(new Request(`http://localhost/api/example-graphs?name=${encodeURIComponent(exampleRel)}`));
+    const graphRes = await examplesHandler(
+      new Request(`http://localhost/api/example-graphs?name=${encodeURIComponent(exampleRel)}`)
+    );
     const data = (await graphRes.json()) as any;
-    expect(data.graph.nodes.length).toBe(4);
+    expect(data.graph.nodes.length).toBe(6);
+
+    const graphRes2 = await examplesHandler(
+      new Request(`http://localhost/api/example-graphs?name=${encodeURIComponent(defaultRel)}`)
+    );
+    const data2 = (await graphRes2.json()) as any;
+    expect(data2.graph.nodes.length).toBe(2);
 
     spy.mockRestore();
   });

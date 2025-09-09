@@ -46,6 +46,7 @@ Purpose: Keep agents aligned on the absolute essentials needed to build, test, a
 - Source example graphs from MaterialX's `resources/Materials/Examples` directory and keep the parser in sync with typed nodes and graph outputs used there.
 - Mirror MaterialX's example directory structure so all upstream materials are available and grouped by their folders.
 - Avoid committing large or binary example assets (textures, images). Fetch MaterialX examples on demand and cache them locally so pushes stay light.
+- Ensure the MaterialX parser handles top-level shader nodes and multiple nodegraphs so example selections never load empty; cover both styles in tests.
 
 ## Quick Commands
 
