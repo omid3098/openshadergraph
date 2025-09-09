@@ -1,5 +1,4 @@
 @import "../styles/globals.css";
-@import "flexlayout-react/style/light.css";
 
 @layer base {
   :root {
