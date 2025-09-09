@@ -1,5 +1,6 @@
 import React from "react";
-import Highlight, { themes } from "prism-react-renderer";
+import { default as Highlight, type Language } from "prism-react-renderer";
+import githubTheme from "prism-react-renderer/themes/github";
 import { cn } from "@/lib/utils";
 
 export type CodeBlockProps = {
@@ -10,7 +11,7 @@ export type CodeBlockProps = {
 
 export function CodeBlock({ code, language, className }: CodeBlockProps) {
   return (
-    <Highlight theme={themes.github} code={code} language={language}>
+    <Highlight theme={githubTheme} code={code} language={language as Language}>
       {({ className: cls, style, tokens, getLineProps, getTokenProps }) => (
         <pre
           className={cn(
