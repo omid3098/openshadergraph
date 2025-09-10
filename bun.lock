@@ -5,7 +5,6 @@
       "name": "bun-react-template",
       "dependencies": {
         "@hookform/resolvers": "^4.1.0",
-        "@needle-tools/materialx": "^1.3.2",
         "@radix-ui/react-label": "^2.1.2",
         "@radix-ui/react-select": "^2.1.6",
         "@radix-ui/react-slot": "^1.1.2",
@@ -128,8 +127,6 @@
     "@humanwhocodes/retry": ["@humanwhocodes/retry@0.4.3", "", {}, "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="],
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
-
-    "@needle-tools/materialx": ["@needle-tools/materialx@1.3.2", "", { "peerDependencies": { "three": ">=0.160.0" } }, "sha512-PF5CJ6ndgQ5e3KuNdJWMaBpjvxPblBOEKji7glQ5T0t8TeYqel85GQWw1Z+/Zbt7lKWnehwBujpZMewTEVHE1w=="],
 
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
 
