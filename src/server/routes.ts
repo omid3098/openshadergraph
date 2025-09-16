@@ -1,6 +1,7 @@
 import index from "../index.html";
 import { languagesHandler, languagePackHandler, compileHandler } from "./handlers";
 import { nodesListHandler, nodeTemplateHandler } from "./nodes";
+import { assetsHandler } from "./assets";
 import { examplesHandler } from "./examples";
 
 export function buildRoutes() {
@@ -20,6 +21,7 @@ export function buildRoutes() {
     },
     "/api/nodes": nodesListHandler,
     "/api/node-template": nodeTemplateHandler,
+    "/api/assets": assetsHandler,
     "/api/languages": languagesHandler,
     "/api/language": languagePackHandler,
     "/api/compile": { async POST(req: Request) { return compileHandler(req); } },

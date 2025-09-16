@@ -7,6 +7,7 @@ vi.mock("@/components/PreviewPanel", () => ({ PreviewPanel: () => <div>PREVIEW-S
 vi.mock("@/components/CompilePanel", () => ({ CompilePanel: () => <div /> }));
 vi.mock("@/components/GraphDataPanel", () => ({ GraphDataPanel: () => <div /> }));
 vi.mock("@/components/PropertiesPanel", () => ({ PropertiesPanel: () => <div /> }));
+vi.mock("@/components/AssetsPanel", () => ({ AssetsPanel: () => <div /> }));
 vi.mock("../src/ui/layout/DockLayout", () => ({
   DockLayout: ({ items }: any) => <div data-testid="dock-items">{items.map((i: any) => i.name).join(",")}</div>,
 }));
@@ -22,6 +23,7 @@ describe("PanelsOverlay", () => {
     // dock-items lists tab names; should not include Preview
     const match = html.match(/data-testid="dock-items">([^<]+)</);
     expect(match?.[1].includes("Preview")).toBe(false);
+    expect(match?.[1].includes("Assets")).toBe(true);
     // should render a separator for vertical resizing
     expect(html).toMatch(/aria-orientation="horizontal"/);
   });

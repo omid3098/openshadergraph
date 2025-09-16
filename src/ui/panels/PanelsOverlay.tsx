@@ -4,6 +4,7 @@ import { PreviewPanel } from "@/components/PreviewPanel";
 import { CompilePanel } from "@/components/CompilePanel";
 import { GraphDataPanel } from "@/components/GraphDataPanel";
 import { PropertiesPanel } from "@/components/PropertiesPanel";
+import { AssetsPanel } from "@/components/AssetsPanel";
 import { cn } from "@/lib/utils";
 import { buildDockItemDescriptors } from "./items";
 import { persistGet, persistSet } from "@/lib/storage";
@@ -36,10 +37,11 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
   const startH = useRef(0);
 
   // Panels enabled state (Properties, Compile, Graph Data, Preview)
-  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }>({
+  const [panels, setPanels] = useState<{ properties: boolean; compile: boolean; graphdata: boolean; assets: boolean; preview: boolean }>({
     properties: true,
     compile: includeCompile,
     graphdata: includeGraphData,
+    assets: true,
     preview: includePreview,
   });
 
@@ -57,6 +59,7 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
           properties: s.properties !== false,
           compile: s.compile !== false,
           graphdata: s.graphdata !== false,
+          assets: s.assets !== false,
           preview: s.preview !== false,
         });
       }
@@ -129,6 +132,7 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
       includePreview: false,
       includeCompile: panels.compile,
       includeGraphData: panels.graphdata,
+      includeAssets: panels.assets,
       includeProperties: panels.properties,
     });
     return desc.map((d) => ({
@@ -139,6 +143,8 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
           <PropertiesPanel variant="docked" />
         ) : d.id === "compile" ? (
           <CompilePanel variant="docked" graph={graph} />
+        ) : d.id === "assets" ? (
+          <AssetsPanel variant="docked" />
         ) : (
           <GraphDataPanel variant="docked" data={graph} />
         ),
@@ -199,7 +205,7 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
 
 export default PanelsOverlay;
 
-function PanelToggleMenu({ x, y, state, onChange, onClose }: { x: number; y: number; state: { properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }; onChange: (s: { properties: boolean; compile: boolean; graphdata: boolean; preview: boolean }) => void; onClose: () => void }) {
+function PanelToggleMenu({ x, y, state, onChange, onClose }: { x: number; y: number; state: { properties: boolean; compile: boolean; graphdata: boolean; assets: boolean; preview: boolean }; onChange: (s: { properties: boolean; compile: boolean; graphdata: boolean; assets: boolean; preview: boolean }) => void; onClose: () => void }) {
   useEffect(() => {
     const onDoc = (e: MouseEvent) => { const target = e.target as HTMLElement | null; if (!target?.closest?.("[data-panel-menu]")) onClose(); };
     document.addEventListener("mousedown", onDoc);
@@ -225,6 +231,7 @@ function PanelToggleMenu({ x, y, state, onChange, onClose }: { x: number; y: num
         <Item id="properties" label="Properties" />
         <Item id="compile" label="Compile" />
         <Item id="graphdata" label="Graph Data" />
+        <Item id="assets" label="Assets" />
         <div className="h-[1px] bg-border my-1" />
         <Item id="preview" label="Preview (bottom)" />
       </div>

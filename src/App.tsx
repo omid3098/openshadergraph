@@ -26,6 +26,7 @@ import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
+import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -401,6 +402,47 @@ export function App() {
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 
+  const handleAssetDrop = useCallback(async (event: React.DragEvent) => {
+    if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
+    event.preventDefault();
+    const raw = event.dataTransfer.getData(ASSET_DRAG_MIME);
+    const payload = parseAssetDragPayload(raw);
+    if (!payload) return;
+    if (payload.type !== "texture") return;
+    const item = paletteByType.get("texture");
+    if (!item) return;
+    const { clientX, clientY } = event;
+        const projected = rf.screenToFlowPosition({ x: clientX, y: clientY });
+    const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
+    const position = parentNode
+      ? { x: projected.x - parentNode.position.x, y: projected.y - parentNode.position.y }
+      : projected;
+    const defaults = await loadTemplateDefaults("texture");
+    const template = defaults ? JSON.parse(JSON.stringify(defaults)) : undefined;
+    const nextId = String(++idCounter.current);
+    const baseNode = buildRFNodeFromTemplate({
+      id: nextId,
+      item,
+      template,
+      position,
+      parentId: currentParentId,
+    });
+    const tpl = ((baseNode.data as any)?.template ?? {}) as any;
+    const meta: string[] = Array.isArray(tpl.meta) ? [...tpl.meta] : [];
+    if (!meta.includes(`asset:${payload.source}`)) meta.push(`asset:${payload.source}`);
+    const node = {
+      ...baseNode,
+      data: {
+        ...(baseNode.data as any),
+        label: payload.label || (baseNode.data as any)?.label || item.name,
+        asset: payload,
+        template: { ...tpl, name: payload.label || tpl.name, meta },
+      },
+    } as any;
+    setNodes((prev) => [...prev, node]);
+    setMenu((m) => (m.open ? { ...m, open: false } : m));
+  }, [paletteByType, rf, currentParentId, loadTemplateDefaults, setNodes]);
+
   return (
     <div className="w-screen h-screen relative">
       <ReactFlow
@@ -432,6 +474,13 @@ export function App() {
           e.preventDefault();
           setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
         }}
+        onDragOver={(event) => {
+          if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }
+        }}
+        onDrop={handleAssetDrop}
         onNodeContextMenu={(e, node) => {
           e.preventDefault();
           setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });

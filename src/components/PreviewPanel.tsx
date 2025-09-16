@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
 import { defaultVertexShader, parseUniformsAndSanitize, toThreeUniforms } from "@/core/preview/shaderUtils";
 import { isCompilableGraph } from "@/core/io/guards";
+import { ASSET_DRAG_MIME, parseAssetDragPayload } from "@/core/assets/kind";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
@@ -15,7 +16,7 @@ type PreviewPanelProps = {
   variant?: "overlay" | "docked";
 };
 
-type Primitive = "sphere" | "cube" | "cylinder";
+type Primitive = "sphere" | "cube" | "cylinder" | "custom";
 
 export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -47,9 +48,19 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     const v = typeof localStorage !== "undefined" ? localStorage.getItem("previewPanel.useEnvBg") : null;
     return v === "true";
   });
+  const [modelStatus, setModelStatus] = useState<string | null>(null);
+  const [modelDropActive, setModelDropActive] = useState(false);
+  const [customModel, setCustomModel] = useState<{ source: string; label: string } | null>(null);
 
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.width", String(width)); }, [width]);
-  useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.primitive", primitive); }, [primitive]);
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    if (primitive === "custom" && !customModel) {
+      localStorage.setItem("previewPanel.primitive", "sphere");
+    } else {
+      localStorage.setItem("previewPanel.primitive", primitive);
+    }
+  }, [primitive, customModel]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.autoRotate", String(autoRotate)); }, [autoRotate]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.wireframe", String(wireframe)); }, [wireframe]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.useEnv", String(useEnv)); }, [useEnv]);
@@ -59,6 +70,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const threeRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh | null } | null>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const customGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const [customGeometryVersion, setCustomGeometryVersion] = useState(0);
+  const gltfLoaderRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
   const autoRotateRef = useRef<boolean>(false);
   const pmremRef = useRef<THREE.PMREMGenerator | null>(null);
@@ -198,11 +212,12 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       ro.disconnect();
       if (materialRef.current) materialRef.current.dispose();
-      if (geometryRef.current) geometryRef.current.dispose();
+      if (geometryRef.current && geometryRef.current !== customGeometryRef.current) geometryRef.current.dispose();
       if (envRTRef.current) { envRTRef.current.dispose(); envRTRef.current = null; }
       if (pmremRef.current) { pmremRef.current.dispose(); pmremRef.current = null; }
       if (samplerFallbackRef.current) { samplerFallbackRef.current.dispose(); samplerFallbackRef.current = null; }
       startTimeRef.current = null;
+      if (customGeometryRef.current) { customGeometryRef.current.dispose(); customGeometryRef.current = null; }
       renderer.dispose();
       threeRef.current = null;
     };
@@ -225,31 +240,41 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     }
   }, [useEnv, useEnvBg]);
 
+  useEffect(() => {
+    if (primitive === "custom" && !customGeometryRef.current) {
+      setPrimitive("sphere");
+    }
+  }, [primitive]);
+
   // Build or update geometry when primitive changes
   useEffect(() => {
     const three = threeRef.current;
     if (!three) return;
-    if (geometryRef.current) { geometryRef.current.dispose(); geometryRef.current = null; }
-    let geom: THREE.BufferGeometry;
+    if (geometryRef.current) {
+      if (!customGeometryRef.current || geometryRef.current !== customGeometryRef.current) {
+        geometryRef.current.dispose();
+      }
+      geometryRef.current = null;
+    }
+    let geom: THREE.BufferGeometry | null = null;
     if (primitive === "sphere") geom = new THREE.SphereGeometry(0.9, 48, 32);
     else if (primitive === "cube") geom = new THREE.BoxGeometry(1.2, 1.2, 1.2, 2, 2, 2);
-    else geom = new THREE.CylinderGeometry(0.8, 0.8, 1.4, 48, 1);
+    else if (primitive === "cylinder") geom = new THREE.CylinderGeometry(0.8, 0.8, 1.4, 48, 1);
+    else if (primitive === "custom" && customGeometryRef.current) geom = customGeometryRef.current.clone();
+    if (!geom) return;
     geometryRef.current = geom;
-    // Attach to mesh or create a new one
     if (three.mesh) {
       three.mesh.geometry = geom;
     } else {
-      // Reuse compiled shader material if available; otherwise use a simple default
       const fallbackMat = new THREE.ShaderMaterial({ vertexShader: defaultVertexShader(), fragmentShader: "void main(){ gl_FragColor = vec4(1.0); }" });
       const mat = materialRef.current ?? fallbackMat;
-      // If we used fallback, remember it so later updates can dispose correctly
       if (!materialRef.current) materialRef.current = mat;
       const mesh = new THREE.Mesh(geom, mat);
       mesh.frustumCulled = false;
       three.mesh = mesh;
       three.scene.add(mesh);
     }
-  }, [primitive]);
+  }, [primitive, customGeometryVersion]);
 
   // Update material when shader code changes or flags change
   useEffect(() => {
@@ -319,6 +344,76 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     if (three.mesh) three.mesh.material = mat;
   }, [ensureSamplerFallback, fragCode, wireframe]);
 
+  const loadModelAsset = useCallback(async (source: string, label: string) => {
+    setModelStatus(`Loading ${label}…`);
+    try {
+      if (!gltfLoaderRef.current) {
+        const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
+        gltfLoaderRef.current = new mod.GLTFLoader();
+      }
+      const loader = gltfLoaderRef.current as { loadAsync: (src: string) => Promise<any> };
+      const gltf = await loader.loadAsync(source);
+      let mesh: THREE.Mesh | null = null;
+      gltf.scene.traverse((obj: any) => {
+        if (mesh) return;
+        if (obj && obj.isMesh) mesh = obj as THREE.Mesh;
+      });
+      if (!mesh) throw new Error("Model has no mesh to preview");
+      const geom = mesh.geometry.clone();
+      geom.applyMatrix4(mesh.matrixWorld);
+      geom.computeBoundingBox();
+      geom.computeBoundingSphere();
+      const center = geom.boundingBox?.getCenter(new THREE.Vector3()) ?? new THREE.Vector3();
+      geom.translate(-center.x, -center.y, -center.z);
+      const radius = geom.boundingSphere?.radius ?? 1;
+      if (radius > 0 && Number.isFinite(radius)) {
+        const scale = 1 / radius;
+        geom.scale(scale, scale, scale);
+      }
+      if (customGeometryRef.current) customGeometryRef.current.dispose();
+      customGeometryRef.current = geom;
+      setCustomGeometryVersion((v) => v + 1);
+      setCustomModel({ source, label });
+      setPrimitive("custom");
+      setModelStatus(`Loaded ${label}`);
+    } catch (err) {
+      console.warn("Failed to load model asset", err);
+      setModelStatus(`Failed to load model: ${label}`);
+    }
+  }, []);
+
+  const handleCanvasDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setModelDropActive(true);
+  }, []);
+
+  const handleCanvasDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+      setModelDropActive(false);
+    }
+  }, []);
+
+  const handleCanvasDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
+      event.preventDefault();
+      setModelDropActive(false);
+      const payload = parseAssetDragPayload(event.dataTransfer.getData(ASSET_DRAG_MIME));
+      if (!payload || payload.type !== "model") return;
+      void loadModelAsset(payload.source, payload.label);
+    },
+    [loadModelAsset]
+  );
+
+  const canvasDropProps = {
+    onDragOver: handleCanvasDragOver,
+    onDragEnter: handleCanvasDragOver,
+    onDragLeave: handleCanvasDragLeave,
+    onDrop: handleCanvasDrop,
+  };
+
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!resizing.current) return;
     const dx = startX.current - e.clientX; // dragging left handle; increasing dx widens panel
@@ -355,6 +450,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
                   <SelectItem value="sphere">Sphere</SelectItem>
                   <SelectItem value="cube">Cube</SelectItem>
                   <SelectItem value="cylinder">Cylinder</SelectItem>
+                  {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
                 </SelectContent>
               </Select>
             </div>
@@ -365,13 +461,21 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex-1 overflow-hidden">
-          <div className="rounded-md bg-muted overflow-hidden w-full h-full min-h-[240px]">
+          <div
+            {...canvasDropProps}
+            className={cn(
+              "rounded-md overflow-hidden w-full h-full min-h-[240px] transition-colors",
+              modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
+            )}
+          >
             <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
           </div>
           {working ? (
             <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
           ) : compileError ? (
             <div className="mt-2 text-[11px] text-red-500">{compileError}</div>
+          ) : modelStatus ? (
+            <div className="mt-2 text-[11px] text-muted-foreground">{modelStatus}</div>
           ) : null}
         </CardContent>
       </Card>
@@ -414,6 +518,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
                   <SelectItem value="sphere">Sphere</SelectItem>
                   <SelectItem value="cube">Cube</SelectItem>
                   <SelectItem value="cylinder">Cylinder</SelectItem>
+                  {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
                 </SelectContent>
               </Select>
             </div>
@@ -425,13 +530,22 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          <div className="rounded-md bg-muted overflow-hidden" style={{ width: "100%", height: 320 }}>
+          <div
+            {...canvasDropProps}
+            className={cn(
+              "rounded-md overflow-hidden transition-colors",
+              modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
+            )}
+            style={{ width: "100%", height: 320 }}
+          >
             <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
           </div>
           {working ? (
             <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
           ) : compileError ? (
             <div className="mt-2 text-[11px] text-red-500">{compileError}</div>
+          ) : modelStatus ? (
+            <div className="mt-2 text-[11px] text-muted-foreground">{modelStatus}</div>
           ) : null}
         </CardContent>
       </Card>

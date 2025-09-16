@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "textures",
+      "label": "Textures",
+      "items": [
+        {
+          "id": "uv-grid",
+          "label": "UV Grid",
+          "type": "texture",
+          "source": "https://threejs.org/examples/textures/uv_grid_opengl.jpg",
+          "description": "Three.js UV grid texture for projection checks and debugging.",
+          "tags": ["threejs", "uv", "reference"]
+        },
+        {
+          "id": "brick-diffuse",
+          "label": "Brick Diffuse",
+          "type": "texture",
+          "source": "https://threejs.org/examples/textures/brick_diffuse.jpg",
+          "description": "Classic brick wall diffuse map sourced from Three.js examples.",
+          "tags": ["threejs", "albedo"]
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "label": "Models",
+      "items": [
+        {
+          "id": "duck-glb",
+          "label": "Duck",
+          "type": "model",
+          "source": "https://threejs.org/examples/models/gltf/Duck/glTF-Binary/Duck.glb",
+          "description": "Duck model from the Three.js example library (glTF binary).",
+          "tags": ["threejs", "glb"]
+        },
+        {
+          "id": "helmet-damaged",
+          "label": "Damaged Helmet",
+          "type": "model",
+          "source": "https://threejs.org/examples/models/gltf/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+          "description": "Damaged Helmet glTF-Binary asset highlighting PBR materials.",
+          "tags": ["threejs", "pbr", "glb"]
+        }
+      ]
+    }
+  ]
+}

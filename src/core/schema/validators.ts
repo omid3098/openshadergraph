@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { LanguagePack, NodeTemplate } from "./types";
+import type { AssetLibrary, LanguagePack, NodeTemplate } from "./types";
 
 export const ZNodeTemplate: z.ZodSchema<NodeTemplate> = z.object({
   id: z.number().int().optional(),
@@ -44,6 +44,27 @@ export const ZLanguagePack: z.ZodSchema<LanguagePack> = z.object({
   meta: z.record(z.object({ template: z.string() })).optional(),
 });
 
+const ZAssetItem = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  type: z.string().min(1),
+  source: z.string().min(1),
+  description: z.string().optional(),
+  tags: z.array(z.string().min(1)).optional(),
+  builtin: z.boolean().optional(),
+});
+
+const ZAssetCategory = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  items: z.array(ZAssetItem).default([]),
+});
+
+export const ZAssetLibrary: z.ZodSchema<AssetLibrary> = z.object({
+  version: z.number().int().nonnegative(),
+  categories: z.array(ZAssetCategory).default([]),
+});
+
 export function validateNodeTemplate(obj: unknown): NodeTemplate {
   const parsed = ZNodeTemplate.safeParse(obj);
   if (!parsed.success) {
@@ -58,6 +79,15 @@ export function validateLanguagePack(obj: unknown): LanguagePack {
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid language pack: ${msg}`);
+  }
+  return parsed.data;
+}
+
+export function validateAssetLibrary(obj: unknown): AssetLibrary {
+  const parsed = ZAssetLibrary.safeParse(obj);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    throw new Error(`Invalid asset library: ${msg}`);
   }
   return parsed.data;
 }

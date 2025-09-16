@@ -34,3 +34,25 @@ export type LanguagePack = {
   meta?: Record<string, { template: string }>;
 };
 
+export type AssetKind = "texture" | "model" | string;
+
+export type AssetItem = {
+  id: string;
+  label: string;
+  type: AssetKind;
+  source: string;
+  description?: string;
+  tags?: string[];
+  builtin?: boolean;
+};
+
+export type AssetCategory = {
+  id: string;
+  label: string;
+  items: AssetItem[];
+};
+
+export type AssetLibrary = {
+  version: number;
+  categories: AssetCategory[];
+};

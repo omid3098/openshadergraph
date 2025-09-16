@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { promises as fs } from "fs";
 import path from "path";
-import { validateNodeTemplate, validateLanguagePack } from "../src/core/schema/validators";
+import { validateNodeTemplate, validateLanguagePack, validateAssetLibrary } from "../src/core/schema/validators";
 
 async function walk(dir: string, cb: (abs: string, rel: string) => Promise<void>) {
   const entries = await fs.readdir(dir, { withFileTypes: true } as any);
@@ -35,6 +35,13 @@ describe("data schema validation", () => {
       const json = JSON.parse(raw);
       expect(() => validateLanguagePack(json)).not.toThrow();
     }
+  });
+
+  it("validates the asset library", async () => {
+    const file = path.resolve(process.cwd(), "data", "assets", "library.json");
+    const raw = await fs.readFile(file, "utf8");
+    const json = JSON.parse(raw);
+    expect(() => validateAssetLibrary(json)).not.toThrow();
   });
 
   it("ensures every node type has templates across languages", async () => {
