@@ -12,7 +12,12 @@
     {
       "id": 0,
       "name": "in",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -22,7 +27,12 @@
     {
       "id": 0,
       "name": "out",
-      "type": "float"
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ]
     }
   ]
 }

@@ -1,6 +1,12 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { NodeTemplate } from "../schema/nodes";
 import { parseHandleId as _parseHandleId } from "./handles";
+import {
+  chooseDominantPinType,
+  guessPinTypeFromLiteral,
+  normalizePinType,
+  widenPinType,
+} from "../types/pinTypes";
 
 // Build the canonical graph JSON from ReactFlow nodes/edges.
 // Mirrors the logic in App.tsx but extracted for testability and reuse.
@@ -16,6 +22,7 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
 
   const map: Record<string, any> = {};
   const parentMap: Record<string, string | undefined> = {};
+  const polymorphic = new Map<any, { inputs: Set<number>; outputs: Set<number> }>();
   for (const n of nodes) {
     const t = (n.data as any)?.template as NodeTemplate | undefined;
     const base = t
@@ -30,6 +37,26 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
     base.outputs ??= [];
     // Remove transient meta used by polymorphic UIs
     base.meta = base.meta.filter((m: any) => !(m && typeof m === "object" && "current_pintype" in m));
+    const polyInfo = { inputs: new Set<number>(), outputs: new Set<number>() };
+    if (t?.inputs) {
+      base.inputs.forEach((p: any, idx: number) => {
+        const tmplPin = t.inputs?.[idx];
+        if (tmplPin && Array.isArray(tmplPin.type)) {
+          const id = typeof p.id === "number" ? p.id : idx;
+          polyInfo.inputs.add(id);
+        }
+      });
+    }
+    if (t?.outputs) {
+      base.outputs.forEach((p: any, idx: number) => {
+        const tmplPin = t.outputs?.[idx];
+        if (tmplPin && Array.isArray(tmplPin.type)) {
+          const id = typeof p.id === "number" ? p.id : idx;
+          polyInfo.outputs.add(id);
+        }
+      });
+    }
+    polymorphic.set(base, polyInfo);
     map[n.id] = base;
     parentMap[n.id] = (n as any).parentId;
   }
@@ -50,17 +77,6 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
     if (!m) return null;
     return { nodeId: m[1], pinId: Number(m[2]) };
   };
-  const inferScalarFromLiteral = (val: any): string | undefined => {
-    if (Array.isArray(val) && val.every((n) => typeof n === "number")) {
-      const len = val.length;
-      if (len === 1) return "float";
-      if (len === 2) return "float2";
-      if (len === 3) return "float3";
-      if (len === 4) return "float4";
-    }
-    return undefined;
-  };
-
   // Encode connections into both input and output
   for (const e of edges) {
     const src = map[e.source];
@@ -101,28 +117,63 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
   };
   for (const key of Object.keys(map)) {
     const node = map[key];
+    const candidateTypes: string[] = [];
+    const fallbackTypes: string[] = [];
+    const poly = polymorphic.get(node);
     for (const pin of node.inputs) {
-      const t = pin.type;
-      if (Array.isArray(t)) {
-        let resolved: string | undefined;
-        const ref = parseRef(pin.value);
-        if (ref) {
-          const src = map[ref.nodeId];
-          if (src) {
-            const st = getOutputType(src, ref.pinId);
-            if (st && t.includes(st)) resolved = st;
-          }
+      const declared = normalizePinType(pin.type);
+      if (declared) fallbackTypes.push(declared);
+      let resolved: string | undefined;
+      const ref = parseRef(pin.value);
+      if (ref) {
+        const src = map[ref.nodeId];
+        if (src) {
+          const st = getOutputType(src, ref.pinId);
+          if (st) resolved = st;
         }
-        if (!resolved) resolved = inferScalarFromLiteral(pin.value);
-        if (!resolved && t.length) resolved = t[0];
-        if (resolved) pin.type = resolved;
+      }
+      if (!resolved) resolved = guessPinTypeFromLiteral(pin.value);
+      if (resolved && Array.isArray(pin.type) && !pin.type.includes(resolved)) {
+        resolved = undefined;
+      }
+      if (Array.isArray(pin.type)) {
+        if (resolved) {
+          pin.type = resolved;
+        } else if (declared) {
+          pin.type = declared;
+        } else if (pin.type.length) {
+          pin.type = pin.type[0];
+        }
+      }
+      if (!resolved) resolved = typeof pin.type === "string" ? pin.type : declared;
+      if (resolved) candidateTypes.push(resolved);
+    }
+
+    const dominantType = chooseDominantPinType([...candidateTypes, ...fallbackTypes]);
+
+    for (const pin of node.inputs) {
+      const id = typeof pin.id === "number" ? pin.id : undefined;
+      const allowPoly = !!(id !== undefined && poly?.inputs.has(id));
+      const declared = normalizePinType(pin.type);
+      const targetType = widenPinType(dominantType, declared) ?? dominantType ?? declared;
+      if (!targetType) continue;
+      if (Array.isArray(pin.type)) {
+        pin.type = pin.type.includes(targetType) ? targetType : pin.type[0];
+      } else if (allowPoly) {
+        pin.type = targetType;
       }
     }
-    const firstResolvedInput = node.inputs.find((p: any) => typeof p.type === "string")?.type;
+
     for (const pin of node.outputs) {
-      const t = pin.type;
-      if (Array.isArray(t)) {
-        pin.type = (firstResolvedInput && t.includes(firstResolvedInput)) ? firstResolvedInput : t[0];
+      const id = typeof pin.id === "number" ? pin.id : undefined;
+      const allowPoly = !!(id !== undefined && poly?.outputs.has(id));
+      const declared = normalizePinType(pin.type);
+      const targetType = dominantType ?? declared;
+      if (!targetType) continue;
+      if (Array.isArray(pin.type)) {
+        pin.type = pin.type.includes(targetType) ? targetType : pin.type[0];
+      } else if (allowPoly) {
+        pin.type = targetType;
       }
     }
   }

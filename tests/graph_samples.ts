@@ -22,6 +22,41 @@ export function addition_graph() {
   return { surface, fragment_pass, fragment_output, color_a, color_b, add_node };
 }
 
+export function vector_scalar_addition_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+  const color_node = surface.create_node("color", fragment_pass);
+  const scalar_node = surface.create_node("float", fragment_pass);
+  const add_node = surface.create_node("add", fragment_pass);
+  surface.connect_nodes(color_node, add_node, 0, 0);
+  surface.connect_nodes(scalar_node, add_node, 0, 1);
+  surface.connect_nodes(add_node, fragment_output, 0, 0);
+  return { surface, fragment_pass, fragment_output, color_node, scalar_node, add_node };
+}
+
+export function vector_wave_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+  const baseColor = surface.create_node("color", fragment_pass);
+  const roughness = surface.create_node("float", fragment_pass);
+  const time = surface.create_node("time", fragment_pass);
+  const direction = surface.create_node("float3", fragment_pass);
+  direction.inputs[0].value = [1, 0, 0];
+  const mul = surface.create_node("multiply", fragment_pass);
+  const sin = surface.create_node("sin", fragment_pass);
+
+  surface.connect_nodes(baseColor, fragment_output, 0, 0);
+  surface.connect_nodes(roughness, fragment_output, 0, 1);
+  surface.connect_nodes(time, mul, 0, 0);
+  surface.connect_nodes(direction, mul, 0, 1);
+  surface.connect_nodes(mul, sin, 0, 0);
+  surface.connect_nodes(sin, fragment_output, 0, 3);
+
+  return { surface, fragment_pass, fragment_output, baseColor, roughness, time, direction, mul, sin };
+}
+
 export function float_graph() {
   const surface = new NodeBuilder("surface");
   const fragment_pass = surface.get_node_by_type("fragment_pass")!;

@@ -1,5 +1,12 @@
 import type { Graph, GraphNode, InputPin, LanguagePack } from "../graph/types";
 import { getNodeTemplate } from "../schema/registry";
+import {
+  chooseDominantPinType,
+  formatTypeForGLSL,
+  getPinTypeDescriptor,
+  guessPinTypeFromLiteral,
+  normalizePinType,
+} from "../types/pinTypes";
 
 function fmtNum(n: number): string {
   if (Number.isInteger(n)) return n.toFixed(1);
@@ -55,29 +62,58 @@ export class GraphCompiler {
   }
 
   private convert_type(value: string, from_type?: any, to_type?: any): string {
-    const order: Record<string, number> = { float: 1, float2: 2, float3: 3, float4: 4 };
-    const normalize = (t: any): string | undefined => {
-      if (Array.isArray(t)) return t[0];
-      if (typeof t === "string") return t;
-      return undefined;
-    };
-    const f = normalize(from_type);
-    const t = normalize(to_type);
-    if (!f || !t || f === t) return value;
-    if (order[f] && order[t]) {
-      const fn = order[f];
-      const tn = order[t];
-      if (fn > tn) {
-        const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
-        let swizzle = swz[tn];
-        if (fn === 4 && tn === 3) swizzle = "rgb";
-        if (fn === 4 && tn === 2) swizzle = "rg";
-        return `${value}.${swizzle}`;
+    const fromName = normalizePinType(from_type);
+    const toName = normalizePinType(to_type);
+    if (!fromName || !toName || fromName === toName) return value;
+    const fromDesc = getPinTypeDescriptor(fromName);
+    const toDesc = getPinTypeDescriptor(toName);
+    if (!fromDesc || !toDesc) return value;
+
+    if (fromDesc.kind === toDesc.kind) {
+      if (fromDesc.kind === "vector") {
+        const fn = fromDesc.components;
+        const tn = toDesc.components;
+        if (fn > tn) {
+          const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
+          let swizzle = swz[tn];
+          if (fn === 4 && tn === 3) swizzle = "rgb";
+          if (fn === 4 && tn === 2) swizzle = "rg";
+          return `${value}.${swizzle}`;
+        }
+        if (fn < tn) {
+          return `${toDesc.glslType}(${value})`;
+        }
+        return value;
       }
-      if (fn < tn) {
-        return `vec${tn}(${value})`;
+      if (fromDesc.kind === "matrix") {
+        if (fromDesc.components === toDesc.components) return value;
+        return `${toDesc.glslType}(${value})`;
       }
+      return value;
     }
+
+    if (fromDesc.kind === "scalar" && toDesc.kind === "vector") {
+      return `${toDesc.glslType}(${value})`;
+    }
+    if (fromDesc.kind === "vector" && toDesc.kind === "scalar") {
+      return `${value}.x`;
+    }
+    if (fromDesc.kind === "scalar" && toDesc.kind === "matrix") {
+      return `${toDesc.glslType}(${value})`;
+    }
+    if (fromDesc.kind === "matrix" && toDesc.kind === "scalar") {
+      return `${value}[0][0]`;
+    }
+    if (fromDesc.kind === "vector" && toDesc.kind === "matrix") {
+      return `${toDesc.glslType}(${value})`;
+    }
+    if (fromDesc.kind === "matrix" && toDesc.kind === "vector") {
+      const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
+      const comp = Math.min(toDesc.components, 4);
+      const suffix = swz[comp] ?? "x";
+      return `${value}[0].${suffix}`;
+    }
+
     return value;
   }
 
@@ -132,30 +168,78 @@ export class GraphCompiler {
 
     this.process_node(target);
     const output_pin = target.outputs.find((o) => o.id === output_id)!;
+    const resolved = (target as any)._resolved_type;
     if (Array.isArray(output_pin.type)) {
-      (input as any)._ref_type = (target as any)._resolved_type ?? output_pin.type[0];
+      (input as any)._ref_type = resolved ?? output_pin.type[0];
     } else {
-      (input as any)._ref_type = output_pin.type as string;
+      (input as any)._ref_type = resolved ?? (output_pin.type as string);
     }
     (input as any)._ref_node_id = target.id;
     (input as any).value = getUniqueNodeName(target);
   }
 
-  private resolve_template_input(node: GraphNode, match: string, index: number) {
-    const input = node.inputs[index];
+  private ensure_input_prepared(node: GraphNode, input: InputPin) {
+    const prepared = (input as any)._prepared;
+    if (prepared) return;
     if (typeof input.value === "string" && input.value.includes("../")) {
       this.resolve_ref(node, input);
+    } else if ((input as any)._ref_type === undefined) {
+      const inferred = guessPinTypeFromLiteral(input.value);
+      if (inferred) (input as any)._ref_type = inferred;
     }
-    let expected_type: any = (input as any).type;
-    if (Array.isArray(expected_type)) {
-      expected_type = (node as any)._resolved_type ?? (input as any)._ref_type ?? expected_type[0];
+    (input as any)._prepared = true;
+  }
+
+  private prepare_node_inputs(node: GraphNode, unifyType: boolean) {
+    if (!Array.isArray(node.inputs)) return;
+    if (!unifyType) {
+      (node as any)._resolved_type = undefined;
+      (node as any)._allow_resolved_type = false;
+    } else {
+      (node as any)._allow_resolved_type = true;
     }
-    if ((node as any)._resolved_type === undefined && typeof expected_type === "string") {
+    const candidate: string[] = [];
+    const fallback: string[] = [];
+    for (const input of node.inputs) {
+      this.ensure_input_prepared(node, input);
+      const refType = (input as any)._ref_type;
+      if (refType) candidate.push(refType);
+      const declared = normalizePinType(input.type);
+      if (declared) fallback.push(declared);
+      (input as any)._declared_type = declared;
+    }
+    if (unifyType) {
+      const resolved = chooseDominantPinType([...candidate, ...fallback]);
+      if (resolved) (node as any)._resolved_type = resolved;
+    }
+    for (const input of node.inputs) {
+      const declared = (input as any)._declared_type;
+      const refType = (input as any)._ref_type;
+      let target: string | undefined;
+      if (unifyType) {
+        target = (node as any)._resolved_type ?? refType ?? declared;
+      } else {
+        target = declared ?? refType;
+      }
+      if (target) (input as any)._expected_type = target;
+    }
+  }
+
+  private resolve_template_input(node: GraphNode, match: string, index: number) {
+    const input = node.inputs[index];
+    if (!input) return;
+    this.ensure_input_prepared(node, input);
+    const declared = normalizePinType(input.type);
+    let expected_type = (input as any)._expected_type ?? (node as any)._resolved_type ?? declared;
+    if (!expected_type) expected_type = declared;
+    const allowResolved = Boolean((node as any)._allow_resolved_type);
+    if (allowResolved && (node as any)._resolved_type === undefined && expected_type) {
       (node as any)._resolved_type = expected_type;
     }
     let code = resolveTypeLiteral(input.value);
-    if ((input as any)._ref_type) {
-      code = this.convert_type(code, (input as any)._ref_type, expected_type);
+    const fromType = (input as any)._ref_type ?? declared;
+    if (fromType || expected_type) {
+      code = this.convert_type(code, fromType, expected_type);
     }
     (input as any)._code = code;
     node._code = (node._code ?? "").replace(match, code);
@@ -195,6 +279,15 @@ export class GraphCompiler {
     // Replace indexed inputs
     const regex = /(\{\{inputs:(\d+)\}\})/g;
     const matches = [...(node._code?.matchAll(regex) ?? [])] as any[];
+    const needsType = !!node._code && node._code.includes("{{type}}");
+    this.prepare_node_inputs(node, needsType);
+    if (needsType && node._code) {
+      const resolved = (node as any)._resolved_type ?? normalizePinType(node.outputs?.[0]?.type);
+      const formatted = formatTypeForGLSL(resolved);
+      if (formatted) {
+        node._code = node._code.replace(/\{\{type\}\}/g, formatted);
+      }
+    }
     for (const m of matches) {
       const match = m[1] as string;
       const input_index = Number(m[2]);

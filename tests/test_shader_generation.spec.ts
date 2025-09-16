@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { mkdtempSync } from "fs";
@@ -65,6 +65,14 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
     expect(shader_code).toMatch(/ALBEDO = vec3\(add_\d+\.rgb\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "addition.gdshader");
+    await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("promotes scalar inputs when mixing types", async () => {
+    const { surface } = vector_scalar_addition_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "addition_mixed");
+    expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ vec4\(float_\d+\);/);
+    const out_file = path.join(SHADERS_DIR, "godot", "addition_mixed.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 
@@ -149,5 +157,16 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/ALPHA = float_\d+;/);
     const out_file = path.join(SHADERS_DIR, "godot", "fragment_features.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("sin node widens legacy scalar pins to vectors", async () => {
+    const { surface, sin, mul } = vector_wave_graph();
+    // Simulate legacy saved pins that still specify scalar types
+    for (const pin of mul.inputs) pin.type = "float";
+    mul.outputs[0].type = "float";
+    sin.inputs[0].type = "float";
+    sin.outputs[0].type = "float";
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "vector_wave_legacy");
+    expect(shader_code).toMatch(/vec3 sin_\d+ = sin\(multiply_\d+\);/);
   });
 });

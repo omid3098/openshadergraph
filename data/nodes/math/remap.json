@@ -12,7 +12,12 @@
     {
       "id": 0,
       "name": "in",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -20,7 +25,12 @@
     {
       "id": 1,
       "name": "in_min",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -28,7 +38,12 @@
     {
       "id": 2,
       "name": "in_max",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -36,7 +51,12 @@
     {
       "id": 3,
       "name": "out_min",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -44,7 +64,12 @@
     {
       "id": 4,
       "name": "out_max",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -54,7 +79,12 @@
     {
       "id": 0,
       "name": "out",
-      "type": "float"
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ]
     }
   ]
 }

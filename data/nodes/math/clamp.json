@@ -12,7 +12,12 @@
     {
       "id": 0,
       "name": "in",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -20,7 +25,12 @@
     {
       "id": 1,
       "name": "min",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -28,7 +38,12 @@
     {
       "id": 2,
       "name": "max",
-      "type": "float",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ],
       "value": [
         0.0
       ]
@@ -38,7 +53,12 @@
     {
       "id": 0,
       "name": "out",
-      "type": "float"
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4"
+      ]
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, exposed_addition_graph, texture_sampling_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, exposed_addition_graph, texture_sampling_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 
@@ -65,6 +65,14 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
     expect(shader_code).toMatch(/gl_FragColor\s*=\s*vec4\(add_\d+\.rgb,\s*1.0\);/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "addition.glsl");
+    await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("promotes scalar inputs when mixing types", async () => {
+    const { surface } = vector_scalar_addition_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "addition_mixed");
+    expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ vec4\(float_\d+\);/);
+    const out_file = path.join(SHADERS_DIR, "threejs_glsl", "addition_mixed.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 
