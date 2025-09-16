@@ -52,9 +52,11 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(shader_code).toMatch(/uniform\s+vec3\s+uRimColor\s*;/);
     expect(shader_code).toMatch(/uniform\s+vec3\s+uAmbient\s*;/);
     expect(shader_code).toMatch(/uniform\s+float\s+uExposure\s*;/);
+    expect(shader_code).toMatch(/uniform\s+float\s+uTime\s*;/);
     expect(shader_code).not.toMatch(/uniform\s+\w+\s+u(Key|Fill|Rim)(Dir|Color)\s*=\s*[^;]+;/);
     expect(shader_code).not.toMatch(/uniform\s+vec3\s+uAmbient\s*=\s*[^;]+;/);
     expect(shader_code).not.toMatch(/uniform\s+float\s+uExposure\s*=\s*[^;]+;/);
+    expect(shader_code).not.toMatch(/uniform\s+float\s+uTime\s*=\s*[^;]+;/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "basic_color.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });

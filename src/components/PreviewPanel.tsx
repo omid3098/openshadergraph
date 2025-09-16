@@ -64,6 +64,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const pmremRef = useRef<THREE.PMREMGenerator | null>(null);
   const envRTRef = useRef<THREE.WebGLRenderTarget | null>(null);
   const _lightDirsViewRef = useRef<{ key: THREE.Vector3; fill: THREE.Vector3; rim: THREE.Vector3 } | null>(null);
+  const samplerFallbackRef = useRef<THREE.DataTexture | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
@@ -72,6 +74,24 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const [fragCode, setFragCode] = useState<string>("");
   const [compileError, setCompileError] = useState<string>("");
   const [working, setWorking] = useState<boolean>(false);
+
+  const ensureSamplerFallback = useCallback((): THREE.DataTexture => {
+    if (!samplerFallbackRef.current) {
+      const data = new Uint8Array([255, 255, 255, 255]);
+      const tex = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+      tex.name = "PreviewFallbackTexture";
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.magFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.needsUpdate = true;
+      tex.flipY = false;
+      samplerFallbackRef.current = tex;
+    }
+    return samplerFallbackRef.current!;
+  }, []);
 
   // Compile the graph to ThreeJS GLSL fragment shader
   useEffect(() => {
@@ -140,8 +160,14 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     const ro = new ResizeObserver(handleResize);
     ro.observe(canvas);
 
-    const render = () => {
+    const render = (now: number) => {
       rafRef.current = requestAnimationFrame(render);
+      if (startTimeRef.current == null) startTimeRef.current = now;
+      const seconds = (now - startTimeRef.current) / 1000;
+      if (materialRef.current) {
+        const u = materialRef.current.uniforms as any;
+        if (u?.uTime) u.uTime.value = seconds;
+      }
       if (autoRotateRef.current && threeRef.current?.mesh) {
         threeRef.current.mesh.rotation.y += 0.01;
         threeRef.current.mesh.rotation.x += 0.005;
@@ -166,7 +192,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       }
       renderer.render(scene, camera);
     };
-    render();
+    rafRef.current = requestAnimationFrame(render);
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -175,6 +201,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       if (geometryRef.current) geometryRef.current.dispose();
       if (envRTRef.current) { envRTRef.current.dispose(); envRTRef.current = null; }
       if (pmremRef.current) { pmremRef.current.dispose(); pmremRef.current = null; }
+      if (samplerFallbackRef.current) { samplerFallbackRef.current.dispose(); samplerFallbackRef.current = null; }
+      startTimeRef.current = null;
       renderer.dispose();
       threeRef.current = null;
     };
@@ -244,6 +272,13 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         uniforms[key] = { value: val };
       }
     }
+    if (parsed.samplerUniforms.length) {
+      const fallbackTexture = ensureSamplerFallback();
+      for (const name of parsed.samplerUniforms) {
+        const current = uniforms[name];
+        if (!current || current.value == null) uniforms[name] = { value: fallbackTexture };
+      }
+    }
     // Ensure preview-owned environment/lighting uniforms exist with sensible defaults
     // Directions are provided in view space (updated every frame), initialize now to avoid a black first frame
     try {
@@ -265,6 +300,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     if (!uniforms.uRimColor) uniforms.uRimColor = { value: new THREE.Vector3(2.0, 2.0, 2.0) } as any;
     if (!uniforms.uAmbient) uniforms.uAmbient = { value: new THREE.Vector3(0.08, 0.08, 0.08) } as any;
     if (!uniforms.uExposure) uniforms.uExposure = { value: 1.3 } as any;
+    if (!uniforms.uTime) uniforms.uTime = { value: 0 } as any;
     const mat = new THREE.ShaderMaterial({
       vertexShader: defaultVertexShader(),
       fragmentShader: parsed.fragment,
@@ -279,8 +315,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     } as any);
     if (materialRef.current) materialRef.current.dispose();
     materialRef.current = mat;
+    startTimeRef.current = null;
     if (three.mesh) three.mesh.material = mat;
-  }, [fragCode, wireframe]);
+  }, [ensureSamplerFallback, fragCode, wireframe]);
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!resizing.current) return;

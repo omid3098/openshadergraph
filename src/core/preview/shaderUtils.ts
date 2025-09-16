@@ -12,6 +12,7 @@ export type ParsedUniform = {
 export type ParsedShader = {
   fragment: string;
   uniforms: ParsedUniform[];
+  samplerUniforms: string[];
 };
 
 // Match lines like: "uniform vec4 color_3 = vec4(1.0, 0.0, 0.0, 1.0);"
@@ -56,7 +57,12 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
     const leading = typeof p1 === "string" ? p1 : "\n";
     return `${leading}uniform ${type} ${name};`;
   });
-  return { fragment: out, uniforms };
+  const samplerUniforms = Array.from(
+    new Set(
+      [...out.matchAll(/uniform\s+sampler2D\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g)].map((m) => m[1])
+    )
+  );
+  return { fragment: out, uniforms, samplerUniforms };
 }
 
 export function defaultVertexShader(): string {
