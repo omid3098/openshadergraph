@@ -1,10 +1,10 @@
-# AGENTS – Minimal Working Agreement
+# OpenShaderGraph – Working Agreement
 
 Purpose: Keep agents aligned on the absolute essentials needed to build, test, and ship the TypeScript-first OpenShaderGraph. Be brief. Be consistent. Ship green. Focus on clean, maintainable and extensible code.
 
 ## Tech Stack
 - Runtime: `bun` (package manager + task runner)
-- Core + UI: TypeScript, ReactFlow
+- Core + UI: TypeScript, ShadCN for UI components and ReactFlow for graph rendering
 - Tests: `vitest` (unit), `playwright` (E2E/visual)
 - Lint/Format: ESLint (treat warnings as failures)
 - Docs via MCP: Context7 (for up-to-date library APIs)
@@ -13,7 +13,6 @@ Purpose: Keep agents aligned on the absolute essentials needed to build, test, a
 - Nodes: `data/nodes/**.json`
 - Base node schema: `data/node.json`
 - Language packs: `data/languages/*.json`
-- Python is reference only: `python_backup/**` must not be modified or used at runtime.
 
 Minimal graph rules:
 - IDs are integers unique within the graph hierarchy.
@@ -32,12 +31,12 @@ Minimal graph rules:
 - Keep token caps reasonable and request specific topics (e.g., "parent/child nodes", "edges API").
 
 ## Development Rules
-- Data integrity first: adhere to `data/node.json` and language packs; fail safe with clear errors on unknown/missing templates.
 - ALWAYS Tests first: add/modify unit tests in `src/core/**` and E2E tests in `e2e/**` for all new features and bug fixes.
+- Data integrity next: adhere to `data/node.json` and language packs; fail safe with clear errors on unknown/missing templates.
 - Small, surgical diffs; prefer targeted fixes over broad refactors.
 - When adding core features, extend the TypeScript core under `src/core/**` and keep UI as a thin consumer.
  - Preview source of truth: preview panel always renders using a ThreeJS GLSL fragment shader compiled from the current graph. Always compile `ThreeJS_GLSL` under the hood for preview, regardless of the selected output language.
- - Default compiler: default compile output language is `ThreeJS_GLSL`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
+ - Default compiler: default compile output language is `Godot`. Users can switch the compile output view, but preview remains bound to the ThreeJS GLSL compilation.
  - Centralized updates: define node update callbacks in `App` (e.g., `updateInputValue`, `updateNodeLabel`, `addNodeMeta`, `removeNodeMeta`) and attach them to `node.data`. Panels and renderers MUST use these callbacks instead of calling `rf.setNodes` directly.
  - Environment & lighting ownership: Never hardcode environment/lighting defaults inside shader templates. Declare uniforms only; do not assign default values in language packs. The ThreeJS 3D Preview owns and configures preview lighting (three‑point rig), ambient term, and exposure, and passes them as uniforms at runtime. The generated shader code must be environment‑agnostic so it can be embedded in other engines that provide their own lighting.
  - Exposure policy: Do not bake exposure into shader templates. If exposure is needed for preview, set it from the preview panel via a uniform or renderer option. Templates must not include exposure initializers.
