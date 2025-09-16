@@ -363,28 +363,6 @@
               ]
             },
             {
-              "id": 15,
-              "type": "texture",
-              "name": "Texture",
-              "meta": [
-                "exposed"
-              ],
-              "position": [
-                110,
-                -92
-              ],
-              "nodes": [],
-              "inputs": [],
-              "outputs": [
-                {
-                  "id": 0,
-                  "name": "texture",
-                  "type": "sampler2D",
-                  "value": "../16/0"
-                }
-              ]
-            },
-            {
               "id": 16,
               "type": "texture_sampler",
               "name": "TextureSampler",
@@ -399,7 +377,7 @@
                   "id": 0,
                   "name": "texture",
                   "type": "sampler2D",
-                  "value": "../15/0"
+                  "value": "../17/0"
                 },
                 {
                   "id": 1,
@@ -414,6 +392,29 @@
                   "name": "color",
                   "type": "float4",
                   "value": "../3/0"
+                }
+              ]
+            },
+            {
+              "id": 17,
+              "type": "texture",
+              "name": "UV Grid",
+              "meta": [
+                "exposed",
+                "asset:https://threejs.org/examples/textures/uv_grid_opengl.jpg"
+              ],
+              "position": [
+                127,
+                -88
+              ],
+              "nodes": [],
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": 0,
+                  "name": "texture",
+                  "type": "sampler2D",
+                  "value": "../16/0"
                 }
               ]
             }

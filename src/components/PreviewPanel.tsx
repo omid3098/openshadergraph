@@ -18,6 +18,36 @@ type PreviewPanelProps = {
 
 type Primitive = "sphere" | "cube" | "cylinder" | "custom";
 
+function collectTextureUniforms(graph: unknown): Map<string, string> {
+  const map = new Map<string, string>();
+  const stack: any[] = [];
+  if (graph && typeof graph === "object") stack.push(graph);
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node || typeof node !== "object") continue;
+    if (Array.isArray(node)) {
+      for (const item of node) stack.push(item);
+      continue;
+    }
+    const type = (node as any).type;
+    if (type === "texture") {
+      const id = Number((node as any).id);
+      if (Number.isFinite(id)) {
+        const meta = Array.isArray((node as any).meta) ? (node as any).meta : [];
+        const asset = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
+        if (asset) {
+          const source = asset.slice("asset:".length).trim();
+          if (source) map.set(`texture_${id}`, source);
+        }
+      }
+    }
+    if (Array.isArray((node as any).nodes)) {
+      for (const child of (node as any).nodes) stack.push(child);
+    }
+  }
+  return map;
+}
+
 export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState<number>(() => {
@@ -73,6 +103,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const customGeometryRef = useRef<THREE.BufferGeometry | null>(null);
   const [customGeometryVersion, setCustomGeometryVersion] = useState(0);
   const gltfLoaderRef = useRef<any>(null);
+  const textureCacheRef = useRef<Map<string, THREE.Texture>>(new Map());
+  const pendingTextureLoadsRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number | null>(null);
   const autoRotateRef = useRef<boolean>(false);
   const pmremRef = useRef<THREE.PMREMGenerator | null>(null);
@@ -84,6 +116,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
   }, [graph]);
+  const textureAssignments = useMemo(() => collectTextureUniforms(stableGraph), [stableGraph]);
 
   const [fragCode, setFragCode] = useState<string>("");
   const [compileError, setCompileError] = useState<string>("");
@@ -297,11 +330,25 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         uniforms[key] = { value: val };
       }
     }
+    const missingTextures: Array<{ name: string; url: string }> = [];
     if (parsed.samplerUniforms.length) {
       const fallbackTexture = ensureSamplerFallback();
       for (const name of parsed.samplerUniforms) {
-        const current = uniforms[name];
-        if (!current || current.value == null) uniforms[name] = { value: fallbackTexture };
+        const assetUrl = textureAssignments.get(name);
+        if (assetUrl) {
+          const cached = textureCacheRef.current.get(assetUrl);
+          if (cached) {
+            uniforms[name] = { value: cached };
+          } else {
+            uniforms[name] = { value: fallbackTexture };
+            if (!pendingTextureLoadsRef.current.has(assetUrl)) {
+              missingTextures.push({ name, url: assetUrl });
+            }
+          }
+        } else {
+          const current = uniforms[name];
+          if (!current || current.value == null) uniforms[name] = { value: fallbackTexture };
+        }
       }
     }
     // Ensure preview-owned environment/lighting uniforms exist with sensible defaults
@@ -342,7 +389,45 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     materialRef.current = mat;
     startTimeRef.current = null;
     if (three.mesh) three.mesh.material = mat;
-  }, [ensureSamplerFallback, fragCode, wireframe]);
+    let cancelled = false;
+    if (missingTextures.length) {
+      const loader = new THREE.TextureLoader();
+      if ((loader as any).setCrossOrigin) (loader as any).setCrossOrigin("anonymous");
+      else loader.crossOrigin = "anonymous";
+      for (const { name, url } of missingTextures) {
+        pendingTextureLoadsRef.current.add(url);
+        loader.load(
+          url,
+          (texture) => {
+            pendingTextureLoadsRef.current.delete(url);
+            if (cancelled) {
+              texture.dispose();
+              return;
+            }
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.flipY = false;
+            texture.needsUpdate = true;
+            textureCacheRef.current.set(url, texture);
+            for (const [uName, uUrl] of textureAssignments) {
+              if (uUrl !== url) continue;
+              const uniform = materialRef.current?.uniforms?.[uName];
+              if (uniform) uniform.value = texture;
+            }
+            if (materialRef.current) materialRef.current.needsUpdate = true;
+          },
+          undefined,
+          () => {
+            pendingTextureLoadsRef.current.delete(url);
+            if (!cancelled) console.warn("Failed to load texture asset", url);
+          }
+        );
+      }
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureSamplerFallback, fragCode, wireframe, textureAssignments]);
 
   const loadModelAsset = useCallback(async (source: string, label: string) => {
     setModelStatus(`Loading ${label}…`);
