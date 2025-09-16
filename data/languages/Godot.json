@@ -9,10 +9,10 @@
       "template": "shader_type spatial;\n{{meta}}\n{{exposed_nodes}}\n{{internal_nodes}}\n"
     },
     "vertex_pass": {
-      "template": "void vertex() {\n{{internal_nodes}}\n}\n"
+      "template": "void vertex() {\n{{internal_nodes}}}\n"
     },
     "fragment_pass": {
-      "template": "void fragment() {\n{{internal_nodes}}\n}\n"
+      "template": "void fragment() {\n{{internal_nodes}}}\n"
     },
     "color": {
       "template": "vec4 {{name}} = vec4({{inputs:0}});"
