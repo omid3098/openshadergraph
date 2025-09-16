@@ -25,6 +25,7 @@ import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
+import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -55,6 +56,36 @@ export function App() {
 
   const onConnect = (params: Connection) =>
     setEdges((eds) => addEdge(params, eds));
+
+  const paletteByType = useMemo(() => {
+    const map = new Map<string, NodePaletteItem>();
+    if (palette) {
+      for (const item of palette.flat ?? []) {
+        map.set(item.type, item);
+      }
+    }
+    return map;
+  }, [palette]);
+
+  const templateCache = useRef(new Map<string, NodeTemplate>());
+
+  const loadTemplateDefaults = useCallback(
+    async (type: string): Promise<NodeTemplate | undefined> => {
+      if (!type) return undefined;
+      if (templateCache.current.has(type)) return templateCache.current.get(type);
+      const item = paletteByType.get(type);
+      if (!item) return undefined;
+      try {
+        const tpl = await fetchNodeTemplate(item.path);
+        templateCache.current.set(type, tpl);
+        return tpl;
+      } catch (err) {
+        console.warn("Failed to fetch node defaults for", type, err);
+        return undefined;
+      }
+    },
+    [paletteByType]
+  );
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -306,12 +337,50 @@ export function App() {
     setNodes((prev) => [...prev, rfNode as any]);
   };
 
-  const deleteNodeById = (id: string) => {
-    const node = rf.getNode(id);
-    if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
-    setNodes((ns) => ns.filter((n) => n.id !== id));
-    setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
-  };
+  const deleteNodeById = useCallback(
+    async (id: string) => {
+      const node = rf.getNode(id);
+      if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
+      const removed = new Set<string>([id]);
+      const dependents = rf
+        .getNodes()
+        .filter((n) => n.id !== id)
+        .filter((n) => {
+          const tpl: any = (n.data as any)?.template;
+          if (!tpl || !Array.isArray(tpl.inputs)) return false;
+          return tpl.inputs.some((pin: any) => {
+            if (typeof pin?.value !== "string") return false;
+            const m = pin.value.match(/^\.\.\/(\d+)\/(\d+)$/);
+            return !!(m && removed.has(m[1]));
+          });
+        });
+
+      const defaultsByNodeId = new Map<string, NodeTemplate>();
+      for (const dep of dependents) {
+        const depType = ((dep.data as any)?.template?.type ?? (dep.data as any)?.type) as string | undefined;
+        if (!depType) continue;
+        const tpl = await loadTemplateDefaults(depType);
+        if (tpl) defaultsByNodeId.set(dep.id, tpl);
+      }
+
+      setNodes((ns) =>
+        ns
+          .filter((n) => n.id !== id)
+          .map((n) => {
+            const defaults = defaultsByNodeId.get(n.id);
+            if (!defaults) return n;
+            const tpl: any = (n.data as any)?.template;
+            if (!tpl || !Array.isArray(tpl.inputs)) return n;
+            const { changed, inputs } = restoreInputsToDefaults(tpl.inputs, defaults.inputs, removed);
+            if (!changed) return n;
+            const nextTpl = { ...tpl, inputs };
+            return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
+          })
+      );
+      setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+    },
+    [loadTemplateDefaults, rf, setEdges, setNodes]
+  );
 
   // Group selected nodes into a new container node with dynamic I/O
   const groupSelected = () => {
@@ -441,9 +510,9 @@ export function App() {
           await addNodeAt({ item, x: menu.x, y: menu.y });
           setMenu((m) => ({ ...m, open: false }));
         }}
-        onDeleteNode={(id) => {
+        onDeleteNode={async (id) => {
           if (!id) return;
-          deleteNodeById(id);
+          await deleteNodeById(id);
           setMenu((m) => ({ ...m, open: false }));
         }}
         onClose={() => setMenu((m) => ({ ...m, open: false }))}

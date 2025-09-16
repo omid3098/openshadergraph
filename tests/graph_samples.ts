@@ -78,6 +78,29 @@ export function exposed_addition_graph() {
   return { surface, fragment_pass, fragment_output, red, green, add_node };
 }
 
+export function texture_sampling_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+  const textureNode = surface.create_node("texture", fragment_pass);
+  const sampler = surface.create_node("texture_sampler", fragment_pass);
+  const uvConst = surface.create_node("float2", fragment_pass);
+  const emission = surface.create_node("float3", fragment_pass);
+  const alpha = surface.create_node("float4", fragment_pass);
+
+  uvConst.inputs[0].value = [0.5, 0.25];
+  emission.inputs[0].value = [0.1, 0.2, 0.3];
+  alpha.inputs[0].value = [0.9, 0.7, 0.5, 0.25];
+
+  surface.connect_nodes(textureNode, sampler, 0, 0);
+  surface.connect_nodes(uvConst, sampler, 0, 1);
+  surface.connect_nodes(sampler, fragment_output, 0, 0);
+  surface.connect_nodes(emission, fragment_output, 0, 3);
+  surface.connect_nodes(alpha, fragment_output, 0, 5);
+
+  return { surface, fragment_pass, fragment_output, textureNode, sampler, uvConst, emission, alpha };
+}
+
 export function full_fragment_graph() {
   const surface = new NodeBuilder("surface");
   const fragment_pass = surface.get_node_by_type("fragment_pass")!;

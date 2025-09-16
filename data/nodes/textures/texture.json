@@ -1,0 +1,21 @@
+{
+  "id": -1,
+  "type": "texture",
+  "name": "Texture",
+  "meta": [
+    "exposed"
+  ],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "texture",
+      "type": "sampler2D"
+    }
+  ]
+}

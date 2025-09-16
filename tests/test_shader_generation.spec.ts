@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { mkdtempSync } from "fs";
@@ -114,6 +114,21 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
     expect(shader_code).toMatch(/ALBEDO = vec3\(add_\d+\.rgb\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "exposed.gdshader");
+    await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("vector constants and texture sampling compile", async () => {
+    const { surface } = texture_sampling_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_sampling");
+    expect(shader_code).toMatch(/uniform sampler2D texture_\d+;/);
+    expect(shader_code).toMatch(/vec2 float2_\d+ = vec2\(0.5, 0.25\);/);
+    expect(shader_code).toMatch(/vec3 float3_\d+ = vec3\(0.1, 0.2, 0.3\);/);
+    expect(shader_code).toMatch(/vec4 float4_\d+ = vec4\(0.9, 0.7, 0.5, 0.25\);/);
+    expect(shader_code).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+, float2_\d+\);/);
+    expect(shader_code).toMatch(/ALBEDO = vec3\(texture_sampler_\d+\.rgb\);/);
+    expect(shader_code).toMatch(/EMISSION = vec3\(float3_\d+\);/);
+    expect(shader_code).toMatch(/ALPHA = float4_\d+\.x;/);
+    const out_file = path.join(SHADERS_DIR, "godot", "texture_sampling.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 

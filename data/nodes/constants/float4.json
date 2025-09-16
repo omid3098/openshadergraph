@@ -1,0 +1,31 @@
+{
+  "id": -1,
+  "type": "float4",
+  "name": "Float4",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "in",
+      "type": "float4",
+      "value": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "out",
+      "type": "float4"
+    }
+  ]
+}

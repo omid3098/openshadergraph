@@ -3,173 +3,429 @@
     "name": "Basic Color",
     "meta": [],
     "nodes": [
-        {
-            "id": 0,
-            "type": "surface",
-            "name": "Surface",
+      {
+        "id": 0,
+        "type": "surface",
+        "name": "Surface",
+        "meta": [],
+        "position": [
+          0,
+          0
+        ],
+        "nodes": [
+          {
+            "id": 1,
+            "type": "vertex_pass",
+            "name": "VertexPass",
             "meta": [],
             "position": [
-                0,
-                0
+              0,
+              0
+            ],
+            "nodes": [],
+            "inputs": [],
+            "outputs": []
+          },
+          {
+            "id": 2,
+            "type": "fragment_pass",
+            "name": "FragmentPass",
+            "meta": [],
+            "position": [
+              320,
+              160
             ],
             "nodes": [
-                {
+              {
+                "id": 3,
+                "type": "fragment_output",
+                "name": "FragmentOutput",
+                "meta": [
+                  "shading_pbr"
+                ],
+                "position": [
+                  560,
+                  40
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "Albedo",
+                    "type": "float3",
+                    "value": "../16/0"
+                  },
+                  {
                     "id": 1,
-                    "type": "vertex_pass",
-                    "name": "VertexPass",
-                    "meta": [],
-                    "position": [
-                        0,
-                        0
-                    ],
-                    "nodes": [],
-                    "inputs": [],
-                    "outputs": []
-                },
-                {
+                    "name": "Roughness",
+                    "type": "float",
+                    "value": "../5/0"
+                  },
+                  {
                     "id": 2,
-                    "type": "fragment_pass",
-                    "name": "FragmentPass",
-                    "meta": [],
-                    "position": [
-                        320,
-                        160
-                    ],
-                    "nodes": [
-                        {
-                            "id": 3,
-                            "type": "fragment_output",
-                            "name": "FragmentOutput",
-                            "meta": [
-                                "shading_pbr"
-                            ],
-                            "position": [
-                                560,
-                                40
-                            ],
-                            "nodes": [],
-                            "inputs": [
-                                {
-                                    "id": 0,
-                                    "name": "Albedo",
-                                    "type": "float3",
-                                    "value": "../4/0"
-                                },
-                                {
-                                    "id": 1,
-                                    "name": "Roughness",
-                                    "type": "float",
-                                    "value": "../5/0"
-                                },
-                                {
-                                    "id": 2,
-                                    "name": "Metallic",
-                                    "type": "float",
-                                    "value": [
-                                        0
-                                    ]
-                                },
-                                {
-                                    "id": 3,
-                                    "name": "Emission",
-                                    "type": "float3",
-                                    "value": [
-                                        0,
-                                        0,
-                                        0
-                                    ]
-                                },
-                                {
-                                    "id": 4,
-                                    "name": "Normal",
-                                    "type": "float3",
-                                    "value": [
-                                        0,
-                                        0,
-                                        1
-                                    ]
-                                },
-                                {
-                                    "id": 5,
-                                    "name": "Alpha",
-                                    "type": "float",
-                                    "value": [
-                                        1
-                                    ]
-                                }
-                            ],
-                            "outputs": []
-                        },
-                        {
-                            "id": 4,
-                            "type": "color",
-                            "name": "Color",
-                            "meta": [],
-                            "position": [
-                                274,
-                                -5
-                            ],
-                            "nodes": [],
-                            "inputs": [
-                                {
-                                    "id": 0,
-                                    "name": "in",
-                                    "type": "float4",
-                                    "value": [
-                                        0.6313725490196078,
-                                        1,
-                                        0.592156862745098,
-                                        1
-                                    ]
-                                }
-                            ],
-                            "outputs": [
-                                {
-                                    "id": 0,
-                                    "name": "out",
-                                    "type": "float4",
-                                    "value": "../3/0"
-                                }
-                            ]
-                        },
-                        {
-                            "id": 5,
-                            "type": "float",
-                            "name": "Float",
-                            "meta": [],
-                            "position": [
-                                273,
-                                74
-                            ],
-                            "nodes": [],
-                            "inputs": [
-                                {
-                                    "id": 0,
-                                    "name": "in",
-                                    "type": "float",
-                                    "value": [
-                                        0.1
-                                    ]
-                                }
-                            ],
-                            "outputs": [
-                                {
-                                    "id": 0,
-                                    "name": "out",
-                                    "type": "float",
-                                    "value": "../3/1"
-                                }
-                            ]
-                        }
-                    ],
-                    "inputs": [],
-                    "outputs": []
-                }
+                    "name": "Metallic",
+                    "type": "float",
+                    "value": [
+                      0
+                    ]
+                  },
+                  {
+                    "id": 3,
+                    "name": "Emission",
+                    "type": "float3",
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ]
+                  },
+                  {
+                    "id": 4,
+                    "name": "Normal",
+                    "type": "float3",
+                    "value": [
+                      0,
+                      0,
+                      1
+                    ]
+                  },
+                  {
+                    "id": 5,
+                    "name": "Alpha",
+                    "type": "float",
+                    "value": [
+                      1
+                    ]
+                  }
+                ],
+                "outputs": []
+              },
+              {
+                "id": 5,
+                "type": "float",
+                "name": "Float",
+                "meta": [],
+                "position": [
+                  -320,
+                  280
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "in",
+                    "type": "float",
+                    "value": [
+                      0.5
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float",
+                    "value": "../3/1"
+                  }
+                ]
+              },
+              {
+                "id": 6,
+                "type": "time",
+                "name": "Time",
+                "meta": [],
+                "position": [
+                  -890,
+                  53
+                ],
+                "nodes": [],
+                "inputs": [],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float",
+                    "value": "../7/0"
+                  }
+                ]
+              },
+              {
+                "id": 7,
+                "type": "multiply",
+                "name": "Multiply",
+                "meta": [],
+                "position": [
+                  -664,
+                  112
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "a",
+                    "type": "float",
+                    "value": "../6/0"
+                  },
+                  {
+                    "id": 1,
+                    "name": "b",
+                    "type": "float",
+                    "value": "../12/0"
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float",
+                    "value": "../9/0"
+                  }
+                ]
+              },
+              {
+                "id": 9,
+                "type": "sin",
+                "name": "Sin",
+                "meta": [],
+                "position": [
+                  -475,
+                  120
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "in",
+                    "type": "float",
+                    "value": "../7/0"
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float",
+                    "value": "../10/0"
+                  }
+                ]
+              },
+              {
+                "id": 10,
+                "type": "multiply",
+                "name": "Multiply",
+                "meta": [],
+                "position": [
+                  -268,
+                  124
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "a",
+                    "type": "float",
+                    "value": "../9/0"
+                  },
+                  {
+                    "id": 1,
+                    "name": "b",
+                    "type": "float",
+                    "value": [
+                      0.5
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float",
+                    "value": "../11/0"
+                  }
+                ]
+              },
+              {
+                "id": 11,
+                "type": "add",
+                "name": "Add",
+                "meta": [],
+                "position": [
+                  -76,
+                  125
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "a",
+                    "type": "float",
+                    "value": "../10/0"
+                  },
+                  {
+                    "id": 1,
+                    "name": "b",
+                    "type": "float",
+                    "value": [
+                      0.5
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float",
+                    "value": "../14/1"
+                  }
+                ]
+              },
+              {
+                "id": 12,
+                "type": "float2",
+                "name": "Float2",
+                "meta": [],
+                "position": [
+                  -887,
+                  174
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "in",
+                    "type": "float2",
+                    "value": [
+                      0,
+                      0
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float2",
+                    "value": "../7/1"
+                  }
+                ]
+              },
+              {
+                "id": 13,
+                "type": "uv",
+                "name": "UV",
+                "meta": [],
+                "position": [
+                  -76,
+                  -1
+                ],
+                "nodes": [],
+                "inputs": [],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float2",
+                    "value": "../14/0"
+                  }
+                ]
+              },
+              {
+                "id": 14,
+                "type": "add",
+                "name": "Add",
+                "meta": [],
+                "position": [
+                  131,
+                  47
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "a",
+                    "type": "float2",
+                    "value": "../13/0"
+                  },
+                  {
+                    "id": 1,
+                    "name": "b",
+                    "type": "float",
+                    "value": "../11/0"
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "out",
+                    "type": "float2",
+                    "value": "../16/1"
+                  }
+                ]
+              },
+              {
+                "id": 15,
+                "type": "texture",
+                "name": "Texture",
+                "meta": [
+                  "exposed"
+                ],
+                "position": [
+                  110,
+                  -92
+                ],
+                "nodes": [],
+                "inputs": [],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "texture",
+                    "type": "sampler2D",
+                    "value": "../16/0"
+                  }
+                ]
+              },
+              {
+                "id": 16,
+                "type": "texture_sampler",
+                "name": "TextureSampler",
+                "meta": [],
+                "position": [
+                  346,
+                  -45
+                ],
+                "nodes": [],
+                "inputs": [
+                  {
+                    "id": 0,
+                    "name": "texture",
+                    "type": "sampler2D",
+                    "value": "../15/0"
+                  },
+                  {
+                    "id": 1,
+                    "name": "uv",
+                    "type": "float2",
+                    "value": "../14/0"
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": 0,
+                    "name": "color",
+                    "type": "float4",
+                    "value": "../3/0"
+                  }
+                ]
+              }
             ],
             "inputs": [],
             "outputs": []
-        }
+          }
+        ],
+        "inputs": [],
+        "outputs": []
+      }
     ],
     "inputs": [],
     "outputs": []
-}
+  }

@@ -1,0 +1,34 @@
+{
+  "id": -1,
+  "type": "texture_sampler",
+  "name": "TextureSampler",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "texture",
+      "type": "sampler2D"
+    },
+    {
+      "id": 1,
+      "name": "uv",
+      "type": "float2",
+      "value": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "color",
+      "type": "float4"
+    }
+  ]
+}

@@ -36,4 +36,35 @@ describe("data schema validation", () => {
       expect(() => validateLanguagePack(json)).not.toThrow();
     }
   });
+
+  it("ensures every node type has templates across languages", async () => {
+    const nodeRoot = path.resolve(process.cwd(), "data", "nodes");
+    const nodeTypes = new Set<string>();
+    await walk(nodeRoot, async (abs, rel) => {
+      if (!rel.endsWith(".json")) return;
+      const raw = await fs.readFile(abs, "utf8");
+      const json = JSON.parse(raw);
+      const t = typeof json.type === "string" ? json.type.trim() : "";
+      if (!t) return;
+      nodeTypes.add(t);
+    });
+
+    const langRoot = path.resolve(process.cwd(), "data", "languages");
+    const languageFiles: string[] = [];
+    await walk(langRoot, async (abs, rel) => { if (rel.endsWith(".json")) languageFiles.push(abs); });
+    for (const file of languageFiles) {
+      const raw = await fs.readFile(file, "utf8");
+      const lang = JSON.parse(raw);
+      const nodes = lang?.nodes ?? {};
+      const missing: string[] = [];
+      for (const type of nodeTypes) {
+        if (!nodes[type] || typeof nodes[type].template !== "string" || nodes[type].template.length === 0) {
+          missing.push(type);
+        }
+      }
+      if (missing.length) {
+        throw new Error(`Language '${lang?.name ?? path.basename(file)}' missing templates for: ${missing.join(", ")}`);
+      }
+    }
+  });
 });

@@ -20,6 +20,15 @@
     "float": {
       "template": "float {{name}} = {{inputs:0}};"
     },
+    "float2": {
+      "template": "vec2 {{name}} = vec2({{inputs:0}});"
+    },
+    "float3": {
+      "template": "vec3 {{name}} = vec3({{inputs:0}});"
+    },
+    "float4": {
+      "template": "vec4 {{name}} = vec4({{inputs:0}});"
+    },
     "fragment_output": {
       "template": "ALBEDO = vec3({{inputs:0}});\nROUGHNESS = {{inputs:1}};\nMETALLIC = {{inputs:2}};\nEMISSION = vec3({{inputs:3}});\nNORMAL = vec3({{inputs:4}});\nALPHA = {{inputs:5}};"
     },
@@ -142,6 +151,12 @@
     },
     "time": {
       "template": "float {{name}} = TIME;"
+    },
+    "texture": {
+      "template": "sampler2D {{name}};"
+    },
+    "texture_sampler": {
+      "template": "vec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});"
     },
     "vertex_color": {
       "template": "vec4 {{name}} = COLOR;"

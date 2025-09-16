@@ -20,11 +20,158 @@
     "float": {
       "template": "float {{name}} = {{inputs:0}};"
     },
+    "float2": {
+      "template": "vec2 {{name}} = vec2({{inputs:0}});"
+    },
+    "float3": {
+      "template": "vec3 {{name}} = vec3({{inputs:0}});"
+    },
+    "float4": {
+      "template": "vec4 {{name}} = vec4({{inputs:0}});"
+    },
     "fragment_output": {
       "template": "#if defined(SHADING_PBR)\nvec3 baseColor = vec3({{inputs:0}});\nfloat roughness = clamp({{inputs:1}}, 0.04, 1.0);\nfloat metalness = clamp({{inputs:2}}, 0.0, 1.0);\nvec3 emission = vec3({{inputs:3}});\nvec3 nrm_in = vec3({{inputs:4}});\nfloat alpha = {{inputs:5}};\n// Combine geometry normal with input delta (so default (0,0,1) means keep vNormal)\nvec3 N = normalize(vNormal + (nrm_in - vec3(0.0, 0.0, 1.0)));\nvec3 V = normalize(vViewPosition);\nfloat a = max(0.001, roughness * roughness);\nvec3 f0 = mix(vec3(0.04), baseColor, metalness);\n\nvec3 Lo = vec3(0.0);\nfloat NoV = saturate(dot(N, V));\n\n// Key light (safe normalize)\n{\n  float lenL = max(length(uKeyDir), 1e-6);\n  vec3 L = uKeyDir / lenL;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (uKeyColor * NoL);\n}\n// Fill light (safe normalize)\n{\n  float lenL = max(length(uFillDir), 1e-6);\n  vec3 L = uFillDir / lenL;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (uFillColor * NoL);\n}\n// Rim light (safe normalize)\n{\n  float lenL = max(length(uRimDir), 1e-6);\n  vec3 L = uRimDir / lenL;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (uRimColor * NoL);\n}\n\n// Ambient term\nLo += uAmbient * baseColor;\n\nvec3  color = saturate((Lo + emission) * uExposure);\ngl_FragColor = vec4(color, alpha);\n#elif defined(SHADING_TOON)\nvec3 baseColor = vec3({{inputs:0}});\nfloat alpha = {{inputs:5}};\nvec3 N = normalize(vNormal);\nfloat lenL = max(length(uKeyDir), 1e-6);\nvec3 L = uKeyDir / lenL;\nfloat ndl = max(dot(N, L), 0.0);\nfloat ramp = step(0.2, ndl) + step(0.6, ndl);\nramp = clamp(ramp, 0.0, 1.0);\nvec3 color = mix(baseColor * 0.6, baseColor, ramp);\ngl_FragColor = vec4(color, alpha);\n#else\n// Unlit fallback\ngl_FragColor = vec4({{inputs:0}}, {{inputs:5}});\n#endif"
     },
     "add": {
       "template": "vec4 {{name}} = {{inputs:0}} + {{inputs:1}};"
+    },
+    "multiply": {
+      "template": "float {{name}} = {{inputs:0}} * {{inputs:1}};"
+    },
+    "subtract": {
+      "template": "float {{name}} = {{inputs:0}} - {{inputs:1}};"
+    },
+    "divide": {
+      "template": "float {{name}} = {{inputs:0}} / {{inputs:1}};"
+    },
+    "remainder": {
+      "template": "float {{name}} = mod({{inputs:0}}, {{inputs:1}});"
+    },
+    "power": {
+      "template": "float {{name}} = pow({{inputs:0}}, {{inputs:1}});"
+    },
+    "pow": {
+      "template": "float {{name}} = pow({{inputs:0}}, {{inputs:1}});"
+    },
+    "max": {
+      "template": "float {{name}} = max({{inputs:0}}, {{inputs:1}});"
+    },
+    "min": {
+      "template": "float {{name}} = min({{inputs:0}}, {{inputs:1}});"
+    },
+    "atan2": {
+      "template": "float {{name}} = atan({{inputs:0}}, {{inputs:1}});"
+    },
+    "reflect": {
+      "template": "vec3 {{name}} = reflect({{inputs:0}}, {{inputs:1}});"
+    },
+    "step": {
+      "template": "float {{name}} = step({{inputs:0}}, {{inputs:1}});"
+    },
+    "cross": {
+      "template": "vec3 {{name}} = cross({{inputs:0}}, {{inputs:1}});"
+    },
+    "lerp": {
+      "template": "float {{name}} = mix({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+    },
+    "abs": {
+      "template": "float {{name}} = abs({{inputs:0}});"
+    },
+    "acos": {
+      "template": "float {{name}} = acos({{inputs:0}});"
+    },
+    "asin": {
+      "template": "float {{name}} = asin({{inputs:0}});"
+    },
+    "atan": {
+      "template": "float {{name}} = atan({{inputs:0}});"
+    },
+    "ceil": {
+      "template": "float {{name}} = ceil({{inputs:0}});"
+    },
+    "clamp": {
+      "template": "float {{name}} = clamp({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+    },
+    "cos": {
+      "template": "float {{name}} = cos({{inputs:0}});"
+    },
+    "exp": {
+      "template": "float {{name}} = exp({{inputs:0}});"
+    },
+    "floor": {
+      "template": "float {{name}} = floor({{inputs:0}});"
+    },
+    "fract": {
+      "template": "float {{name}} = fract({{inputs:0}});"
+    },
+    "inversesqrt": {
+      "template": "float {{name}} = inversesqrt({{inputs:0}});"
+    },
+    "log": {
+      "template": "float {{name}} = log({{inputs:0}});"
+    },
+    "log2": {
+      "template": "float {{name}} = log2({{inputs:0}});"
+    },
+    "negate": {
+      "template": "float {{name}} = -{{inputs:0}};"
+    },
+    "oneminus": {
+      "template": "float {{name}} = 1.0 - {{inputs:0}};"
+    },
+    "radians": {
+      "template": "float {{name}} = radians({{inputs:0}});"
+    },
+    "reciprocal": {
+      "template": "float {{name}} = 1.0 / {{inputs:0}};"
+    },
+    "remap": {
+      "template": "float {{name}} = ({{inputs:0}} - {{inputs:1}}) / ({{inputs:2}} - {{inputs:1}}) * ({{inputs:4}} - {{inputs:3}}) + {{inputs:3}};"
+    },
+    "round": {
+      "template": "float {{name}} = round({{inputs:0}});"
+    },
+    "saturate": {
+      "template": "float {{name}} = clamp({{inputs:0}}, 0.0, 1.0);"
+    },
+    "sin": {
+      "template": "float {{name}} = sin({{inputs:0}});"
+    },
+    "sqrt": {
+      "template": "float {{name}} = sqrt({{inputs:0}});"
+    },
+    "smoothstep": {
+      "template": "float {{name}} = smoothstep({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+    },
+    "tan": {
+      "template": "float {{name}} = tan({{inputs:0}});"
+    },
+    "separate_xyz": {
+      "template": "vec3 {{name}} = {{inputs:0}};"
+    },
+    "time": {
+      "template": "float {{name}} = TIME;"
+    },
+    "texture": {
+      "template": "sampler2D {{name}};"
+    },
+    "texture_sampler": {
+      "template": "vec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});"
+    },
+    "vertex_color": {
+      "template": "vec4 {{name}} = COLOR;"
+    },
+    "vertex_position": {
+      "template": "vec3 {{name}} = VERTEX;"
+    },
+    "uv": {
+      "template": "vec2 {{name}} = UV;"
+    },
+    "uv2": {
+      "template": "vec2 {{name}} = UV2;"
+    },
+    "vertex_normal": {
+      "template": "vec3 {{name}} = NORMAL;"
     }
   },
   "meta": {
@@ -40,14 +187,17 @@
     "shading_unlit": {
       "template": "#define SHADING_UNLIT 1"
     },
+    "varing": {
+      "template": "varing {{definitaion}}"
+    },
+    "exposed": {
+      "template": "uniform {{definition}}"
+    },
     "shading_pbr": {
       "template": "#define SHADING_PBR 1"
     },
     "shading_toon": {
       "template": "#define SHADING_TOON 1"
-    },
-    "exposed": {
-      "template": "uniform {{definition}}"
     }
   }
 }
