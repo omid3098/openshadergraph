@@ -4,7 +4,12 @@ import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
-import { defaultVertexShader, parseUniformsAndSanitize, toThreeUniforms } from "@/core/preview/shaderUtils";
+import {
+  defaultVertexShader,
+  parseUniformsAndSanitize,
+  toThreeUniforms,
+  extractPreviewShaders,
+} from "@/core/preview/shaderUtils";
 import { isCompilableGraph } from "@/core/io/guards";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "@/core/assets/kind";
 import * as THREE from "three";
@@ -231,6 +236,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const samplerSettings = useMemo(() => collectSamplerSettings(stableGraph), [stableGraph]);
 
   const [fragCode, setFragCode] = useState<string>("");
+  const [vertexChunk, setVertexChunk] = useState<string>("");
   const [compileError, setCompileError] = useState<string>("");
   const [working, setWorking] = useState<boolean>(false);
 
@@ -262,6 +268,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         setCompileError("");
         if (!isCompilableGraph(stableGraph as any)) {
           setFragCode("");
+          setVertexChunk("");
           return;
         }
         const res = await fetch("/api/compile", {
@@ -275,12 +282,17 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           throw new Error(msg || String(res.status));
         }
         const data = await res.json();
-        if (!cancelled) setFragCode(String(data.code ?? ""));
+        if (!cancelled) {
+          const { fragment, vertexChunk } = extractPreviewShaders(String(data.code ?? ""));
+          setFragCode(fragment);
+          setVertexChunk(vertexChunk);
+        }
       } catch (err: any) {
         if (cancelled) return;
         if (isAbortError(err)) return;
         setCompileError(typeof err?.message === "string" ? err.message : "Compile failed");
         setFragCode("");
+        setVertexChunk("");
       } finally {
         if (!cancelled) setWorking(false);
       }
@@ -489,7 +501,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     if (!uniforms.uExposure) uniforms.uExposure = { value: 1.3 } as any;
     if (!uniforms.uTime) uniforms.uTime = { value: 0 } as any;
     const mat = new THREE.ShaderMaterial({
-      vertexShader: defaultVertexShader(),
+      vertexShader: defaultVertexShader(vertexChunk, parsed),
       fragmentShader: parsed.fragment,
       uniforms,
       wireframe,
@@ -552,7 +564,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     return () => {
       cancelled = true;
     };
-  }, [ensureSamplerFallback, fragCode, wireframe, textureAssignments, samplerSettings]);
+  }, [ensureSamplerFallback, fragCode, vertexChunk, wireframe, textureAssignments, samplerSettings]);
 
   const loadModelAsset = useCallback(async (source: string, label: string) => {
     setModelStatus(`Loading ${label}…`);

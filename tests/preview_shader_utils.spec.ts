@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseUniformsAndSanitize } from "../src/core/preview/shaderUtils";
+import {
+  parseUniformsAndSanitize,
+  extractPreviewShaders,
+  buildPreviewVertexShader,
+} from "../src/core/preview/shaderUtils";
 
 describe("shader utils: parse uniforms and sanitize", () => {
   it("extracts float and vecN uniform initializers", () => {
@@ -26,4 +30,14 @@ void main(){ gl_FragColor = vec4(u_color, 1.0); }
     expect(by.get("u_color")?.value).toEqual([1, 0, 0]);
     expect(by.get("u_tint")?.value).toEqual([0.1, 0.2, 0.3, 0.4]);
   });
+});
+
+it("extracts vertex chunk markers and rebuilds vertex shader", () => {
+  const code = `precision highp float;\n// __VERTEX_PASS_BEGIN__\nVERTEX = vec3(position);\n// __VERTEX_PASS_END__\nvoid main(){ gl_FragColor = vec4(1.0); }`;
+  const { fragment, vertexChunk } = extractPreviewShaders(code);
+  expect(vertexChunk).toContain("VERTEX = vec3(position)");
+  expect(fragment).not.toContain("__VERTEX_PASS_BEGIN__");
+  const vertexShader = buildPreviewVertexShader(vertexChunk);
+  expect(vertexShader).toMatch(/#define VERTEX/);
+  expect(vertexShader).toMatch(/osg_VertexPosition/);
 });

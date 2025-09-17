@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { basic_color_graph, exposed_addition_graph, texture_sampling_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
-import { parseUniformsAndSanitize } from "../src/core/preview/shaderUtils";
+import { parseUniformsAndSanitize, extractPreviewShaders } from "../src/core/preview/shaderUtils";
 
 async function compileThree(glGraph: any) {
   const lang = await loadLanguage("ThreeJS_GLSL.json");
@@ -15,7 +15,9 @@ describe("preview integration (ThreeJS_GLSL)", () => {
   it("sanitizes exposed uniform initializers", async () => {
     const { surface } = exposed_addition_graph();
     const code = await compileThree(surface.to_dict());
-    const parsed = parseUniformsAndSanitize(code);
+    const { fragment, vertexChunk } = extractPreviewShaders(code);
+    expect(vertexChunk).toContain("VERTEX =");
+    const parsed = parseUniformsAndSanitize(fragment);
     // ensure exposed uniforms present but without initializers
     const hasUniforms = /uniform\s+vec4\s+color_\d+;/.test(parsed.fragment);
     expect(hasUniforms).toBe(true);
@@ -30,7 +32,8 @@ describe("preview integration (ThreeJS_GLSL)", () => {
   it("plain color graph produces a compilable fragment", async () => {
     const { surface } = basic_color_graph();
     const code = await compileThree(surface.to_dict());
-    const parsed = parseUniformsAndSanitize(code);
+    const { fragment } = extractPreviewShaders(code);
+    const parsed = parseUniformsAndSanitize(fragment);
     expect(parsed.fragment).toMatch(/void\s+main\s*\(\s*\)\s*\{/);
     expect(parsed.fragment).toMatch(/gl_FragColor\s*=\s*vec4\(/);
   });
@@ -38,7 +41,8 @@ describe("preview integration (ThreeJS_GLSL)", () => {
   it("declares preview uniforms without initializers (owned by preview)", async () => {
     const { surface } = basic_color_graph();
     const code = await compileThree(surface.to_dict());
-    const parsed = parseUniformsAndSanitize(code);
+    const { fragment } = extractPreviewShaders(code);
+    const parsed = parseUniformsAndSanitize(fragment);
     // preview uniforms are declared (no defaults baked in)
     expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uKeyDir\s*;/);
     expect(parsed.fragment).toMatch(/uniform\s+vec3\s+uKeyColor\s*;/);
@@ -83,7 +87,8 @@ describe("preview integration (ThreeJS_GLSL)", () => {
   it("collects sampler uniforms for placeholder assignment", async () => {
     const { surface } = texture_sampling_graph();
     const code = await compileThree(surface.to_dict());
-    const parsed = parseUniformsAndSanitize(code);
+    const { fragment } = extractPreviewShaders(code);
+    const parsed = parseUniformsAndSanitize(fragment);
     expect(parsed.samplerUniforms.some((name) => name.startsWith("texture_"))).toBe(true);
   });
 });

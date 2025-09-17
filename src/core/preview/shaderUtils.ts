@@ -17,6 +17,8 @@ export type ParsedShader = {
 
 // Match lines like: "uniform vec4 color_3 = vec4(1.0, 0.0, 0.0, 1.0);"
 const UNIFORM_INIT_RE = /(^|\n)\s*uniform\s+(?<type>float|vec2|vec3|vec4)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?<init>[^;]+);/g;
+const VERTEX_BEGIN_TOKEN = "// __VERTEX_PASS_BEGIN__";
+const VERTEX_END_TOKEN = "// __VERTEX_PASS_END__";
 
 function parseInitToValue(type: string, init: string): number | number[] {
   const t = type.trim();
@@ -24,13 +26,11 @@ function parseInitToValue(type: string, init: string): number | number[] {
   if (t === "float") {
     const n = Number(src);
     if (Number.isFinite(n)) return n;
-    // handle float() wrapper or expressions like 1.0
     const m = src.match(/^float\((.+)\)$/);
     if (m) {
       const n2 = Number(m[1]);
       if (Number.isFinite(n2)) return n2;
     }
-    // Fallback: attempt to parse first number in expression
     const mNum = src.match(/-?\d+(?:\.\d+)?/);
     return mNum ? Number(mNum[0]) : 0;
   }
@@ -40,9 +40,20 @@ function parseInitToValue(type: string, init: string): number | number[] {
     const parts = inner.split(",").map((s) => Number(s.trim()));
     return parts.filter((x) => Number.isFinite(x));
   }
-  // Fallback: split by comma
   const parts = src.split(",").map((s) => Number(s.trim()));
   return parts.filter((x) => Number.isFinite(x));
+}
+
+export function extractPreviewShaders(source: string): { fragment: string; vertexChunk: string } {
+  const begin = source.indexOf(VERTEX_BEGIN_TOKEN);
+  const end = source.indexOf(VERTEX_END_TOKEN);
+  if (begin === -1 || end === -1 || end < begin) {
+    return { fragment: source, vertexChunk: "" };
+  }
+  const chunkStart = begin + VERTEX_BEGIN_TOKEN.length;
+  const vertexChunk = source.slice(chunkStart, end).replace(/^[\r\n]+|[\r\n]+$/g, "");
+  const fragment = `${source.slice(0, begin)}${source.slice(end + VERTEX_END_TOKEN.length)}`;
+  return { fragment, vertexChunk };
 }
 
 export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
@@ -65,21 +76,87 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
   return { fragment: out, uniforms, samplerUniforms };
 }
 
-export function defaultVertexShader(): string {
+function formatVertexChunk(chunk: string): string {
+  if (!chunk) return "";
+  return chunk
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+      const withoutLeading = line.replace(/^[\t ]+/, "");
+      return withoutLeading.startsWith("#") ? withoutLeading : `  ${withoutLeading}`;
+    })
+    .join("\n") + "\n";
+}
+
+function buildUniformDeclarations(parsed?: ParsedShader): string {
+  const decls: string[] = [];
+  // Preview-owned uniforms that may be referenced in vertex pass
+  const previewUniforms = [
+    { type: "vec3", name: "uKeyDir" },
+    { type: "vec3", name: "uKeyColor" },
+    { type: "vec3", name: "uFillDir" },
+    { type: "vec3", name: "uFillColor" },
+    { type: "vec3", name: "uRimDir" },
+    { type: "vec3", name: "uRimColor" },
+    { type: "vec3", name: "uAmbient" },
+    { type: "float", name: "uExposure" },
+    { type: "float", name: "uTime" },
+  ];
+  const seen = new Set<string>();
+  for (const u of previewUniforms) {
+    if (seen.has(u.name)) continue;
+    seen.add(u.name);
+    decls.push(`uniform ${u.type} ${u.name};`);
+  }
+  if (parsed) {
+    for (const u of parsed.uniforms ?? []) {
+      if (!u?.name || !u?.type) continue;
+      if (seen.has(u.name)) continue;
+      seen.add(u.name);
+      decls.push(`uniform ${u.type} ${u.name};`);
+    }
+    for (const name of parsed.samplerUniforms ?? []) {
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      decls.push(`uniform sampler2D ${name};`);
+    }
+  }
+  return decls.length ? decls.join("\n") + "\n" : "";
+}
+
+export function buildPreviewVertexShader(chunk?: string, parsed?: ParsedShader): string {
+  const formatted = formatVertexChunk(chunk?.trim() ?? "");
+  const uniformDecls = buildUniformDeclarations(parsed);
   return `
 precision highp float;
-varying vec2 vUv;
+${uniformDecls}varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
 void main() {
   vUv = uv;
-  // normal in view space
-  vNormal = normalize(normalMatrix * normal);
-  // view position (camera space)
-  vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+  vec3 osg_InputPosition = position;
+  vec3 osg_InputNormal = normal;
+  vec4 osg_InputColor = vec4(1.0);
+  vec3 osg_VertexPosition = osg_InputPosition;
+  vec3 osg_VertexNormal = osg_InputNormal;
+  vec4 osg_VertexColor = osg_InputColor;
+#define VERTEX osg_VertexPosition
+#define NORMAL osg_VertexNormal
+#define COLOR osg_VertexColor
+${formatted}#undef COLOR
+#undef NORMAL
+#undef VERTEX
+  vec3 transformedNormal = normalize(normalMatrix * osg_VertexNormal);
+  vNormal = transformedNormal;
+  vec4 mvPos = modelViewMatrix * vec4(osg_VertexPosition, 1.0);
   vViewPosition = -mvPos.xyz;
   gl_Position = projectionMatrix * mvPos;
 }`.trim();
+}
+
+export function defaultVertexShader(chunk?: string, parsed?: ParsedShader): string {
+  return buildPreviewVertexShader(chunk, parsed);
 }
 
 // Convert parsed uniforms to Three.js compatible uniforms map without importing three types here
