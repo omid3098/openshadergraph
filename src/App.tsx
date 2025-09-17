@@ -29,6 +29,8 @@ import { buildGraphData } from "./core/ui/graphData";
 import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
+import { AppShell } from "./ui/layout/AppShell";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -530,9 +532,66 @@ export function App() {
     setMenu((m) => (m.open ? { ...m, open: false } : m));
   }, [paletteByType, rf, currentParentId, loadTemplateDefaults, nodeUpdaterApi, setNodes]);
 
+  const Header = (
+    <div className="w-full flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-xs">
+        <div className="min-w-[200px]">
+          <Select
+            value={selectedExample}
+            onValueChange={(v) => {
+              const ex = examples.find((e) => e.key === v);
+              if (ex) void loadExampleGraph(ex);
+            }}
+          >
+            <SelectTrigger aria-label="Example Graph">
+              <SelectValue placeholder="Select example graph" />
+            </SelectTrigger>
+            <SelectContent>
+              {examples.map((e) => (
+                <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex-1 flex items-center">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <button onClick={() => setViewPath([])} className="hover:underline text-xs">{graphName}</button>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {viewPath.map((id, i) => {
+              const n = nodes.find((nn) => nn.id === id);
+              const isLast = i === viewPath.length - 1;
+              const label = (n?.data as any)?.label ?? (n?.data as any)?.type ?? id;
+              return (
+                <> 
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {isLast ? (
+                      <BreadcrumbPage className="text-xs">{label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink asChild>
+                        <button className="hover:underline text-xs" onClick={() => setViewPath(viewPath.slice(0, i + 1))}>{label}</button>
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </>
+              );
+            })}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+      <div className="w-[1px]" />
+    </div>
+  );
+
   return (
     <GraphStateProvider value={graphStateValue}>
-      <div className="w-screen h-screen relative">
+      <AppShell header={Header}>
+        <div className="w-full h-full relative">
         <ReactFlow
           nodes={visibleNodes}
           edges={visibleEdges}
@@ -583,44 +642,7 @@ export function App() {
           <Controls />
           <MiniMap />
         </ReactFlow>
-        <PanelsOverlay graph={graphData} />
-        {/* Example selector + Breadcrumbs for nested view */}
-        <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
-        <div className="min-w-[200px]">
-          <Select
-            value={selectedExample}
-            onValueChange={(v) => {
-              const ex = examples.find((e) => e.key === v);
-              if (ex) loadExampleGraph(ex);
-            }}
-          >
-            <SelectTrigger aria-label="Example Graph">
-              <SelectValue placeholder="Select example graph" />
-            </SelectTrigger>
-            <SelectContent>
-              {examples.map((e) => (
-                <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <span className="text-muted-foreground">•</span>
-        <button className="hover:underline" onClick={() => setViewPath([])}>{graphName}</button>
-        {viewPath.map((id, i) => {
-          const n = nodes.find((nn) => nn.id === id);
-          const isLast = i === viewPath.length - 1;
-          return (
-            <span key={id} className="flex items-center gap-1">
-              <span>/</span>
-              {isLast ? (
-                <span className="font-medium">{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</span>
-              ) : (
-                <button className="hover:underline" onClick={() => setViewPath(viewPath.slice(0, i + 1))}>{(n?.data as any)?.label ?? (n?.data as any)?.type ?? id}</button>
-              )}
-            </span>
-          );
-        })}
-        </div>
+        <PanelsOverlay className="top-12 h-[calc(100vh-48px)]" graph={graphData} />
         <GraphContextMenu
           open={menu.open}
           kind={menu.kind}
@@ -655,6 +677,7 @@ export function App() {
           onClose={() => setMenu((m) => ({ ...m, open: false }))}
         />
       </div>
+      </AppShell>
     </GraphStateProvider>
   );
 }

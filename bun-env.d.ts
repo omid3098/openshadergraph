@@ -16,6 +16,14 @@ declare module "*.module.css" {
   export = classes;
 }
 
+declare module "*.png" {
+  /**
+   * A path to the PNG file
+   */
+  const path: `${string}.png`;
+  export default path;
+}
+
 // Fallback types for Three.js examples modules used at runtime
 declare module "three/examples/jsm/environments/RoomEnvironment.js" {
   import type { Scene } from "three";
