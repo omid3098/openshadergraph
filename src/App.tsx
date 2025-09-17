@@ -370,6 +370,152 @@ export function App() {
     }
   }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
 
+  // Create a brand-new surface graph with vertex + fragment passes
+  const createNewGraph = useCallback(
+    async (shading: "pbr" | "unlit" | "toon") => {
+      try {
+        // Ensure palette is ready for template resolves
+        if (!paletteByType.size) return;
+
+        // Load defaults for required node types
+        const surfaceTpl = await loadTemplateDefaults("surface");
+        const vpassTpl = await loadTemplateDefaults("vertex_pass");
+        const fpassTpl = await loadTemplateDefaults("fragment_pass");
+        const voutTpl = await loadTemplateDefaults("vertex_output");
+        const foutTpl = await loadTemplateDefaults("fragment_output");
+        if (!surfaceTpl || !vpassTpl || !fpassTpl || !voutTpl || !foutTpl) {
+          console.warn("Missing required templates for new graph");
+          return;
+        }
+
+        // Deep clone to avoid mutating cached templates
+        const clone = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj));
+        const surface = clone(surfaceTpl);
+        const vertexPass = clone(vpassTpl);
+        const fragmentPass = clone(fpassTpl);
+        const vertexOutput = clone(voutTpl);
+        const fragmentOutput = clone(foutTpl);
+
+        // Ensure passes contain their IO nodes from defaults
+        vertexPass.nodes = [vertexOutput];
+        fragmentPass.nodes = [fragmentOutput];
+
+        // Set fragment shading property
+        const props: any[] = Array.isArray(fragmentOutput.properties)
+          ? clone(fragmentOutput.properties as any[])
+          : [];
+        let set = false;
+        for (let i = 0; i < props.length; i++) {
+          const p = props[i];
+          if (p && typeof p === "object" && p.id === "shading_model") {
+            props[i] = { ...p, value: shading };
+            set = true;
+            break;
+          }
+        }
+        if (!set) props.push({ id: "shading_model", type: "enum", value: shading });
+        fragmentOutput.properties = props as any;
+
+        // Compose surface children
+        surface.nodes = [vertexPass, fragmentPass];
+
+        // Assign unique incremental ids across the tree
+        let next = 1;
+        const assignIds = (n: any): void => {
+          n.id = next++;
+          if (Array.isArray(n.nodes)) {
+            for (const c of n.nodes) assignIds(c);
+          }
+        };
+        assignIds(surface);
+
+        type GNode = {
+          id: number;
+          type: string;
+          name?: string;
+          meta?: any[];
+          position?: [number, number];
+          nodes?: GNode[];
+          inputs?: Array<{ id: number; name: string; type: any; value?: any }>;
+          outputs?: Array<{ id: number; name: string; type: any }>;
+          properties?: any[];
+        };
+
+        // Flatten graph nodes and build ReactFlow nodes (no edges initially)
+        const createdNodes: Node[] = [];
+        const all: Record<string, GNode> = {};
+        const depthX = 240;
+        const rowY = 120;
+        const baseX = 80;
+        const baseY = 40;
+        const perParentRow: Record<string, number> = {};
+
+        const walk = (n: GNode, parentId?: string, depth = 0) => {
+          const idStr = String(n.id);
+          all[idStr] = n;
+          const row = perParentRow[parentId ?? "root"] ?? 0;
+          const pos = n.position
+            ? { x: n.position[0], y: n.position[1] }
+            : { x: baseX + depth * depthX, y: baseY + row * rowY };
+          perParentRow[parentId ?? "root"] = row + 1;
+          const meta = Array.isArray(n.meta) ? [...n.meta] : [];
+          const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
+
+          createdNodes.push({
+            id: idStr,
+            type: "graphNode",
+            position: pos,
+            data: {
+              label: n.name ?? n.type,
+              type: n.type,
+              template: {
+                id: n.id,
+                type: n.type,
+                name: n.name,
+                meta,
+                position: n.position ?? [pos.x, pos.y],
+                nodes: n.nodes ?? [],
+                inputs: n.inputs ?? [],
+                outputs: n.outputs ?? [],
+                properties,
+              },
+            },
+            ...(parentId ? { parentId } : {}),
+            ...nodeDefaults,
+          } as any);
+          for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
+        };
+        walk(surface as unknown as GNode);
+
+        const createdEdges: Edge[] = [];
+
+        // Compute idCounter from max id
+        const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
+        idCounter.current = maxId;
+
+        // Default view path: surface -> fragment_pass
+        const surfaceId = String(surface.id);
+        const fragmentPassNode = (surface.nodes ?? []).find((n: any) => n?.type === "fragment_pass");
+        const vertexPassNode = (surface.nodes ?? []).find((n: any) => n?.type === "vertex_pass");
+        const defaultPath = fragmentPassNode
+          ? [surfaceId, String(fragmentPassNode.id)]
+          : vertexPassNode
+            ? [surfaceId, String(vertexPassNode.id)]
+            : [surfaceId];
+
+        // Apply state
+        setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
+        setEdges(createdEdges);
+        setGraphName(`Untitled ${shading[0].toUpperCase()}${shading.slice(1)}`);
+        setSelectedExample("");
+        setViewPath(defaultPath);
+      } catch (err) {
+        console.warn("Failed to create new graph", shading, err);
+      }
+    },
+    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
+  );
+
   // Fetch example graphs and load the first by default
   useEffect(() => {
     const abort = new AbortController();
@@ -541,7 +687,14 @@ export function App() {
           <MenubarMenu>
             <MenubarTrigger>File</MenubarTrigger>
             <MenubarContent>
-              <MenubarItem>New</MenubarItem>
+              <MenubarSub>
+                <MenubarSubTrigger>New</MenubarSubTrigger>
+                <MenubarSubContent>
+                  <MenubarItem onClick={() => void createNewGraph("pbr")}>PBR</MenubarItem>
+                  <MenubarItem onClick={() => void createNewGraph("unlit")}>Unlit</MenubarItem>
+                  <MenubarItem onClick={() => void createNewGraph("toon")}>Toon</MenubarItem>
+                </MenubarSubContent>
+              </MenubarSub>
               <MenubarItem>Open…</MenubarItem>
               <MenubarSeparator />
               <MenubarItem>Save</MenubarItem>

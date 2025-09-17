@@ -224,7 +224,7 @@
       "template": "vec3 {{name}} = NORMAL;"
     },
     "vertex_output": {
-      "template": "VERTEX = vec3({{inputs:0}});\nNORMAL = vec3({{inputs:1}});\nCOLOR = vec4({{inputs:2}});"
+      "template": "VERTEX = VERTEX + vec3({{inputs:0}});\nNORMAL = vec3({{inputs:1}});\nCOLOR = vec4({{inputs:2}});"
     }
   },
   "meta": {
