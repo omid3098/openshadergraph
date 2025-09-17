@@ -110,6 +110,11 @@ describe("Godot shader generation", () => {
     const { surface } = vertex_color_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "vertex_color");
     expect(shader_code).toMatch(/void fragment\(\) \{/);
+    expect(shader_code).toMatch(/vec3 vertex_position_\d+ = VERTEX;/);
+    expect(shader_code).toMatch(/vec3 vertex_normal_\d+ = NORMAL;/);
+    expect(shader_code).toMatch(/VERTEX\s*=\s*vec3\(vertex_position_\d+\);/);
+    expect(shader_code).toMatch(/NORMAL\s*=\s*vec3\(vertex_normal_\d+\);/);
+    expect(shader_code).toMatch(/COLOR\s*=\s*vec4\(color_\d+\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "vertex_color.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });

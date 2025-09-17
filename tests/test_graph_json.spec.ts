@@ -27,10 +27,13 @@ describe("Graph JSON structure", () => {
   });
 
   it("nested vertex graph lookup", () => {
-    const { surface, vertex_pass, color } = vertex_color_graph();
+    const { surface, vertex_pass, vertex_output, color, position, normal } = vertex_color_graph();
     const nested = surface.find_nested_node_by_type(vertex_pass, "color");
     expect(nested).toBeDefined();
     expect(nested!.id).toBe(color.id);
+    expect(vertex_output.inputs[0].value).toBe(`../${position.id}/0`);
+    expect(vertex_output.inputs[1].value).toBe(`../${normal.id}/0`);
+    expect(vertex_output.inputs[2].value).toBe(`../${color.id}/0`);
   });
 
   it("node meta stored on graph", () => {

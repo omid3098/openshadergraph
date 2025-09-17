@@ -91,8 +91,14 @@ export function external_graph(tmpdir: string) {
 export function vertex_color_graph() {
   const surface = new NodeBuilder("surface");
   const vertex_pass = surface.get_node_by_type("vertex_pass")!;
+  const vertex_output = surface.find_nested_node_by_type(vertex_pass, "vertex_output")!;
   const color = surface.create_node("color", vertex_pass);
-  return { surface, vertex_pass, color };
+  const position = surface.create_node("vertex_position", vertex_pass);
+  const normal = surface.create_node("vertex_normal", vertex_pass);
+  surface.connect_nodes(position, vertex_output, 0, 0);
+  surface.connect_nodes(normal, vertex_output, 0, 1);
+  surface.connect_nodes(color, vertex_output, 0, 2);
+  return { surface, vertex_pass, vertex_output, color, position, normal };
 }
 
 export function exposed_addition_graph() {

@@ -89,6 +89,10 @@ describe("UI graph build + edit + compile", () => {
     const passChildrenTypes = new Set((pass!.nodes as any[]).map((n: any) => n.type));
     expect(passChildrenTypes.has("color")).toBe(true);
     expect(passChildrenTypes.has("fragment_output")).toBe(true);
+    const vertexPass = (surfaceNode!.nodes as any[]).find((n) => n.type === "vertex_pass");
+    expect(vertexPass).toBeDefined();
+    const vertexChildTypes = new Set((vertexPass!.nodes as any[]).map((n: any) => n.type));
+    expect(vertexChildTypes.has("vertex_output")).toBe(true);
 
     // Compile using ThreeJS_GLSL to ensure refs resolve
     const lang = await loadLanguage("ThreeJS_GLSL.json");

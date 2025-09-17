@@ -33,9 +33,18 @@
       "template": "ALBEDO = vec3({{inputs:0}});\nROUGHNESS = {{inputs:1}};\nMETALLIC = {{inputs:2}};\nEMISSION = vec3({{inputs:3}});\nNORMAL = vec3({{inputs:4}});\nALPHA = {{inputs:5}};",
       "properties": {
         "shading_model": {
-          "pbr": { "template": "", "placement": "meta" },
-          "unlit": { "template": "render_mode unshaded;", "placement": "meta" },
-          "toon": { "template": "", "placement": "meta" }
+          "pbr": {
+            "template": "",
+            "placement": "meta"
+          },
+          "unlit": {
+            "template": "render_mode unshaded;",
+            "placement": "meta"
+          },
+          "toon": {
+            "template": "",
+            "placement": "meta"
+          }
         }
       }
     },
@@ -166,15 +175,29 @@
       "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});",
       "properties": {
         "wrap_mode": {
-          "wrap_repeat": { "template": "// wrap: repeat" },
-          "wrap_clamp": { "template": "// wrap: clamp" },
-          "wrap_mirror": { "template": "// wrap: mirror" },
-          "wrap_border": { "template": "// wrap: border" }
+          "wrap_repeat": {
+            "template": "// wrap: repeat"
+          },
+          "wrap_clamp": {
+            "template": "// wrap: clamp"
+          },
+          "wrap_mirror": {
+            "template": "// wrap: mirror"
+          },
+          "wrap_border": {
+            "template": "// wrap: border"
+          }
         },
         "filter_mode": {
-          "filter_linear": { "template": "// filter: linear" },
-          "filter_nearest": { "template": "// filter: nearest" },
-          "filter_cubic": { "template": "// filter: cubic" }
+          "filter_linear": {
+            "template": "// filter: linear"
+          },
+          "filter_nearest": {
+            "template": "// filter: nearest"
+          },
+          "filter_cubic": {
+            "template": "// filter: cubic"
+          }
         }
       }
     },
@@ -192,6 +215,9 @@
     },
     "vertex_normal": {
       "template": "vec3 {{name}} = NORMAL;"
+    },
+    "vertex_output": {
+      "template": "VERTEX = vec3({{inputs:0}});\nNORMAL = vec3({{inputs:1}});\nCOLOR = vec4({{inputs:2}});"
     }
   },
   "meta": {

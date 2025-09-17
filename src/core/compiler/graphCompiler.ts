@@ -369,7 +369,7 @@ export class GraphCompiler {
       node._code = node._code.replace("{{internal_nodes}}", "");
     } else {
       // Build internal code by embedding each child's compiled code.
-      // Filter out orphan nodes (those not reachable from pass sinks like fragment_output).
+      // Filter out orphan nodes (those not reachable from pass sinks like fragment_output/vertex_output).
       // Only indent inside real pass blocks (e.g., function bodies). Transparent containers like
       // 'group' should not add indentation; their parent (e.g., fragment_pass) will handle it.
       const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
@@ -382,6 +382,7 @@ export class GraphCompiler {
         const byId = new Map<number, GraphNode>(node.nodes.map((c) => [c.id, c] as const));
         const refRe = /^\.\.\/(\d+)\/(\d+)$/;
         const producersByConsumer = new Map<number, number[]>();
+        const sinkTypes = node.type === "vertex_pass" ? new Set(["vertex_output"]) : new Set(["fragment_output"]);
         for (const c of node.nodes) {
           for (const pin of c.inputs ?? []) {
             let fromId: number | undefined;
@@ -399,10 +400,10 @@ export class GraphCompiler {
             list.push(fromId);
           }
         }
-        // Start from sink nodes (e.g., fragment_output) and walk upstream to include dependencies.
+        // Start from sink nodes (e.g., fragment_output, vertex_output) and walk upstream to include dependencies.
         const stack: number[] = [];
         for (const c of node.nodes) {
-          if (c.type === "fragment_output") {
+          if (sinkTypes.has(c.type)) {
             reachable.add(c.id);
             stack.push(c.id);
           }

@@ -3,11 +3,13 @@
   "type": "vertex_pass",
   "name": "VertexPass",
   "meta": [],
-  "position": [
-    0,
-    0
+  "position": [0, 0],
+  "nodes": [
+    {
+      "id": 0,
+      "type": "vertex_output"
+    }
   ],
-  "nodes": [],
   "inputs": [],
   "outputs": []
 }
