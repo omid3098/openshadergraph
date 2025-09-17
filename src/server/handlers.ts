@@ -66,14 +66,24 @@ export async function compileHandler(req: Request): Promise<Response> {
       if (surface) rootGraph = surface;
       else return new Response("Root graph must include a 'surface' node", { status: 400 });
     }
-    // For preview engine, default to PBR shading unless user explicitly selects a shading_* meta
+    // For preview engine, default to PBR shading unless user explicitly selects another shading model
     if (engine === "preview") {
       const applyDefaultShading = (n: any) => {
         if (n && typeof n === "object") {
           if (n.type === "fragment_output") {
-            n.meta ??= [];
-            const hasShading = Array.isArray(n.meta) && n.meta.some((m: any) => typeof m === "string" && m.startsWith("shading_"));
-            if (!hasShading) n.meta.push("shading_pbr");
+            const props: any[] = Array.isArray(n.properties) ? n.properties : (n.properties = []);
+            let shading = props.find((p) => p && typeof p === "object" && p.id === "shading_model");
+            if (!shading) {
+              shading = { id: "shading_model", type: "enum", value: "pbr" };
+              props.push(shading);
+            }
+            if (shading.value == null || shading.value === "") {
+              shading.value = shading.default ?? "pbr";
+              if (!shading.value) shading.value = "pbr";
+            }
+            if (Array.isArray(n.meta)) {
+              n.meta = n.meta.filter((m: any) => !(typeof m === "string" && m.startsWith("shading_")));
+            }
           }
           for (const c of n.nodes ?? []) applyDefaultShading(c);
         }

@@ -311,7 +311,12 @@ export class GraphCompiler {
     }
   }
 
-  private render_property(node: GraphNode, propId: string, langNode?: LanguagePack["nodes"][string]): string {
+  private render_property(
+    node: GraphNode,
+    propId: string,
+    langNode?: LanguagePack["nodes"][string]
+  ): { template: string; placement?: "inline" | "meta" } {
+    const result = { template: "", placement: undefined as "inline" | "meta" | undefined };
     const props = Array.isArray(node.properties) ? node.properties : [];
     const prop = props.find((p: any) => p?.id === propId);
     const value = prop?.value ?? prop?.default;
@@ -320,12 +325,15 @@ export class GraphCompiler {
       const option = options.find((o) => o?.value === value) ?? options[0];
       const token = option?.langKey ?? option?.value ?? value;
       if (token && langNode?.properties?.[propId]?.[String(token)]) {
-        return langNode.properties[propId][String(token)].template ?? "";
+        const variant = langNode.properties[propId][String(token)];
+        return { template: variant?.template ?? "", placement: variant?.placement };
       }
-      return "";
+      return result;
     }
-    if (prop?.type === "boolean") return value ? "true" : "false";
-    return coercePropertyValue(value);
+    if (prop?.type === "boolean") {
+      return { template: value ? "true" : "false", placement: "inline" };
+    }
+    return { template: coercePropertyValue(value), placement: "inline" };
   }
 
   private resolve_template_properties(node: GraphNode) {
@@ -337,8 +345,8 @@ export class GraphCompiler {
     for (const m of matches) {
       const full = m[1];
       const propId = m[2]?.trim();
-      const replacement = propId ? this.render_property(node, propId, langNode) : "";
-      node._code = node._code.replace(full, replacement ?? "");
+      const { template } = propId ? this.render_property(node, propId, langNode) : { template: "" };
+      node._code = node._code.replace(full, template ?? "");
     }
   }
 
@@ -514,9 +522,18 @@ export class GraphCompiler {
   private add_meta_to_result() {
     // Collect meta from entire graph (deduped), not just root
     const allMeta = new Set<string>();
+    const propertyMeta = new Set<string>();
     const walk = (n: GraphNode) => {
       if (Array.isArray(n.meta)) {
         for (const m of n.meta) if (typeof m === "string") allMeta.add(m);
+      }
+      const langNode = this.lang_def.nodes?.[n.type];
+      if (langNode && Array.isArray(n.properties)) {
+        for (const prop of n.properties) {
+          if (!prop || typeof prop !== "object" || !prop.id) continue;
+          const { template, placement } = this.render_property(n, String(prop.id), langNode);
+          if (placement === "meta" && template) propertyMeta.add(template);
+        }
       }
       for (const c of n.nodes ?? []) walk(c);
     };
@@ -528,6 +545,10 @@ export class GraphCompiler {
       if (m === "exposed") continue;
       const tpl = this.lang_def.meta?.[m]?.template ?? "";
       if (tpl) meta_code += `${tpl}\n`;
+    }
+    for (const tpl of propertyMeta) {
+      if (!tpl) continue;
+      meta_code += `${tpl}\n`;
     }
     this.result_code = this.result_code.replace("{{meta}}", meta_code);
   }
@@ -549,7 +570,10 @@ export class GraphCompiler {
       }
       if (code.includes("{{property:")) {
         const langNode = this.lang_def.nodes[node.type];
-        code = code.replace(/\{\{property:([^}]+)\}\}/g, (_match, pid) => this.render_property(node, String(pid).trim(), langNode));
+        code = code.replace(/\{\{property:([^}]+)\}\}/g, (_match, pid) => {
+          const { template } = this.render_property(node, String(pid).trim(), langNode);
+          return template;
+        });
       }
       const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
       exposed.push(wrapper.replace("{{definition}}", code));

@@ -64,6 +64,28 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
       }
       base.meta = base.meta.filter((m: any) => m !== assetMeta);
     }
+    if (base.type === "fragment_output") {
+      const shadingMeta = base.meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
+      if (shadingMeta) {
+        const slug = shadingMeta.slice("shading_".length).trim();
+        const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
+        const value = map[slug] ?? undefined;
+        if (value) {
+          let assigned = false;
+          base.properties = base.properties.map((prop: any) => {
+            if (prop && typeof prop === "object" && prop.id === "shading_model") {
+              assigned = true;
+              return { ...prop, value };
+            }
+            return prop;
+          });
+          if (!assigned) {
+            base.properties.push({ id: "shading_model", type: "enum", value });
+          }
+        }
+        base.meta = base.meta.filter((m: any) => m !== shadingMeta);
+      }
+    }
     const polyInfo = { inputs: new Set<number>(), outputs: new Set<number>() };
     if (t?.inputs) {
       base.inputs.forEach((p: any, idx: number) => {

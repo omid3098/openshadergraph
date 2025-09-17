@@ -40,9 +40,7 @@
                             "id": 3,
                             "type": "fragment_output",
                             "name": "FragmentOutput",
-                            "meta": [
-                                "shading_pbr"
-                            ],
+                            "meta": [],
                             "position": [
                                 560,
                                 40
@@ -100,7 +98,15 @@
                                     ]
                                 }
                             ],
-                            "outputs": []
+                            "outputs": [],
+                            "properties": [
+                                {
+                                    "id": "shading_model",
+                                    "label": "Shading",
+                                    "type": "enum",
+                                    "value": "pbr"
+                                }
+                            ]
                         },
                         {
                             "id": 4,

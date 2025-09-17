@@ -75,9 +75,14 @@ export type NodeTemplate = {
   properties?: NodeProperty[];
 };
 
+export type LanguagePropertyVariant = {
+  template: string;
+  placement?: "inline" | "meta";
+};
+
 export type LanguageNodeTemplate = {
   template: string;
-  properties?: Record<string, Record<string, { template: string }>>;
+  properties?: Record<string, Record<string, LanguagePropertyVariant>>;
 };
 
 export type LanguagePack = {

@@ -30,7 +30,14 @@
       "template": "vec4 {{name}} = vec4({{inputs:0}});"
     },
     "fragment_output": {
-      "template": "ALBEDO = vec3({{inputs:0}});\nROUGHNESS = {{inputs:1}};\nMETALLIC = {{inputs:2}};\nEMISSION = vec3({{inputs:3}});\nNORMAL = vec3({{inputs:4}});\nALPHA = {{inputs:5}};"
+      "template": "ALBEDO = vec3({{inputs:0}});\nROUGHNESS = {{inputs:1}};\nMETALLIC = {{inputs:2}};\nEMISSION = vec3({{inputs:3}});\nNORMAL = vec3({{inputs:4}});\nALPHA = {{inputs:5}};",
+      "properties": {
+        "shading_model": {
+          "pbr": { "template": "", "placement": "meta" },
+          "unlit": { "template": "render_mode unshaded;", "placement": "meta" },
+          "toon": { "template": "", "placement": "meta" }
+        }
+      }
     },
     "add": {
       "template": "{{type}} {{name}} = {{inputs:0}} + {{inputs:1}};"

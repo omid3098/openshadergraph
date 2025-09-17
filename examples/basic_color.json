@@ -38,101 +38,6 @@
           ],
           "nodes": [
             {
-              "id": 3,
-              "type": "fragment_output",
-              "name": "FragmentOutput",
-              "meta": [
-                "shading_pbr"
-              ],
-              "position": [
-                560,
-                40
-              ],
-              "nodes": [],
-              "inputs": [
-                {
-                  "id": 0,
-                  "name": "Albedo",
-                  "type": "float3",
-                  "value": "../18/0"
-                },
-                {
-                  "id": 1,
-                  "name": "Roughness",
-                  "type": "float",
-                  "value": "../5/0"
-                },
-                {
-                  "id": 2,
-                  "name": "Metallic",
-                  "type": "float",
-                  "value": [
-                    0
-                  ]
-                },
-                {
-                  "id": 3,
-                  "name": "Emission",
-                  "type": "float3",
-                  "value": [
-                    0,
-                    0,
-                    0
-                  ]
-                },
-                {
-                  "id": 4,
-                  "name": "Normal",
-                  "type": "float3",
-                  "value": [
-                    0,
-                    0,
-                    1
-                  ]
-                },
-                {
-                  "id": 5,
-                  "name": "Alpha",
-                  "type": "float",
-                  "value": [
-                    1
-                  ]
-                }
-              ],
-              "outputs": [],
-              "properties": []
-            },
-            {
-              "id": 5,
-              "type": "float",
-              "name": "Float",
-              "meta": [],
-              "position": [
-                -320,
-                280
-              ],
-              "nodes": [],
-              "inputs": [
-                {
-                  "id": 0,
-                  "name": "in",
-                  "type": "float",
-                  "value": [
-                    0.5
-                  ]
-                }
-              ],
-              "outputs": [
-                {
-                  "id": 0,
-                  "name": "out",
-                  "type": "float",
-                  "value": "../3/1"
-                }
-              ],
-              "properties": []
-            },
-            {
               "id": 6,
               "type": "time",
               "name": "Time",
@@ -433,7 +338,7 @@
                   "id": 0,
                   "name": "color",
                   "type": "float4",
-                  "value": "../3/0"
+                  "value": "../19/0"
                 }
               ],
               "properties": [
@@ -491,6 +396,96 @@
                   "value": "linear"
                 }
               ]
+            },
+            {
+              "id": 19,
+              "type": "fragment_output",
+              "name": "FragmentOutput",
+              "nodes": [],
+              "inputs": [
+                {
+                  "id": 0,
+                  "name": "Albedo",
+                  "type": "float3",
+                  "value": "../18/0"
+                },
+                {
+                  "id": 1,
+                  "name": "Roughness",
+                  "type": "float",
+                  "value": [
+                    0.5
+                  ]
+                },
+                {
+                  "id": 2,
+                  "name": "Metallic",
+                  "type": "float",
+                  "value": [
+                    0
+                  ]
+                },
+                {
+                  "id": 3,
+                  "name": "Emission",
+                  "type": "float3",
+                  "value": [
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "id": 4,
+                  "name": "Normal",
+                  "type": "float3",
+                  "value": [
+                    0,
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "id": 5,
+                  "name": "Alpha",
+                  "type": "float",
+                  "value": [
+                    1
+                  ]
+                }
+              ],
+              "outputs": [],
+              "properties": [
+                {
+                  "id": "shading_model",
+                  "label": "Shading",
+                  "type": "enum",
+                  "default": "pbr",
+                  "options": [
+                    {
+                      "value": "pbr",
+                      "label": "PBR",
+                      "langKey": "pbr"
+                    },
+                    {
+                      "value": "unlit",
+                      "label": "Unlit",
+                      "langKey": "unlit"
+                    },
+                    {
+                      "value": "toon",
+                      "label": "Toon",
+                      "langKey": "toon"
+                    }
+                  ],
+                  "value": "pbr"
+                }
+              ],
+              "position": [
+                554,
+                -39
+              ],
+              "meta": []
             }
           ],
           "inputs": [],

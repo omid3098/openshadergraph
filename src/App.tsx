@@ -237,7 +237,34 @@ export function App() {
             }
           }
         }
-        const filteredMeta = meta.filter((m: any) => !(typeof m === "string" && m.startsWith("asset:")));
+        if (n.type === "fragment_output") {
+          const shadingMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
+          if (shadingMeta) {
+            const slug = shadingMeta.slice("shading_".length).trim();
+            const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
+            const value = map[slug] ?? undefined;
+            if (value) {
+              let assigned = false;
+              for (let i = 0; i < properties.length; i++) {
+                const prop = properties[i];
+                if (prop && typeof prop === "object" && prop.id === "shading_model") {
+                  properties[i] = { ...prop, value };
+                  assigned = true;
+                  break;
+                }
+              }
+              if (!assigned) {
+                properties.push({ id: "shading_model", type: "enum", value });
+              }
+            }
+          }
+        }
+        const filteredMeta = meta.filter((m: any) => {
+          if (typeof m !== "string") return true;
+          if (m.startsWith("asset:")) return false;
+          if (m.startsWith("shading_")) return false;
+          return true;
+        });
 
         createdNodes.push({
           id: idStr,
