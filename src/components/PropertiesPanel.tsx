@@ -15,7 +15,7 @@ type LanguagePack = {
   name: string;
   version: string;
   file_extensions: string[];
-  nodes: Record<string, { template: string }>;
+  nodes: Record<string, { template: string; properties?: Record<string, Record<string, { template: string }>> }>;
   meta?: Record<string, { template: string }>;
 };
 
@@ -30,6 +30,10 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
   const [langPack, setLangPack] = useState<LanguagePack | null>(null);
   const [metaToAdd, setMetaToAdd] = useState<string>("");
   const [nameDraft, setNameDraft] = useState<string>("");
+  const properties = useMemo(() => {
+    const tpl = (selected?.data as any)?.template;
+    return Array.isArray(tpl?.properties) ? (tpl.properties as any[]) : [];
+  }, [selected?.data]);
 
   useEffect(() => {
     // Keep in sync with CompilePanel selection via localStorage
@@ -80,6 +84,26 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
         const tpl = (n.data as any)?.template;
         const nextTpl = tpl ? { ...tpl, name: next } : tpl;
         return { ...n, data: { ...(n.data as any), label: next, template: nextTpl } };
+      })
+    );
+  };
+
+  const updateProperty = (propId: string, next: unknown) => {
+    if (!selected || !propId) return;
+    const external = (selected.data as any)?.updatePropertyValue as ((id: string, propId: string, val: unknown) => void) | undefined;
+    if (typeof external === "function") {
+      external(selected.id, propId, next);
+      return;
+    }
+    rf.setNodes((prev) =>
+      prev.map((n: any) => {
+        if (n.id !== selected.id) return n;
+        const tpl = (n.data as any)?.template ?? {};
+        const props: any[] = Array.isArray((tpl as any).properties) ? ([...(tpl as any).properties] as any[]) : [];
+        const nextProps = props.map((prop) =>
+          prop && typeof prop === "object" && prop.id === propId ? { ...prop, value: next } : prop
+        );
+        return { ...n, data: { ...(n.data as any), template: { ...tpl, properties: nextProps } } };
       })
     );
   };
@@ -161,6 +185,91 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
                   ))
               )}
             </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Properties</label>
+            {properties.length === 0 ? (
+              <span className="text-xs text-muted-foreground">No properties</span>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {properties.map((prop: any) => {
+                  const value = prop?.value ?? prop?.default ?? "";
+                  if (!prop || typeof prop !== "object" || !prop.id) return null;
+                  if (prop.type === "enum") {
+                    const options: Array<{ value: string; label: string }> = Array.isArray(prop.options)
+                      ? prop.options.map((opt: any) => ({ value: String(opt.value), label: String(opt.label ?? opt.value) }))
+                      : [];
+                    const normalizedValue = options.some((opt) => opt.value === String(value))
+                      ? String(value)
+                      : options[0]?.value ?? "";
+                    return (
+                      <div key={prop.id} className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">{prop.label ?? prop.id}</label>
+                        <Select value={normalizedValue} onValueChange={(next) => updateProperty(prop.id, next)}>
+                          <SelectTrigger aria-label={prop.label ?? prop.id}>
+                            <SelectValue placeholder="Select value" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {options.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
+                  if (prop.type === "boolean") {
+                    const boolValue = Boolean(value);
+                    return (
+                      <div key={prop.id} className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">{prop.label ?? prop.id}</label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant={boolValue ? "default" : "outline"}
+                            onClick={() => updateProperty(prop.id, !boolValue)}
+                          >
+                            {boolValue ? "Enabled" : "Disabled"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (prop.type === "number") {
+                    return (
+                      <div key={prop.id} className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">{prop.label ?? prop.id}</label>
+                    <Input
+                      type="number"
+                      value={value ?? ""}
+                      onChange={(event) => {
+                        const nextVal = event.target.value;
+                        updateProperty(prop.id, nextVal === "" ? undefined : Number(nextVal));
+                      }}
+                    />
+                  </div>
+                );
+              }
+                  if (prop.type === "asset") {
+                    return (
+                      <div key={prop.id} className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">{prop.label ?? prop.id}</label>
+                        <div className="flex items-center gap-2">
+                          <Input value={value ?? ""} placeholder="Drop asset here" readOnly />
+                          <Button size="sm" variant="ghost" onClick={() => updateProperty(prop.id, undefined)}>Clear</Button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={prop.id} className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground">{prop.label ?? prop.id}</label>
+                      <Input value={value ?? ""} onChange={(event) => updateProperty(prop.id, event.target.value)} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </>
       )}

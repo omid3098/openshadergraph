@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import ColorInput from "./inputs/ColorInput";
 import NumericVectorInput from "./inputs/NumericVectorInput";
 import { THEME } from "@/styles/theme";
+import type { NodeProperty } from "@/core/schema/types";
 
 type Pin = {
   id?: number;
@@ -24,6 +25,7 @@ export type GraphNodeData = {
     name?: string;
     inputs?: Pin[];
     outputs?: Pin[];
+    properties?: NodeProperty[];
   };
 };
 

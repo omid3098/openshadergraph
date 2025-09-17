@@ -26,9 +26,9 @@ function updateNodeInputValue(setNodes: (updater: (prev: Node[]) => Node[]) => v
 describe("update input preserves parentId", () => {
   it("does not drop parentId when editing a nested node", () => {
     let state: Node[] = [
-      { id: "0", data: { type: "surface", template: { type: "surface", inputs: [], outputs: [], nodes: [] } } },
-      { id: "2", parentId: "0", data: { type: "fragment_pass", template: { type: "fragment_pass", inputs: [], outputs: [], nodes: [] } } },
-      { id: "4", parentId: "2", data: { type: "color", template: { type: "color", inputs: [{ id: 0, name: "in", type: "float4", value: [1, 1, 1, 1] }], outputs: [{ id: 0, name: "out", type: "float4" }] } } },
+      { id: "0", data: { type: "surface", template: { type: "surface", inputs: [], outputs: [], nodes: [], properties: [] } } },
+      { id: "2", parentId: "0", data: { type: "fragment_pass", template: { type: "fragment_pass", inputs: [], outputs: [], nodes: [], properties: [] } } },
+      { id: "4", parentId: "2", data: { type: "color", template: { type: "color", inputs: [{ id: 0, name: "in", type: "float4", value: [1, 1, 1, 1] }], outputs: [{ id: 0, name: "out", type: "float4" }], properties: [] } } },
     ];
     const setNodes = (updater: (prev: Node[]) => Node[]) => {
       state = updater(state);
@@ -40,4 +40,3 @@ describe("update input preserves parentId", () => {
     expect(color.data?.template?.inputs?.[0]?.value).toEqual([1, 0, 0, 1]);
   });
 });
-

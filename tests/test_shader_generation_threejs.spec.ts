@@ -89,6 +89,9 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(shader_code).toMatch(/vec3 baseColor\s*=\s*vec3\(texture_sampler_\d+\.rgb\);/);
     expect(shader_code).toMatch(/vec3 emission\s*=\s*vec3\(float3_\d+\);/);
     expect(shader_code).toMatch(/float alpha\s*=\s*float4_\d+\.x;/);
+    expect(shader_code).toContain("wrap: repeat");
+    expect(shader_code).toContain("filter: linear");
+    expect(shader_code).not.toContain("{{property:");
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "texture_sampling.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });

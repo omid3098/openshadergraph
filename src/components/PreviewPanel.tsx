@@ -18,6 +18,11 @@ type PreviewPanelProps = {
 
 type Primitive = "sphere" | "cube" | "cylinder" | "custom";
 
+type SamplerPreviewSettings = {
+  wrap?: string;
+  filter?: string;
+};
+
 function collectTextureUniforms(graph: unknown): Map<string, string> {
   const map = new Map<string, string>();
   const stack: any[] = [];
@@ -33,12 +38,15 @@ function collectTextureUniforms(graph: unknown): Map<string, string> {
     if (type === "texture") {
       const id = Number((node as any).id);
       if (Number.isFinite(id)) {
-        const meta = Array.isArray((node as any).meta) ? (node as any).meta : [];
-        const asset = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
-        if (asset) {
-          const source = asset.slice("asset:".length).trim();
-          if (source) map.set(`texture_${id}`, source);
+        const props = Array.isArray((node as any).properties) ? (node as any).properties : [];
+        const sourceProp = props.find((p: any) => p?.id === "source" || p?.id === "texture_source");
+        let source = typeof sourceProp?.value === "string" ? sourceProp.value : undefined;
+        if (!source) {
+          const meta = Array.isArray((node as any).meta) ? (node as any).meta : [];
+          const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
+          if (assetMeta) source = assetMeta.slice("asset:".length).trim();
         }
+        if (source) map.set(`texture_${id}`, source);
       }
     }
     if (Array.isArray((node as any).nodes)) {
@@ -46,6 +54,109 @@ function collectTextureUniforms(graph: unknown): Map<string, string> {
     }
   }
   return map;
+}
+
+function collectSamplerSettings(graph: unknown): Map<string, SamplerPreviewSettings> {
+  const settings = new Map<string, SamplerPreviewSettings>();
+  const nodesById = new Map<number, any>();
+
+  const walk = (value: any) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+      return;
+    }
+    const id = Number(value.id);
+    if (Number.isFinite(id)) nodesById.set(id, value);
+    if (Array.isArray(value.nodes)) {
+      for (const child of value.nodes) walk(child);
+    }
+  };
+  walk(graph);
+
+  const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+  for (const node of nodesById.values()) {
+    if (!node || node.type !== "texture_sampler") continue;
+    const props: any[] = Array.isArray(node.properties) ? node.properties : [];
+    const wrapProp = props.find((p) => p?.id === "wrap_mode");
+    const filterProp = props.find((p) => p?.id === "filter_mode");
+    const textureInput = (node.inputs ?? []).find((pin: any) => typeof pin?.value === "string" && refRe.test(pin.value));
+    if (!textureInput) continue;
+    const match = String(textureInput.value).match(refRe);
+    if (!match) continue;
+    const textureId = Number(match[1]);
+    if (!Number.isFinite(textureId)) continue;
+    const uniform = `texture_${textureId}`;
+    const entry: SamplerPreviewSettings = settings.get(uniform) ?? {};
+    if (wrapProp && typeof wrapProp.value === "string") entry.wrap = wrapProp.value;
+    if (filterProp && typeof filterProp.value === "string") entry.filter = filterProp.value;
+    settings.set(uniform, entry);
+  }
+
+  return settings;
+}
+
+function applySamplerSettings(texture: THREE.Texture, settings?: SamplerPreviewSettings) {
+  if (!settings) return;
+  const wrapKey = settings.wrap ?? "";
+  let wrap = THREE.ClampToEdgeWrapping;
+  if (wrapKey === "repeat") wrap = THREE.RepeatWrapping;
+  else if (wrapKey === "mirror") wrap = THREE.MirroredRepeatWrapping;
+  else if (wrapKey === "clamp") wrap = THREE.ClampToEdgeWrapping;
+  else if (wrapKey === "border") wrap = THREE.ClampToEdgeWrapping;
+  texture.wrapS = wrap;
+  texture.wrapT = wrap;
+
+  const filterKey = settings.filter ?? "";
+  if (filterKey === "nearest") {
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestMipmapNearestFilter;
+    texture.generateMipmaps = true;
+  } else if (filterKey === "cubic") {
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.generateMipmaps = true;
+  } else {
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.generateMipmaps = true;
+  }
+  texture.needsUpdate = true;
+}
+
+function cloneTextureForUniform(base: THREE.Texture, settings?: SamplerPreviewSettings): THREE.Texture {
+  const tex = base.clone();
+  tex.image = base.image;
+  tex.needsUpdate = true;
+  tex.colorSpace = base.colorSpace;
+  tex.flipY = base.flipY;
+  tex.anisotropy = base.anisotropy;
+  applySamplerSettings(tex, settings);
+  return tex;
+}
+
+function disposeMaterial(
+  mat: THREE.ShaderMaterial | null | undefined,
+  preserve?: Set<THREE.Texture>
+) {
+  if (!mat) return;
+  try {
+    const uniforms = mat.uniforms ?? {};
+    for (const key of Object.keys(uniforms)) {
+      const val = uniforms[key]?.value;
+      if (
+        val &&
+        typeof val === "object" &&
+        (val as any).isTexture &&
+        typeof val.dispose === "function" &&
+        (!preserve || !preserve.has(val as THREE.Texture))
+      ) {
+        (val as THREE.Texture).dispose();
+      }
+    }
+  } finally {
+    mat.dispose();
+  }
 }
 
 export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewPanelProps) {
@@ -117,6 +228,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
   }, [graph]);
   const textureAssignments = useMemo(() => collectTextureUniforms(stableGraph), [stableGraph]);
+  const samplerSettings = useMemo(() => collectSamplerSettings(stableGraph), [stableGraph]);
 
   const [fragCode, setFragCode] = useState<string>("");
   const [compileError, setCompileError] = useState<string>("");
@@ -244,7 +356,10 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       ro.disconnect();
-      if (materialRef.current) materialRef.current.dispose();
+      if (materialRef.current) {
+        const preserve = samplerFallbackRef.current ? new Set([samplerFallbackRef.current]) : undefined;
+        disposeMaterial(materialRef.current, preserve);
+      }
       if (geometryRef.current && geometryRef.current !== customGeometryRef.current) geometryRef.current.dispose();
       if (envRTRef.current) { envRTRef.current.dispose(); envRTRef.current = null; }
       if (pmremRef.current) { pmremRef.current.dispose(); pmremRef.current = null; }
@@ -338,7 +453,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         if (assetUrl) {
           const cached = textureCacheRef.current.get(assetUrl);
           if (cached) {
-            uniforms[name] = { value: cached };
+            uniforms[name] = { value: cloneTextureForUniform(cached, samplerSettings.get(name)) };
           } else {
             uniforms[name] = { value: fallbackTexture };
             if (!pendingTextureLoadsRef.current.has(assetUrl)) {
@@ -385,7 +500,10 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       toneMapped: false,
       fog: false,
     } as any);
-    if (materialRef.current) materialRef.current.dispose();
+    if (materialRef.current) {
+      const preserve = samplerFallbackRef.current ? new Set([samplerFallbackRef.current]) : undefined;
+      disposeMaterial(materialRef.current, preserve);
+    }
     materialRef.current = mat;
     startTimeRef.current = null;
     if (three.mesh) three.mesh.material = mat;
@@ -394,7 +512,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       const loader = new THREE.TextureLoader();
       if ((loader as any).setCrossOrigin) (loader as any).setCrossOrigin("anonymous");
       else loader.crossOrigin = "anonymous";
-      for (const { name, url } of missingTextures) {
+      for (const { url } of missingTextures) {
         pendingTextureLoadsRef.current.add(url);
         loader.load(
           url,
@@ -407,11 +525,18 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
             texture.colorSpace = THREE.SRGBColorSpace;
             texture.flipY = false;
             texture.needsUpdate = true;
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.generateMipmaps = true;
             textureCacheRef.current.set(url, texture);
             for (const [uName, uUrl] of textureAssignments) {
               if (uUrl !== url) continue;
               const uniform = materialRef.current?.uniforms?.[uName];
-              if (uniform) uniform.value = texture;
+              if (uniform) {
+                uniform.value = cloneTextureForUniform(texture, samplerSettings.get(uName));
+              }
             }
             if (materialRef.current) materialRef.current.needsUpdate = true;
           },
@@ -427,7 +552,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     return () => {
       cancelled = true;
     };
-  }, [ensureSamplerFallback, fragCode, wireframe, textureAssignments]);
+  }, [ensureSamplerFallback, fragCode, wireframe, textureAssignments, samplerSettings]);
 
   const loadModelAsset = useCallback(async (source: string, label: string) => {
     setModelStatus(`Loading ${label}…`);

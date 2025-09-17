@@ -15,6 +15,13 @@ export function buildRFNodeFromTemplate(opts: {
         ...template,
         id: Number(id),
         position: [Math.round(position.x), Math.round(position.y)],
+        properties: Array.isArray(template.properties)
+          ? template.properties.map((prop) =>
+              prop && typeof prop === "object"
+                ? { ...prop, value: prop.value !== undefined ? prop.value : prop.default }
+                : prop
+            )
+          : [],
       }
     : {
         id: Number(id),
@@ -25,6 +32,7 @@ export function buildRFNodeFromTemplate(opts: {
         nodes: [],
         inputs: [],
         outputs: [],
+        properties: [],
       };
 
   const base: any = {
@@ -43,4 +51,3 @@ export function buildRFNodeFromTemplate(opts: {
   if (parentId) base.parentId = parentId;
   return base as Node;
 }
-

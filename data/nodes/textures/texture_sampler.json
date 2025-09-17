@@ -30,5 +30,30 @@
       "name": "color",
       "type": "float4"
     }
+  ],
+  "properties": [
+    {
+      "id": "wrap_mode",
+      "label": "Wrap Mode",
+      "type": "enum",
+      "default": "repeat",
+      "options": [
+        { "value": "repeat", "label": "Repeat", "langKey": "wrap_repeat" },
+        { "value": "clamp", "label": "Clamp", "langKey": "wrap_clamp" },
+        { "value": "mirror", "label": "Mirror", "langKey": "wrap_mirror" },
+        { "value": "border", "label": "Border", "langKey": "wrap_border" }
+      ]
+    },
+    {
+      "id": "filter_mode",
+      "label": "Filter",
+      "type": "enum",
+      "default": "linear",
+      "options": [
+        { "value": "linear", "label": "Linear", "langKey": "filter_linear" },
+        { "value": "nearest", "label": "Nearest", "langKey": "filter_nearest" },
+        { "value": "cubic", "label": "Cubic", "langKey": "filter_cubic" }
+      ]
+    }
   ]
 }

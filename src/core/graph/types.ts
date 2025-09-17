@@ -1,3 +1,5 @@
+import type { LanguageNodeTemplate, LanguagePack, NodeProperty } from "../schema/types";
+
 export type PinType = string | string[];
 
 export type InputPin = {
@@ -24,6 +26,7 @@ export type GraphNode = {
   nodes: GraphNode[];
   inputs: InputPin[];
   outputs: OutputPin[];
+  properties?: NodeProperty[];
   parent?: GraphNode;
   _code?: string;
   _input_code?: string;
@@ -33,15 +36,4 @@ export type GraphNode = {
 
 export type Graph = GraphNode; // root is also a node (e.g., surface)
 
-export type LanguageNodeTemplate = {
-  template: string;
-};
-
-export type LanguagePack = {
-  name: string;
-  version: string;
-  file_extensions: string[];
-  nodes: Record<string, LanguageNodeTemplate>;
-  meta?: Record<string, { template: string }>;
-};
-
+export type { LanguageNodeTemplate, LanguagePack };

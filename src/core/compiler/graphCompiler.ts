@@ -29,6 +29,14 @@ function getUniqueNodeName(node: GraphNode): string {
   return node.type ? `${node.type}_${node.id}` : `NO_TYPE_${node.id}`;
 }
 
+function coercePropertyValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map((v) => coercePropertyValue(v)).join(", ");
+  if (typeof value === "number") return fmtNum(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
 export class GraphCompiler {
   constructor(private graph_data: Graph, private lang_def: LanguagePack) { }
   public result_code = "";
@@ -294,8 +302,43 @@ export class GraphCompiler {
       (node as any)._resolving_input = true;
       this.resolve_template_input(node, match, input_index);
     }
+
+    if (node._code?.includes("{{property:")) {
+      this.resolve_template_properties(node);
+    }
     if (!node.outputs || node.outputs.length === 0) {
       this.remove_default_inputs(node);
+    }
+  }
+
+  private render_property(node: GraphNode, propId: string, langNode?: LanguagePack["nodes"][string]): string {
+    const props = Array.isArray(node.properties) ? node.properties : [];
+    const prop = props.find((p: any) => p?.id === propId);
+    const value = prop?.value ?? prop?.default;
+    if (prop?.type === "enum") {
+      const options: any[] = Array.isArray(prop.options) ? prop.options : [];
+      const option = options.find((o) => o?.value === value) ?? options[0];
+      const token = option?.langKey ?? option?.value ?? value;
+      if (token && langNode?.properties?.[propId]?.[String(token)]) {
+        return langNode.properties[propId][String(token)].template ?? "";
+      }
+      return "";
+    }
+    if (prop?.type === "boolean") return value ? "true" : "false";
+    return coercePropertyValue(value);
+  }
+
+  private resolve_template_properties(node: GraphNode) {
+    if (!node._code) return;
+    const regex = /(\{\{property:([^}]+)\}\})/g;
+    const matches = [...(node._code.matchAll(regex) ?? [])];
+    if (!matches.length) return;
+    const langNode = this.lang_def.nodes?.[node.type];
+    for (const m of matches) {
+      const full = m[1];
+      const propId = m[2]?.trim();
+      const replacement = propId ? this.render_property(node, propId, langNode) : "";
+      node._code = node._code.replace(full, replacement ?? "");
     }
   }
 
@@ -503,6 +546,10 @@ export class GraphCompiler {
       for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
         const val = resolveTypeLiteral(node.inputs[i].value);
         code = code.replace(`{{inputs:${i}}}`, val);
+      }
+      if (code.includes("{{property:")) {
+        const langNode = this.lang_def.nodes[node.type];
+        code = code.replace(/\{\{property:([^}]+)\}\}/g, (_match, pid) => this.render_property(node, String(pid).trim(), langNode));
       }
       const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
       exposed.push(wrapper.replace("{{definition}}", code));

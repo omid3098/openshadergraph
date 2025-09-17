@@ -127,6 +127,21 @@ export function App() {
     );
   }, [setNodes]);
 
+  const updateNodePropertyValue = useCallback((id: string, propId: string, next: unknown) => {
+    if (!propId) return;
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const tpl = (n.data as any)?.template ?? {};
+        const props: any[] = Array.isArray((tpl as any).properties) ? ([...(tpl as any).properties] as any[]) : [];
+        const nextProps = props.map((prop) =>
+          prop && typeof prop === "object" && prop.id === propId ? { ...prop, value: next } : prop
+        );
+        return { ...n, data: { ...(n.data as any), template: { ...tpl, properties: nextProps } } } as any;
+      })
+    );
+  }, [setNodes]);
+
   // Centralized updaters for node label and metas to preserve parentId
   const updateNodeLabel = useCallback((id: string, label: string) => {
     setNodes((prev) =>
@@ -173,6 +188,7 @@ export function App() {
     nodes?: GNode[];
     inputs?: Array<{ id: number; name: string; type: any; value?: any }>;
     outputs?: Array<{ id: number; name: string; type: any }>;
+    properties?: any[];
   };
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
     try {
@@ -201,6 +217,28 @@ export function App() {
           ? { x: n.position[0], y: n.position[1] }
           : { x: baseX + depth * depthX, y: baseY + row * rowY };
         perParentRow[parentId ?? "root"] = row + 1;
+        const meta = Array.isArray(n.meta) ? [...n.meta] : [];
+        const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
+        const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
+        if (assetMeta) {
+          const source = assetMeta.slice("asset:".length).trim();
+          if (source) {
+            let assigned = false;
+            for (let i = 0; i < properties.length; i++) {
+              const prop = properties[i];
+              if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
+                properties[i] = { ...prop, value: source };
+                assigned = true;
+                break;
+              }
+            }
+            if (!assigned) {
+              properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
+            }
+          }
+        }
+        const filteredMeta = meta.filter((m: any) => !(typeof m === "string" && m.startsWith("asset:")));
+
         createdNodes.push({
           id: idStr,
           type: "graphNode",
@@ -212,11 +250,12 @@ export function App() {
               id: n.id,
               type: n.type,
               name: n.name,
-              meta: n.meta ?? [],
+              meta: filteredMeta,
               position: n.position ?? [pos.x, pos.y],
               nodes: n.nodes ?? [],
               inputs: n.inputs ?? [],
               outputs: n.outputs ?? [],
+              properties,
             },
           },
           ...(parentId ? { parentId } : {}),
@@ -272,6 +311,7 @@ export function App() {
           data: {
             ...(n.data as any),
             updateInputValue: updateNodeInputValue,
+            updatePropertyValue: updateNodePropertyValue,
             updateNodeLabel,
             addNodeMeta,
             removeNodeMeta,
@@ -285,7 +325,7 @@ export function App() {
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
     }
-  }, [setNodes, setEdges, setGraphName, setViewPath, updateNodeInputValue, updateNodeLabel, addNodeMeta, removeNodeMeta]);
+  }, [setNodes, setEdges, setGraphName, setViewPath, updateNodeInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta]);
 
   // Fetch example graphs and load the first by default
   useEffect(() => {
@@ -331,6 +371,7 @@ export function App() {
     (rfNode as any).data = {
       ...(rfNode as any).data,
       updateInputValue: updateNodeInputValue,
+      updatePropertyValue: updateNodePropertyValue,
       updateNodeLabel,
       addNodeMeta,
       removeNodeMeta,
@@ -428,15 +469,25 @@ export function App() {
       parentId: currentParentId,
     });
     const tpl = ((baseNode.data as any)?.template ?? {}) as any;
-    const meta: string[] = Array.isArray(tpl.meta) ? [...tpl.meta] : [];
-    if (!meta.includes(`asset:${payload.source}`)) meta.push(`asset:${payload.source}`);
+    const props: any[] = Array.isArray(tpl.properties) ? [...tpl.properties] : [];
+    let assigned = false;
+    const nextProps = props.map((prop) => {
+      if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
+        assigned = true;
+        return { ...prop, value: payload.source };
+      }
+      return prop;
+    });
+    if (!assigned) {
+      nextProps.push({ id: "source", type: "asset", label: "Texture", value: payload.source });
+    }
     const node = {
       ...baseNode,
       data: {
         ...(baseNode.data as any),
         label: payload.label || (baseNode.data as any)?.label || item.name,
         asset: payload,
-        template: { ...tpl, name: payload.label || tpl.name, meta },
+        template: { ...tpl, name: payload.label || tpl.name, properties: nextProps },
       },
     } as any;
     setNodes((prev) => [...prev, node]);

@@ -27,6 +27,7 @@ function makeAddNode(id: string, x: number, y: number): RFNode {
         outputs: [
           { id: 0, name: 'out', type: ['float', 'float2', 'float3', 'float4'] },
         ],
+        properties: [],
       },
     },
   } as any;
@@ -48,6 +49,7 @@ function makeColorNode(id: string, x: number, y: number): RFNode {
         nodes: [],
         inputs: [ { id: 0, name: 'in', type: 'float4', value: [1,1,1,1] } ],
         outputs: [ { id: 0, name: 'out', type: 'float4' } ],
+        properties: [],
       },
     },
   } as any;
@@ -69,6 +71,7 @@ function makeFloatNode(id: string, x: number, y: number): RFNode {
         nodes: [],
         inputs: [ { id: 0, name: 'in', type: 'float', value: [1] } ],
         outputs: [ { id: 0, name: 'out', type: 'float' } ],
+        properties: [],
       },
     },
   } as any;

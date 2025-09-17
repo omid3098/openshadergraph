@@ -17,5 +17,14 @@
       "name": "texture",
       "type": "sampler2D"
     }
+  ],
+  "properties": [
+    {
+      "id": "source",
+      "label": "Texture Asset",
+      "type": "asset",
+      "assetKind": "texture",
+      "default": ""
+    }
   ]
 }

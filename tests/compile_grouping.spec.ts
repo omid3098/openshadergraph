@@ -27,6 +27,7 @@ function rfFromGraph(graph: any) {
                     nodes: n.nodes ?? [],
                     inputs: n.inputs ?? [],
                     outputs: n.outputs ?? [],
+                    properties: n.properties ?? [],
                 },
             },
             ...(parentId ? { parentId } : {}),
@@ -92,5 +93,4 @@ describe("compile with grouped nodes", () => {
         expect(code).toMatch(/ROUGHNESS\s*=\s*float_\d+;/);
     });
 });
-
 

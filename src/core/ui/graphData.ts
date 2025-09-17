@@ -27,7 +27,15 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
     const t = (n.data as any)?.template as NodeTemplate | undefined;
     const base = t
       ? JSON.parse(JSON.stringify(t))
-      : { type: (n.data as any)?.type ?? "", name: (n.data as any)?.label ?? "", meta: [], nodes: [], inputs: [], outputs: [] };
+      : {
+          type: (n.data as any)?.type ?? "",
+          name: (n.data as any)?.label ?? "",
+          meta: [],
+          nodes: [],
+          inputs: [],
+          outputs: [],
+          properties: [],
+        };
     const idNum = Number(n.id);
     if (Number.isFinite(idNum)) base.id = idNum;
     base.position = [Math.round(n.position.x), Math.round(n.position.y)];
@@ -35,8 +43,27 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
     base.nodes = [];
     base.inputs ??= [];
     base.outputs ??= [];
+    base.properties = Array.isArray(base.properties) ? base.properties : [];
     // Remove transient meta used by polymorphic UIs
     base.meta = base.meta.filter((m: any) => !(m && typeof m === "object" && "current_pintype" in m));
+    const assetMeta = base.meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
+    if (assetMeta) {
+      const source = assetMeta.slice("asset:".length).trim();
+      if (source) {
+        let assigned = false;
+        base.properties = base.properties.map((prop: any) => {
+          if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
+            assigned = true;
+            return { ...prop, value: source };
+          }
+          return prop;
+        });
+        if (!assigned) {
+          base.properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
+        }
+      }
+      base.meta = base.meta.filter((m: any) => m !== assetMeta);
+    }
     const polyInfo = { inputs: new Set<number>(), outputs: new Set<number>() };
     if (t?.inputs) {
       base.inputs.forEach((p: any, idx: number) => {

@@ -25,6 +25,15 @@ function loadTemplatesSyncOnce() {
           // Ignore base/skeleton files that don't define a concrete node type
           if (!json || typeof json.type !== "string" || json.type.length === 0) continue;
           const valid = validateNodeTemplate(json);
+          if (Array.isArray(valid.properties)) {
+            valid.properties = valid.properties.map((prop) =>
+              prop && typeof prop === "object" && prop.default !== undefined && prop.value === undefined
+                ? { ...prop, value: prop.default }
+                : prop
+            );
+          } else {
+            valid.properties = [];
+          }
           if (valid && typeof valid.type === "string" && valid.type) {
             templateMap.set(valid.type, valid);
           }

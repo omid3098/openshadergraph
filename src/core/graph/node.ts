@@ -29,6 +29,15 @@ export class NodeBuilder {
     n.inputs ??= [];
     n.outputs ??= [];
     n.meta ??= [];
+    if (Array.isArray(n.properties)) {
+      for (const prop of n.properties) {
+        if (prop && typeof prop === "object" && prop.value === undefined && prop.default !== undefined) {
+          prop.value = prop.default;
+        }
+      }
+    } else if (n.properties === undefined) {
+      n.properties = [];
+    }
   }
 
   private cloneTemplate(base: any): GraphNode {

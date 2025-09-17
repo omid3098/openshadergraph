@@ -136,6 +136,9 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/ALBEDO = vec3\(texture_sampler_\d+\.rgb\);/);
     expect(shader_code).toMatch(/EMISSION = vec3\(float3_\d+\);/);
     expect(shader_code).toMatch(/ALPHA = float4_\d+\.x;/);
+    expect(shader_code).toContain("wrap: repeat");
+    expect(shader_code).toContain("filter: linear");
+    expect(shader_code).not.toContain("{{property:");
     const out_file = path.join(SHADERS_DIR, "godot", "texture_sampling.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });

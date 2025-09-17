@@ -24,7 +24,8 @@
           ],
           "nodes": [],
           "inputs": [],
-          "outputs": []
+          "outputs": [],
+          "properties": []
         },
         {
           "id": 2,
@@ -53,7 +54,7 @@
                   "id": 0,
                   "name": "Albedo",
                   "type": "float3",
-                  "value": "../16/0"
+                  "value": "../18/0"
                 },
                 {
                   "id": 1,
@@ -98,7 +99,8 @@
                   ]
                 }
               ],
-              "outputs": []
+              "outputs": [],
+              "properties": []
             },
             {
               "id": 5,
@@ -127,7 +129,8 @@
                   "type": "float",
                   "value": "../3/1"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 6,
@@ -147,7 +150,8 @@
                   "type": "float",
                   "value": "../7/0"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 7,
@@ -180,7 +184,8 @@
                   "type": "float",
                   "value": "../9/0"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 9,
@@ -207,7 +212,8 @@
                   "type": "float",
                   "value": "../10/0"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 10,
@@ -242,7 +248,8 @@
                   "type": "float",
                   "value": "../11/0"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 11,
@@ -277,7 +284,8 @@
                   "type": "float",
                   "value": "../14/1"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 12,
@@ -307,7 +315,8 @@
                   "type": "float2",
                   "value": "../7/1"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 13,
@@ -327,7 +336,8 @@
                   "type": "float2",
                   "value": "../14/0"
                 }
-              ]
+              ],
+              "properties": []
             },
             {
               "id": 14,
@@ -358,18 +368,50 @@
                   "id": 0,
                   "name": "out",
                   "type": "float2",
-                  "value": "../16/1"
+                  "value": "../18/1"
+                }
+              ],
+              "properties": []
+            },
+            {
+              "id": 17,
+              "type": "texture",
+              "name": "UV Grid",
+              "meta": [
+                "exposed"
+              ],
+              "position": [
+                127,
+                -88
+              ],
+              "nodes": [],
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": 0,
+                  "name": "texture",
+                  "type": "sampler2D",
+                  "value": "../18/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "source",
+                  "label": "Texture Asset",
+                  "type": "asset",
+                  "assetKind": "texture",
+                  "value": "https://threejs.org/examples/textures/uv_grid_opengl.jpg"
                 }
               ]
             },
             {
-              "id": 16,
+              "id": 18,
               "type": "texture_sampler",
               "name": "TextureSampler",
               "meta": [],
               "position": [
-                346,
-                -45
+                345,
+                -42
               ],
               "nodes": [],
               "inputs": [
@@ -393,38 +435,72 @@
                   "type": "float4",
                   "value": "../3/0"
                 }
-              ]
-            },
-            {
-              "id": 17,
-              "type": "texture",
-              "name": "UV Grid",
-              "meta": [
-                "exposed",
-                "asset:https://threejs.org/examples/textures/uv_grid_opengl.jpg"
               ],
-              "position": [
-                127,
-                -88
-              ],
-              "nodes": [],
-              "inputs": [],
-              "outputs": [
+              "properties": [
                 {
-                  "id": 0,
-                  "name": "texture",
-                  "type": "sampler2D",
-                  "value": "../16/0"
+                  "id": "wrap_mode",
+                  "label": "Wrap Mode",
+                  "type": "enum",
+                  "default": "repeat",
+                  "options": [
+                    {
+                      "value": "repeat",
+                      "label": "Repeat",
+                      "langKey": "wrap_repeat"
+                    },
+                    {
+                      "value": "clamp",
+                      "label": "Clamp",
+                      "langKey": "wrap_clamp"
+                    },
+                    {
+                      "value": "mirror",
+                      "label": "Mirror",
+                      "langKey": "wrap_mirror"
+                    },
+                    {
+                      "value": "border",
+                      "label": "Border",
+                      "langKey": "wrap_border"
+                    }
+                  ],
+                  "value": "repeat"
+                },
+                {
+                  "id": "filter_mode",
+                  "label": "Filter",
+                  "type": "enum",
+                  "default": "linear",
+                  "options": [
+                    {
+                      "value": "linear",
+                      "label": "Linear",
+                      "langKey": "filter_linear"
+                    },
+                    {
+                      "value": "nearest",
+                      "label": "Nearest",
+                      "langKey": "filter_nearest"
+                    },
+                    {
+                      "value": "cubic",
+                      "label": "Cubic",
+                      "langKey": "filter_cubic"
+                    }
+                  ],
+                  "value": "linear"
                 }
               ]
             }
           ],
           "inputs": [],
-          "outputs": []
+          "outputs": [],
+          "properties": []
         }
       ],
       "inputs": [],
-      "outputs": []
+      "outputs": [],
+      "properties": []
     }
   ],
   "inputs": [],

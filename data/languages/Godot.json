@@ -156,7 +156,20 @@
       "template": "sampler2D {{name}};"
     },
     "texture_sampler": {
-      "template": "vec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});"
+      "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});",
+      "properties": {
+        "wrap_mode": {
+          "wrap_repeat": { "template": "// wrap: repeat" },
+          "wrap_clamp": { "template": "// wrap: clamp" },
+          "wrap_mirror": { "template": "// wrap: mirror" },
+          "wrap_border": { "template": "// wrap: border" }
+        },
+        "filter_mode": {
+          "filter_linear": { "template": "// filter: linear" },
+          "filter_nearest": { "template": "// filter: nearest" },
+          "filter_cubic": { "template": "// filter: cubic" }
+        }
+      }
     },
     "vertex_color": {
       "template": "vec4 {{name}} = COLOR;"

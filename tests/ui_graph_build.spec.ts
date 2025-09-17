@@ -26,6 +26,7 @@ function rfFromGraph(graph: any) {
           nodes: n.nodes ?? [],
           inputs: n.inputs ?? [],
           outputs: n.outputs ?? [],
+          properties: n.properties ?? [],
         },
       },
       ...(parentId ? { parentId } : {}),
@@ -98,4 +99,3 @@ describe("UI graph build + edit + compile", () => {
     expect(code).toMatch(/gl_FragColor\s*=\s*vec4\(/);
   });
 });
-

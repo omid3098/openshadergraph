@@ -47,6 +47,7 @@ describe("data schema validation", () => {
   it("ensures every node type has templates across languages", async () => {
     const nodeRoot = path.resolve(process.cwd(), "data", "nodes");
     const nodeTypes = new Set<string>();
+    const nodeTemplates: Record<string, any> = {};
     await walk(nodeRoot, async (abs, rel) => {
       if (!rel.endsWith(".json")) return;
       const raw = await fs.readFile(abs, "utf8");
@@ -54,6 +55,7 @@ describe("data schema validation", () => {
       const t = typeof json.type === "string" ? json.type.trim() : "";
       if (!t) return;
       nodeTypes.add(t);
+      nodeTemplates[t] = validateNodeTemplate(json);
     });
 
     const langRoot = path.resolve(process.cwd(), "data", "languages");
@@ -71,6 +73,36 @@ describe("data schema validation", () => {
       }
       if (missing.length) {
         throw new Error(`Language '${lang?.name ?? path.basename(file)}' missing templates for: ${missing.join(", ")}`);
+      }
+    }
+
+    for (const file of languageFiles) {
+      const raw = await fs.readFile(file, "utf8");
+      const lang = JSON.parse(raw);
+      const nodes = lang?.nodes ?? {};
+      const missingProps: string[] = [];
+      for (const type of Object.keys(nodeTemplates)) {
+        const template = nodeTemplates[type];
+        const properties: any[] = Array.isArray(template?.properties) ? template.properties : [];
+        if (!properties.length) continue;
+        const langNode = nodes[type];
+        for (const prop of properties) {
+          if (!prop || typeof prop !== "object" || prop.type !== "enum") continue;
+          const options: any[] = Array.isArray(prop.options) ? prop.options : [];
+          for (const opt of options) {
+            const token = opt?.langKey ?? opt?.value;
+            if (!token) continue;
+            const resolved = langNode?.properties?.[prop.id]?.[String(token)]?.template;
+            if (typeof resolved !== "string") {
+              missingProps.push(`${type}.${prop.id}.${token}`);
+            }
+          }
+        }
+      }
+      if (missingProps.length) {
+        throw new Error(
+          `Language '${lang?.name ?? path.basename(file)}' missing property templates for: ${missingProps.join(", ")}`
+        );
       }
     }
   });
