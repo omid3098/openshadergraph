@@ -70,7 +70,11 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
   });
   const samplerUniforms = Array.from(
     new Set(
-      [...out.matchAll(/uniform\s+sampler2D\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/g)].map((m) => m[1])
+      [
+        ...out.matchAll(
+          /uniform\s+sampler2D\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z_][A-Za-z0-9_]*)?\s*;/g
+        ),
+      ].map((m) => m[1])
     )
   );
   return { fragment: out, uniforms, samplerUniforms };

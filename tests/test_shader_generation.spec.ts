@@ -148,6 +148,24 @@ describe("Godot shader generation", () => {
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 
+  it("emits Godot sampler hint for source_color textures", async () => {
+    const { surface, textureNode } = texture_sampling_graph();
+    // Set texture type to source_color
+    const prop = (textureNode.properties as any[]).find((p) => p.id === "texture_type");
+    if (prop) prop.value = "source_color";
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_hint_source_color");
+    expect(shader_code).toMatch(/uniform\s+sampler2D\s+texture_\d+\s*:\s*source_color\s*;/);
+  });
+
+  it("emits Godot sampler hint for normal map textures", async () => {
+    const { surface, textureNode } = texture_sampling_graph();
+    // Set texture type to normal (mapped to hint_normal in language pack)
+    const prop = (textureNode.properties as any[]).find((p) => p.id === "texture_type");
+    if (prop) prop.value = "normal";
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_hint_normal");
+    expect(shader_code).toMatch(/uniform\s+sampler2D\s+texture_\d+\s*:\s*hint_normal\s*;/);
+  });
+
   it("does not leak '{{definition}}' placeholder into output (Godot)", async () => {
     const { surface } = exposed_addition_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "exposed_no_placeholder");

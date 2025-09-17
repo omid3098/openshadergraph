@@ -169,7 +169,14 @@
       "template": "float {{name}} = uTime;"
     },
     "texture": {
-      "template": "sampler2D {{name}};"
+      "template": "sampler2D {{name}};",
+      "properties": {
+        "texture_type": {
+          "data": { "template": "" },
+          "source_color": { "template": "" },
+          "hint_normal": { "template": "" }
+        }
+      }
     },
     "texture_sampler": {
       "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});",

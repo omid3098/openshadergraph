@@ -254,6 +254,8 @@ export class GraphCompiler {
   }
 
   private remove_default_inputs(node: GraphNode) {
+    const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
+    const isVertexOut = node.type === "vertex_output";
     const t = getNodeTemplate(node.type);
     if (!t) return;
     // Normalize defaults by uppercased name for case-insensitive matching
@@ -272,6 +274,18 @@ export class GraphCompiler {
       if (!input_pin || defVal === undefined) { out.push(line); continue; }
       const value = input_pin.value;
       if (typeof value === "string" && value.includes("../")) { out.push(line); continue; }
+      // ThreeJS preview vertex_output special-casing:
+      // - Always keep VERTEX and COLOR assignments so vertex chunk exists
+      // - Drop NORMAL if it is at default (to use geometry normals)
+      if (isThree && isVertexOut) {
+        if (propKey === "VERTEX" || propKey === "COLOR") { out.push(line); continue; }
+        if (propKey === "NORMAL") {
+          const vv = JSON.stringify(value);
+          const dd = JSON.stringify(defVal);
+          if (vv !== dd) { out.push(line); }
+          continue;
+        }
+      }
       // Only keep line if value differs from default
       const vv = JSON.stringify(value);
       const dd = JSON.stringify(defVal);

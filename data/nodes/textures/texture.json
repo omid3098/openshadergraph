@@ -25,6 +25,17 @@
       "type": "asset",
       "assetKind": "texture",
       "default": ""
+    },
+    {
+      "id": "texture_type",
+      "label": "Texture Type",
+      "type": "enum",
+      "default": "data",
+      "options": [
+        { "value": "data", "label": "Data" },
+        { "value": "source_color", "label": "Source Color", "langKey": "source_color" },
+        { "value": "normal", "label": "Normal Map", "langKey": "hint_normal" }
+      ]
     }
   ]
 }
