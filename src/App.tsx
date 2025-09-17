@@ -31,6 +31,8 @@ import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
+import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
+import { FileText, LayoutDashboard, BookOpen } from "lucide-react";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -535,24 +537,38 @@ export function App() {
   const Header = (
     <div className="w-full flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs">
-        <div className="min-w-[200px]">
-          <Select
-            value={selectedExample}
-            onValueChange={(v) => {
-              const ex = examples.find((e) => e.key === v);
-              if (ex) void loadExampleGraph(ex);
-            }}
-          >
-            <SelectTrigger aria-label="Example Graph">
-              <SelectValue placeholder="Select example graph" />
-            </SelectTrigger>
-            <SelectContent>
+        <Menubar>
+          <MenubarMenu>
+            <MenubarTrigger>File</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem>New</MenubarItem>
+              <MenubarItem>Open…</MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem>Save</MenubarItem>
+              <MenubarItem>Save As…</MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>View</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem>Properties</MenubarItem>
+              <MenubarItem>Compile</MenubarItem>
+              <MenubarItem>Graph Data</MenubarItem>
+              <MenubarItem>Assets</MenubarItem>
+              <MenubarItem>Preview</MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>Examples</MenubarTrigger>
+            <MenubarContent>
               {examples.map((e) => (
-                <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+                <MenubarItem key={e.key} onClick={() => void loadExampleGraph(e)}>
+                  {e.label}
+                </MenubarItem>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
       </div>
       <div className="flex-1 flex items-center">
         <Breadcrumb>
@@ -588,9 +604,11 @@ export function App() {
     </div>
   );
 
+  // SidebarMenus removed; moved to header menubar
+
   return (
     <GraphStateProvider value={graphStateValue}>
-      <AppShell header={Header}>
+      <AppShell header={Header}> 
         <div className="w-full h-full relative">
         <ReactFlow
           nodes={visibleNodes}

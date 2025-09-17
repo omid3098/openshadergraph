@@ -10,7 +10,7 @@ type AppShellProps = {
   /** Main content area (fills the space under header, right of sidebar) */
   children: React.ReactNode;
   /** Optional custom sidebar content; when omitted, a default nav is shown. */
-  sidebarContent?: React.ReactNode;
+  sidebarContent?: React.ReactNode | ((opts: { collapsed: boolean }) => React.ReactNode);
 };
 
 export function AppShell({ header, children, sidebarContent }: AppShellProps) {
@@ -45,7 +45,7 @@ export function AppShell({ header, children, sidebarContent }: AppShellProps) {
           <img src={iconUrl} alt="" className="h-5 w-5 rounded-md" />
           {!collapsed && <span className="text-sm font-semibold transition-opacity duration-200">OpenShaderGraph</span>}
         </div>
-        {sidebarContent ?? (
+        {(typeof sidebarContent === "function" ? sidebarContent({ collapsed }) : sidebarContent) ?? (
           <nav className="flex-1 p-2 space-y-1">
             <SidebarItem icon={<Home className="h-4 w-4" />} label="Dashboard" collapsed={collapsed} />
             <SidebarItem icon={<Layers className="h-4 w-4" />} label="Nodes" collapsed={collapsed} />
