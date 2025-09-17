@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
-import type { NodePalette, NodePaletteItem } from "@/core/schema/nodes";
+import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
 
 export type ContextKind = "background" | "node" | "edge" | "selection";
 

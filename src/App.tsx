@@ -15,7 +15,8 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
-import { fetchNodePalette, fetchNodeTemplate, type NodePalette, type NodePaletteItem, type NodeTemplate } from "./core/schema/nodes";
+import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
+import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
 // Panels are now hosted inside a unified dock overlay
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
@@ -53,6 +54,8 @@ export function App() {
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
   const [selectedExample, setSelectedExample] = useState<string>("");
+  const fileHandleRef = useRef<any | null>(null);
+  const [fileName, setFileName] = useState<string>("");
   const [menu, setMenu] = useState<{
     open: boolean;
     kind: ContextKind;
@@ -112,7 +115,7 @@ export function App() {
   const visibleNodes = useMemo(() => {
     return prepareVisibleNodes(nodes as any, currentParentId) as any;
   }, [nodes, currentParentId]);
-  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
+  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
   const visibleEdges = useMemo(() => {
     return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
   }, [edges, visibleNodeIds]);
@@ -226,149 +229,264 @@ export function App() {
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       const graph = data.graph as GNode;
+      await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph", ex.key);
+    } catch (err) {
+      console.warn("Failed to load example graph", ex, err);
+    }
+  }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
 
-      // Flatten graph nodes and build ReactFlow nodes/edges
-      const createdNodes: Node[] = [];
-      const createdEdges: Edge[] = [];
-      const depthX = 240; // x step per depth
-      const rowY = 120; // y step per item
-      const baseX = 80;
-      const baseY = 40;
-      const perParentRow: Record<string, number> = {};
-      const all: Record<string, GNode> = {};
+  // Helper: Inflate canonical graph JSON into RF nodes/edges and load
+  const inflateAndLoadGraph = useCallback(async (graph: GNode, label: string, exampleKey?: string) => {
+    // Support wrapper root with empty type -> pick first surface node
+    const root: any = graph as any;
+    const rootGraph: GNode = (!root?.type || root.type === "") && Array.isArray(root?.nodes)
+      ? (root.nodes.find((n: any) => n?.type === "surface") ?? root.nodes[0])
+      : graph;
 
-      const walk = (n: GNode, parentId?: string, depth = 0) => {
-        const idStr = String(n.id);
-        all[idStr] = n;
-        const row = perParentRow[parentId ?? "root"] ?? 0;
-        const pos = n.position
-          ? { x: n.position[0], y: n.position[1] }
-          : { x: baseX + depth * depthX, y: baseY + row * rowY };
-        perParentRow[parentId ?? "root"] = row + 1;
-        const meta = Array.isArray(n.meta) ? [...n.meta] : [];
-        const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
-        const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
-        if (assetMeta) {
-          const source = assetMeta.slice("asset:".length).trim();
-          if (source) {
+    // Flatten graph nodes and build ReactFlow nodes/edges
+    const createdNodes: Node[] = [];
+    const createdEdges: Edge[] = [];
+    const depthX = 240; // x step per depth
+    const rowY = 120; // y step per item
+    const baseX = 80;
+    const baseY = 40;
+    const perParentRow: Record<string, number> = {};
+    const all: Record<string, GNode> = {};
+
+    const walk = (n: GNode, parentId?: string, depth = 0) => {
+      const idStr = String(n.id);
+      all[idStr] = n;
+      const row = perParentRow[parentId ?? "root"] ?? 0;
+      const pos = n.position
+        ? { x: n.position[0], y: n.position[1] }
+        : { x: baseX + depth * depthX, y: baseY + row * rowY };
+      perParentRow[parentId ?? "root"] = row + 1;
+      const meta = Array.isArray(n.meta) ? [...n.meta] : [];
+      const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
+      const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
+      if (assetMeta) {
+        const source = assetMeta.slice("asset:".length).trim();
+        if (source) {
+          let assigned = false;
+          for (let i = 0; i < properties.length; i++) {
+            const prop = properties[i];
+            if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
+              properties[i] = { ...prop, value: source };
+              assigned = true;
+              break;
+            }
+          }
+          if (!assigned) {
+            properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
+          }
+        }
+      }
+      if (n.type === "fragment_output") {
+        const shadingMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
+        if (shadingMeta) {
+          const slug = shadingMeta.slice("shading_".length).trim();
+          const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
+          const value = map[slug] ?? undefined;
+          if (value) {
             let assigned = false;
             for (let i = 0; i < properties.length; i++) {
               const prop = properties[i];
-              if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
-                properties[i] = { ...prop, value: source };
+              if (prop && typeof prop === "object" && prop.id === "shading_model") {
+                properties[i] = { ...prop, value };
                 assigned = true;
                 break;
               }
             }
             if (!assigned) {
-              properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
+              properties.push({ id: "shading_model", type: "enum", value });
             }
           }
-        }
-        if (n.type === "fragment_output") {
-          const shadingMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
-          if (shadingMeta) {
-            const slug = shadingMeta.slice("shading_".length).trim();
-            const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
-            const value = map[slug] ?? undefined;
-            if (value) {
-              let assigned = false;
-              for (let i = 0; i < properties.length; i++) {
-                const prop = properties[i];
-                if (prop && typeof prop === "object" && prop.id === "shading_model") {
-                  properties[i] = { ...prop, value };
-                  assigned = true;
-                  break;
-                }
-              }
-              if (!assigned) {
-                properties.push({ id: "shading_model", type: "enum", value });
-              }
-            }
-          }
-        }
-        const filteredMeta = meta.filter((m: any) => {
-          if (typeof m !== "string") return true;
-          if (m.startsWith("asset:")) return false;
-          if (m.startsWith("shading_")) return false;
-          return true;
-        });
-
-        createdNodes.push({
-          id: idStr,
-          type: "graphNode",
-          position: pos,
-          data: {
-            label: n.name ?? n.type,
-            type: n.type,
-            template: {
-              id: n.id,
-              type: n.type,
-              name: n.name,
-              meta: filteredMeta,
-              position: n.position ?? [pos.x, pos.y],
-              nodes: n.nodes ?? [],
-              inputs: n.inputs ?? [],
-              outputs: n.outputs ?? [],
-              properties,
-            },
-          },
-          ...(parentId ? { parentId } : {}),
-          ...nodeDefaults,
-        } as any);
-        // children
-        for (const child of n.nodes ?? []) {
-          walk(child, idStr, depth + 1);
-        }
-      };
-      walk(graph, undefined, 0);
-
-      // Build edges from input pin refs ../<nodeId>/<pinId>
-      const refRe = /^\.\.\/(\d+)\/(\d+)$/;
-      for (const gid of Object.keys(all)) {
-        const gn = all[gid];
-        for (const pin of gn.inputs ?? []) {
-          if (typeof pin.value !== "string") continue;
-          const m = pin.value.match(refRe);
-          if (!m) continue;
-          const fromId = m[1];
-          const fromPin = Number(m[2]);
-          const toId = gid;
-          const toPin = pin.id;
-          createdEdges.push({
-            id: `e${fromId}-${toId}-${fromPin}-${toPin}`,
-            source: String(fromId),
-            target: String(toId),
-            sourceHandle: `out-${fromPin}`,
-            targetHandle: `in-${toPin}`,
-          });
         }
       }
+      const filteredMeta = meta.filter((m: any) => {
+        if (typeof m !== "string") return true;
+        if (m.startsWith("asset:")) return false;
+        if (m.startsWith("shading_")) return false;
+        return true;
+      });
 
-      // Compute idCounter from max id
-      const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
-      idCounter.current = maxId;
+      createdNodes.push({
+        id: idStr,
+        type: "graphNode",
+        position: pos,
+        data: {
+          label: n.name ?? n.type,
+          type: n.type,
+          template: {
+            id: n.id,
+            type: n.type,
+            name: n.name,
+            meta: filteredMeta,
+            position: n.position ?? [pos.x, pos.y],
+            nodes: n.nodes ?? [],
+            inputs: n.inputs ?? [],
+            outputs: n.outputs ?? [],
+            properties,
+          },
+        },
+        ...(parentId ? { parentId } : {}),
+        ...nodeDefaults,
+      } as any);
+      for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
+    };
+    walk(rootGraph, undefined, 0);
 
-      // Choose default view: fragment_pass if present, else vertex_pass, else surface
-      const surfaceId = String(graph.id);
-      const fragmentPass = (graph.nodes ?? []).find((n) => n.type === "fragment_pass");
-      const vertexPass = (graph.nodes ?? []).find((n) => n.type === "vertex_pass");
-      const defaultPath = fragmentPass
-        ? [surfaceId, String(fragmentPass.id)]
-        : vertexPass
-          ? [surfaceId, String(vertexPass.id)]
-          : [surfaceId];
-
-      // Attach update function to node data for safe edits from GraphNode
-      setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
-      setEdges(createdEdges);
-      setGraphName(ex.label ?? "UntitledGraph");
-      setSelectedExample(ex.key);
-      setViewPath(defaultPath);
-    } catch (err) {
-      console.warn("Failed to load example graph", ex, err);
+    // Build edges from input pin refs ../<nodeId>/<pinId>
+    const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+    for (const gid of Object.keys(all)) {
+      const gn = all[gid];
+      if (!gn || !Array.isArray(gn.inputs)) continue;
+      for (const pin of gn.inputs ?? []) {
+        if (typeof pin.value !== "string") continue;
+        const m = pin.value.match(refRe);
+        if (!m) continue;
+        const fromId = m[1];
+        const fromPin = Number(m[2]);
+        const toId = gid;
+        const toPin = pin.id;
+        createdEdges.push({
+          id: `e${fromId}-${toId}-${fromPin}-${toPin}`,
+          source: String(fromId),
+          target: String(toId),
+          sourceHandle: `out-${fromPin}`,
+          targetHandle: `in-${toPin}`,
+        });
+      }
     }
+
+    // Compute idCounter from max id
+    const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
+    idCounter.current = maxId;
+
+    // Choose default view: fragment_pass if present, else vertex_pass, else surface
+    const surfaceId = String(rootGraph.id);
+    const fragmentPass = (rootGraph.nodes ?? []).find((n) => n.type === "fragment_pass");
+    const vertexPass = (rootGraph.nodes ?? []).find((n) => n.type === "vertex_pass");
+    const defaultPath = fragmentPass
+      ? [surfaceId, String(fragmentPass.id)]
+      : vertexPass
+        ? [surfaceId, String(vertexPass.id)]
+        : [surfaceId];
+
+    setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
+    setEdges(createdEdges);
+    setGraphName(label ?? "UntitledGraph");
+    setSelectedExample(exampleKey ?? "");
+    setViewPath(defaultPath);
   }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
+
+  // File save/open helpers (.osg JSON)
+  const serializeGraph = useCallback(() => {
+    const data = buildGraphData(nodes as any, edges as any, graphName);
+    return JSON.stringify(data, null, 2);
+  }, [nodes, edges, graphName]);
+
+  const triggerDownload = (name: string, contents: string) => {
+    const blob = new Blob([contents], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const writeFileHandle = async (handle: any, contents: string) => {
+    try {
+      const writable = await handle.createWritable();
+      await writable.write(contents);
+      await writable.close();
+    } catch (err) {
+      console.warn("Failed to write file", err);
+      throw err;
+    }
+  };
+
+  const handleSaveAs = useCallback(async () => {
+    try {
+      const contents = serializeGraph();
+      const suggested = (graphName || "UntitledGraph").replace(/\s+/g, "_") + ".osg";
+      const supportsPicker = typeof (window as any).showSaveFilePicker === "function";
+      if (supportsPicker) {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: suggested,
+          types: [{ description: "OpenShaderGraph (*.osg)", accept: { "application/json": [".osg"] } }],
+        });
+        await writeFileHandle(handle, contents);
+        fileHandleRef.current = handle;
+        setFileName(handle.name || suggested);
+      } else {
+        triggerDownload(suggested, contents);
+        fileHandleRef.current = null;
+        setFileName(suggested);
+      }
+    } catch (err) {
+      // user cancel or error: ignore
+    }
+  }, [graphName, serializeGraph]);
+
+  const handleSave = useCallback(async () => {
+    const contents = serializeGraph();
+    const handle = fileHandleRef.current;
+    if (handle) {
+      try {
+        await writeFileHandle(handle, contents);
+        return;
+      } catch (err) {
+        // Fallback to Save As on failure
+      }
+    }
+    await handleSaveAs();
+  }, [serializeGraph, handleSaveAs]);
+
+  const handleOpen = useCallback(async () => {
+    const supportsPicker = typeof (window as any).showOpenFilePicker === "function";
+    try {
+      let file: File | null = null;
+      if (supportsPicker) {
+        const [handle] = await (window as any).showOpenFilePicker({
+          multiple: false,
+          types: [{ description: "OpenShaderGraph (*.osg)", accept: { "application/json": [".osg"] } }],
+        });
+        const fh = await handle.getFile();
+        file = fh;
+        fileHandleRef.current = handle; // keep for Save overwrite
+        setFileName(handle.name || fh.name);
+      } else {
+        // Fallback: input[type=file]
+        file = await new Promise<File | null>((resolve) => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".osg,application/json";
+          input.onchange = () => {
+            const f = input.files && input.files[0] ? input.files[0] : null;
+            resolve(f);
+            input.remove();
+          };
+          document.body.appendChild(input);
+          input.click();
+        });
+        fileHandleRef.current = null;
+        setFileName(file?.name ?? "");
+      }
+      if (!file) return;
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      // If wrapper root, select surface; pass name without extension as graph name
+      const baseName = (file.name || fileName || "").replace(/\.[^.]+$/, "");
+      const label = String(parsed?.name ?? (baseName || "UntitledGraph"));
+      await inflateAndLoadGraph(parsed, label);
+    } catch (err) {
+      // user cancel or error: ignore
+    }
+  }, [inflateAndLoadGraph, fileName]);
 
   // Create a brand-new surface graph with vertex + fragment passes
   const createNewGraph = useCallback(
@@ -506,7 +624,7 @@ export function App() {
         // Apply state
         setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
         setEdges(createdEdges);
-        setGraphName(`Untitled ${shading[0].toUpperCase()}${shading.slice(1)}`);
+        setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setSelectedExample("");
         setViewPath(defaultPath);
       } catch (err) {
@@ -528,7 +646,7 @@ export function App() {
         setExamples(list);
         if (list.length) {
           // Default: load the first example
-          await loadExampleGraph(list[0]);
+          await loadExampleGraph(list[0]!);
         }
       } catch (err: any) {
         if (isAbortError(err)) return;
@@ -548,14 +666,15 @@ export function App() {
     } catch (err) {
       console.warn("Failed to fetch node template", item.path, err);
     }
-    const rfNode = buildRFNodeFromTemplate({
+    const rfArgs: any = {
       id: nextId,
       item,
-      template,
       position: pos,
-      parentId: currentParentId,
       nodeDefaults,
-    });
+    };
+    if (template) rfArgs.template = template;
+    if (currentParentId) rfArgs.parentId = currentParentId;
+    const rfNode = buildRFNodeFromTemplate(rfArgs);
     // Inject updater on the new node
     const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode as any]);
@@ -646,13 +765,14 @@ export function App() {
     const defaults = await loadTemplateDefaults("texture");
     const template = defaults ? JSON.parse(JSON.stringify(defaults)) : undefined;
     const nextId = String(++idCounter.current);
-    const baseNode = buildRFNodeFromTemplate({
+    const baseArgs: any = {
       id: nextId,
       item,
-      template,
       position,
-      parentId: currentParentId,
-    });
+    };
+    if (template) baseArgs.template = template;
+    if (currentParentId) baseArgs.parentId = currentParentId;
+    const baseNode = buildRFNodeFromTemplate(baseArgs);
     const tpl = ((baseNode.data as any)?.template ?? {}) as any;
     const props: any[] = Array.isArray(tpl.properties) ? [...tpl.properties] : [];
     let assigned = false;
@@ -695,10 +815,10 @@ export function App() {
                   <MenubarItem onClick={() => void createNewGraph("toon")}>Toon</MenubarItem>
                 </MenubarSubContent>
               </MenubarSub>
-              <MenubarItem>Open…</MenubarItem>
+              <MenubarItem onClick={() => void handleOpen()}>Open…</MenubarItem>
               <MenubarSeparator />
-              <MenubarItem>Save</MenubarItem>
-              <MenubarItem>Save As…</MenubarItem>
+              <MenubarItem onClick={() => void handleSave()}>Save</MenubarItem>
+              <MenubarItem onClick={() => void handleSaveAs()}>Save As…</MenubarItem>
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
@@ -819,8 +939,8 @@ export function App() {
           kind={menu.kind}
           x={menu.x}
           y={menu.y}
-          targetId={menu.targetId}
-          palette={palette ?? undefined}
+          {...(menu.targetId ? { targetId: menu.targetId } : {})}
+          {...(palette ? { palette } : {})}
           selectedCount={rf.getNodes().filter((n) => n.selected).length}
           onGroupSelected={() => {
             groupSelected();

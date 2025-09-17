@@ -1,5 +1,5 @@
 import type { Node } from "@xyflow/react";
-import type { NodePaletteItem, NodeTemplate } from "../schema/nodes";
+import type { NodePaletteItem, NodeTemplate } from "../schema/types";
 
 export function buildRFNodeFromTemplate(opts: {
   id: string;
@@ -10,18 +10,18 @@ export function buildRFNodeFromTemplate(opts: {
   nodeDefaults?: Partial<Node>;
 }): Node {
   const { id, item, template, position, parentId, nodeDefaults } = opts;
-  const graphNode: NodeTemplate = template
+  const graphNode: any = template
     ? {
         ...template,
         id: Number(id),
         position: [Math.round(position.x), Math.round(position.y)],
         properties: Array.isArray(template.properties)
-          ? template.properties.map((prop) =>
+          ? (template.properties.map((prop: any) =>
               prop && typeof prop === "object"
-                ? { ...prop, value: prop.value !== undefined ? prop.value : prop.default }
+                ? ({ ...prop, value: prop.value !== undefined ? prop.value : prop.default } as any)
                 : prop
-            )
-          : [],
+            ) as any[])
+          : ([] as any[]),
       }
     : {
         id: Number(id),
