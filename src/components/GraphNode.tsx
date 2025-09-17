@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
-import { Handle, Position, useNodeId, useReactFlow, useStore } from "@xyflow/react";
+import { Handle, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
 // inputs are provided by extracted components
@@ -8,6 +8,7 @@ import ColorInput from "./inputs/ColorInput";
 import NumericVectorInput from "./inputs/NumericVectorInput";
 import { THEME } from "@/styles/theme";
 import type { NodeProperty } from "@/core/schema/types";
+import { useGraphState } from "@/core/ui/GraphStateContext";
 
 type Pin = {
   id?: number;
@@ -37,9 +38,9 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const inputs: Pin[] = Array.isArray(data?.template?.inputs) ? data!.template!.inputs! : [];
   const outputs: Pin[] = Array.isArray(data?.template?.outputs) ? data!.template!.outputs! : [];
   const nodeId = useNodeId();
-  const rf = useReactFlow();
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
+  const { nodeUpdaterApi } = useGraphState();
 
   // Updater must be defined before effects that reference it
   const updateInputValue = useCallback(
@@ -50,20 +51,9 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         external(nodeId, pinId, next);
         return;
       }
-      // Fallback: update via ReactFlow store (may lose parentId when using filtered nodes)
-      rf.setNodes((prev) =>
-        prev.map((n) => {
-          if (n.id !== nodeId) return n;
-          const tpl = (n.data as any)?.template;
-          if (!tpl || !Array.isArray(tpl.inputs)) return n;
-          const idx = tpl.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
-          if (idx < 0) return n;
-          const nextTpl = { ...tpl, inputs: tpl.inputs.map((p: any, i: number) => (i === idx ? { ...p, value: Array.isArray(next) ? next : typeof next === "number" ? [next] : next } : p)) };
-          return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
-        })
-      );
+      nodeUpdaterApi.updateInputValue(nodeId, pinId, next);
     },
-    [nodeId, rf, data]
+    [nodeId, data, nodeUpdaterApi]
   );
 
   // Color picker state moved into ColorInput component

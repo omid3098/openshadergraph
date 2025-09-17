@@ -21,6 +21,8 @@ import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
+import { attachNodeUpdateApi, attachNodesUpdateApi, type NodeUpdaterApi } from "./core/ui/nodeUpdaters";
+import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
@@ -178,6 +180,28 @@ export function App() {
     );
   }, [setNodes]);
 
+  const nodeUpdaterApi = useMemo<NodeUpdaterApi>(
+    () => ({
+      updateInputValue: updateNodeInputValue,
+      updatePropertyValue: updateNodePropertyValue,
+      updateNodeLabel,
+      addNodeMeta,
+      removeNodeMeta,
+    }),
+    [updateNodeInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta]
+  );
+
+  const nodesById = useMemo(() => {
+    const map = new Map<string, Node>();
+    for (const node of nodes) map.set(node.id, node);
+    return map;
+  }, [nodes]);
+
+  const graphStateValue = useMemo(
+    () => ({ nodesById, nodeUpdaterApi }),
+    [nodesById, nodeUpdaterApi]
+  );
+
   // Helpers to load an example graph JSON into the canvas
   type GNode = {
     id: number;
@@ -332,19 +356,7 @@ export function App() {
           : [surfaceId];
 
       // Attach update function to node data for safe edits from GraphNode
-      setNodes(
-        createdNodes.map((n) => ({
-          ...n,
-          data: {
-            ...(n.data as any),
-            updateInputValue: updateNodeInputValue,
-            updatePropertyValue: updateNodePropertyValue,
-            updateNodeLabel,
-            addNodeMeta,
-            removeNodeMeta,
-          },
-        })) as any
-      );
+      setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
       setEdges(createdEdges);
       setGraphName(ex.label ?? "UntitledGraph");
       setSelectedExample(ex.key);
@@ -352,7 +364,7 @@ export function App() {
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
     }
-  }, [setNodes, setEdges, setGraphName, setViewPath, updateNodeInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta]);
+  }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
 
   // Fetch example graphs and load the first by default
   useEffect(() => {
@@ -395,15 +407,8 @@ export function App() {
       nodeDefaults,
     });
     // Inject updater on the new node
-    (rfNode as any).data = {
-      ...(rfNode as any).data,
-      updateInputValue: updateNodeInputValue,
-      updatePropertyValue: updateNodePropertyValue,
-      updateNodeLabel,
-      addNodeMeta,
-      removeNodeMeta,
-    };
-    setNodes((prev) => [...prev, rfNode as any]);
+    const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
+    setNodes((prev) => [...prev, decoratedNode as any]);
   };
 
   const deleteNodeById = useCallback(
@@ -433,22 +438,25 @@ export function App() {
       }
 
       setNodes((ns) =>
-        ns
-          .filter((n) => n.id !== id)
-          .map((n) => {
-            const defaults = defaultsByNodeId.get(n.id);
-            if (!defaults) return n;
-            const tpl: any = (n.data as any)?.template;
-            if (!tpl || !Array.isArray(tpl.inputs)) return n;
-            const { changed, inputs } = restoreInputsToDefaults(tpl.inputs, defaults.inputs, removed);
-            if (!changed) return n;
-            const nextTpl = { ...tpl, inputs };
-            return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
-          })
+        attachNodesUpdateApi(
+          ns
+            .filter((n) => n.id !== id)
+            .map((n) => {
+              const defaults = defaultsByNodeId.get(n.id);
+              if (!defaults) return n;
+              const tpl: any = (n.data as any)?.template;
+              if (!tpl || !Array.isArray(tpl.inputs)) return n;
+              const { changed, inputs } = restoreInputsToDefaults(tpl.inputs, defaults.inputs, removed);
+              if (!changed) return n;
+              const nextTpl = { ...tpl, inputs };
+              return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
+            }),
+          nodeUpdaterApi
+        )
       );
       setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
     },
-    [loadTemplateDefaults, rf, setEdges, setNodes]
+    [loadTemplateDefaults, nodeUpdaterApi, rf, setEdges, setNodes]
   );
 
   // Group selected nodes into a new container node with dynamic I/O
@@ -458,14 +466,14 @@ export function App() {
     const selectedIds = new Set(selected.map((n) => n.id));
     const idGen = () => String(++idCounter.current);
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
-    setNodes(res.nodes as any);
+    setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
     setEdges(res.edges as any);
   };
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
-    setNodes(res.nodes as any);
+    setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
     setEdges(res.edges as any);
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
@@ -517,65 +525,67 @@ export function App() {
         template: { ...tpl, name: payload.label || tpl.name, properties: nextProps },
       },
     } as any;
-    setNodes((prev) => [...prev, node]);
+    const decoratedNode = attachNodeUpdateApi(node as any, nodeUpdaterApi);
+    setNodes((prev) => [...prev, decoratedNode]);
     setMenu((m) => (m.open ? { ...m, open: false } : m));
-  }, [paletteByType, rf, currentParentId, loadTemplateDefaults, setNodes]);
+  }, [paletteByType, rf, currentParentId, loadTemplateDefaults, nodeUpdaterApi, setNodes]);
 
   return (
-    <div className="w-screen h-screen relative">
-      <ReactFlow
-        nodes={visibleNodes}
-        edges={visibleEdges}
-        nodeTypes={{ graphNode: GraphNode }}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        panOnDrag={[1]}
-        selectionOnDrag
-        selectionMode={SelectionMode.Partial}
-        onNodeDoubleClick={(e, node) => {
-          // Drill into container nodes via double click
-          const t = (node.data as any)?.type;
-          if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
-            setViewPath((p) => [...p, node.id]);
-          }
-        }}
-        onPaneClick={() => {
-          // Close context menu when clicking the background pane
-          setMenu((m) => (m.open ? { ...m, open: false } : m));
-        }}
-        onPaneContextMenu={(e) => {
-          e.preventDefault();
-          setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
-        }}
-        onSelectionContextMenu={(e) => {
-          e.preventDefault();
-          setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
-        }}
-        onDragOver={(event) => {
-          if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "copy";
-          }
-        }}
-        onDrop={handleAssetDrop}
-        onNodeContextMenu={(e, node) => {
-          e.preventDefault();
-          setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
-        }}
-        onEdgeContextMenu={(e, edge) => {
-          e.preventDefault();
-          setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
-        }}
-        fitView
-      >
-        <Background />
-        <Controls />
-        <MiniMap />
-      </ReactFlow>
-      <PanelsOverlay graph={graphData} />
-      {/* Example selector + Breadcrumbs for nested view */}
-      <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
+    <GraphStateProvider value={graphStateValue}>
+      <div className="w-screen h-screen relative">
+        <ReactFlow
+          nodes={visibleNodes}
+          edges={visibleEdges}
+          nodeTypes={{ graphNode: GraphNode }}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          panOnDrag={[1]}
+          selectionOnDrag
+          selectionMode={SelectionMode.Partial}
+          onNodeDoubleClick={(e, node) => {
+            // Drill into container nodes via double click
+            const t = (node.data as any)?.type;
+            if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
+              setViewPath((p) => [...p, node.id]);
+            }
+          }}
+          onPaneClick={() => {
+            // Close context menu when clicking the background pane
+            setMenu((m) => (m.open ? { ...m, open: false } : m));
+          }}
+          onPaneContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
+          }}
+          onSelectionContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
+          }}
+          onDragOver={(event) => {
+            if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+            }
+          }}
+          onDrop={handleAssetDrop}
+          onNodeContextMenu={(e, node) => {
+            e.preventDefault();
+            setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
+          }}
+          onEdgeContextMenu={(e, edge) => {
+            e.preventDefault();
+            setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
+          }}
+          fitView
+        >
+          <Background />
+          <Controls />
+          <MiniMap />
+        </ReactFlow>
+        <PanelsOverlay graph={graphData} />
+        {/* Example selector + Breadcrumbs for nested view */}
+        <div className="absolute left-2 top-2 z-10 flex items-center gap-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-md border">
         <div className="min-w-[200px]">
           <Select
             value={selectedExample}
@@ -610,41 +620,42 @@ export function App() {
             </span>
           );
         })}
+        </div>
+        <GraphContextMenu
+          open={menu.open}
+          kind={menu.kind}
+          x={menu.x}
+          y={menu.y}
+          targetId={menu.targetId}
+          palette={palette ?? undefined}
+          selectedCount={rf.getNodes().filter((n) => n.selected).length}
+          onGroupSelected={() => {
+            groupSelected();
+            setMenu((m) => ({ ...m, open: false }));
+          }}
+          canUngroup={(() => {
+            if (!menu.targetId) return false;
+            const n = rf.getNode(menu.targetId);
+            return (n?.data as any)?.type === "group";
+          })()}
+          onUngroupNode={(id) => {
+            ungroupGroup(id);
+            setMenu((m) => ({ ...m, open: false }));
+          }}
+          onAddNode={async (item) => {
+            if (!item) return;
+            await addNodeAt({ item, x: menu.x, y: menu.y });
+            setMenu((m) => ({ ...m, open: false }));
+          }}
+          onDeleteNode={async (id) => {
+            if (!id) return;
+            await deleteNodeById(id);
+            setMenu((m) => ({ ...m, open: false }));
+          }}
+          onClose={() => setMenu((m) => ({ ...m, open: false }))}
+        />
       </div>
-      <GraphContextMenu
-        open={menu.open}
-        kind={menu.kind}
-        x={menu.x}
-        y={menu.y}
-        targetId={menu.targetId}
-        palette={palette ?? undefined}
-        selectedCount={rf.getNodes().filter((n) => n.selected).length}
-        onGroupSelected={() => {
-          groupSelected();
-          setMenu((m) => ({ ...m, open: false }));
-        }}
-        canUngroup={(() => {
-          if (!menu.targetId) return false;
-          const n = rf.getNode(menu.targetId);
-          return (n?.data as any)?.type === "group";
-        })()}
-        onUngroupNode={(id) => {
-          ungroupGroup(id);
-          setMenu((m) => ({ ...m, open: false }));
-        }}
-        onAddNode={async (item) => {
-          if (!item) return;
-          await addNodeAt({ item, x: menu.x, y: menu.y });
-          setMenu((m) => ({ ...m, open: false }));
-        }}
-        onDeleteNode={async (id) => {
-          if (!id) return;
-          await deleteNodeById(id);
-          setMenu((m) => ({ ...m, open: false }));
-        }}
-        onClose={() => setMenu((m) => ({ ...m, open: false }))}
-      />
-    </div>
+    </GraphStateProvider>
   );
 }
 

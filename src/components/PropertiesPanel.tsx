@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useReactFlow, useStore } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
+import { useGraphState } from "@/core/ui/GraphStateContext";
 
 type PropertiesPanelProps = {
   className?: string;
@@ -20,9 +21,12 @@ type LanguagePack = {
 };
 
 export function PropertiesPanel({ className, variant = "docked" }: PropertiesPanelProps) {
-  const rf = useReactFlow();
-  const nodes = useStore((s) => s.nodes);
-  const selected = useMemo(() => nodes.find((n: any) => n.selected), [nodes]);
+  const selectedNodeId = useStore((s) => {
+    const node = s.nodes.find((n: any) => n.selected);
+    return (node?.id ?? null) as string | null;
+  });
+  const { nodesById, nodeUpdaterApi } = useGraphState();
+  const selected = selectedNodeId ? (nodesById.get(selectedNodeId) as any) : undefined;
   const [langKey, setLangKey] = useState<string>(() => {
     if (typeof localStorage !== "undefined") return localStorage.getItem("compilePanel.language") ?? "ThreeJS_GLSL";
     return "ThreeJS_GLSL";
@@ -30,10 +34,11 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
   const [langPack, setLangPack] = useState<LanguagePack | null>(null);
   const [metaToAdd, setMetaToAdd] = useState<string>("");
   const [nameDraft, setNameDraft] = useState<string>("");
+  const selectedData = selected?.data as any;
   const properties = useMemo(() => {
-    const tpl = (selected?.data as any)?.template;
+    const tpl = selectedData?.template;
     return Array.isArray(tpl?.properties) ? (tpl.properties as any[]) : [];
-  }, [selected?.data]);
+  }, [selectedData]);
 
   useEffect(() => {
     // Keep in sync with CompilePanel selection via localStorage
@@ -59,83 +64,37 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
     return () => { cancelled = true; };
   }, [langKey]);
 
+  const selectedLabel = selectedData?.label ?? selectedData?.template?.name ?? "";
+
   useEffect(() => {
-    const label = (selected?.data as any)?.label ?? (selected?.data as any)?.template?.name ?? "";
-    setNameDraft(String(label ?? ""));
-  }, [selected]);
+    setNameDraft(String(selectedLabel ?? ""));
+  }, [selectedLabel, selectedNodeId]);
 
   const availableMetas = useMemo(() => Object.keys(langPack?.meta ?? {}).sort((a, b) => a.localeCompare(b)), [langPack]);
   const currentMetas: string[] = useMemo(() => {
-    const tpl = (selected?.data as any)?.template;
+    const tpl = selectedData?.template;
     return Array.isArray(tpl?.meta) ? (tpl.meta as string[]) : [];
-  }, [selected?.data]);
+  }, [selectedData]);
 
-  const updateNodeName = (next: string) => {
-    if (!selected) return;
-    const external = (selected.data as any)?.updateNodeLabel as ((id: string, label: string) => void) | undefined;
-    if (typeof external === "function") {
-      external(selected.id, next);
-      return;
-    }
-    // Fallback: update via ReactFlow store (may lose parentId when using filtered nodes)
-    rf.setNodes((prev) =>
-      prev.map((n: any) => {
-        if (n.id !== selected.id) return n;
-        const tpl = (n.data as any)?.template;
-        const nextTpl = tpl ? { ...tpl, name: next } : tpl;
-        return { ...n, data: { ...(n.data as any), label: next, template: nextTpl } };
-      })
-    );
-  };
+  const updateNodeName = useCallback((next: string) => {
+    if (!selectedNodeId) return;
+    nodeUpdaterApi.updateNodeLabel(selectedNodeId, next);
+  }, [nodeUpdaterApi, selectedNodeId]);
 
-  const updateProperty = (propId: string, next: unknown) => {
-    if (!selected || !propId) return;
-    const external = (selected.data as any)?.updatePropertyValue as ((id: string, propId: string, val: unknown) => void) | undefined;
-    if (typeof external === "function") {
-      external(selected.id, propId, next);
-      return;
-    }
-    rf.setNodes((prev) =>
-      prev.map((n: any) => {
-        if (n.id !== selected.id) return n;
-        const tpl = (n.data as any)?.template ?? {};
-        const props: any[] = Array.isArray((tpl as any).properties) ? ([...(tpl as any).properties] as any[]) : [];
-        const nextProps = props.map((prop) =>
-          prop && typeof prop === "object" && prop.id === propId ? { ...prop, value: next } : prop
-        );
-        return { ...n, data: { ...(n.data as any), template: { ...tpl, properties: nextProps } } };
-      })
-    );
-  };
+  const updateProperty = useCallback((propId: string, next: unknown) => {
+    if (!selectedNodeId || !propId) return;
+    nodeUpdaterApi.updatePropertyValue(selectedNodeId, propId, next);
+  }, [nodeUpdaterApi, selectedNodeId]);
 
-  const addMeta = (key: string) => {
-    if (!selected || !key) return;
-    const external = (selected.data as any)?.addNodeMeta as ((id: string, k: string) => void) | undefined;
-    if (typeof external === "function") return external(selected.id, key);
-    rf.setNodes((prev) =>
-      prev.map((n: any) => {
-        if (n.id !== selected.id) return n;
-        const tpl = (n.data as any)?.template ?? {};
-        const meta: string[] = Array.isArray((tpl as any).meta) ? ([...(tpl as any).meta] as string[]) : [];
-        if (!meta.includes(key)) meta.push(key);
-        return { ...n, data: { ...(n.data as any), template: { ...tpl, meta } } };
-      })
-    );
-  };
+  const addMeta = useCallback((key: string) => {
+    if (!selectedNodeId || !key) return;
+    nodeUpdaterApi.addNodeMeta(selectedNodeId, key);
+  }, [nodeUpdaterApi, selectedNodeId]);
 
-  const removeMeta = (key: string) => {
-    if (!selected) return;
-    const external = (selected.data as any)?.removeNodeMeta as ((id: string, k: string) => void) | undefined;
-    if (typeof external === "function") return external(selected.id, key);
-    rf.setNodes((prev) =>
-      prev.map((n: any) => {
-        if (n.id !== selected.id) return n;
-        const tpl = (n.data as any)?.template ?? {};
-        const meta: string[] = (Array.isArray((tpl as any).meta) ? (tpl as any).meta : []).filter((m: any) => m !== key);
-        return { ...n, data: { ...(n.data as any), template: { ...tpl, meta } } };
-      })
-    );
-  };
+  const removeMeta = useCallback((key: string) => {
+    if (!selectedNodeId) return;
+    nodeUpdaterApi.removeNodeMeta(selectedNodeId, key);
+  }, [nodeUpdaterApi, selectedNodeId]);
 
   const body = (
     <div className="flex flex-col gap-3 h-full">
@@ -147,7 +106,11 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
             <label className="text-xs text-muted-foreground">Name</label>
             <Input
               value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setNameDraft(next);
+                updateNodeName(next);
+              }}
               onBlur={() => updateNodeName(nameDraft)}
               placeholder="Node name"
             />
