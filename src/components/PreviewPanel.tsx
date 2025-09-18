@@ -14,6 +14,7 @@ import { isCompilableGraph } from "@/core/io/guards";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "@/core/assets/kind";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { observeElementSize } from "./preview/resizeObserver";
 
 type PreviewPanelProps = {
@@ -215,6 +216,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const threeRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh | null } | null>(null);
+  const orbitControlsRef = useRef<OrbitControls | null>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
   const customGeometryRef = useRef<THREE.BufferGeometry | null>(null);
@@ -317,6 +319,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     three.renderer.setSize(w, h, false);
     three.camera.aspect = w / h;
     three.camera.updateProjectionMatrix();
+    if (orbitControlsRef.current) orbitControlsRef.current.update();
   }, []);
 
   // Initialize Three.js renderer/scene once
@@ -333,6 +336,16 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     camera.position.set(0, 0, 3);
     scene.add(camera);
 
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 12;
+    controls.target.set(0, 0, 0);
+    controls.update();
+    orbitControlsRef.current = controls;
+
     threeRef.current = { renderer, scene, camera, mesh: null };
     updateRendererSize();
 
@@ -344,12 +357,15 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         const u = materialRef.current.uniforms as any;
         if (u?.uTime) u.uTime.value = seconds;
       }
-      if (autoRotateRef.current && threeRef.current?.mesh) {
-        threeRef.current.mesh.rotation.y += 0.01;
-        threeRef.current.mesh.rotation.x += 0.005;
+      const threeNow = threeRef.current;
+      if (autoRotateRef.current && threeNow?.mesh) {
+        threeNow.mesh.rotation.y += 0.01;
+        threeNow.mesh.rotation.x += 0.005;
+      }
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.update();
       }
       // Update view-space light directions every frame (camera may move)
-      const threeNow = threeRef.current;
       if (threeNow && materialRef.current) {
         const cam = threeNow.camera;
         cam.updateMatrixWorld();
@@ -387,6 +403,10 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       if (samplerFallbackRef.current) { samplerFallbackRef.current.dispose(); samplerFallbackRef.current = null; }
       startTimeRef.current = null;
       if (customGeometryRef.current) { customGeometryRef.current.dispose(); customGeometryRef.current = null; }
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.dispose();
+        orbitControlsRef.current = null;
+      }
       renderer.dispose();
       threeRef.current = null;
     };
