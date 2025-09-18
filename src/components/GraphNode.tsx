@@ -13,6 +13,7 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { CompilePanel } from "./CompilePanel";
 import { GraphDataPanel } from "./GraphDataPanel";
 import { PreviewPanel } from "./PreviewPanel";
+import { AssetsPanel } from "./AssetsPanel";
 
 type Pin = {
   id?: number;
@@ -92,6 +93,9 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     }
     if (key === "preview") {
       return <PreviewPanel variant="node" graph={graph} className="h-full" />;
+    }
+    if (key === "assets") {
+      return <AssetsPanel variant="node" className="h-full" />;
     }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
   }, [editorPanelKey, graph]);

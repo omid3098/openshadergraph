@@ -19,7 +19,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export type AssetsPanelProps = {
   className?: string;
-  variant?: "docked" | "overlay";
+  variant?: "docked" | "overlay" | "node";
 };
 
 type AssetWithCategory = AssetItem & { category: AssetCategory };
@@ -284,6 +284,10 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
       </div>
     </div>
   );
+
+  if (variant === "node") {
+    return <div className={cn("h-full flex flex-col", className)}>{body}</div>;
+  }
 
   if (variant === "docked") {
     return (

@@ -34,6 +34,8 @@ import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
 import type { Graph } from "@/core/graph/types";
+import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
+import { Check } from "lucide-react";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -43,6 +45,14 @@ const nodeDefaults = {
 const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
+
+const VIEW_MENU_ITEMS: Array<{ key: EditorPanelKey; label: string }> = [
+  { key: "properties", label: "Properties" },
+  { key: "compile", label: "Compile" },
+  { key: "graphdata", label: "Graph Data" },
+  { key: "assets", label: "Assets" },
+  { key: "preview", label: "Preview" },
+];
 
 export function App() {
   const rf = useReactFlow();
@@ -179,6 +189,19 @@ export function App() {
     return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
   }, [edges, visibleNodeIds]);
 
+  const activeEditorPanels = useMemo(() => {
+    const set = new Set<EditorPanelKey>();
+    const parent = currentParentId ?? undefined;
+    for (const item of VIEW_MENU_ITEMS) {
+      const type = EDITOR_PANEL_TYPES[item.key];
+      if (!type) continue;
+      if (collectEditorNodes(nodes, type, parent).length) {
+        set.add(item.key);
+      }
+    }
+    return set;
+  }, [nodes, currentParentId]);
+
   // Centralized updater to modify node template inputs while preserving parentId
   const updateNodeInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
     setNodes((prev) =>
@@ -266,6 +289,52 @@ export function App() {
   const graphStateValue = useMemo(
     () => ({ nodesById, nodeUpdaterApi, graph: graphData as any }),
     [nodesById, nodeUpdaterApi, graphData]
+  );
+
+  const toggleEditorNode = useCallback(
+    async (panel: EditorPanelKey) => {
+      const type = EDITOR_PANEL_TYPES[panel];
+      if (!type) return;
+      const parent = currentParentId ?? undefined;
+      const existing = collectEditorNodes(nodesRef.current, type, parent);
+      if (existing.length) {
+        const removeIds = new Set(existing.map((node) => node.id));
+        for (const id of removeIds) {
+          resizingEditorIdsRef.current.delete(id);
+        }
+        setNodes((prev) => prev.filter((node) => !removeIds.has(node.id)));
+        setEdges((prev) => prev.filter((edge) => !removeIds.has(edge.source) && !removeIds.has(edge.target)));
+        return;
+      }
+
+      const item = paletteByType.get(type);
+      if (!item) {
+        console.warn("Editor panel template missing for", type);
+        return;
+      }
+
+      let template: NodeTemplate | undefined;
+      try {
+        template = await fetchNodeTemplate(item.path);
+      } catch (err) {
+        console.warn("Failed to load editor panel template", type, err);
+      }
+
+      const nextId = String(++idCounter.current);
+      const position = computeEditorSpawnPosition(nodesRef.current, parent);
+      const rfArgs: any = {
+        id: nextId,
+        item,
+        position,
+        nodeDefaults,
+      };
+      if (template) rfArgs.template = template;
+      if (parent) rfArgs.parentId = parent;
+      const rfNode = buildRFNodeFromTemplate(rfArgs);
+      const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
+      setNodes((prev) => [...prev, decoratedNode as any]);
+    },
+    [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi]
   );
 
   // Helpers to load an example graph JSON into the canvas
@@ -901,11 +970,20 @@ export function App() {
           <MenubarMenu>
             <MenubarTrigger>View</MenubarTrigger>
             <MenubarContent>
-              <MenubarItem>Properties</MenubarItem>
-              <MenubarItem>Compile</MenubarItem>
-              <MenubarItem>Graph Data</MenubarItem>
-              <MenubarItem>Assets</MenubarItem>
-              <MenubarItem>Preview</MenubarItem>
+              {VIEW_MENU_ITEMS.map(({ key, label }) => {
+                const active = activeEditorPanels.has(key);
+                return (
+                  <MenubarItem
+                    key={key}
+                    data-state={active ? "checked" : "unchecked"}
+                    className="flex items-center justify-between gap-2"
+                    onClick={() => void toggleEditorNode(key)}
+                  >
+                    <span>{label}</span>
+                    {active ? <Check aria-hidden="true" className="h-3 w-3" /> : null}
+                  </MenubarItem>
+                );
+              })}
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>

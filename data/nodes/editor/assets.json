@@ -1,0 +1,9 @@
+{
+  "type": "editor_assets",
+  "name": "Assets",
+  "meta": ["editor_node", "editor_panel:assets", "editor_size:420x320"],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [],
+  "properties": []
+}
