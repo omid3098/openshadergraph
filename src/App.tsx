@@ -27,6 +27,13 @@ import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { connectSingleInputEdge } from "./core/ui/edges";
+import {
+  clearRecentGraphs,
+  loadRecentGraphs,
+  removeRecentGraph,
+  saveRecentGraph,
+  type RecentGraphEntry,
+} from "./core/ui/recentGraphs";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { AppShell } from "./ui/layout/AppShell";
@@ -74,6 +81,7 @@ export function App() {
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
   const fileHandleRef = useRef<any | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [recentGraphs, setRecentGraphs] = useState<RecentGraphEntry[]>([]);
   const [menu, setMenu] = useState<{
     open: boolean;
     kind: ContextKind;
@@ -142,6 +150,10 @@ export function App() {
     };
     window.addEventListener("pointermove", updatePointer, { passive: true });
     return () => window.removeEventListener("pointermove", updatePointer);
+  }, []);
+
+  useEffect(() => {
+    setRecentGraphs(loadRecentGraphs());
   }, []);
 
   const getFlowCenterClient = useCallback((): { x: number; y: number } => {
@@ -633,6 +645,28 @@ export function App() {
     URL.revokeObjectURL(url);
   };
 
+  const rememberRecentGraph = useCallback(
+    (name: string, contents: string) => {
+      setRecentGraphs(saveRecentGraph({ name, contents }));
+    },
+    [setRecentGraphs]
+  );
+
+  const openGraphFromContents = useCallback(
+    async (opts: { name: string; contents: string; handle?: any; remember?: boolean }) => {
+      const { name, contents, handle, remember = true } = opts;
+      const safeName = name && name.trim().length ? name.trim() : "UntitledGraph.osg";
+      const parsed = JSON.parse(contents);
+      const baseName = safeName.replace(/\.[^.]+$/, "");
+      const label = String(parsed?.name ?? (baseName || "UntitledGraph"));
+      await inflateAndLoadGraph(parsed, label);
+      setFileName(safeName);
+      fileHandleRef.current = handle ?? null;
+      if (remember) rememberRecentGraph(safeName, contents);
+    },
+    [inflateAndLoadGraph, rememberRecentGraph]
+  );
+
   const writeFileHandle = async (handle: any, contents: string) => {
     try {
       const writable = await handle.createWritable();
@@ -657,15 +691,17 @@ export function App() {
         await writeFileHandle(handle, contents);
         fileHandleRef.current = handle;
         setFileName(handle.name || suggested);
+        rememberRecentGraph(handle.name || suggested, contents);
       } else {
         triggerDownload(suggested, contents);
         fileHandleRef.current = null;
         setFileName(suggested);
+        rememberRecentGraph(suggested, contents);
       }
     } catch (_err) {
       // user cancel or error: ignore
     }
-  }, [graphName, serializeGraph]);
+  }, [graphName, serializeGraph, rememberRecentGraph]);
 
   const handleSave = useCallback(async () => {
     const contents = serializeGraph();
@@ -673,27 +709,28 @@ export function App() {
     if (handle) {
       try {
         await writeFileHandle(handle, contents);
+        const name = (fileName && fileName.trim().length ? fileName : handle.name) || "UntitledGraph.osg";
+        rememberRecentGraph(name, contents);
         return;
       } catch (_err) {
         // Fallback to Save As on failure
       }
     }
     await handleSaveAs();
-  }, [serializeGraph, handleSaveAs]);
+  }, [fileName, serializeGraph, handleSaveAs, rememberRecentGraph]);
 
   const handleOpen = useCallback(async () => {
     const supportsPicker = typeof (window as any).showOpenFilePicker === "function";
     try {
       let file: File | null = null;
+      let pickerHandle: any | undefined;
       if (supportsPicker) {
         const [handle] = await (window as any).showOpenFilePicker({
           multiple: false,
           types: [{ description: "OpenShaderGraph (*.osg)", accept: { "application/json": [".osg"] } }],
         });
-        const fh = await handle.getFile();
-        file = fh;
-        fileHandleRef.current = handle; // keep for Save overwrite
-        setFileName(handle.name || fh.name);
+        pickerHandle = handle;
+        file = await handle.getFile();
       } else {
         // Fallback: input[type=file]
         file = await new Promise<File | null>((resolve) => {
@@ -708,20 +745,31 @@ export function App() {
           document.body.appendChild(input);
           input.click();
         });
-        fileHandleRef.current = null;
-        setFileName(file?.name ?? "");
       }
       if (!file) return;
       const text = await file.text();
-      const parsed = JSON.parse(text);
-      // If wrapper root, select surface; pass name without extension as graph name
-      const baseName = (file.name || fileName || "").replace(/\.[^.]+$/, "");
-      const label = String(parsed?.name ?? (baseName || "UntitledGraph"));
-      await inflateAndLoadGraph(parsed, label);
+      const fallbackName = (file.name && file.name.trim().length ? file.name : fileName) || "UntitledGraph.osg";
+      await openGraphFromContents({ name: fallbackName, contents: text, handle: pickerHandle });
     } catch (_err) {
       // user cancel or error: ignore
     }
-  }, [inflateAndLoadGraph, fileName]);
+  }, [fileName, openGraphFromContents]);
+
+  const handleOpenRecent = useCallback(
+    async (entry: RecentGraphEntry) => {
+      try {
+        await openGraphFromContents({ name: entry.name, contents: entry.contents });
+      } catch (err) {
+        console.warn("Failed to open recent graph", entry.name, err);
+        setRecentGraphs(removeRecentGraph(entry.name));
+      }
+    },
+    [openGraphFromContents, setRecentGraphs]
+  );
+
+  const handleClearRecent = useCallback(() => {
+    setRecentGraphs(clearRecentGraphs());
+  }, [setRecentGraphs]);
 
   // Create a brand-new surface graph with vertex + fragment passes
   const createNewGraph = useCallback(
@@ -1060,6 +1108,20 @@ export function App() {
                 </MenubarSubContent>
               </MenubarSub>
               <MenubarItem onClick={() => void handleOpen()}>Open…</MenubarItem>
+              {recentGraphs.length ? (
+                <MenubarSub>
+                  <MenubarSubTrigger>Open Recent</MenubarSubTrigger>
+                  <MenubarSubContent>
+                    {recentGraphs.map((entry) => (
+                      <MenubarItem key={entry.name} onClick={() => void handleOpenRecent(entry)}>
+                        {entry.name}
+                      </MenubarItem>
+                    ))}
+                    <MenubarSeparator />
+                    <MenubarItem onClick={handleClearRecent}>Clear Menu</MenubarItem>
+                  </MenubarSubContent>
+                </MenubarSub>
+              ) : null}
               <MenubarSeparator />
               <MenubarItem onClick={() => void handleSave()}>Save</MenubarItem>
               <MenubarItem onClick={() => void handleSaveAs()}>Save As…</MenubarItem>
