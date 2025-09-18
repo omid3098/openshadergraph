@@ -6,7 +6,6 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  addEdge,
   Position,
   SelectionMode,
   type Connection,
@@ -27,6 +26,7 @@ import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
+import { connectSingleInputEdge } from "./core/ui/edges";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { AppShell } from "./ui/layout/AppShell";
@@ -85,7 +85,7 @@ export function App() {
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   const onConnect = (params: Connection) =>
-    setEdges((eds) => addEdge(params, eds));
+    setEdges((eds) => connectSingleInputEdge(eds, params));
 
   const paletteByType = useMemo(() => {
     const map = new Map<string, NodePaletteItem>();
