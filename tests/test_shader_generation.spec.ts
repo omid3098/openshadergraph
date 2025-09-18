@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { mkdtempSync } from "fs";
@@ -146,6 +146,12 @@ describe("Godot shader generation", () => {
     expect(shader_code).not.toContain("{{property:");
     const out_file = path.join(SHADERS_DIR, "godot", "texture_sampling.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("uses builtin UV when sampler uv input is unconnected", async () => {
+    const { surface } = texture_sampler_default_uv_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_sampler_builtin_uv");
+    expect(shader_code).toMatch(/texture\(texture_\d+,\s*UV\)/);
   });
 
   it("emits Godot sampler hint for source_color textures", async () => {

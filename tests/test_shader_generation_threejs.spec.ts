@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, vector_scalar_addition_graph, exposed_addition_graph, texture_sampling_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, exposed_addition_graph, texture_sampling_graph, texture_sampler_default_uv_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { extractPreviewShaders, parseUniformsAndSanitize } from "../src/core/preview/shaderUtils";
@@ -102,6 +102,13 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).not.toContain("{{property:");
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "texture_sampling.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("uses builtin vUv when sampler uv input is unconnected", async () => {
+    const { surface } = texture_sampler_default_uv_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "texture_sampler_builtin_uv");
+    const { fragment } = extractPreviewShaders(shader_code);
+    expect(fragment).toMatch(/texture\(texture_\d+,\s*vUv\)/);
   });
 
   it("exposed uniforms are emitted", async () => {

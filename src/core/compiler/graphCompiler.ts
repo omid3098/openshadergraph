@@ -7,6 +7,7 @@ import {
   guessPinTypeFromLiteral,
   normalizePinType,
 } from "../types/pinTypes";
+import { getBuiltinPinType, isBuiltinToken, resolveBuiltinExpression } from "../types/builtinInputs";
 
 function fmtNum(n: number): string {
   if (Number.isInteger(n)) return n.toFixed(1);
@@ -16,15 +17,6 @@ function fmtNum(n: number): string {
   if (!s.includes(".")) s = n.toFixed(1);
   return s;
 }
-function resolveTypeLiteral(value: any): string {
-  if (Array.isArray(value)) {
-    const parts = value.map((v) => typeof v === "number" ? fmtNum(v) : String(v));
-    return parts.join(", ");
-  }
-  if (typeof value === "number") return fmtNum(value);
-  return String(value);
-}
-
 function getUniqueNodeName(node: GraphNode): string {
   return node.type ? `${node.type}_${node.id}` : `NO_TYPE_${node.id}`;
 }
@@ -125,6 +117,20 @@ export class GraphCompiler {
     return value;
   }
 
+  private formatInputLiteral(value: any): string {
+    if (isBuiltinToken(value)) {
+      const langName = this.lang_def?.name ?? "";
+      return resolveBuiltinExpression(value, langName);
+    }
+    if (Array.isArray(value)) {
+      const parts = value.map((v) => (typeof v === "number" ? fmtNum(v) : String(v)));
+      return parts.join(", ");
+    }
+    if (typeof value === "number") return fmtNum(value);
+    if (value === undefined || value === null) return "";
+    return String(value);
+  }
+
   private resolve_ref(node: GraphNode, input: InputPin) {
     const path = String(input.value).split("/");
     let ref_node: GraphNode = node;
@@ -191,6 +197,8 @@ export class GraphCompiler {
     if (prepared) return;
     if (typeof input.value === "string" && input.value.includes("../")) {
       this.resolve_ref(node, input);
+    } else if (isBuiltinToken(input.value)) {
+      (input as any)._ref_type = getBuiltinPinType(input.value);
     } else if ((input as any)._ref_type === undefined) {
       const inferred = guessPinTypeFromLiteral(input.value);
       if (inferred) (input as any)._ref_type = inferred;
@@ -244,7 +252,7 @@ export class GraphCompiler {
     if (allowResolved && (node as any)._resolved_type === undefined && expected_type) {
       (node as any)._resolved_type = expected_type;
     }
-    let code = resolveTypeLiteral(input.value);
+    let code = this.formatInputLiteral(input.value);
     const fromType = (input as any)._ref_type ?? declared;
     if (fromType || expected_type) {
       code = this.convert_type(code, fromType, expected_type);
@@ -584,7 +592,7 @@ export class GraphCompiler {
       let code = this.lang_def.nodes[node.type].template;
       code = code.replace("{{name}}", getUniqueNodeName(node));
       for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
-        const val = resolveTypeLiteral(node.inputs[i].value);
+        const val = this.formatInputLiteral(node.inputs[i].value);
         code = code.replace(`{{inputs:${i}}}`, val);
       }
       if (code.includes("{{property:")) {
