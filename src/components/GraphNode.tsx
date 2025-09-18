@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
-import { Handle, Position, useNodeId, useStore } from "@xyflow/react";
+import { Handle, NodeResizer, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
 // inputs are provided by extracted components
@@ -9,6 +9,10 @@ import NumericVectorInput from "./inputs/NumericVectorInput";
 import { THEME } from "@/styles/theme";
 import type { NodeProperty } from "@/core/schema/types";
 import { useGraphState } from "@/core/ui/GraphStateContext";
+import { PropertiesPanel } from "./PropertiesPanel";
+import { CompilePanel } from "./CompilePanel";
+import { GraphDataPanel } from "./GraphDataPanel";
+import { PreviewPanel } from "./PreviewPanel";
 
 type Pin = {
   id?: number;
@@ -40,7 +44,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const nodeId = useNodeId();
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
-  const { nodeUpdaterApi } = useGraphState();
+  const { nodeUpdaterApi, graph } = useGraphState();
+  const meta: string[] = Array.isArray(data?.template?.meta) ? (data!.template!.meta as string[]) : [];
+  const isEditor = meta.includes("editor_node");
+  const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
+  const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
 
   // Updater must be defined before effects that reference it
   const updateInputValue = useCallback(
@@ -70,6 +78,44 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   // RGBA helpers moved into ColorInput
 
   // no-op helper removed; rely on inline stopPropagation handlers
+
+  const renderEditorContent = useCallback(() => {
+    const key = editorPanelKey.toLowerCase();
+    if (key === "properties") {
+      return <PropertiesPanel variant="node" className="h-full overflow-auto" />;
+    }
+    if (key === "compile") {
+      return <CompilePanel variant="node" graph={graph} className="h-full" />;
+    }
+    if (key === "graphdata" || key === "graph_data") {
+      return <GraphDataPanel variant="node" data={graph} className="h-full" />;
+    }
+    if (key === "preview") {
+      return <PreviewPanel variant="node" graph={graph} className="h-full" />;
+    }
+    return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
+  }, [editorPanelKey, graph]);
+
+  if (isEditor) {
+    return (
+      <div className="relative w-full h-full">
+        <NodeResizer
+          color={THEME.selectionColor}
+          isVisible={selected}
+          minWidth={240}
+          minHeight={200}
+        />
+        <Card className="h-full flex flex-col" style={selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : undefined}>
+          <CardHeader className="py-2 px-3">
+            <CardTitle className="text-sm">{name}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 flex-1 overflow-hidden">
+            {renderEditorContent()}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <Card
