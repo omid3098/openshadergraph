@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "@xyflow/react";
+import { shallow } from "zustand/shallow";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
 import { useGraphState } from "@/core/ui/GraphStateContext";
+import { resolveInspectorNodeId, type InspectorNodeLike } from "@/core/ui/inspector";
 
 type PropertiesPanelProps = {
   className?: string;
@@ -21,12 +23,28 @@ type LanguagePack = {
 };
 
 export function PropertiesPanel({ className, variant = "docked" }: PropertiesPanelProps) {
-  const selectedNodeId = useStore((s) => {
-    const node = s.nodes.find((n: any) => n.selected);
-    return (node?.id ?? null) as string | null;
-  });
+  const selectedNodeIds = useStore(
+    (s) => {
+      const ids: string[] = [];
+      for (const node of s.nodes) {
+        if (node.selected) ids.push(node.id);
+      }
+      return ids;
+    },
+    shallow
+  );
   const { nodesById, nodeUpdaterApi } = useGraphState();
-  const selected = selectedNodeId ? (nodesById.get(selectedNodeId) as any) : undefined;
+  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
+  useEffect(() => {
+    const selectedNodes = selectedNodeIds
+      .map((id) => nodesById.get(id) as InspectorNodeLike | undefined)
+      .filter((node): node is InspectorNodeLike => Boolean(node));
+    setInspectedNodeId((prev) => {
+      const next = resolveInspectorNodeId({ previous: prev, selectedNodes, nodesById });
+      return next === prev ? prev : next;
+    });
+  }, [selectedNodeIds, nodesById]);
+  const selected = inspectedNodeId ? (nodesById.get(inspectedNodeId) as any) : undefined;
   const [langKey, setLangKey] = useState<string>(() => {
     if (typeof localStorage !== "undefined") return localStorage.getItem("compilePanel.language") ?? "ThreeJS_GLSL";
     return "ThreeJS_GLSL";
@@ -68,7 +86,7 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
 
   useEffect(() => {
     setNameDraft(String(selectedLabel ?? ""));
-  }, [selectedLabel, selectedNodeId]);
+  }, [selectedLabel, inspectedNodeId]);
 
   const availableMetas = useMemo(() => Object.keys(langPack?.meta ?? {}).sort((a, b) => a.localeCompare(b)), [langPack]);
   const currentMetas: string[] = useMemo(() => {
@@ -118,24 +136,24 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
   }, [currentMetas, measuredWidth, measuredHeight]);
 
   const updateNodeName = useCallback((next: string) => {
-    if (!selectedNodeId) return;
-    nodeUpdaterApi.updateNodeLabel(selectedNodeId, next);
-  }, [nodeUpdaterApi, selectedNodeId]);
+    if (!inspectedNodeId) return;
+    nodeUpdaterApi.updateNodeLabel(inspectedNodeId, next);
+  }, [nodeUpdaterApi, inspectedNodeId]);
 
   const updateProperty = useCallback((propId: string, next: unknown) => {
-    if (!selectedNodeId || !propId) return;
-    nodeUpdaterApi.updatePropertyValue(selectedNodeId, propId, next);
-  }, [nodeUpdaterApi, selectedNodeId]);
+    if (!inspectedNodeId || !propId) return;
+    nodeUpdaterApi.updatePropertyValue(inspectedNodeId, propId, next);
+  }, [nodeUpdaterApi, inspectedNodeId]);
 
   const addMeta = useCallback((key: string) => {
-    if (!selectedNodeId || !key) return;
-    nodeUpdaterApi.addNodeMeta(selectedNodeId, key);
-  }, [nodeUpdaterApi, selectedNodeId]);
+    if (!inspectedNodeId || !key) return;
+    nodeUpdaterApi.addNodeMeta(inspectedNodeId, key);
+  }, [nodeUpdaterApi, inspectedNodeId]);
 
   const removeMeta = useCallback((key: string) => {
-    if (!selectedNodeId) return;
-    nodeUpdaterApi.removeNodeMeta(selectedNodeId, key);
-  }, [nodeUpdaterApi, selectedNodeId]);
+    if (!inspectedNodeId) return;
+    nodeUpdaterApi.removeNodeMeta(inspectedNodeId, key);
+  }, [nodeUpdaterApi, inspectedNodeId]);
 
   const body = (
     <div className="flex flex-col gap-3 h-full">
