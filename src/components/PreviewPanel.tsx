@@ -572,7 +572,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
               return;
             }
             texture.colorSpace = THREE.SRGBColorSpace;
-            texture.flipY = false;
+            // Use Three.js default flipY for image-based textures so v=0 maps to the bottom,
+            // avoiding vertical UV inversion in the preview.
+            texture.flipY = true;
             texture.needsUpdate = true;
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
