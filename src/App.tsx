@@ -26,6 +26,7 @@ import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
+import { serializeGraph as serializeGraphForSave, inflateGraph } from "./core/ui/graphSerde";
 import { connectSingleInputEdge } from "./core/ui/edges";
 import {
   clearRecentGraphs,
@@ -461,158 +462,168 @@ export function App() {
     properties?: any[];
   };
   // Helper: Inflate canonical graph JSON into RF nodes/edges and load
-  const inflateAndLoadGraph = useCallback(async (graph: GNode, label: string) => {
-    // Support wrapper root with empty type -> pick first surface node
-    const root: any = graph as any;
-    const rootGraph: GNode = (!root?.type || root.type === "") && Array.isArray(root?.nodes)
-      ? (root.nodes.find((n: any) => n?.type === "surface") ?? root.nodes[0])
-      : graph;
+  const inflateAndLoadGraph = useCallback(
+    async (graph: GNode, label: string) => {
+      const { graph: inflatedGraph, defaults } = await inflateGraph(graph, loadTemplateDefaults);
+      const root: any = inflatedGraph as any;
+      const rootGraph: GNode = (!root?.type || root.type === "") && Array.isArray(root?.nodes)
+        ? (root.nodes.find((n: any) => n?.type === "surface") ?? root.nodes[0])
+        : (inflatedGraph as any);
 
-    // Flatten graph nodes and build ReactFlow nodes/edges
-    const createdNodes: Node[] = [];
-    const createdEdges: Edge[] = [];
-    const depthX = 240; // x step per depth
-    const rowY = 120; // y step per item
-    const baseX = 80;
-    const baseY = 40;
-    const perParentRow: Record<string, number> = {};
-    const all: Record<string, GNode> = {};
+      const createdNodes: Node[] = [];
+      const createdEdges: Edge[] = [];
+      const depthX = 240;
+      const rowY = 120;
+      const baseX = 80;
+      const baseY = 40;
+      const perParentRow: Record<string, number> = {};
+      const all: Record<string, GNode> = {};
 
-    const walk = (n: GNode, parentId?: string, depth = 0) => {
-      const idStr = String(n.id);
-      all[idStr] = n;
-      const row = perParentRow[parentId ?? "root"] ?? 0;
-      const pos = n.position
-        ? { x: n.position[0], y: n.position[1] }
-        : { x: baseX + depth * depthX, y: baseY + row * rowY };
-      perParentRow[parentId ?? "root"] = row + 1;
-      const meta = Array.isArray(n.meta) ? [...n.meta] : [];
-      const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
-      const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
-      if (assetMeta) {
-        const source = assetMeta.slice("asset:".length).trim();
-        if (source) {
-          let assigned = false;
-          for (let i = 0; i < properties.length; i++) {
-            const prop = properties[i];
-            if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
-              properties[i] = { ...prop, value: source };
-              assigned = true;
-              break;
-            }
-          }
-          if (!assigned) {
-            properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
-          }
-        }
-      }
-      if (n.type === "fragment_output") {
-        const shadingMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
-        if (shadingMeta) {
-          const slug = shadingMeta.slice("shading_".length).trim();
-          const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
-          const value = map[slug] ?? undefined;
-          if (value) {
+      const walk = (n: GNode, parentId?: string, depth = 0) => {
+        const idStr = String(n.id);
+        all[idStr] = n;
+        const row = perParentRow[parentId ?? "root"] ?? 0;
+        const pos = n.position
+          ? { x: n.position[0], y: n.position[1] }
+          : { x: baseX + depth * depthX, y: baseY + row * rowY };
+        perParentRow[parentId ?? "root"] = row + 1;
+        const meta = Array.isArray(n.meta) ? [...n.meta] : [];
+        const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
+        const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
+        if (assetMeta) {
+          const source = assetMeta.slice("asset:".length).trim();
+          if (source) {
             let assigned = false;
             for (let i = 0; i < properties.length; i++) {
               const prop = properties[i];
-              if (prop && typeof prop === "object" && prop.id === "shading_model") {
-                properties[i] = { ...prop, value };
+              if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
+                properties[i] = { ...prop, value: source };
                 assigned = true;
                 break;
               }
             }
             if (!assigned) {
-              properties.push({ id: "shading_model", type: "enum", value });
+              properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
             }
           }
         }
-      }
-      const filteredMeta = meta.filter((m: any) => {
-        if (typeof m !== "string") return true;
-        if (m.startsWith("asset:")) return false;
-        if (m.startsWith("shading_")) return false;
-        return true;
-      });
-
-      const dimensions = parseEditorSize(filteredMeta as string[]);
-      const nodePayload: any = {
-        id: idStr,
-        type: "graphNode",
-        position: pos,
-        data: {
-          label: n.name ?? n.type,
-          type: n.type,
-          template: {
-            id: n.id,
-            type: n.type,
-            name: n.name,
-            meta: filteredMeta,
-            position: n.position ?? [pos.x, pos.y],
-            nodes: n.nodes ?? [],
-            inputs: n.inputs ?? [],
-            outputs: n.outputs ?? [],
-            properties,
-          },
-        },
-        ...(parentId ? { parentId } : {}),
-        ...nodeDefaults,
-      };
-      if (Number.isFinite(dimensions.width) || Number.isFinite(dimensions.height)) {
-        nodePayload.style = {
-          ...(Number.isFinite(dimensions.width) ? { width: dimensions.width } : {}),
-          ...(Number.isFinite(dimensions.height) ? { height: dimensions.height } : {}),
-        };
-      }
-      createdNodes.push(nodePayload);
-      for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
-    };
-    walk(rootGraph, undefined, 0);
-
-    // Build edges from input pin refs ../<nodeId>/<pinId>
-    const refRe = /^\.\.\/(\d+)\/(\d+)$/;
-    for (const gid of Object.keys(all)) {
-      const gn = all[gid];
-      if (!gn || !Array.isArray(gn.inputs)) continue;
-      for (const pin of gn.inputs ?? []) {
-        if (typeof pin.value !== "string") continue;
-        const m = pin.value.match(refRe);
-        if (!m) continue;
-        const fromId = m[1];
-        const fromPin = Number(m[2]);
-        const toId = gid;
-        const toPin = pin.id;
-        createdEdges.push({
-          id: `e${fromId}-${toId}-${fromPin}-${toPin}`,
-          source: String(fromId),
-          target: String(toId),
-          sourceHandle: `out-${fromPin}`,
-          targetHandle: `in-${toPin}`,
+        if (n.type === "fragment_output") {
+          const shadingMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
+          if (shadingMeta) {
+            const slug = shadingMeta.slice("shading_".length).trim();
+            const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
+            const value = map[slug] ?? undefined;
+            if (value) {
+              let assigned = false;
+              for (let i = 0; i < properties.length; i++) {
+                const prop = properties[i];
+                if (prop && typeof prop === "object" && prop.id === "shading_model") {
+                  properties[i] = { ...prop, value };
+                  assigned = true;
+                  break;
+                }
+              }
+              if (!assigned) {
+                properties.push({ id: "shading_model", type: "enum", value });
+              }
+            }
+          }
+        }
+        const filteredMeta = meta.filter((m: any) => {
+          if (typeof m !== "string") return true;
+          if (m.startsWith("asset:")) return false;
+          if (m.startsWith("shading_")) return false;
+          return true;
         });
+
+        const dimensions = parseEditorSize(filteredMeta as string[]);
+        const templateDefaults = defaults.get(n.id);
+        const nodePayload: any = {
+          id: idStr,
+          type: "graphNode",
+          position: pos,
+          data: {
+            label: n.name ?? n.type,
+            type: n.type,
+            template: {
+              id: n.id,
+              type: n.type,
+              name: n.name,
+              meta: filteredMeta,
+              position: n.position ?? [pos.x, pos.y],
+              nodes: n.nodes ?? [],
+              inputs: n.inputs ?? [],
+              outputs: n.outputs ?? [],
+              properties,
+            },
+            ...(templateDefaults
+              ? {
+                  templateDefaults: (() => {
+                    const clone = JSON.parse(JSON.stringify(templateDefaults));
+                    clone.id = n.id;
+                    if (n.position) clone.position = n.position;
+                    return clone;
+                  })(),
+                }
+              : {}),
+          },
+          ...(parentId ? { parentId } : {}),
+          ...nodeDefaults,
+        };
+        if (Number.isFinite(dimensions.width) || Number.isFinite(dimensions.height)) {
+          nodePayload.style = {
+            ...(Number.isFinite(dimensions.width) ? { width: dimensions.width } : {}),
+            ...(Number.isFinite(dimensions.height) ? { height: dimensions.height } : {}),
+          };
+        }
+        createdNodes.push(nodePayload);
+        for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
+      };
+      walk(rootGraph, undefined, 0);
+
+      const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+      for (const gid of Object.keys(all)) {
+        const gn = all[gid];
+        if (!gn || !Array.isArray(gn.inputs)) continue;
+        for (const pin of gn.inputs ?? []) {
+          if (typeof pin.value !== "string") continue;
+          const m = pin.value.match(refRe);
+          if (!m) continue;
+          const fromId = m[1];
+          const fromPin = Number(m[2]);
+          const toId = gid;
+          const toPin = pin.id;
+          createdEdges.push({
+            id: `e${fromId}-${toId}-${fromPin}-${toPin}`,
+            source: String(fromId),
+            target: String(toId),
+            sourceHandle: `out-${fromPin}`,
+            targetHandle: `in-${toPin}`,
+          });
+        }
       }
-    }
 
-    // Compute idCounter from max id
-    const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
-    idCounter.current = maxId;
+      const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
+      idCounter.current = maxId;
 
-    // Choose default view: fragment_pass if present, else vertex_pass, else surface
-    const surfaceId = String(rootGraph.id);
-    const fragmentPass = (rootGraph.nodes ?? []).find((n) => n.type === "fragment_pass");
-    const vertexPass = (rootGraph.nodes ?? []).find((n) => n.type === "vertex_pass");
-    const defaultPath = fragmentPass
-      ? [surfaceId, String(fragmentPass.id)]
-      : vertexPass
-        ? [surfaceId, String(vertexPass.id)]
-        : [surfaceId];
+      const surfaceId = String(rootGraph.id);
+      const fragmentPass = (rootGraph.nodes ?? []).find((n) => n.type === "fragment_pass");
+      const vertexPass = (rootGraph.nodes ?? []).find((n) => n.type === "vertex_pass");
+      const defaultPath = fragmentPass
+        ? [surfaceId, String(fragmentPass.id)]
+        : vertexPass
+          ? [surfaceId, String(vertexPass.id)]
+          : [surfaceId];
 
-    resizingEditorIdsRef.current.clear();
-    pendingGraphUpdateRef.current = false;
-    setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
-    setEdges(createdEdges);
-    setGraphName(label ?? "UntitledGraph");
-    setViewPath(defaultPath);
-  }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
+      resizingEditorIdsRef.current.clear();
+      pendingGraphUpdateRef.current = false;
+      setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
+      setEdges(createdEdges);
+      setGraphName(label ?? "UntitledGraph");
+      setViewPath(defaultPath);
+    },
+    [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi, loadTemplateDefaults]
+  );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
     try {
@@ -632,7 +643,7 @@ export function App() {
   const serializeGraph = useCallback(
     (overrideName?: string) => {
       const name = overrideName && overrideName.trim().length ? overrideName.trim() : graphName;
-      const data = buildGraphData(nodes as any, edges as any, name);
+      const data = serializeGraphForSave(nodes as any, edges as any, name);
       return JSON.stringify(data, null, 2);
     },
     [nodes, edges, graphName]

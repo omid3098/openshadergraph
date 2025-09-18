@@ -24,6 +24,7 @@ export function buildRFNodeFromTemplate(opts: {
   nodeDefaults?: Partial<Node>;
 }): Node {
   const { id, item, template, position, parentId, nodeDefaults } = opts;
+  const baseTemplate = template ? JSON.parse(JSON.stringify(template)) : undefined;
   const graphNode: any = template
     ? {
         ...template,
@@ -51,6 +52,14 @@ export function buildRFNodeFromTemplate(opts: {
       };
 
   if (!Array.isArray(graphNode.meta)) graphNode.meta = [];
+  if (!Array.isArray(graphNode.inputs)) graphNode.inputs = [];
+  if (!Array.isArray(graphNode.outputs)) graphNode.outputs = [];
+  graphNode.inputs.forEach((input: any, index: number) => {
+    if (typeof input.id !== "number") input.id = index;
+  });
+  graphNode.outputs.forEach((output: any, index: number) => {
+    if (typeof output.id !== "number") output.id = index;
+  });
 
   const base: any = {
     id,
@@ -62,6 +71,49 @@ export function buildRFNodeFromTemplate(opts: {
       templatePath: item.path,
       category: item.category,
       template: graphNode,
+      templateDefaults: baseTemplate
+        ? (() => {
+            const defaults = JSON.parse(JSON.stringify(baseTemplate));
+            if (!Array.isArray(defaults.inputs)) defaults.inputs = [];
+            if (!Array.isArray(defaults.outputs)) defaults.outputs = [];
+            defaults.inputs.forEach((input: any, index: number) => {
+              if (typeof input.id !== "number") input.id = index;
+            });
+            defaults.outputs.forEach((output: any, index: number) => {
+              if (typeof output.id !== "number") output.id = index;
+            });
+            defaults.id = Number(id);
+            return defaults;
+          })()
+        : {
+            id: Number(id),
+            type: graphNode.type,
+            name: graphNode.name,
+            meta: Array.isArray(graphNode.meta) ? [...graphNode.meta] : [],
+            position: [Math.round(position.x), Math.round(position.y)],
+            nodes: [],
+            inputs: graphNode.inputs.map((input: any) => ({
+              id: typeof input.id === "number" ? input.id : undefined,
+              name: input.name,
+              type: input.type,
+              value: input.value,
+            })),
+            outputs: graphNode.outputs.map((output: any) => ({
+              id: typeof output.id === "number" ? output.id : undefined,
+              name: output.name,
+              type: output.type,
+            })),
+            properties: Array.isArray(graphNode.properties)
+              ? graphNode.properties.map((prop: any) => {
+                  if (!prop || typeof prop !== "object") return prop;
+                  const next = { ...prop };
+                  if (next.value === undefined && next.default !== undefined) {
+                    next.value = next.default;
+                  }
+                  return next;
+                })
+              : [],
+          },
     },
     ...(nodeDefaults ?? {}),
   };
