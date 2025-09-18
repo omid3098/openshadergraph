@@ -1,0 +1,9 @@
+{
+  "type": "editor_compile",
+  "name": "Compile Output",
+  "meta": ["editor_node", "editor_panel:compile", "editor_size:480x340"],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [],
+  "properties": []
+}

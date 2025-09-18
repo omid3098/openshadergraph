@@ -1,10 +1,12 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { Node } from "@xyflow/react";
+import type { Graph } from "@/core/graph/types";
 import type { NodeUpdaterApi } from "./nodeUpdaters";
 
 export type GraphStateValue = {
   nodesById: Map<string, Node>;
   nodeUpdaterApi: NodeUpdaterApi;
+  graph: Graph;
 };
 
 const GraphStateContext = createContext<GraphStateValue | null>(null);

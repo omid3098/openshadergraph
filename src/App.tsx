@@ -12,16 +12,16 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type NodeChange,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
 // Panels are now hosted inside a unified dock overlay
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { buildRFNodeFromTemplate } from "./core/ui/nodeFactory";
+import { buildRFNodeFromTemplate, parseEditorSize } from "./core/ui/nodeFactory";
 import { attachNodeUpdateApi, attachNodesUpdateApi, type NodeUpdaterApi } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
@@ -33,7 +33,7 @@ import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
-import { FileText, LayoutDashboard, BookOpen } from "lucide-react";
+import type { Graph } from "@/core/graph/types";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -53,7 +53,6 @@ export function App() {
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
-  const [selectedExample, setSelectedExample] = useState<string>("");
   const fileHandleRef = useRef<any | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [menu, setMenu] = useState<{
@@ -108,7 +107,67 @@ export function App() {
     return () => ctrl.abort();
   }, []);
 
-  const graphData = useMemo(() => buildGraphData(nodes as any, edges as any, graphName), [nodes, edges, graphName]);
+  const nodesRef = useRef<Node[]>(nodes);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  const edgesRef = useRef<Edge[]>(edges);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
+  const graphNameRef = useRef(graphName);
+  useEffect(() => { graphNameRef.current = graphName; }, [graphName]);
+
+  const [graphData, setGraphData] = useState<Graph>(() => buildGraphData(nodes as any, edges as any, graphName) as any);
+
+  const resizingEditorIdsRef = useRef(new Set<string>());
+  const pendingGraphUpdateRef = useRef(false);
+
+  const recomputeGraphData = useCallback(() => {
+    const next = buildGraphData(nodesRef.current as any, edgesRef.current as any, graphNameRef.current);
+    setGraphData(next as any);
+  }, []);
+
+  useEffect(() => {
+    if (resizingEditorIdsRef.current.size > 0) {
+      pendingGraphUpdateRef.current = true;
+      return;
+    }
+    pendingGraphUpdateRef.current = false;
+    recomputeGraphData();
+  }, [nodes, edges, graphName, recomputeGraphData]);
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      for (const change of changes) {
+        if (change.type === "remove") {
+          resizingEditorIdsRef.current.delete(change.id);
+          continue;
+        }
+        if (change.type !== "dimensions" || change.resizing === undefined) continue;
+        const node = nodesRef.current.find((n) => n.id === change.id);
+        const meta = (() => {
+          if (!node) return [] as string[];
+          const template = (node.data as any)?.template;
+          return Array.isArray(template?.meta) ? (template.meta as string[]) : [];
+        })();
+        if (!meta.includes("editor_node")) continue;
+        if (change.resizing) {
+          resizingEditorIdsRef.current.add(change.id);
+          pendingGraphUpdateRef.current = true;
+        } else {
+          resizingEditorIdsRef.current.delete(change.id);
+          if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+            pendingGraphUpdateRef.current = false;
+            const flush = () => recomputeGraphData();
+            if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+              window.requestAnimationFrame(flush);
+            } else {
+              setTimeout(flush, 0);
+            }
+          }
+        }
+      }
+      onNodesChange(changes);
+    },
+    [onNodesChange, recomputeGraphData]
+  );
 
   // Visible graph based on current viewPath (root vs. inside a group)
   const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
@@ -205,8 +264,8 @@ export function App() {
   }, [nodes]);
 
   const graphStateValue = useMemo(
-    () => ({ nodesById, nodeUpdaterApi }),
-    [nodesById, nodeUpdaterApi]
+    () => ({ nodesById, nodeUpdaterApi, graph: graphData as any }),
+    [nodesById, nodeUpdaterApi, graphData]
   );
 
   // Helpers to load an example graph JSON into the canvas
@@ -221,22 +280,8 @@ export function App() {
     outputs?: Array<{ id: number; name: string; type: any }>;
     properties?: any[];
   };
-  const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
-    try {
-      const url = new URL("/api/example-graphs", location.origin);
-      url.searchParams.set("name", ex.key);
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      const graph = data.graph as GNode;
-      await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph", ex.key);
-    } catch (err) {
-      console.warn("Failed to load example graph", ex, err);
-    }
-  }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
-
   // Helper: Inflate canonical graph JSON into RF nodes/edges and load
-  const inflateAndLoadGraph = useCallback(async (graph: GNode, label: string, exampleKey?: string) => {
+  const inflateAndLoadGraph = useCallback(async (graph: GNode, label: string) => {
     // Support wrapper root with empty type -> pick first surface node
     const root: any = graph as any;
     const rootGraph: GNode = (!root?.type || root.type === "") && Array.isArray(root?.nodes)
@@ -310,7 +355,8 @@ export function App() {
         return true;
       });
 
-      createdNodes.push({
+      const dimensions = parseEditorSize(filteredMeta as string[]);
+      const nodePayload: any = {
         id: idStr,
         type: "graphNode",
         position: pos,
@@ -331,7 +377,14 @@ export function App() {
         },
         ...(parentId ? { parentId } : {}),
         ...nodeDefaults,
-      } as any);
+      };
+      if (Number.isFinite(dimensions.width) || Number.isFinite(dimensions.height)) {
+        nodePayload.style = {
+          ...(Number.isFinite(dimensions.width) ? { width: dimensions.width } : {}),
+          ...(Number.isFinite(dimensions.height) ? { height: dimensions.height } : {}),
+        };
+      }
+      createdNodes.push(nodePayload);
       for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
     };
     walk(rootGraph, undefined, 0);
@@ -373,12 +426,27 @@ export function App() {
         ? [surfaceId, String(vertexPass.id)]
         : [surfaceId];
 
+    resizingEditorIdsRef.current.clear();
+    pendingGraphUpdateRef.current = false;
     setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
     setEdges(createdEdges);
     setGraphName(label ?? "UntitledGraph");
-    setSelectedExample(exampleKey ?? "");
     setViewPath(defaultPath);
   }, [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]);
+
+  const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
+    try {
+      const url = new URL("/api/example-graphs", location.origin);
+      url.searchParams.set("name", ex.key);
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const graph = data.graph as GNode;
+      await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
+    } catch (err) {
+      console.warn("Failed to load example graph", ex, err);
+    }
+  }, [inflateAndLoadGraph]);
 
   // File save/open helpers (.osg JSON)
   const serializeGraph = useCallback(() => {
@@ -427,7 +495,7 @@ export function App() {
         fileHandleRef.current = null;
         setFileName(suggested);
       }
-    } catch (err) {
+    } catch (_err) {
       // user cancel or error: ignore
     }
   }, [graphName, serializeGraph]);
@@ -439,7 +507,7 @@ export function App() {
       try {
         await writeFileHandle(handle, contents);
         return;
-      } catch (err) {
+      } catch (_err) {
         // Fallback to Save As on failure
       }
     }
@@ -483,7 +551,7 @@ export function App() {
       const baseName = (file.name || fileName || "").replace(/\.[^.]+$/, "");
       const label = String(parsed?.name ?? (baseName || "UntitledGraph"));
       await inflateAndLoadGraph(parsed, label);
-    } catch (err) {
+    } catch (_err) {
       // user cancel or error: ignore
     }
   }, [inflateAndLoadGraph, fileName]);
@@ -579,7 +647,8 @@ export function App() {
           const meta = Array.isArray(n.meta) ? [...n.meta] : [];
           const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
 
-          createdNodes.push({
+          const dimensions = parseEditorSize(meta as string[]);
+          const nodePayload: any = {
             id: idStr,
             type: "graphNode",
             position: pos,
@@ -600,7 +669,14 @@ export function App() {
             },
             ...(parentId ? { parentId } : {}),
             ...nodeDefaults,
-          } as any);
+          };
+          if (Number.isFinite(dimensions.width) || Number.isFinite(dimensions.height)) {
+            nodePayload.style = {
+              ...(Number.isFinite(dimensions.width) ? { width: dimensions.width } : {}),
+              ...(Number.isFinite(dimensions.height) ? { height: dimensions.height } : {}),
+            };
+          }
+          createdNodes.push(nodePayload);
           for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
         };
         walk(surface as unknown as GNode);
@@ -622,10 +698,11 @@ export function App() {
             : [surfaceId];
 
         // Apply state
+        resizingEditorIdsRef.current.clear();
+        pendingGraphUpdateRef.current = false;
         setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
         setEdges(createdEdges);
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
-        setSelectedExample("");
         setViewPath(defaultPath);
       } catch (err) {
         console.warn("Failed to create new graph", shading, err);
@@ -855,8 +932,9 @@ export function App() {
               const n = nodes.find((nn) => nn.id === id);
               const isLast = i === viewPath.length - 1;
               const label = (n?.data as any)?.label ?? (n?.data as any)?.type ?? id;
+              const key = `${id}-${i}`;
               return (
-                <> 
+                <Fragment key={key}>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
                     {isLast ? (
@@ -867,7 +945,7 @@ export function App() {
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
-                </>
+                </Fragment>
               );
             })}
           </BreadcrumbList>
@@ -887,7 +965,7 @@ export function App() {
           nodes={visibleNodes}
           edges={visibleEdges}
           nodeTypes={{ graphNode: GraphNode }}
-          onNodesChange={onNodesChange}
+          onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           panOnDrag={[1]}

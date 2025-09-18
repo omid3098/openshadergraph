@@ -8,10 +8,10 @@ import CodeBlock from "./CodeBlock";
 type GraphDataPanelProps = {
   data: unknown;
   className?: string;
-  variant?: "overlay" | "docked";
+  variant?: "overlay" | "docked" | "node";
 };
 
-function GraphDataPanelDocked({ data, className }: { data: unknown; className?: string }) {
+function GraphDataPanelDocked({ data, className, asNode = false }: { data: unknown; className?: string; asNode?: boolean }) {
   const pretty = useMemo(() => {
     try {
       return JSON.stringify(data, null, 2);
@@ -44,6 +44,28 @@ function GraphDataPanelDocked({ data, className }: { data: unknown; className?: 
     }
   }, [pretty]);
 
+  if (asNode) {
+    return (
+      <div className={cn("h-full flex flex-col", className)}>
+        <div className="flex-1 overflow-hidden">
+          <CodeBlock code={pretty} language="json" className="h-full pt-6" />
+        </div>
+        <div className="px-3 py-2 border-t flex items-center justify-end gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Copy graph data"
+            title="Copy"
+            onClick={copyToClipboard}
+            disabled={!pretty}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Card className={cn("relative h-full", className)}>
       <CodeBlock code={pretty} language="json" className="h-full pt-10" />
@@ -65,6 +87,7 @@ function GraphDataPanelDocked({ data, className }: { data: unknown; className?: 
 
 export function GraphDataPanel({ data, className, variant = "overlay" }: GraphDataPanelProps) {
   if (variant === "docked") return <GraphDataPanelDocked data={data} className={className} />;
+  if (variant === "node") return <GraphDataPanelDocked data={data} className={className} asNode />;
   return <GraphDataPanelOverlay data={data} className={className} />;
 }
 

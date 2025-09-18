@@ -11,6 +11,35 @@ import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { App } from "./App";
 
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "error",
+    (event) => {
+      const message = event.message ?? String(event.error ?? "");
+      if (
+        message &&
+        (message.includes("ResizeObserver loop completed") || message.includes("ResizeObserver loop limit exceeded"))
+      ) {
+        event.preventDefault();
+        return;
+      }
+      if (event.error) {
+        console.error("[global-error]", event.error, event.error?.stack ?? "<no stack>");
+      } else if (message) {
+        console.error("[global-error]", message);
+      }
+    },
+    { capture: true }
+  );
+  window.addEventListener(
+    "unhandledrejection",
+    (event) => {
+      console.error("[unhandled-rejection]", event.reason);
+    },
+    { capture: true }
+  );
+}
+
 const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>

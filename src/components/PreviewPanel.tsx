@@ -14,11 +14,12 @@ import { isCompilableGraph } from "@/core/io/guards";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "@/core/assets/kind";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { observeElementSize } from "./preview/resizeObserver";
 
 type PreviewPanelProps = {
   graph: unknown;
   className?: string;
-  variant?: "overlay" | "docked";
+  variant?: "overlay" | "docked" | "node";
 };
 
 type Primitive = "sphere" | "cube" | "cylinder" | "custom";
@@ -303,6 +304,21 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   // Keep auto-rotate flag in a ref to avoid re-initializing renderer
   useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
 
+  const updateRendererSize = useCallback(() => {
+    const three = threeRef.current;
+    const canvas = canvasRef.current;
+    if (!three || !canvas) return;
+    const rect = canvas.parentElement?.getBoundingClientRect();
+    const width = rect?.width ?? canvas.clientWidth;
+    const height = rect?.height ?? canvas.clientHeight;
+    if (!width || !height) return;
+    const w = Math.max(1, Math.floor(width));
+    const h = Math.max(1, Math.floor(height));
+    three.renderer.setSize(w, h, false);
+    three.camera.aspect = w / h;
+    three.camera.updateProjectionMatrix();
+  }, []);
+
   // Initialize Three.js renderer/scene once
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -318,18 +334,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     scene.add(camera);
 
     threeRef.current = { renderer, scene, camera, mesh: null };
-
-    const handleResize = () => {
-      const rect = canvas.getBoundingClientRect();
-      const w = Math.max(1, Math.floor(rect.width));
-      const h = Math.max(1, Math.floor(rect.height));
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    };
-    handleResize();
-    const ro = new ResizeObserver(handleResize);
-    ro.observe(canvas);
+    updateRendererSize();
 
     const render = (now: number) => {
       rafRef.current = requestAnimationFrame(render);
@@ -361,13 +366,17 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         if (u.uFillDir?.value?.set) u.uFillDir.value.set(fill.x, fill.y, fill.z);
         if (u.uRimDir?.value?.set) u.uRimDir.value.set(rim.x, rim.y, rim.z);
       }
-      renderer.render(scene, camera);
+      try {
+        renderer.render(scene, camera);
+      } catch (err) {
+        console.error("[preview-render-error]", err);
+        throw err;
+      }
     };
     rafRef.current = requestAnimationFrame(render);
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      ro.disconnect();
       if (materialRef.current) {
         const preserve = samplerFallbackRef.current ? new Set([samplerFallbackRef.current]) : undefined;
         disposeMaterial(materialRef.current, preserve);
@@ -381,7 +390,15 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       renderer.dispose();
       threeRef.current = null;
     };
-  }, []);
+  }, [updateRendererSize]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = canvas?.parentElement;
+    if (!container) return;
+    updateRendererSize();
+    return observeElementSize(container, updateRendererSize);
+  }, [updateRendererSize, variant, collapsed]);
 
   // Toggle default HDRI environment (RoomEnvironment via PMREM)
   useEffect(() => {
@@ -657,6 +674,50 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   };
+
+  if (variant === "node") {
+    return (
+      <div className={cn("h-full flex flex-col", className)}>
+        <div className="px-3 py-2 border-b flex flex-row items-center justify-end gap-2">
+          <div className="min-w-[120px]">
+            <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
+              <SelectTrigger aria-label="Primitive">
+                <SelectValue placeholder="Primitive" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sphere">Sphere</SelectItem>
+                <SelectItem value="cube">Cube</SelectItem>
+                <SelectItem value="cylinder">Cylinder</SelectItem>
+                {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
+              </SelectContent>
+            </Select>
+          </div>
+          <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate</label>
+          <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe</label>
+          <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnv} onChange={(e) => setUseEnv(e.target.checked)} /> env</label>
+          <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnvBg} onChange={(e) => setUseEnvBg(e.target.checked)} disabled={!useEnv} /> bg</label>
+        </div>
+        <div className="px-3 pb-3 flex-1 overflow-hidden">
+          <div
+            {...canvasDropProps}
+            className={cn(
+              "rounded-md overflow-hidden w-full h-full min-h-[240px] transition-colors",
+              modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
+            )}
+          >
+            <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
+          </div>
+          {working ? (
+            <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
+          ) : compileError ? (
+            <div className="mt-2 text-[11px] text-red-500">{compileError}</div>
+          ) : modelStatus ? (
+            <div className="mt-2 text-[11px] text-muted-foreground">{modelStatus}</div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === "docked") {
     return (

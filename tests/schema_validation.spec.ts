@@ -48,6 +48,7 @@ describe("data schema validation", () => {
     const nodeRoot = path.resolve(process.cwd(), "data", "nodes");
     const nodeTypes = new Set<string>();
     const nodeTemplates: Record<string, any> = {};
+    const editorNodeTypes = new Set<string>();
     await walk(nodeRoot, async (abs, rel) => {
       if (!rel.endsWith(".json")) return;
       const raw = await fs.readFile(abs, "utf8");
@@ -56,6 +57,10 @@ describe("data schema validation", () => {
       if (!t) return;
       nodeTypes.add(t);
       nodeTemplates[t] = validateNodeTemplate(json);
+      const meta: any[] = Array.isArray(nodeTemplates[t]?.meta) ? nodeTemplates[t].meta : [];
+      if (meta.includes("editor_node")) {
+        editorNodeTypes.add(t);
+      }
     });
 
     const langRoot = path.resolve(process.cwd(), "data", "languages");
@@ -67,6 +72,7 @@ describe("data schema validation", () => {
       const nodes = lang?.nodes ?? {};
       const missing: string[] = [];
       for (const type of nodeTypes) {
+        if (editorNodeTypes.has(type)) continue;
         if (!nodes[type] || typeof nodes[type].template !== "string" || nodes[type].template.length === 0) {
           missing.push(type);
         }
@@ -82,6 +88,7 @@ describe("data schema validation", () => {
       const nodes = lang?.nodes ?? {};
       const missingProps: string[] = [];
       for (const type of Object.keys(nodeTemplates)) {
+        if (editorNodeTypes.has(type)) continue;
         const template = nodeTemplates[type];
         const properties: any[] = Array.isArray(template?.properties) ? template.properties : [];
         if (!properties.length) continue;

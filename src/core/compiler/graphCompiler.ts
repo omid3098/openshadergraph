@@ -463,6 +463,10 @@ export class GraphCompiler {
 
   private compile_node(node: GraphNode) {
     if (this.has_code(node)) return;
+    if (Array.isArray(node.meta) && node.meta.includes("editor_node")) {
+      node._code = "";
+      return;
+    }
     if (Array.isArray(node.meta) && node.meta.includes("exposed")) {
       node._code = "";
       return;

@@ -1,0 +1,9 @@
+{
+  "type": "editor_preview",
+  "name": "3D Preview",
+  "meta": ["editor_node", "editor_panel:preview", "editor_size:520x360"],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [],
+  "properties": []
+}

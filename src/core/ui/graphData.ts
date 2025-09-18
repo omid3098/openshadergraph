@@ -7,6 +7,7 @@ import {
   normalizePinType,
   widenPinType,
 } from "../types/pinTypes";
+import { parseEditorSize } from "./nodeFactory";
 
 // Build the canonical graph JSON from ReactFlow nodes/edges.
 // Mirrors the logic in App.tsx but extracted for testability and reuse.
@@ -106,6 +107,34 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
       });
     }
     polymorphic.set(base, polyInfo);
+
+    const readDimension = (key: "width" | "height"): number | undefined => {
+      const styleVal = (n as any)?.style?.[key];
+      if (typeof styleVal === "number" && Number.isFinite(styleVal)) return Math.round(styleVal);
+      if (typeof styleVal === "string") {
+        const parsed = Number.parseFloat(styleVal);
+        if (Number.isFinite(parsed)) return Math.round(parsed);
+      }
+      const direct = (n as any)?.[key];
+      if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
+      const measured = (n as any)?.measured?.[key];
+      if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
+      return undefined;
+    };
+    if (base.meta.includes("editor_node")) {
+      const currentSize = parseEditorSize(base.meta as string[]);
+      const width = readDimension("width") ?? currentSize.width;
+      const height = readDimension("height") ?? currentSize.height;
+      if (Number.isFinite(width) && Number.isFinite(height)) {
+        const nextEntry = `editor_size:${Math.max(0, Math.round(width!))}x${Math.max(0, Math.round(height!))}`;
+        const idx = base.meta.findIndex((m: any) => typeof m === "string" && m.startsWith("editor_size:"));
+        if (idx >= 0) {
+          base.meta[idx] = nextEntry;
+        } else {
+          base.meta.push(nextEntry);
+        }
+      }
+    }
     map[n.id] = base;
     parentMap[n.id] = (n as any).parentId;
   }

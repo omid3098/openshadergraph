@@ -9,7 +9,7 @@ import { useGraphState } from "@/core/ui/GraphStateContext";
 
 type PropertiesPanelProps = {
   className?: string;
-  variant?: "overlay" | "docked";
+  variant?: "overlay" | "docked" | "node";
 };
 
 type LanguagePack = {
@@ -76,6 +76,47 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
     return Array.isArray(tpl?.meta) ? (tpl.meta as string[]) : [];
   }, [selectedData]);
 
+  const measuredWidth = useMemo(() => {
+    if (!selected) return undefined;
+    const nodeAny = selected as any;
+    const width = nodeAny?.measured?.width ?? nodeAny?.width ?? nodeAny?.style?.width;
+    if (typeof width === "number" && Number.isFinite(width)) return Math.round(width);
+    if (typeof width === "string") {
+      const parsed = Number.parseFloat(width);
+      if (Number.isFinite(parsed)) return Math.round(parsed);
+    }
+    return undefined;
+  }, [selected]);
+
+  const measuredHeight = useMemo(() => {
+    if (!selected) return undefined;
+    const nodeAny = selected as any;
+    const height = nodeAny?.measured?.height ?? nodeAny?.height ?? nodeAny?.style?.height;
+    if (typeof height === "number" && Number.isFinite(height)) return Math.round(height);
+    if (typeof height === "string") {
+      const parsed = Number.parseFloat(height);
+      if (Number.isFinite(parsed)) return Math.round(parsed);
+    }
+    return undefined;
+  }, [selected]);
+
+  const metaDisplay = useMemo(() => {
+    return currentMetas.map((meta) => {
+      if (
+        typeof meta === "string" &&
+        meta.startsWith("editor_size:") &&
+        Number.isFinite(measuredWidth) &&
+        Number.isFinite(measuredHeight)
+      ) {
+        return {
+          raw: meta,
+          display: `editor_size:${measuredWidth}x${measuredHeight}`,
+        };
+      }
+      return { raw: meta, display: meta };
+    });
+  }, [currentMetas, measuredWidth, measuredHeight]);
+
   const updateNodeName = useCallback((next: string) => {
     if (!selectedNodeId) return;
     nodeUpdaterApi.updateNodeLabel(selectedNodeId, next);
@@ -133,15 +174,15 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
               <Button size="sm" onClick={() => { addMeta(metaToAdd); setMetaToAdd(""); }} disabled={!metaToAdd}>Add</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-1">
-              {currentMetas.length === 0 ? (
+              {metaDisplay.length === 0 ? (
                 <span className="text-xs text-muted-foreground">No metas</span>
               ) : (
-                currentMetas
-                  .filter((m) => typeof m === "string")
-                  .map((m) => (
-                    <span key={m} className="text-xs px-2 py-0.5 rounded-full bg-muted border inline-flex items-center gap-1">
-                      {m}
-                      <button className="text-muted-foreground hover:text-foreground" aria-label={`Remove ${m}`} onClick={() => removeMeta(m)}>
+                metaDisplay
+                  .filter((entry) => typeof entry.display === "string")
+                  .map(({ raw, display }) => (
+                    <span key={raw} className="text-xs px-2 py-0.5 rounded-full bg-muted border inline-flex items-center gap-1">
+                      {display}
+                      <button className="text-muted-foreground hover:text-foreground" aria-label={`Remove ${display}`} onClick={() => removeMeta(raw)}>
                         ×
                       </button>
                     </span>
@@ -244,6 +285,14 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
       <Card className={cn("h-full flex flex-col", className)}>
         <CardContent className="px-4 pb-4 flex-1 overflow-auto">{body}</CardContent>
       </Card>
+    );
+  }
+
+  if (variant === "node") {
+    return (
+      <div className={cn("h-full overflow-auto px-4 pb-4", className)}>
+        {body}
+      </div>
     );
   }
 

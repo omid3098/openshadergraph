@@ -63,6 +63,8 @@ Minimal graph rules:
 - Type safety drift: turn on TypeScript `strict` and favor precise types in `src/core/**`. Add tests when tightening types to avoid regressions.
 - Hardcoded preview environment: Language templates must not include default values for preview uniforms like `uKeyDir`, `uKeyColor`, `uFillDir`, `uFillColor`, `uRimDir`, `uRimColor`, `uAmbient`, or `uExposure`. These are preview concerns and must be supplied by the preview panel. Unit tests enforce this.
 
+- React Flow ResizeObserver warnings (dev-only): Resizing nodes via React Flow's `NodeResizer` can emit "ResizeObserver loop completed/limit exceeded" when running under React Strict Mode in development. This is benign upstream behavior; production does not show it. We suppress the dev overlay for these messages in `src/frontend.tsx`. Verify by running the production server (`bun run start`). Do not chase feedback-loop fixes unless the issue reproduces in production.
+
 These are non-negotiable to ship green and stay maintainable.
 
 ## Quick Commands
@@ -71,5 +73,7 @@ These are non-negotiable to ship green and stay maintainable.
 - Run E2E tests: `bun run test:e2e`
 - Run linter: `bun run lint`
 - Typecheck (optional): `bun x tsc -p tsconfig.json --noEmit`
+
+- Run production server: `bun run start`
 
 That’s it. If in doubt, follow the data in `data/**`, confirm APIs with Context7, and don’t submit unless tests and lint are clean.

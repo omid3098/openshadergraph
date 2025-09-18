@@ -102,4 +102,35 @@ describe("UI graph build + edit + compile", () => {
     expect(code).toMatch(/precision highp float;/);
     expect(code).toMatch(/gl_FragColor\s*=\s*vec4\(/);
   });
+
+  it("persists editor node size metadata from ReactFlow dimensions", () => {
+    const editorNode: Node = {
+      id: "1",
+      type: "graphNode",
+      position: { x: 0, y: 0 },
+      width: 512,
+      height: 384,
+      data: {
+        label: "Properties",
+        type: "editor_properties",
+        template: {
+          id: 1,
+          type: "editor_properties",
+          name: "Properties",
+          meta: ["editor_node", "editor_panel:properties", "editor_size:360x320"],
+          position: [0, 0],
+          nodes: [],
+          inputs: [],
+          outputs: [],
+          properties: [],
+        },
+      },
+    } as any;
+    const result = buildGraphData([editorNode] as any, [], "TestGraph");
+    expect(Array.isArray(result.nodes)).toBe(true);
+    const stored = (result.nodes as any[])[0];
+    expect(stored.meta).toContain("editor_node");
+    expect(stored.meta).toContain("editor_panel:properties");
+    expect(stored.meta).toContain("editor_size:512x384");
+  });
 });

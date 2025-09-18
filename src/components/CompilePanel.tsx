@@ -11,7 +11,7 @@ import CodeBlock from "./CodeBlock";
 type CompilePanelProps = {
   graph: unknown;
   className?: string;
-  variant?: "overlay" | "docked";
+  variant?: "overlay" | "docked" | "node";
 };
 
 type LanguageItem = { key: string; name: string; path: string };
@@ -179,6 +179,58 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   };
+
+  if (variant === "node") {
+    const display = working ? "Compiling…" : error || code;
+    const lang = error ? "text" : getPrismLang(language);
+    return (
+      <div className={cn("h-full flex flex-col", className)}>
+        <div className="px-3 py-2 border-b flex items-center justify-end gap-2">
+          <div className="min-w-[140px]">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger aria-label="Language">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map((l) => (
+                  <SelectItem key={l.key} value={l.key}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[120px]">
+            <Select value={engine} onValueChange={setEngine}>
+              <SelectTrigger aria-label="Compiler">
+                <SelectValue placeholder="Compiler" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Copy compile code"
+            title="Copy"
+            onClick={() => copyToClipboard(code)}
+            disabled={!code || !!error || working}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </Button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <CodeBlock
+            code={display}
+            language={lang}
+            className={cn("h-full", error && "text-red-500")}
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (variant === "docked") {
     const display = working ? "Compiling…" : error || code;
