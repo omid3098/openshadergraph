@@ -34,6 +34,7 @@ import {
   saveRecentGraph,
   type RecentGraphEntry,
 } from "./core/ui/recentGraphs";
+import { loadRecentGraphHandle, removeRecentGraphHandle, saveRecentGraphHandle } from "./core/ui/recentGraphHandles";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { AppShell } from "./ui/layout/AppShell";
@@ -666,8 +667,17 @@ export function App() {
   }, []);
 
   const rememberRecentGraph = useCallback(
-    (name: string, contents: string) => {
+    (name: string, contents: string, handle?: FileSystemFileHandle | null) => {
       setRecentGraphs(saveRecentGraph({ name, contents }));
+      if (handle === undefined) return;
+      const persist = async () => {
+        if (handle) {
+          await saveRecentGraphHandle(name, handle);
+        } else {
+          await removeRecentGraphHandle(name);
+        }
+      };
+      void persist();
     },
     [setRecentGraphs]
   );
@@ -682,7 +692,7 @@ export function App() {
       await inflateAndLoadGraph(parsed, label);
       setFileName(safeName);
       fileHandleRef.current = handle ?? null;
-      if (remember) rememberRecentGraph(safeName, contents);
+      if (remember) rememberRecentGraph(safeName, contents, handle ?? null);
     },
     [inflateAndLoadGraph, rememberRecentGraph]
   );
@@ -719,7 +729,7 @@ export function App() {
         fileHandleRef.current = handle;
         setFileName(targetName);
         setGraphName(label);
-        rememberRecentGraph(targetName, contents);
+        rememberRecentGraph(targetName, contents, handle);
       } else {
         const label = (() => {
           const stripped = suggested.replace(/\.[^.]+$/, "").trim();
@@ -730,7 +740,7 @@ export function App() {
         fileHandleRef.current = null;
         setFileName(suggested);
         setGraphName(label);
-        rememberRecentGraph(suggested, contents);
+        rememberRecentGraph(suggested, contents, null);
       }
     } catch (_err) {
       // user cancel or error: ignore
@@ -751,7 +761,7 @@ export function App() {
         const contents = serializeGraph(label);
         await writeFileHandle(handle, contents);
         setGraphName(label);
-        rememberRecentGraph(targetFileName, contents);
+        rememberRecentGraph(targetFileName, contents, handle);
         return;
       } catch (_err) {
         // Fallback to Save As on failure
@@ -799,18 +809,23 @@ export function App() {
   const handleOpenRecent = useCallback(
     async (entry: RecentGraphEntry) => {
       try {
-        await openGraphFromContents({ name: entry.name, contents: entry.contents });
+        const handle = await loadRecentGraphHandle(entry.name);
+        await openGraphFromContents({ name: entry.name, contents: entry.contents, handle: handle ?? undefined });
       } catch (err) {
         console.warn("Failed to open recent graph", entry.name, err);
         setRecentGraphs(removeRecentGraph(entry.name));
+        void removeRecentGraphHandle(entry.name);
       }
     },
     [openGraphFromContents, setRecentGraphs]
   );
 
   const handleClearRecent = useCallback(() => {
+    for (const entry of recentGraphs) {
+      void removeRecentGraphHandle(entry.name);
+    }
     setRecentGraphs(clearRecentGraphs());
-  }, [setRecentGraphs]);
+  }, [recentGraphs, setRecentGraphs]);
 
   // Create a brand-new surface graph with vertex + fragment passes
   const createNewGraph = useCallback(
