@@ -206,6 +206,13 @@
             "template": "// filter: cubic"
           }
         }
+      },
+      "outputs": {
+        "rgb": "{{name}}.rgb",
+        "r": "{{name}}.r",
+        "g": "{{name}}.g",
+        "b": "{{name}}.b",
+        "a": "{{name}}.a"
       }
     },
     "vertex_color": {

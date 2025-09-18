@@ -129,6 +129,7 @@ const ZLanguagePropertyVariant = z.object({
 const ZLanguageNodeTemplate = z.object({
   template: z.string().min(1),
   properties: z.record(z.record(ZLanguagePropertyVariant)).optional(),
+  outputs: z.record(z.string()).optional(),
 });
 
 export const ZLanguagePack: z.ZodSchema<LanguagePack> = z.object({

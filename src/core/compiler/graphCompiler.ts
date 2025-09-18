@@ -1,4 +1,4 @@
-import type { Graph, GraphNode, InputPin, LanguagePack } from "../graph/types";
+import type { Graph, GraphNode, InputPin, LanguagePack, OutputPin } from "../graph/types";
 import { getNodeTemplate } from "../schema/registry";
 import {
   chooseDominantPinType,
@@ -131,6 +131,20 @@ export class GraphCompiler {
     return String(value);
   }
 
+  private get_output_expression(node: GraphNode, output: OutputPin): string {
+    const name = getUniqueNodeName(node);
+    const langNode = this.lang_def?.nodes?.[node.type];
+    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
+    if (!outputs) return name;
+    const candidates = [output.name, String(output.id), output.name?.toLowerCase(), output.name?.toUpperCase()].filter(Boolean) as string[];
+    for (const key of candidates) {
+      if (key in outputs) {
+        return outputs[key].replace(/\{\{name\}\}/g, name);
+      }
+    }
+    return name;
+  }
+
   private resolve_ref(node: GraphNode, input: InputPin) {
     const path = String(input.value).split("/");
     let ref_node: GraphNode = node;
@@ -188,8 +202,10 @@ export class GraphCompiler {
     } else {
       (input as any)._ref_type = resolved ?? (output_pin.type as string);
     }
+    const expr = this.get_output_expression(target, output_pin);
     (input as any)._ref_node_id = target.id;
-    (input as any).value = getUniqueNodeName(target);
+    (input as any)._ref_expression = expr;
+    (input as any).value = expr;
   }
 
   private ensure_input_prepared(node: GraphNode, input: InputPin) {

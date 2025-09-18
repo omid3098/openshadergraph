@@ -83,6 +83,7 @@ export type LanguagePropertyVariant = {
 export type LanguageNodeTemplate = {
   template: string;
   properties?: Record<string, Record<string, LanguagePropertyVariant>>;
+  outputs?: Record<string, string>;
 };
 
 export type LanguagePack = {

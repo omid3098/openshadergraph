@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { mkdtempSync } from "fs";
@@ -152,6 +152,15 @@ describe("Godot shader generation", () => {
     const { surface } = texture_sampler_default_uv_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_sampler_builtin_uv");
     expect(shader_code).toMatch(/texture\(texture_\d+,\s*UV\)/);
+  });
+
+  it("exposes rgb and channel outputs for texture sampler", async () => {
+    const { surface } = texture_sampler_channels_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_sampler_channels");
+    expect(shader_code).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+,\s*UV\)/);
+    expect(shader_code).toMatch(/ALBEDO = vec3\(texture_sampler_\d+\.rgb\);/);
+    expect(shader_code).toMatch(/ROUGHNESS = texture_sampler_\d+\.r;/);
+    expect(shader_code).toMatch(/ALPHA = texture_sampler_\d+\.a;/);
   });
 
   it("emits Godot sampler hint for source_color textures", async () => {

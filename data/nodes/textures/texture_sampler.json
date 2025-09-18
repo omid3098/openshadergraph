@@ -24,8 +24,28 @@
   "outputs": [
     {
       "id": 0,
-      "name": "color",
-      "type": "float4"
+      "name": "rgb",
+      "type": "float3"
+    },
+    {
+      "id": 1,
+      "name": "r",
+      "type": "float"
+    },
+    {
+      "id": 2,
+      "name": "g",
+      "type": "float"
+    },
+    {
+      "id": 3,
+      "name": "b",
+      "type": "float"
+    },
+    {
+      "id": 4,
+      "name": "a",
+      "type": "float"
     }
   ],
   "properties": [

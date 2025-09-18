@@ -155,6 +155,21 @@ export function texture_sampler_default_uv_graph() {
   return { surface, fragment_pass, fragment_output, textureNode, sampler };
 }
 
+export function texture_sampler_channels_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+  const textureNode = surface.create_node("texture", fragment_pass);
+  const sampler = surface.create_node("texture_sampler", fragment_pass);
+
+  surface.connect_nodes(textureNode, sampler, 0, 0);
+  surface.connect_nodes(sampler, fragment_output, 0, 0); // rgb -> Albedo
+  surface.connect_nodes(sampler, fragment_output, 1, 1); // r -> Roughness
+  surface.connect_nodes(sampler, fragment_output, 4, 5); // a -> Alpha
+
+  return { surface, fragment_pass, fragment_output, textureNode, sampler };
+}
+
 export function full_fragment_graph() {
   const surface = new NodeBuilder("surface");
   const fragment_pass = surface.get_node_by_type("fragment_pass")!;

@@ -59,6 +59,9 @@ Minimal graph rules:
 - Visible-nodes trap (parent loss): `prepareVisibleNodes` may strip `parentId` for display-only purposes. Never persist nodes coming from this filtered/derived list. Always update the canonical ReactFlow nodes via the centralized callbacks to preserve `parentId` and hierarchy.
 - Parent/child integrity: All UI edits (name, metas, inputs) must preserve `parentId`, `position`, and children. Do not move nodes across parents as a side effect of panel edits.
 - Meta hygiene: Treat `meta` as `string[]` for canonical data. UI-only/transient objects (e.g., polymorphic helpers) must not be rendered as text and must be filtered out during graph build (see `src/core/ui/graphData.ts`).
+- Builtin defaults: Encode shared defaults in node JSON using lightweight `builtin:<key>` string tokens (e.g., `builtin:uv`) so templates stay declarative. The compiler owns token resolution per language.
+- json node definitions are only skeleton of the graph. without any logic. just what comes in, what comes out and in some cases, how it should be displayed in the UI. We do not deal with any logic at all. its only template replacement. Raw data come from node definitions. they build a graph together and the graph will be compiled and each node will be replaced by a template defined in language definition.
+
 - Example graphs coupling: keep example-building logic in `src/server/examples.ts`, not in the server bootstrap. Handlers live in `src/server/**`.
 - Type safety drift: turn on TypeScript `strict` and favor precise types in `src/core/**`. Add tests when tightening types to avoid regressions.
 - Hardcoded preview environment: Language templates must not include default values for preview uniforms like `uKeyDir`, `uKeyColor`, `uFillDir`, `uFillColor`, `uRimDir`, `uRimColor`, `uAmbient`, or `uExposure`. These are preview concerns and must be supplied by the preview panel. Unit tests enforce this.
