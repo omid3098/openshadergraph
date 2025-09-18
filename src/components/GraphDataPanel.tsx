@@ -46,7 +46,12 @@ function GraphDataPanelDocked({ data, className, asNode = false }: { data: unkno
 
   if (asNode) {
     return (
-      <div className={cn("h-full flex flex-col", className)}>
+      <div
+        className={cn("h-full flex flex-col nodrag nowheel", className)}
+        data-node-interactive
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
         <div className="flex-1 overflow-hidden">
           <CodeBlock code={pretty} language="json" className="h-full pt-6" />
         </div>
@@ -67,7 +72,12 @@ function GraphDataPanelDocked({ data, className, asNode = false }: { data: unkno
   }
 
   return (
-    <Card className={cn("relative h-full", className)}>
+    <Card
+      className={cn("relative h-full nodrag nowheel", className)}
+      data-node-interactive
+      onPointerDownCapture={(event) => event.stopPropagation()}
+      onWheel={(event) => event.stopPropagation()}
+    >
       <CodeBlock code={pretty} language="json" className="h-full pt-10" />
       <div className="absolute top-2 right-2 flex items-center gap-2">
         <Button
@@ -185,7 +195,12 @@ function GraphDataPanelOverlay({ data, className }: { data: unknown; className?:
         onMouseDown={onHandleMouseDown}
         className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
       />
-      <Card className="pointer-events-auto relative">
+      <Card
+        className="pointer-events-auto relative nodrag nowheel"
+        data-node-interactive
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
         <CodeBlock code={pretty} language="json" className="h-[60vh] pt-10" />
         <div className="absolute top-2 right-2 flex items-center gap-2">
           <Button

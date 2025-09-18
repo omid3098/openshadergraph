@@ -1149,6 +1149,7 @@ export function App() {
           nodes={visibleNodes}
           edges={visibleEdges}
           nodeTypes={{ graphNode: GraphNode }}
+          nodeDragHandle=".node-drag-handle"
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}

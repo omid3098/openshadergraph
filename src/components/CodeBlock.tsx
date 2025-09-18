@@ -19,6 +19,8 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
             className
           )}
           style={style}
+          onPointerDownCapture={(event) => event.stopPropagation()}
+          onWheel={(event) => event.stopPropagation()}
         >
           {tokens.map((line, i) => (
             <div key={i} {...getLineProps({ line })}>
@@ -34,4 +36,3 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
 }
 
 export default CodeBlock;
-

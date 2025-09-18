@@ -199,7 +199,7 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
   }, []);
 
   const body = (
-    <div className="flex flex-col gap-3 h-full">
+    <div className="flex flex-col gap-3 h-full nodrag nowheel" data-node-interactive>
       <div className="flex flex-col gap-2">
         <label className="text-xs text-muted-foreground">Search assets</label>
         <Input
@@ -219,7 +219,7 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
           <div className="border-b border-dashed border-muted/80 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
             Drag textures ({textureHint}, …) or models ({modelHint}, …) here to store them locally. Imported assets stay in your browser.
           </div>
-          <div className="flex-1 overflow-auto p-3">
+          <div className="flex-1 overflow-auto p-3" onWheel={(event) => event.stopPropagation()} data-node-interactive>
             {loading ? (
               <div className="p-4 text-xs text-muted-foreground">Loading assets…</div>
             ) : error ? (
@@ -234,12 +234,17 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
                   const isTexture = asset.type === "texture";
                   const draggable = asset.type === "texture" || asset.type === "model";
                   return (
-                    <div
-                      key={`${asset.category.id}:${asset.id}`}
-                      className="group relative flex h-full flex-col gap-2 rounded-md border border-border/70 bg-background/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,transform] hover:-translate-y-[1px] hover:border-primary/60"
-                      draggable={draggable}
-                      onDragStart={(event) => startDrag(event, asset)}
-                    >
+                  <div
+                    key={`${asset.category.id}:${asset.id}`}
+                    className="group relative flex h-full flex-col gap-2 rounded-md border border-border/70 bg-background/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,transform] hover:-translate-y-[1px] hover:border-primary/60"
+                    draggable={draggable}
+                    data-node-interactive
+                    onPointerDownCapture={(event) => event.stopPropagation()}
+                    onDragStart={(event) => {
+                      event.stopPropagation();
+                      startDrag(event, asset);
+                    }}
+                  >
                       <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-muted/60 bg-muted">
                         {isTexture ? (
                           <img
@@ -303,12 +308,26 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
   );
 
   if (variant === "node") {
-    return <div className={cn("h-full flex flex-col", className)}>{body}</div>;
+    return (
+      <div
+        className={cn("h-full flex flex-col", className)}
+        data-node-interactive
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
+        {body}
+      </div>
+    );
   }
 
   if (variant === "docked") {
     return (
-      <Card className={cn("h-full flex flex-col", className)}>
+      <Card
+        className={cn("h-full flex flex-col", className)}
+        data-node-interactive
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
         <CardHeader className="py-3 px-4">
           <CardTitle className="text-sm">Assets</CardTitle>
         </CardHeader>
@@ -320,7 +339,12 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
   }
 
   return (
-    <Card className={cn("pointer-events-auto", className)}>
+    <Card
+      className={cn("pointer-events-auto", className)}
+      data-node-interactive
+      onPointerDownCapture={(event) => event.stopPropagation()}
+      onWheel={(event) => event.stopPropagation()}
+    >
       <CardHeader className="py-3 px-4">
         <CardTitle className="text-sm">Assets</CardTitle>
       </CardHeader>

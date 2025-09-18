@@ -42,7 +42,7 @@ export function ColorInput({ value, onCommit, disabled, size = "normal" }: { val
       <Input
         type="button"
         disabled={disabled}
-        className={`${btnCls} shrink-0`}
+        className={`${btnCls} shrink-0 nodrag nowheel`}
         style={{ backgroundColor: `rgba(${to255(rgba[0])}, ${to255(rgba[1])}, ${to255(rgba[2])}, ${rgba[3] ?? 1})`, cursor: disabled ? "not-allowed" : "pointer" }}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}

@@ -33,7 +33,7 @@ export function NumericVectorInput({ value, onChange, disabled, size = "normal" 
           key={i}
           type="number"
           step="0.01"
-          className={`${cls} no-spinner shrink-0`}
+          className={`${cls} no-spinner shrink-0 nodrag nowheel`}
           value={drafts[i] ?? (Number.isFinite(n) ? String(n) : "0")}
           disabled={disabled}
           onMouseDown={(e) => e.stopPropagation()}

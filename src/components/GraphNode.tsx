@@ -35,6 +35,15 @@ export type GraphNodeData = {
   };
 };
 
+const INTERACTIVE_SELECTOR = "input, textarea, select, button, [contenteditable='true'], [data-node-interactive]";
+
+function shouldBlockNodePointer(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  if (target.closest(".node-drag-handle")) return false;
+  if (target.closest(".react-flow__handle")) return false;
+  return Boolean(target.closest(INTERACTIVE_SELECTOR));
+}
+
 export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) {
   // Handle (pin) visual size. Doubling from default.
   const HANDLE_SIZE = 8; // px
@@ -109,8 +118,16 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           minWidth={240}
           minHeight={200}
         />
-        <Card className="h-full flex flex-col" style={selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : undefined}>
-          <CardHeader className="py-2 px-3">
+        <Card
+          className="h-full flex flex-col"
+          style={selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : undefined}
+          onPointerDownCapture={(event) => {
+            if (shouldBlockNodePointer(event.target)) {
+              event.stopPropagation();
+            }
+          }}
+        >
+          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing">
             <CardTitle className="text-sm">{name}</CardTitle>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-hidden">
@@ -124,9 +141,14 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   return (
     <Card
       className={cn("min-w-[130px] w-[160px]", selected && "border-2")}
-      style={{ userSelect: "none", borderColor: selected ? THEME.selectionColor : undefined }}
+      style={{ borderColor: selected ? THEME.selectionColor : undefined }}
+      onPointerDownCapture={(event) => {
+        if (shouldBlockNodePointer(event.target)) {
+          event.stopPropagation();
+        }
+      }}
     >
-      <CardHeader className="py-2 px-3">
+      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing">
         <CardTitle className="text-sm">{name}</CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3">
@@ -144,7 +166,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                   {!connected && Array.isArray(val) && (
                     <>
                       <div
-                        className="absolute z-[2] flex items-center gap-1 px-1 py-[2px] rounded-md border bg-background/90 backdrop-blur"
+                        className="absolute z-[2] flex items-center gap-1 px-1 py-[2px] rounded-md border bg-background/90 backdrop-blur nodrag nowheel"
                         style={{ right: "calc(100% + 15px)", transform: "scale(0.8)", transformOrigin: "right center" }}
                         onMouseDown={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
