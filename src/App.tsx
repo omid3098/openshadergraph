@@ -45,13 +45,23 @@ const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
 
-const VIEW_MENU_ITEMS: Array<{ key: EditorPanelKey; label: string }> = [
-  { key: "properties", label: "Properties" },
-  { key: "compile", label: "Compile" },
-  { key: "graphdata", label: "Graph Data" },
-  { key: "assets", label: "Assets" },
-  { key: "preview", label: "Preview" },
+type ViewMenuItem = { key: EditorPanelKey; label: string; digit: "1" | "2" | "3" | "4" | "5"; hotkey: string };
+
+const VIEW_MENU_ITEMS: ViewMenuItem[] = [
+  { key: "properties", label: "Properties", digit: "1", hotkey: "⌘1" },
+  { key: "compile", label: "Compile", digit: "2", hotkey: "⌘2" },
+  { key: "graphdata", label: "Graph Data", digit: "3", hotkey: "⌘3" },
+  { key: "assets", label: "Assets", digit: "4", hotkey: "⌘4" },
+  { key: "preview", label: "Preview", digit: "5", hotkey: "⌘5" },
 ];
+
+const VIEW_HOTKEY_MAP: Record<string, EditorPanelKey> = VIEW_MENU_ITEMS.reduce<Record<string, EditorPanelKey>>(
+  (acc, item) => {
+    acc[item.digit] = item.key;
+    return acc;
+  },
+  {}
+);
 
 export function App() {
   const rf = useReactFlow();
@@ -71,6 +81,8 @@ export function App() {
     y: number;
     targetId?: string;
   }>({ open: false, kind: "background", x: 0, y: 0 });
+  const flowContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   const onConnect = (params: Connection) =>
     setEdges((eds) => addEdge(params, eds));
@@ -122,6 +134,26 @@ export function App() {
   useEffect(() => { edgesRef.current = edges; }, [edges]);
   const graphNameRef = useRef(graphName);
   useEffect(() => { graphNameRef.current = graphName; }, [graphName]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const updatePointer = (event: PointerEvent) => {
+      lastPointerRef.current = { x: event.clientX, y: event.clientY };
+    };
+    window.addEventListener("pointermove", updatePointer, { passive: true });
+    return () => window.removeEventListener("pointermove", updatePointer);
+  }, []);
+
+  const getFlowCenterClient = useCallback((): { x: number; y: number } => {
+    const rect = flowContainerRef.current?.getBoundingClientRect();
+    if (rect) {
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    if (typeof window !== "undefined") {
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    }
+    return { x: 0, y: 0 };
+  }, []);
 
   const [graphData, setGraphData] = useState<Graph>(() => buildGraphData(nodes as any, edges as any, graphName) as any);
 
@@ -291,7 +323,10 @@ export function App() {
   );
 
   const toggleEditorNode = useCallback(
-    async (panel: EditorPanelKey) => {
+    async (
+      panel: EditorPanelKey,
+      origin?: { kind: "hotkey"; client: { x: number; y: number } } | { kind: "menu" }
+    ) => {
       const type = EDITOR_PANEL_TYPES[panel];
       if (!type) return;
       const parent = currentParentId ?? undefined;
@@ -320,11 +355,46 @@ export function App() {
       }
 
       const nextId = String(++idCounter.current);
-      const position = computeEditorSpawnPosition(nodesRef.current, parent);
+      const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
+      const parentPosition = (() => {
+        const abs = parentNode?.positionAbsolute;
+        if (abs && Number.isFinite(abs.x) && Number.isFinite(abs.y)) return abs;
+        const rel = parentNode?.position;
+        if (rel && Number.isFinite(rel.x) && Number.isFinite(rel.y)) return rel;
+        return { x: 0, y: 0 };
+      })();
+
+      let spawnPosition: { x: number; y: number } | null = null;
+      let clientPoint: { x: number; y: number } | null = null;
+
+      if (origin?.kind === "hotkey") {
+        clientPoint = origin.client;
+      } else if (origin?.kind === "menu") {
+        clientPoint = getFlowCenterClient();
+      }
+
+      if (!clientPoint) {
+        clientPoint = getFlowCenterClient();
+      }
+
+      if (clientPoint) {
+        const projected = rf.screenToFlowPosition(clientPoint);
+        spawnPosition = parent
+          ? {
+              x: projected.x - parentPosition.x,
+              y: projected.y - parentPosition.y,
+            }
+          : projected;
+      }
+
+      if (!spawnPosition) {
+        spawnPosition = computeEditorSpawnPosition(nodesRef.current, parent);
+      }
+
       const rfArgs: any = {
         id: nextId,
         item,
-        position,
+        position: spawnPosition,
         nodeDefaults,
       };
       if (template) rfArgs.template = template;
@@ -333,8 +403,37 @@ export function App() {
       const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
       setNodes((prev) => [...prev, decoratedNode as any]);
     },
-    [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi]
+    [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi, rf, getFlowCenterClient]
   );
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.altKey || event.shiftKey || event.ctrlKey) return;
+      if (event.repeat) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (target.isContentEditable) return;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      }
+
+      let digit = event.key;
+      if (!VIEW_HOTKEY_MAP[digit] && typeof event.code === "string" && event.code.startsWith("Digit")) {
+        digit = event.code.slice(-1);
+      }
+
+      const panel = VIEW_HOTKEY_MAP[digit];
+      if (!panel) return;
+
+      event.preventDefault();
+      const pointer = lastPointerRef.current ?? getFlowCenterClient();
+      void toggleEditorNode(panel, { kind: "hotkey", client: pointer });
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleEditorNode, getFlowCenterClient]);
 
   // Helpers to load an example graph JSON into the canvas
   type GNode = {
@@ -969,17 +1068,25 @@ export function App() {
           <MenubarMenu>
             <MenubarTrigger>View</MenubarTrigger>
             <MenubarContent>
-              {VIEW_MENU_ITEMS.map(({ key, label }) => {
+              {VIEW_MENU_ITEMS.map(({ key, label, hotkey }) => {
                 const active = activeEditorPanels.has(key);
                 return (
                   <MenubarItem
                     key={key}
                     data-state={active ? "checked" : "unchecked"}
-                    className="flex items-center justify-between gap-2"
-                    onClick={() => void toggleEditorNode(key)}
+                    onClick={() => void toggleEditorNode(key, { kind: "menu" })}
                   >
-                    <span>{label}</span>
-                    {active ? <Check aria-hidden="true" className="h-3 w-3" /> : null}
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        {active ? (
+                          <Check aria-hidden="true" className="h-3 w-3" />
+                        ) : (
+                          <span aria-hidden="true" className="inline-block h-3 w-3" />
+                        )}
+                        <span>{label}</span>
+                      </span>
+                      <span className="text-[10px] uppercase text-muted-foreground">{hotkey}</span>
+                    </div>
                   </MenubarItem>
                 );
               })}
@@ -1037,7 +1144,7 @@ export function App() {
   return (
     <GraphStateProvider value={graphStateValue}>
       <AppShell header={Header}> 
-        <div className="w-full h-full relative">
+        <div ref={flowContainerRef} className="w-full h-full relative">
         <ReactFlow
           nodes={visibleNodes}
           edges={visibleEdges}
