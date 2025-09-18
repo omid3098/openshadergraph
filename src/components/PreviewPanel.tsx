@@ -721,11 +721,22 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           <div
             {...canvasDropProps}
             className={cn(
-              "rounded-md overflow-hidden w-full h-full min-h-[240px] transition-colors",
+              "osg-three-preview rounded-md overflow-hidden w-full h-full min-h-[240px] transition-colors nodrag nowheel nopan",
               modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
             )}
+            data-node-interactive
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            style={{ touchAction: "none" }}
           >
-            <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
+            <canvas
+              ref={canvasRef}
+              className="nodrag nowheel nopan"
+              style={{ display: "block", width: "100%", height: "100%", touchAction: "none" }}
+            />
           </div>
           {working ? (
             <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
@@ -767,11 +778,20 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           <div
             {...canvasDropProps}
             className={cn(
-              "rounded-md overflow-hidden w-full h-full min-h-[240px] transition-colors",
+              "osg-three-preview rounded-md overflow-hidden w-full h-full min-h-[240px] transition-colors nodrag nowheel",
               modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
             )}
+            data-node-interactive
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
-            <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
+            <canvas
+              ref={canvasRef}
+              className="nodrag nowheel"
+              style={{ display: "block", width: "100%", height: "100%" }}
+            />
           </div>
           {working ? (
             <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
@@ -836,12 +856,23 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           <div
             {...canvasDropProps}
             className={cn(
-              "rounded-md overflow-hidden transition-colors",
+              "osg-three-preview rounded-md overflow-hidden transition-colors nodrag nowheel nopan",
               modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
             )}
             style={{ width: "100%", height: 320 }}
+            data-node-interactive
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            style={{ width: "100%", height: 320, touchAction: "none" }}
           >
-            <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
+            <canvas
+              ref={canvasRef}
+              className="nodrag nowheel nopan"
+              style={{ display: "block", width: "100%", height: "100%", touchAction: "none" }}
+            />
           </div>
           {working ? (
             <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>

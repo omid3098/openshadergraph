@@ -371,8 +371,6 @@ export function App() {
       const nextId = String(++idCounter.current);
       const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
       const parentPosition = (() => {
-        const abs = parentNode?.positionAbsolute;
-        if (abs && Number.isFinite(abs.x) && Number.isFinite(abs.y)) return abs;
         const rel = parentNode?.position;
         if (rel && Number.isFinite(rel.x) && Number.isFinite(rel.y)) return rel;
         return { x: 0, y: 0 };
@@ -1278,7 +1276,6 @@ export function App() {
           nodes={visibleNodes}
           edges={visibleEdges}
           nodeTypes={{ graphNode: GraphNode }}
-          nodeDragHandle=".node-drag-handle"
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}

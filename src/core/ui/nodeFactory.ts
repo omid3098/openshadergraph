@@ -65,6 +65,10 @@ export function buildRFNodeFromTemplate(opts: {
     id,
     type: "graphNode",
     position,
+    // Restrict dragging to the node header only so embedded interactive content
+    // (e.g., Three.js preview) doesn't move the node.
+    dragHandle: ".node-drag-handle",
+    draggable: true,
     data: {
       label: graphNode.name ?? item.name,
       type: graphNode.type,

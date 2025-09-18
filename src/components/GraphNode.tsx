@@ -42,6 +42,8 @@ function shouldBlockNodePointer(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   if (target.closest(".node-drag-handle")) return false;
   if (target.closest(".react-flow__handle")) return false;
+  // allow Three.js preview to handle pointer interactions (OrbitControls)
+  if (target.closest(".osg-three-preview")) return false;
   return Boolean(target.closest(INTERACTIVE_SELECTOR));
 }
 
@@ -56,7 +58,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
   const { nodeUpdaterApi, graph } = useGraphState();
-  const meta: string[] = Array.isArray(data?.template?.meta) ? (data!.template!.meta as string[]) : [];
+  const meta: string[] = Array.isArray((data as any)?.template?.meta) ? (((data as any).template.meta as unknown) as string[]) : [];
   const isEditor = meta.includes("editor_node");
   const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
   const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
