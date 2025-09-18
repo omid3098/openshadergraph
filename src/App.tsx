@@ -628,10 +628,14 @@ export function App() {
   }, [inflateAndLoadGraph]);
 
   // File save/open helpers (.osg JSON)
-  const serializeGraph = useCallback(() => {
-    const data = buildGraphData(nodes as any, edges as any, graphName);
-    return JSON.stringify(data, null, 2);
-  }, [nodes, edges, graphName]);
+  const serializeGraph = useCallback(
+    (overrideName?: string) => {
+      const name = overrideName && overrideName.trim().length ? overrideName.trim() : graphName;
+      const data = buildGraphData(nodes as any, edges as any, name);
+      return JSON.stringify(data, null, 2);
+    },
+    [nodes, edges, graphName]
+  );
 
   const triggerDownload = (name: string, contents: string) => {
     const blob = new Blob([contents], { type: "application/json" });
@@ -644,6 +648,22 @@ export function App() {
     a.remove();
     URL.revokeObjectURL(url);
   };
+
+  const ensureReadWritePermission = useCallback(async (handle: any): Promise<boolean> => {
+    if (!handle || typeof handle !== "object") return false;
+    const query = typeof handle.queryPermission === "function" ? handle.queryPermission.bind(handle) : null;
+    const request = typeof handle.requestPermission === "function" ? handle.requestPermission.bind(handle) : null;
+    if (!query || !request) return true;
+    try {
+      const status = await query({ mode: "readwrite" });
+      if (status === "granted") return true;
+      if (status === "denied") return false;
+      const next = await request({ mode: "readwrite" });
+      return next === "granted";
+    } catch (_err) {
+      return true;
+    }
+  }, []);
 
   const rememberRecentGraph = useCallback(
     (name: string, contents: string) => {
@@ -667,8 +687,10 @@ export function App() {
     [inflateAndLoadGraph, rememberRecentGraph]
   );
 
-  const writeFileHandle = async (handle: any, contents: string) => {
+  const writeFileHandle = useCallback(async (handle: any, contents: string) => {
     try {
+      const permitted = await ensureReadWritePermission(handle);
+      if (!permitted) throw new Error("write-permission-denied");
       const writable = await handle.createWritable();
       await writable.write(contents);
       await writable.close();
@@ -676,11 +698,10 @@ export function App() {
       console.warn("Failed to write file", err);
       throw err;
     }
-  };
+  }, [ensureReadWritePermission]);
 
   const handleSaveAs = useCallback(async () => {
     try {
-      const contents = serializeGraph();
       const suggested = (graphName || "UntitledGraph").replace(/\s+/g, "_") + ".osg";
       const supportsPicker = typeof (window as any).showSaveFilePicker === "function";
       if (supportsPicker) {
@@ -688,36 +709,56 @@ export function App() {
           suggestedName: suggested,
           types: [{ description: "OpenShaderGraph (*.osg)", accept: { "application/json": [".osg"] } }],
         });
+        const targetName = handle?.name || suggested;
+        const label = (() => {
+          const stripped = typeof targetName === "string" ? targetName.replace(/\.[^.]+$/, "").trim() : "";
+          return stripped.length ? stripped : (graphName.trim().length ? graphName : "UntitledGraph");
+        })();
+        const contents = serializeGraph(label);
         await writeFileHandle(handle, contents);
         fileHandleRef.current = handle;
-        setFileName(handle.name || suggested);
-        rememberRecentGraph(handle.name || suggested, contents);
+        setFileName(targetName);
+        setGraphName(label);
+        rememberRecentGraph(targetName, contents);
       } else {
+        const label = (() => {
+          const stripped = suggested.replace(/\.[^.]+$/, "").trim();
+          return stripped.length ? stripped : (graphName.trim().length ? graphName : "UntitledGraph");
+        })();
+        const contents = serializeGraph(label);
         triggerDownload(suggested, contents);
         fileHandleRef.current = null;
         setFileName(suggested);
+        setGraphName(label);
         rememberRecentGraph(suggested, contents);
       }
     } catch (_err) {
       // user cancel or error: ignore
     }
-  }, [graphName, serializeGraph, rememberRecentGraph]);
+  }, [graphName, serializeGraph, rememberRecentGraph, writeFileHandle]);
 
   const handleSave = useCallback(async () => {
-    const contents = serializeGraph();
     const handle = fileHandleRef.current;
     if (handle) {
       try {
+        const targetFileName = (fileName && fileName.trim().length ? fileName.trim() : handle.name) || "UntitledGraph.osg";
+        const label = (() => {
+          const stripped = targetFileName.replace(/\.[^.]+$/, "").trim();
+          if (stripped.length) return stripped;
+          const fallback = graphName.trim();
+          return fallback.length ? fallback : "UntitledGraph";
+        })();
+        const contents = serializeGraph(label);
         await writeFileHandle(handle, contents);
-        const name = (fileName && fileName.trim().length ? fileName : handle.name) || "UntitledGraph.osg";
-        rememberRecentGraph(name, contents);
+        setGraphName(label);
+        rememberRecentGraph(targetFileName, contents);
         return;
       } catch (_err) {
         // Fallback to Save As on failure
       }
     }
     await handleSaveAs();
-  }, [fileName, serializeGraph, handleSaveAs, rememberRecentGraph]);
+  }, [fileName, graphName, serializeGraph, writeFileHandle, handleSaveAs, rememberRecentGraph]);
 
   const handleOpen = useCallback(async () => {
     const supportsPicker = typeof (window as any).showOpenFilePicker === "function";
