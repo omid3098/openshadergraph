@@ -27,7 +27,6 @@ import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
-import { PanelsOverlay } from "./ui/panels/PanelsOverlay";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { AppShell } from "./ui/layout/AppShell";
@@ -1089,7 +1088,6 @@ export function App() {
           <Controls />
           <MiniMap />
         </ReactFlow>
-        <PanelsOverlay className="top-12 h-[calc(100vh-48px)]" graph={graphData} />
         <GraphContextMenu
           open={menu.open}
           kind={menu.kind}
