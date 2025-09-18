@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, vector_scalar_addition_graph, exposed_addition_graph, texture_sampling_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, exposed_addition_graph, texture_sampling_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph, dot_normalize_view_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { extractPreviewShaders, parseUniformsAndSanitize } from "../src/core/preview/shaderUtils";
@@ -138,5 +138,13 @@ describe("ThreeJS GLSL shader generation", () => {
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "exposed_no_placeholder");
     const { fragment } = extractPreviewShaders(shader_code);
     expect(fragment).not.toContain("{{definition}}");
+  });
+
+  it("dot, normalize, normal/view nodes compile (ThreeJS)", async () => {
+    const { surface } = dot_normalize_view_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "dot_normalize_view");
+    const { fragment } = extractPreviewShaders(shader_code);
+    expect(fragment).toMatch(/float dot_\d+ = dot\(/);
+    expect(fragment).toMatch(/vec3 normalize_\d+ = normalize\(/);
   });
 });

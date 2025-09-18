@@ -188,3 +188,23 @@ export function full_fragment_graph() {
   surface.connect_nodes(alpha, fragment_output, 0, 5);
   return { surface, fragment_pass, fragment_output, albedo, rough, metallic, emission, normal, alpha };
 }
+
+export function dot_normalize_view_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+  const n = surface.create_node("normal_vector", fragment_pass);
+  const v = surface.create_node("view_direction", fragment_pass);
+  const norm_n = surface.create_node("normalize", fragment_pass);
+  const norm_v = surface.create_node("normalize", fragment_pass);
+  const dot = surface.create_node("dot", fragment_pass);
+  surface.connect_nodes(n, norm_n, 0, 0);
+  surface.connect_nodes(v, norm_v, 0, 0);
+  surface.connect_nodes(norm_n, dot, 0, 0);
+  surface.connect_nodes(norm_v, dot, 0, 1);
+  // Use dot as alpha, and base color constant
+  const color = surface.create_node("color", fragment_pass);
+  surface.connect_nodes(color, fragment_output, 0, 0);
+  surface.connect_nodes(dot, fragment_output, 0, 5);
+  return { surface, fragment_pass, fragment_output, n, v, norm_n, norm_v, dot, color };
+}

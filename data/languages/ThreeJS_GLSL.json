@@ -87,6 +87,9 @@
     "cross": {
       "template": "vec3 {{name}} = cross({{inputs:0}}, {{inputs:1}});"
     },
+    "dot": {
+      "template": "float {{name}} = dot({{inputs:0}}, {{inputs:1}});"
+    },
     "lerp": {
       "template": "{{type}} {{name}} = mix({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
     },
@@ -152,6 +155,9 @@
     },
     "sin": {
       "template": "{{type}} {{name}} = sin({{inputs:0}});"
+    },
+    "normalize": {
+      "template": "{{type}} {{name}} = normalize({{inputs:0}});"
     },
     "sqrt": {
       "template": "{{type}} {{name}} = sqrt({{inputs:0}});"
@@ -229,6 +235,26 @@
     },
     "vertex_normal": {
       "template": "vec3 {{name}} = NORMAL;"
+    },
+    "normal_vector": {
+      "template": "vec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "world": { "template": "vNormal" },
+          "object": { "template": "vNormal" },
+          "tangent": { "template": "vNormal" }
+        }
+      }
+    },
+    "view_direction": {
+      "template": "vec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "world": { "template": "normalize(vViewPosition)" },
+          "object": { "template": "normalize(vViewPosition)" },
+          "tangent": { "template": "normalize(vViewPosition)" }
+        }
+      }
     },
     "vertex_output": {
       "template": "VERTEX = VERTEX + vec3({{inputs:0}});\nNORMAL = vec3({{inputs:1}});\nCOLOR = vec4({{inputs:2}});"
