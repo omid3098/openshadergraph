@@ -4,6 +4,12 @@
   "file_extensions": [
     "gdshader"
   ],
+  "coordinates": {
+    "up": "+y",
+    "right": "+x",
+    "forward": "-z",
+    "handedness": "right"
+  },
   "nodes": {
     "surface": {
       "template": "shader_type spatial;\n{{meta}}\n{{exposed_nodes}}\n{{internal_nodes}}\n"

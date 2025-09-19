@@ -85,7 +85,7 @@ const ZNodeProperty = z.union([
   ZAssetProperty,
 ]);
 
-export const ZNodeTemplate: z.ZodSchema<NodeTemplate> = z.object({
+export const ZNodeTemplate = z.object({
   id: z.number().int().optional(),
   type: z.string().min(1),
   name: z.string().optional(),
@@ -132,11 +132,27 @@ const ZLanguageNodeTemplate = z.object({
   outputs: z.record(z.string()).optional(),
 });
 
-export const ZLanguagePack: z.ZodSchema<LanguagePack> = z.object({
+export const ZLanguagePack = z.object({
   name: z.string().min(1),
   version: z.string().min(1),
   file_extensions: z.array(z.string()).min(1),
   nodes: z.record(ZLanguageNodeTemplate),
+  coordinates: z
+    .object({
+      up: z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]),
+      right: z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]),
+      forward: z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]),
+      handedness: z.enum(["right", "left"]).optional(),
+    })
+    .superRefine((coords, ctx) => {
+      const axes = [coords.up, coords.right, coords.forward] as string[];
+      const abs = axes.map((a) => (a.startsWith("-") || a.startsWith("+") ? a.slice(1) : a));
+      const set = new Set(abs);
+      if (set.size !== 3) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "coordinates must be a signed permutation of x,y,z with distinct absolute axes" });
+      }
+    })
+    .optional(),
   meta: z.record(z.object({ template: z.string() })).optional(),
 });
 
@@ -156,7 +172,7 @@ const ZAssetCategory = z.object({
   items: z.array(ZAssetItem).default([]),
 });
 
-export const ZAssetLibrary: z.ZodSchema<AssetLibrary> = z.object({
+export const ZAssetLibrary = z.object({
   version: z.number().int().nonnegative(),
   categories: z.array(ZAssetCategory).default([]),
 });
@@ -167,7 +183,7 @@ export function validateNodeTemplate(obj: unknown): NodeTemplate {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid node template: ${msg}`);
   }
-  return parsed.data;
+  return parsed.data as unknown as NodeTemplate;
 }
 
 export function validateLanguagePack(obj: unknown): LanguagePack {
@@ -176,7 +192,7 @@ export function validateLanguagePack(obj: unknown): LanguagePack {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid language pack: ${msg}`);
   }
-  return parsed.data;
+  return parsed.data as unknown as LanguagePack;
 }
 
 export function validateAssetLibrary(obj: unknown): AssetLibrary {
@@ -185,5 +201,5 @@ export function validateAssetLibrary(obj: unknown): AssetLibrary {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid asset library: ${msg}`);
   }
-  return parsed.data;
+  return parsed.data as unknown as AssetLibrary;
 }

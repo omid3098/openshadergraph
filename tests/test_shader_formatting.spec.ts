@@ -66,7 +66,11 @@ function expectCleanIndentation(shader: string) {
 
 describe("Shader formatting: indentation hygiene", () => {
   beforeAll(() => {
-    rmSync(SHADERS_DIR, { recursive: true, force: true });
+    try {
+      rmSync(SHADERS_DIR, { recursive: true, force: true });
+    } catch (err) {
+      // Ignore transient ENOTEMPTY from parallel writers; tests will still proceed
+    }
   });
 
   it("float → roughness assigns with single indent", async () => {

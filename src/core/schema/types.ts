@@ -91,6 +91,12 @@ export type LanguagePack = {
   version: string;
   file_extensions: string[];
   nodes: Record<string, LanguageNodeTemplate>;
+  coordinates?: {
+    up: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
+    right: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
+    forward: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
+    handedness?: "right" | "left";
+  };
   meta?: Record<string, { template: string }>;
 };
 

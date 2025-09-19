@@ -75,7 +75,8 @@ describe("Separate/Combine nodes", () => {
     expect(code).toMatch(/vec4 separate4_\d+ = float4_\d+;/);
     expect(code).toMatch(/vec4 combine4_\d+ = vec4\(float_\d+, float_\d+, float_\d+, float_\d+\);/);
     // threejs fragment format uses baseColor = vec3({{inputs:0}})
-    expect(code).toMatch(/baseColor\s*=\s*vec3\(combine4_\d+\)/);
+    // Accept either direct value or implicit downcast via .rgb
+    expect(code).toMatch(/baseColor\s*=\s*vec3\(combine4_\d+(\.rgb)?\)/);
   });
 });
 

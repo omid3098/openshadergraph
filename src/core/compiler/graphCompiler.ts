@@ -1,4 +1,5 @@
 import type { Graph, GraphNode, InputPin, LanguagePack, OutputPin } from "../graph/types";
+import { getCoordinateSystem, swizzleDirectionRefToTarget } from "../types/coordinates";
 import { getNodeTemplate } from "../schema/registry";
 import {
   chooseDominantPinType,
@@ -346,6 +347,25 @@ export class GraphCompiler {
     }
     if (!node.outputs || node.outputs.length === 0) {
       this.remove_default_inputs(node);
+    }
+
+    // Coordinate system adaptation for direction vectors authored in reference space.
+    // Apply to well-known direction vector nodes where their output should reflect target engine axes.
+    if (node.type === "normal_vector" || node.type === "view_direction") {
+      const cs = getCoordinateSystem(this.lang_def);
+      // Node emits a vec3 named by unique node name; wrap in swizzle if needed.
+      const name = getUniqueNodeName(node);
+      const swizzled = swizzleDirectionRefToTarget(name, cs);
+      if (swizzled !== name && node._code) {
+        // Replace the declaration's identifier usage with a swizzled alias by introducing a new assignment line.
+        // We append a line after the declaration to redefine the variable with the swizzled value.
+        // Example: vec3 normal_vector_1 = ...; -> vec3 normal_vector_1 = ...; normal_vector_1 = swizzle(...);
+        const lines = node._code.split("\n");
+        if (lines.length > 0) {
+          lines.push(`${name} = ${swizzled};`);
+          node._code = lines.join("\n");
+        }
+      }
     }
   }
 
