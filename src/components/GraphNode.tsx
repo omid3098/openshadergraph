@@ -125,13 +125,30 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <GraphDataPanel variant="node" data={graph} className="h-full" />;
     }
     if (key === "preview") {
-      return <PreviewPanel variant="node" graph={graph} className="h-full" />;
+      return (
+        <PreviewPanel
+          variant="node"
+          graph={graph}
+          className="h-full"
+          getProperty={(propId: string) => {
+            const props: any[] = Array.isArray((data as any)?.template?.properties)
+              ? ((data as any).template.properties as any[])
+              : [];
+            const found = props.find((p) => p && typeof p === "object" && p.id === propId);
+            return found?.value ?? found?.default;
+          }}
+          setProperty={(propId: string, next: unknown) => {
+            if (!nodeId || !propId) return;
+            updatePropertyValue(propId, next);
+          }}
+        />
+      );
     }
     if (key === "assets") {
       return <AssetsPanel variant="node" className="h-full" />;
     }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
-  }, [editorPanelKey, graph]);
+  }, [editorPanelKey, graph, data, nodeId, updatePropertyValue]);
 
   if (isEditor) {
     return (

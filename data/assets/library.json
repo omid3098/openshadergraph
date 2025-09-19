@@ -31,7 +31,7 @@
           "id": "duck-glb",
           "label": "Duck",
           "type": "model",
-          "source": "https://threejs.org/examples/models/gltf/Duck/glTF-Binary/Duck.glb",
+          "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
           "description": "Duck model from the Three.js example library (glTF binary).",
           "tags": ["threejs", "glb"]
         },
@@ -39,7 +39,7 @@
           "id": "helmet-damaged",
           "label": "Damaged Helmet",
           "type": "model",
-          "source": "https://threejs.org/examples/models/gltf/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+          "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
           "description": "Damaged Helmet glTF-Binary asset highlighting PBR materials.",
           "tags": ["threejs", "pbr", "glb"]
         }

@@ -5,5 +5,30 @@
   "nodes": [],
   "inputs": [],
   "outputs": [],
-  "properties": []
+  "properties": [
+    {
+      "id": "primitive",
+      "type": "enum",
+      "label": "Primitive",
+      "default": "sphere",
+      "options": [
+        { "value": "sphere", "label": "Sphere" },
+        { "value": "cube", "label": "Cube" },
+        { "value": "cylinder", "label": "Cylinder" },
+        { "value": "custom", "label": "Model" }
+      ]
+    },
+    {
+      "id": "model_source",
+      "type": "asset",
+      "label": "Model",
+      "default": ""
+    },
+    {
+      "id": "model_label",
+      "type": "string",
+      "label": "Model Label",
+      "default": ""
+    }
+  ]
 }

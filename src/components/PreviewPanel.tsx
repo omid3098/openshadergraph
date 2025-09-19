@@ -12,8 +12,11 @@ import {
 } from "@/core/preview/shaderUtils";
 import { isCompilableGraph } from "@/core/io/guards";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "@/core/assets/kind";
+// three types are shimmed for our build; import as any
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { observeElementSize } from "./preview/resizeObserver";
 
@@ -21,6 +24,8 @@ type PreviewPanelProps = {
   graph: unknown;
   className?: string;
   variant?: "overlay" | "docked" | "node";
+  getProperty?: (propId: string) => unknown;
+  setProperty?: (propId: string, next: unknown) => void;
 };
 
 type Primitive = "sphere" | "cube" | "cylinder" | "custom";
@@ -103,35 +108,35 @@ function collectSamplerSettings(graph: unknown): Map<string, SamplerPreviewSetti
   return settings;
 }
 
-function applySamplerSettings(texture: THREE.Texture, settings?: SamplerPreviewSettings) {
+function applySamplerSettings(texture: any, settings?: SamplerPreviewSettings) {
   if (!settings) return;
   const wrapKey = settings.wrap ?? "";
-  let wrap = THREE.ClampToEdgeWrapping;
-  if (wrapKey === "repeat") wrap = THREE.RepeatWrapping;
-  else if (wrapKey === "mirror") wrap = THREE.MirroredRepeatWrapping;
-  else if (wrapKey === "clamp") wrap = THREE.ClampToEdgeWrapping;
-  else if (wrapKey === "border") wrap = THREE.ClampToEdgeWrapping;
+  let wrap = (THREE as any).ClampToEdgeWrapping;
+  if (wrapKey === "repeat") wrap = (THREE as any).RepeatWrapping;
+  else if (wrapKey === "mirror") wrap = (THREE as any).MirroredRepeatWrapping;
+  else if (wrapKey === "clamp") wrap = (THREE as any).ClampToEdgeWrapping;
+  else if (wrapKey === "border") wrap = (THREE as any).ClampToEdgeWrapping;
   texture.wrapS = wrap;
   texture.wrapT = wrap;
 
   const filterKey = settings.filter ?? "";
   if (filterKey === "nearest") {
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestMipmapNearestFilter;
+    texture.magFilter = (THREE as any).NearestFilter;
+    texture.minFilter = (THREE as any).NearestMipmapNearestFilter;
     texture.generateMipmaps = true;
   } else if (filterKey === "cubic") {
-    texture.magFilter = THREE.LinearFilter;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = (THREE as any).LinearFilter;
+    texture.minFilter = (THREE as any).LinearMipmapLinearFilter;
     texture.generateMipmaps = true;
   } else {
-    texture.magFilter = THREE.LinearFilter;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = (THREE as any).LinearFilter;
+    texture.minFilter = (THREE as any).LinearMipmapLinearFilter;
     texture.generateMipmaps = true;
   }
   texture.needsUpdate = true;
 }
 
-function cloneTextureForUniform(base: THREE.Texture, settings?: SamplerPreviewSettings): THREE.Texture {
+function cloneTextureForUniform(base: any, settings?: SamplerPreviewSettings): any {
   const tex = base.clone();
   tex.image = base.image;
   tex.needsUpdate = true;
@@ -143,8 +148,8 @@ function cloneTextureForUniform(base: THREE.Texture, settings?: SamplerPreviewSe
 }
 
 function disposeMaterial(
-  mat: THREE.ShaderMaterial | null | undefined,
-  preserve?: Set<THREE.Texture>
+  mat: any | null | undefined,
+  preserve?: Set<any>
 ) {
   if (!mat) return;
   try {
@@ -156,9 +161,9 @@ function disposeMaterial(
         typeof val === "object" &&
         (val as any).isTexture &&
         typeof val.dispose === "function" &&
-        (!preserve || !preserve.has(val as THREE.Texture))
+        (!preserve || !preserve.has(val))
       ) {
-        (val as THREE.Texture).dispose();
+        (val as any).dispose();
       }
     }
   } finally {
@@ -166,7 +171,7 @@ function disposeMaterial(
   }
 }
 
-export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewPanelProps) {
+export function PreviewPanel({ graph, className, variant = "overlay", getProperty, setProperty }: PreviewPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     const stored = typeof localStorage !== "undefined" ? Number(localStorage.getItem("previewPanel.width")) : 0;
@@ -177,6 +182,8 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const startW = useRef(0);
 
   const [primitive, setPrimitive] = useState<Primitive>(() => {
+    const prop = getProperty?.("primitive");
+    if (prop === "sphere" || prop === "cube" || prop === "cylinder" || prop === "custom") return prop;
     const v = typeof localStorage !== "undefined" ? (localStorage.getItem("previewPanel.primitive") as Primitive | null) : null;
     return (v ?? "sphere");
   });
@@ -201,7 +208,16 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const [customModel, setCustomModel] = useState<{ source: string; label: string } | null>(null);
 
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.width", String(width)); }, [width]);
+  // Keep latest setProperty in a ref to avoid effect dependency loops
+  const setPropertyRef = useRef<typeof setProperty>(setProperty);
+  useEffect(() => { setPropertyRef.current = setProperty; }, [setProperty]);
+
   useEffect(() => {
+    // Persist primitive to node property when available; otherwise use localStorage fallback
+    if (setPropertyRef.current) {
+      setPropertyRef.current("primitive", primitive);
+      return;
+    }
     if (typeof localStorage === "undefined") return;
     if (primitive === "custom" && !customModel) {
       localStorage.setItem("previewPanel.primitive", "sphere");
@@ -209,28 +225,32 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       localStorage.setItem("previewPanel.primitive", primitive);
     }
   }, [primitive, customModel]);
+
+  // Initialize from persisted model when provided by node properties (run once)
+  const hydratedRef = useRef(false);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.autoRotate", String(autoRotate)); }, [autoRotate]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.wireframe", String(wireframe)); }, [wireframe]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.useEnv", String(useEnv)); }, [useEnv]);
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.useEnvBg", String(useEnvBg)); }, [useEnvBg]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const threeRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh | null } | null>(null);
-  const orbitControlsRef = useRef<OrbitControls | null>(null);
-  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
-  const geometryRef = useRef<THREE.BufferGeometry | null>(null);
-  const customGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const threeRef = useRef<{ renderer: any; scene: any; camera: any; mesh: any | null } | null>(null);
+  const orbitControlsRef = useRef<any | null>(null);
+  const materialRef = useRef<any | null>(null);
+  const geometryRef = useRef<any | null>(null);
+  const customGeometryRef = useRef<any | null>(null);
   const [customGeometryVersion, setCustomGeometryVersion] = useState(0);
   const gltfLoaderRef = useRef<any>(null);
-  const textureCacheRef = useRef<Map<string, THREE.Texture>>(new Map());
+  const textureCacheRef = useRef<Map<string, any>>(new Map());
   const pendingTextureLoadsRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number | null>(null);
   const autoRotateRef = useRef<boolean>(false);
-  const pmremRef = useRef<THREE.PMREMGenerator | null>(null);
-  const envRTRef = useRef<THREE.WebGLRenderTarget | null>(null);
-  const _lightDirsViewRef = useRef<{ key: THREE.Vector3; fill: THREE.Vector3; rim: THREE.Vector3 } | null>(null);
-  const samplerFallbackRef = useRef<THREE.DataTexture | null>(null);
+  const pmremRef = useRef<any | null>(null);
+  const envRTRef = useRef<any | null>(null);
+  const _lightDirsViewRef = useRef<{ key: any; fill: any; rim: any } | null>(null);
+  const samplerFallbackRef = useRef<any | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const loadModelAssetRef = useRef<((source: string, label: string, persist?: boolean) => Promise<void>) | null>(null);
 
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
@@ -243,17 +263,17 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   const [compileError, setCompileError] = useState<string>("");
   const [working, setWorking] = useState<boolean>(false);
 
-  const ensureSamplerFallback = useCallback((): THREE.DataTexture => {
+  const ensureSamplerFallback = useCallback((): any => {
     if (!samplerFallbackRef.current) {
       const data = new Uint8Array([255, 255, 255, 255]);
-      const tex = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+      const tex = new (THREE as any).DataTexture(data, 1, 1, (THREE as any).RGBAFormat, (THREE as any).UnsignedByteType);
       tex.name = "PreviewFallbackTexture";
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.magFilter = THREE.LinearFilter;
-      tex.minFilter = THREE.LinearFilter;
+      tex.colorSpace = (THREE as any).SRGBColorSpace;
+      tex.magFilter = (THREE as any).LinearFilter;
+      tex.minFilter = (THREE as any).LinearFilter;
       tex.generateMipmaps = false;
-      tex.wrapS = THREE.ClampToEdgeWrapping;
-      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.wrapS = (THREE as any).ClampToEdgeWrapping;
+      tex.wrapT = (THREE as any).ClampToEdgeWrapping;
       tex.needsUpdate = true;
       tex.flipY = false;
       samplerFallbackRef.current = tex;
@@ -326,17 +346,17 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const renderer = new (THREE as any).WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min((window as any).devicePixelRatio ?? 1, 2));
+    renderer.toneMapping = (THREE as any).ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    renderer.outputColorSpace = (THREE as any).SRGBColorSpace;
+    const scene = new (THREE as any).Scene();
+    const camera = new (THREE as any).PerspectiveCamera(45, 1, 0.1, 100);
     camera.position.set(0, 0, 3);
     scene.add(camera);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new (OrbitControls as any)(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.enablePan = false;
@@ -371,9 +391,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         cam.updateMatrixWorld();
         cam.updateProjectionMatrix();
         const view = cam.matrixWorldInverse;
-        const key = new THREE.Vector3(-0.35, 0.8, 0.6).normalize();
-        const fill = new THREE.Vector3(0.6, 0.2, 0.2).normalize();
-        const rim = new THREE.Vector3(-0.2, 0.3, -0.9).normalize();
+        const key = new (THREE as any).Vector3(-0.35, 0.8, 0.6).normalize();
+        const fill = new (THREE as any).Vector3(0.6, 0.2, 0.2).normalize();
+        const rim = new (THREE as any).Vector3(-0.2, 0.3, -0.9).normalize();
         key.transformDirection(view);
         fill.transformDirection(view);
         rim.transformDirection(view);
@@ -412,20 +432,33 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     };
   }, [updateRendererSize]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = canvas?.parentElement;
     if (!container) return;
     updateRendererSize();
+    // One-time hydration from node properties after container exists to avoid referencing
+    // functions before initialization during initial render.
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      try {
+        const src = typeof getProperty === "function" ? (getProperty("model_source") as string | undefined) : undefined;
+        const label = typeof getProperty === "function" ? (getProperty("model_label") as string | undefined) : undefined;
+        const prim = typeof getProperty === "function" ? (getProperty("primitive") as Primitive | undefined) : undefined;
+        if (typeof prim === "string") setPrimitive(prim as Primitive);
+        if (src && loadModelAssetRef.current) void loadModelAssetRef.current(src, label || "Model", false);
+      } catch {}
+    }
     return observeElementSize(container, updateRendererSize);
-  }, [updateRendererSize, variant, collapsed]);
+  }, [updateRendererSize, variant, collapsed, getProperty]);
 
   // Toggle default HDRI environment (RoomEnvironment via PMREM)
   useEffect(() => {
     const three = threeRef.current;
     if (!three) return;
     if (useEnv) {
-      const pmrem = pmremRef.current ?? new THREE.PMREMGenerator(three.renderer);
+      const pmrem = pmremRef.current ?? new (THREE as any).PMREMGenerator(three.renderer);
       pmremRef.current = pmrem;
       const envRT = envRTRef.current ?? pmrem.fromScene(new RoomEnvironment(), 0.04);
       envRTRef.current = envRT;
@@ -453,20 +486,20 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       }
       geometryRef.current = null;
     }
-    let geom: THREE.BufferGeometry | null = null;
-    if (primitive === "sphere") geom = new THREE.SphereGeometry(0.9, 48, 32);
-    else if (primitive === "cube") geom = new THREE.BoxGeometry(1.2, 1.2, 1.2, 2, 2, 2);
-    else if (primitive === "cylinder") geom = new THREE.CylinderGeometry(0.8, 0.8, 1.4, 48, 1);
+    let geom: any | null = null;
+    if (primitive === "sphere") geom = new (THREE as any).SphereGeometry(0.9, 48, 32);
+    else if (primitive === "cube") geom = new (THREE as any).BoxGeometry(1.2, 1.2, 1.2, 2, 2, 2);
+    else if (primitive === "cylinder") geom = new (THREE as any).CylinderGeometry(0.8, 0.8, 1.4, 48, 1);
     else if (primitive === "custom" && customGeometryRef.current) geom = customGeometryRef.current.clone();
     if (!geom) return;
     geometryRef.current = geom;
     if (three.mesh) {
       three.mesh.geometry = geom;
     } else {
-      const fallbackMat = new THREE.ShaderMaterial({ vertexShader: defaultVertexShader(), fragmentShader: "void main(){ gl_FragColor = vec4(1.0); }" });
+      const fallbackMat = new (THREE as any).ShaderMaterial({ vertexShader: defaultVertexShader(), fragmentShader: "void main(){ gl_FragColor = vec4(1.0); }" });
       const mat = materialRef.current ?? fallbackMat;
       if (!materialRef.current) materialRef.current = mat;
-      const mesh = new THREE.Mesh(geom, mat);
+      const mesh = new (THREE as any).Mesh(geom, mat);
       mesh.frustumCulled = false;
       three.mesh = mesh;
       three.scene.add(mesh);
@@ -486,9 +519,9 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     for (const [key, u] of Object.entries(uniformsRaw)) {
       const val = (u as any).value;
       if (Array.isArray(val)) {
-        if (val.length === 2) uniforms[key] = { value: new THREE.Vector2(val[0], val[1]) };
-        else if (val.length === 3) uniforms[key] = { value: new THREE.Vector3(val[0], val[1], val[2]) };
-        else if (val.length === 4) uniforms[key] = { value: new THREE.Vector4(val[0], val[1], val[2], val[3]) };
+        if (val.length === 2) uniforms[key] = { value: new (THREE as any).Vector2(val[0], val[1]) };
+        else if (val.length === 3) uniforms[key] = { value: new (THREE as any).Vector3(val[0], val[1], val[2]) };
+        else if (val.length === 4) uniforms[key] = { value: new (THREE as any).Vector4(val[0], val[1], val[2], val[3]) };
         else uniforms[key] = { value: val.slice() };
       } else {
         uniforms[key] = { value: val };
@@ -522,22 +555,22 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       cam.updateMatrixWorld();
       cam.updateProjectionMatrix();
       const view = cam.matrixWorldInverse;
-      const keyDir = new THREE.Vector3(-0.35, 0.8, 0.6).normalize().applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
-      const fillDir = new THREE.Vector3(0.6, 0.2, 0.2).normalize().applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
-      const rimDir = new THREE.Vector3(-0.2, 0.3, -0.9).normalize().applyMatrix3(new THREE.Matrix3().setFromMatrix4(view));
-      if (!uniforms.uKeyDir) uniforms.uKeyDir = { value: new THREE.Vector3(keyDir.x, keyDir.y, keyDir.z) };
-      if (!uniforms.uFillDir) uniforms.uFillDir = { value: new THREE.Vector3(fillDir.x, fillDir.y, fillDir.z) };
-      if (!uniforms.uRimDir) uniforms.uRimDir = { value: new THREE.Vector3(rimDir.x, rimDir.y, rimDir.z) };
+      const keyDir = new (THREE as any).Vector3(-0.35, 0.8, 0.6).normalize().applyMatrix3(new (THREE as any).Matrix3().setFromMatrix4(view));
+      const fillDir = new (THREE as any).Vector3(0.6, 0.2, 0.2).normalize().applyMatrix3(new (THREE as any).Matrix3().setFromMatrix4(view));
+      const rimDir = new (THREE as any).Vector3(-0.2, 0.3, -0.9).normalize().applyMatrix3(new (THREE as any).Matrix3().setFromMatrix4(view));
+      if (!uniforms.uKeyDir) uniforms.uKeyDir = { value: new (THREE as any).Vector3(keyDir.x, keyDir.y, keyDir.z) };
+      if (!uniforms.uFillDir) uniforms.uFillDir = { value: new (THREE as any).Vector3(fillDir.x, fillDir.y, fillDir.z) };
+      if (!uniforms.uRimDir) uniforms.uRimDir = { value: new (THREE as any).Vector3(rimDir.x, rimDir.y, rimDir.z) };
     } catch {
       // no-op
     }
-    if (!uniforms.uKeyColor) uniforms.uKeyColor = { value: new THREE.Vector3(3.0, 3.0, 3.0) } as any;
-    if (!uniforms.uFillColor) uniforms.uFillColor = { value: new THREE.Vector3(1.2, 1.2, 1.2) } as any;
-    if (!uniforms.uRimColor) uniforms.uRimColor = { value: new THREE.Vector3(2.0, 2.0, 2.0) } as any;
-    if (!uniforms.uAmbient) uniforms.uAmbient = { value: new THREE.Vector3(0.08, 0.08, 0.08) } as any;
+    if (!uniforms.uKeyColor) uniforms.uKeyColor = { value: new (THREE as any).Vector3(3.0, 3.0, 3.0) } as any;
+    if (!uniforms.uFillColor) uniforms.uFillColor = { value: new (THREE as any).Vector3(1.2, 1.2, 1.2) } as any;
+    if (!uniforms.uRimColor) uniforms.uRimColor = { value: new (THREE as any).Vector3(2.0, 2.0, 2.0) } as any;
+    if (!uniforms.uAmbient) uniforms.uAmbient = { value: new (THREE as any).Vector3(0.08, 0.08, 0.08) } as any;
     if (!uniforms.uExposure) uniforms.uExposure = { value: 1.3 } as any;
     if (!uniforms.uTime) uniforms.uTime = { value: 0 } as any;
-    const mat = new THREE.ShaderMaterial({
+    const mat = new (THREE as any).ShaderMaterial({
       vertexShader: defaultVertexShader(vertexChunk, parsed),
       fragmentShader: parsed.fragment,
       uniforms,
@@ -545,7 +578,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       depthTest: true,
       depthWrite: true,
       transparent: false,
-      side: THREE.DoubleSide,
+      side: (THREE as any).DoubleSide,
       toneMapped: false,
       fog: false,
     } as any);
@@ -558,28 +591,28 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     if (three.mesh) three.mesh.material = mat;
     let cancelled = false;
     if (missingTextures.length) {
-      const loader = new THREE.TextureLoader();
+      const loader = new (THREE as any).TextureLoader();
       if ((loader as any).setCrossOrigin) (loader as any).setCrossOrigin("anonymous");
-      else loader.crossOrigin = "anonymous";
+      else (loader as any).crossOrigin = "anonymous";
       for (const { url } of missingTextures) {
         pendingTextureLoadsRef.current.add(url);
         loader.load(
           url,
-          (texture) => {
+          (texture: any) => {
             pendingTextureLoadsRef.current.delete(url);
             if (cancelled) {
               texture.dispose();
               return;
             }
-            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.colorSpace = (THREE as any).SRGBColorSpace;
             // Use Three.js default flipY for image-based textures so v=0 maps to the bottom,
             // avoiding vertical UV inversion in the preview.
             texture.flipY = true;
             texture.needsUpdate = true;
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            texture.magFilter = THREE.LinearFilter;
-            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.wrapS = (THREE as any).RepeatWrapping;
+            texture.wrapT = (THREE as any).RepeatWrapping;
+            texture.magFilter = (THREE as any).LinearFilter;
+            texture.minFilter = (THREE as any).LinearMipmapLinearFilter;
             texture.generateMipmaps = true;
             textureCacheRef.current.set(url, texture);
             for (const [uName, uUrl] of textureAssignments) {
@@ -605,26 +638,27 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     };
   }, [ensureSamplerFallback, fragCode, vertexChunk, wireframe, textureAssignments, samplerSettings]);
 
-  const loadModelAsset = useCallback(async (source: string, label: string) => {
+  const loadModelAsset = useCallback(async (source: string, label: string, persist: boolean = true) => {
     setModelStatus(`Loading ${label}…`);
     try {
       if (!gltfLoaderRef.current) {
         const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
-        gltfLoaderRef.current = new mod.GLTFLoader();
+        gltfLoaderRef.current = new (mod as any).GLTFLoader();
       }
-      const loader = gltfLoaderRef.current as { loadAsync: (src: string) => Promise<any> };
+      const loader = gltfLoaderRef.current as any;
+      if (loader?.setCrossOrigin) loader.setCrossOrigin("anonymous");
       const gltf = await loader.loadAsync(source);
-      let mesh: THREE.Mesh | null = null;
+      let mesh: any | null = null;
       gltf.scene.traverse((obj: any) => {
         if (mesh) return;
-        if (obj && obj.isMesh) mesh = obj as THREE.Mesh;
+        if (obj && obj.isMesh) mesh = obj as any;
       });
       if (!mesh) throw new Error("Model has no mesh to preview");
       const geom = mesh.geometry.clone();
       geom.applyMatrix4(mesh.matrixWorld);
       geom.computeBoundingBox();
       geom.computeBoundingSphere();
-      const center = geom.boundingBox?.getCenter(new THREE.Vector3()) ?? new THREE.Vector3();
+      const center = geom.boundingBox?.getCenter(new (THREE as any).Vector3()) ?? new (THREE as any).Vector3();
       geom.translate(-center.x, -center.y, -center.z);
       const radius = geom.boundingSphere?.radius ?? 1;
       if (radius > 0 && Number.isFinite(radius)) {
@@ -636,21 +670,29 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       setCustomGeometryVersion((v) => v + 1);
       setCustomModel({ source, label });
       setPrimitive("custom");
+      if (persist && setPropertyRef.current) {
+        setPropertyRef.current("model_source", source);
+        setPropertyRef.current("model_label", label);
+        setPropertyRef.current("primitive", "custom");
+      }
       setModelStatus(`Loaded ${label}`);
     } catch (err) {
       console.warn("Failed to load model asset", err);
       setModelStatus(`Failed to load model: ${label}`);
     }
   }, []);
+  useEffect(() => { loadModelAssetRef.current = loadModelAsset; }, [loadModelAsset]);
 
   const handleCanvasDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = "copy";
     setModelDropActive(true);
   }, []);
 
   const handleCanvasDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.stopPropagation();
     if (!event.currentTarget.contains(event.relatedTarget as Node)) {
       setModelDropActive(false);
     }
@@ -660,6 +702,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
     (event: React.DragEvent<HTMLDivElement>) => {
       if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
       event.preventDefault();
+      event.stopPropagation();
       setModelDropActive(false);
       const payload = parseAssetDragPayload(event.dataTransfer.getData(ASSET_DRAG_MIME));
       if (!payload || payload.type !== "model") return;
@@ -702,7 +745,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
       <div className={cn("h-full flex flex-col", className)}>
         <div className="px-3 py-2 border-b flex flex-row items-center justify-end gap-2">
           <div className="min-w-[120px]">
-            <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
+            <Select value={primitive} onValueChange={(v) => { const next = v as Primitive; setPrimitive(next); setProperty?.("primitive", next); }}>
               <SelectTrigger aria-label="Primitive">
                 <SelectValue placeholder="Primitive" />
               </SelectTrigger>
@@ -758,7 +801,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
         <CardHeader className="py-3 px-4 flex flex-row items-center justify-end">
           <div className="flex items-center gap-2">
             <div className="min-w-[120px]">
-              <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
+            <Select value={primitive} onValueChange={(v) => { const next = v as Primitive; setPrimitive(next); setProperty?.("primitive", next); }}>
                 <SelectTrigger aria-label="Primitive">
                   <SelectValue placeholder="Primitive" />
                 </SelectTrigger>
@@ -835,7 +878,7 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
           <CardTitle className="text-sm">3D Preview</CardTitle>
           <div className="flex items-center gap-2">
             <div className="min-w-[120px]">
-              <Select value={primitive} onValueChange={(v) => setPrimitive(v as Primitive)}>
+              <Select value={primitive} onValueChange={(v) => { const next = v as Primitive; setPrimitive(next); setProperty?.("primitive", next); }}>
                 <SelectTrigger aria-label="Primitive">
                   <SelectValue placeholder="Primitive" />
                 </SelectTrigger>
@@ -861,14 +904,13 @@ export function PreviewPanel({ graph, className, variant = "overlay" }: PreviewP
               "osg-three-preview rounded-md overflow-hidden transition-colors nodrag nowheel nopan",
               modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
             )}
-            style={{ width: "100%", height: 320 }}
+            style={{ width: "100%", height: 320, touchAction: "none" }}
             data-node-interactive
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            style={{ width: "100%", height: 320, touchAction: "none" }}
           >
             <canvas
               ref={canvasRef}
