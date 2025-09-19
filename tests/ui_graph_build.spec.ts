@@ -133,4 +133,31 @@ describe("UI graph build + edit + compile", () => {
     expect(stored.meta).toContain("editor_panel:properties");
     expect(stored.meta).toContain("editor_size:512x384");
   });
+
+  it("derives editor node size from ReactFlow dimensions payload", () => {
+    const editorNode: Node = {
+      id: "2",
+      type: "graphNode",
+      position: { x: 0, y: 0 },
+      dimensions: { width: 640, height: 480 },
+      data: {
+        label: "Preview",
+        type: "editor_preview",
+        template: {
+          id: 2,
+          type: "editor_preview",
+          name: "Preview",
+          meta: ["editor_node", "editor_panel:preview", "editor_size:520x360"],
+          position: [0, 0],
+          nodes: [],
+          inputs: [],
+          outputs: [],
+          properties: [],
+        },
+      },
+    } as any;
+    const result = buildGraphData([editorNode] as any, [], "TestGraph");
+    const stored = (result.nodes as any[])[0];
+    expect(stored.meta).toContain("editor_size:640x480");
+  });
 });

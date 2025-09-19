@@ -94,6 +94,32 @@ describe("graph serialization", () => {
     savedSampler = lastSavedNode(graph, "texture_sampler");
     expect(savedSampler?.inputs).toBeUndefined();
   });
+
+  it("persists editor panel meta with updated dimensions", () => {
+    const editorNode = makeNode("editor_properties", 7);
+    const tpl = (editorNode.data as any).template;
+    tpl.meta = ["editor_node", "editor_panel:properties", "editor_size:512x384"];
+    const graph = serializeGraph([editorNode], [] as Edge[], "EditorMeta");
+    const savedEditor = lastSavedNode(graph, "editor_properties");
+    expect(savedEditor?.meta).toEqual(["editor_node", "editor_panel:properties", "editor_size:512x384"]);
+  });
+
+  it("replaces base64 texture inputs with asset references when serializing", () => {
+    const textureNode = makeNode("texture", 5);
+    (textureNode.data as any).template.properties[0].value = "data:image/png;base64,AAAA";
+    (textureNode.data as any).asset = {
+      id: "user-texture-1",
+      label: "User Texture",
+      type: "texture",
+      source: "data:image/png;base64,AAAA",
+      builtin: false,
+    };
+    const graph = serializeGraph([textureNode], [] as Edge[], "Assets");
+    const savedTexture = lastSavedNode(graph, "texture");
+    expect(savedTexture?.properties).toEqual([{ id: "source", value: "asset:user-texture-1" }]);
+    expect(savedTexture?.meta).toContain("asset:user-texture-1");
+  });
+
 });
 
 describe("graph inflation", () => {
@@ -136,4 +162,3 @@ describe("graph inflation", () => {
     expect(samplerDefaults!.inputs?.find((pin) => pin.id === 1)?.value).toEqual("builtin:uv");
   });
 });
-

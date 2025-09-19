@@ -8,6 +8,7 @@ const makeApi = (): NodeUpdaterApi => ({
   updateNodeLabel: vi.fn(),
   addNodeMeta: vi.fn(),
   removeNodeMeta: vi.fn(),
+  updateNodeAsset: vi.fn(),
 });
 
 describe("nodeUpdaters", () => {
@@ -60,6 +61,7 @@ describe("nodeUpdaters", () => {
       expect((node.data as any).updateNodeLabel).toBe(api.updateNodeLabel);
       expect((node.data as any).addNodeMeta).toBe(api.addNodeMeta);
       expect((node.data as any).removeNodeMeta).toBe(api.removeNodeMeta);
+      expect((node.data as any).updateNodeAsset).toBe(api.updateNodeAsset);
     }
   });
 });

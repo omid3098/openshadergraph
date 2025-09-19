@@ -34,9 +34,9 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
           meta: [],
           nodes: [],
           inputs: [],
-          outputs: [],
-          properties: [],
-        };
+        outputs: [],
+        properties: [],
+      };
     const idNum = Number(n.id);
     if (Number.isFinite(idNum)) base.id = idNum;
     base.position = [Math.round(n.position.x), Math.round(n.position.y)];
@@ -117,6 +117,9 @@ export function buildGraphData(nodes: Node[], edges: Edge[], graphName: string) 
       }
       const direct = (n as any)?.[key];
       if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
+      const dimensions = (n as any)?.dimensions;
+      const dimensionVal = dimensions ? dimensions[key] : undefined;
+      if (typeof dimensionVal === "number" && Number.isFinite(dimensionVal)) return Math.round(dimensionVal);
       const measured = (n as any)?.measured?.[key];
       if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
       return undefined;

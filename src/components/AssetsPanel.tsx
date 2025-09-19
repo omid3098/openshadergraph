@@ -234,17 +234,17 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
                   const isTexture = asset.type === "texture";
                   const draggable = asset.type === "texture" || asset.type === "model";
                   return (
-                  <div
-                    key={`${asset.category.id}:${asset.id}`}
-                    className="group relative flex h-full flex-col gap-2 rounded-md border border-border/70 bg-background/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,transform] hover:-translate-y-[1px] hover:border-primary/60"
-                    draggable={draggable}
-                    data-node-interactive
-                    onPointerDownCapture={(event) => event.stopPropagation()}
-                    onDragStart={(event) => {
-                      event.stopPropagation();
-                      startDrag(event, asset);
-                    }}
-                  >
+                    <div
+                      key={`${asset.category.id}:${asset.id}`}
+                      className="group relative flex h-full flex-col gap-2 rounded-md border border-border/70 bg-background/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,transform] hover:-translate-y-[1px] hover:border-primary/60"
+                      draggable={draggable}
+                      data-node-interactive
+                      onPointerDownCapture={(event) => event.stopPropagation()}
+                      onDragStart={(event) => {
+                        event.stopPropagation();
+                        startDrag(event, asset);
+                      }}
+                    >
                       <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-muted/60 bg-muted">
                         {isTexture ? (
                           <img

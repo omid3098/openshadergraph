@@ -13,12 +13,18 @@ import {
 import { isCompilableGraph } from "@/core/io/guards";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "@/core/assets/kind";
 // three types are shimmed for our build; import as any
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { observeElementSize } from "./preview/resizeObserver";
+
+type PreviewAsset = {
+  id?: string;
+  source?: string;
+  label?: string;
+  type?: string;
+  builtin?: boolean;
+};
 
 type PreviewPanelProps = {
   graph: unknown;
@@ -26,6 +32,8 @@ type PreviewPanelProps = {
   variant?: "overlay" | "docked" | "node";
   getProperty?: (propId: string) => unknown;
   setProperty?: (propId: string, next: unknown) => void;
+  asset?: PreviewAsset | null;
+  setAsset?: (asset: PreviewAsset | null) => void;
 };
 
 type Primitive = "sphere" | "cube" | "cylinder" | "custom";
@@ -171,7 +179,7 @@ function disposeMaterial(
   }
 }
 
-export function PreviewPanel({ graph, className, variant = "overlay", getProperty, setProperty }: PreviewPanelProps) {
+export function PreviewPanel({ graph, className, variant = "overlay", getProperty, setProperty, asset, setAsset }: PreviewPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     const stored = typeof localStorage !== "undefined" ? Number(localStorage.getItem("previewPanel.width")) : 0;
@@ -211,6 +219,8 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   // Keep latest setProperty in a ref to avoid effect dependency loops
   const setPropertyRef = useRef<typeof setProperty>(setProperty);
   useEffect(() => { setPropertyRef.current = setProperty; }, [setProperty]);
+  const setAssetRef = useRef<typeof setAsset>(setAsset);
+  useEffect(() => { setAssetRef.current = setAsset; }, [setAsset]);
 
   useEffect(() => {
     // Persist primitive to node property when available; otherwise use localStorage fallback
@@ -250,8 +260,6 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const _lightDirsViewRef = useRef<{ key: any; fill: any; rim: any } | null>(null);
   const samplerFallbackRef = useRef<any | null>(null);
   const startTimeRef = useRef<number | null>(null);
-  const loadModelAssetRef = useRef<((source: string, label: string, persist?: boolean) => Promise<void>) | null>(null);
-
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
   }, [graph]);
@@ -432,7 +440,58 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     };
   }, [updateRendererSize]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loadModelAsset = useCallback(
+    async (source: string, label: string, options?: { persist?: boolean; asset?: PreviewAsset | null }) => {
+      const persist = options?.persist ?? true;
+      const assetDetails = options?.asset ?? null;
+      setModelStatus(`Loading ${label}…`);
+      try {
+        if (!gltfLoaderRef.current) {
+          const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
+          gltfLoaderRef.current = new (mod as any).GLTFLoader();
+        }
+        const loader = gltfLoaderRef.current as any;
+        if (loader?.setCrossOrigin) loader.setCrossOrigin("anonymous");
+        const gltf = await loader.loadAsync(source);
+        let mesh: any | null = null;
+        gltf.scene.traverse((obj: any) => {
+          if (mesh) return;
+          if (obj && obj.isMesh) mesh = obj as any;
+        });
+        if (!mesh) throw new Error("Model has no mesh to preview");
+        const geom = mesh.geometry.clone();
+        geom.applyMatrix4(mesh.matrixWorld);
+        geom.computeBoundingBox();
+        geom.computeBoundingSphere();
+        const center = geom.boundingBox?.getCenter(new (THREE as any).Vector3()) ?? new (THREE as any).Vector3();
+        geom.translate(-center.x, -center.y, -center.z);
+        const radius = geom.boundingSphere?.radius ?? 1;
+        if (radius > 0 && Number.isFinite(radius)) {
+          const scale = 1 / radius;
+          geom.scale(scale, scale, scale);
+        }
+        if (customGeometryRef.current) customGeometryRef.current.dispose();
+        customGeometryRef.current = geom;
+        setCustomGeometryVersion((v) => v + 1);
+        setCustomModel({ source, label });
+        setPrimitive("custom");
+        if (persist && setPropertyRef.current) {
+          setPropertyRef.current("model_source", source);
+          setPropertyRef.current("model_label", label);
+          setPropertyRef.current("primitive", "custom");
+        }
+        if (setAssetRef.current && assetDetails && assetDetails.id && assetDetails.source) {
+          setAssetRef.current({ ...assetDetails, source, label: assetDetails.label ?? label });
+        }
+        setModelStatus(`Loaded ${label}`);
+      } catch (err) {
+        console.warn("Failed to load model asset", err);
+        setModelStatus(`Failed to load model: ${label}`);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = canvas?.parentElement;
@@ -447,11 +506,20 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         const label = typeof getProperty === "function" ? (getProperty("model_label") as string | undefined) : undefined;
         const prim = typeof getProperty === "function" ? (getProperty("primitive") as Primitive | undefined) : undefined;
         if (typeof prim === "string") setPrimitive(prim as Primitive);
-        if (src && loadModelAssetRef.current) void loadModelAssetRef.current(src, label || "Model", false);
-      } catch {}
+        if (src) {
+          void loadModelAsset(src, label || "Model", { persist: false, asset });
+        }
+      } catch {
+        // ignore hydration errors; graph properties can be unset during initial mount
+      }
     }
     return observeElementSize(container, updateRendererSize);
-  }, [updateRendererSize, variant, collapsed, getProperty]);
+  }, [updateRendererSize, variant, collapsed, getProperty, asset, loadModelAsset]);
+
+  useEffect(() => {
+    if (!asset || !asset.source) return;
+    setCustomModel({ source: asset.source, label: asset.label ?? asset.id ?? "Model" });
+  }, [asset, asset?.source, asset?.label, asset?.id]);
 
   // Toggle default HDRI environment (RoomEnvironment via PMREM)
   useEffect(() => {
@@ -638,51 +706,6 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     };
   }, [ensureSamplerFallback, fragCode, vertexChunk, wireframe, textureAssignments, samplerSettings]);
 
-  const loadModelAsset = useCallback(async (source: string, label: string, persist: boolean = true) => {
-    setModelStatus(`Loading ${label}…`);
-    try {
-      if (!gltfLoaderRef.current) {
-        const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
-        gltfLoaderRef.current = new (mod as any).GLTFLoader();
-      }
-      const loader = gltfLoaderRef.current as any;
-      if (loader?.setCrossOrigin) loader.setCrossOrigin("anonymous");
-      const gltf = await loader.loadAsync(source);
-      let mesh: any | null = null;
-      gltf.scene.traverse((obj: any) => {
-        if (mesh) return;
-        if (obj && obj.isMesh) mesh = obj as any;
-      });
-      if (!mesh) throw new Error("Model has no mesh to preview");
-      const geom = mesh.geometry.clone();
-      geom.applyMatrix4(mesh.matrixWorld);
-      geom.computeBoundingBox();
-      geom.computeBoundingSphere();
-      const center = geom.boundingBox?.getCenter(new (THREE as any).Vector3()) ?? new (THREE as any).Vector3();
-      geom.translate(-center.x, -center.y, -center.z);
-      const radius = geom.boundingSphere?.radius ?? 1;
-      if (radius > 0 && Number.isFinite(radius)) {
-        const scale = 1 / radius;
-        geom.scale(scale, scale, scale);
-      }
-      if (customGeometryRef.current) customGeometryRef.current.dispose();
-      customGeometryRef.current = geom;
-      setCustomGeometryVersion((v) => v + 1);
-      setCustomModel({ source, label });
-      setPrimitive("custom");
-      if (persist && setPropertyRef.current) {
-        setPropertyRef.current("model_source", source);
-        setPropertyRef.current("model_label", label);
-        setPropertyRef.current("primitive", "custom");
-      }
-      setModelStatus(`Loaded ${label}`);
-    } catch (err) {
-      console.warn("Failed to load model asset", err);
-      setModelStatus(`Failed to load model: ${label}`);
-    }
-  }, []);
-  useEffect(() => { loadModelAssetRef.current = loadModelAsset; }, [loadModelAsset]);
-
   const handleCanvasDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
     event.preventDefault();
@@ -706,7 +729,17 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       setModelDropActive(false);
       const payload = parseAssetDragPayload(event.dataTransfer.getData(ASSET_DRAG_MIME));
       if (!payload || payload.type !== "model") return;
-      void loadModelAsset(payload.source, payload.label);
+      const label = payload.label ?? payload.id ?? "Model";
+      void loadModelAsset(payload.source, label, {
+        persist: true,
+        asset: {
+          id: payload.id,
+          source: payload.source,
+          label: payload.label,
+          type: payload.type,
+          builtin: payload.builtin,
+        },
+      });
     },
     [loadModelAsset]
   );

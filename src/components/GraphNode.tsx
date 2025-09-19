@@ -12,6 +12,7 @@ import NumericVectorInput from "./inputs/NumericVectorInput";
 import { THEME } from "@/styles/theme";
 import type { NodeProperty } from "@/core/schema/types";
 import { useGraphState } from "@/core/ui/GraphStateContext";
+import type { NodeAssetPayload } from "@/core/ui/nodeUpdaters";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { CompilePanel } from "./CompilePanel";
 import { GraphDataPanel } from "./GraphDataPanel";
@@ -68,6 +69,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const isEditor = meta.includes("editor_node");
   const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
   const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
+  const currentAsset = (data as any)?.asset as NodeAssetPayload | undefined;
 
   // Updater must be defined before effects that reference it
   const updateInputValue = useCallback(
@@ -94,6 +96,21 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         return;
       }
       nodeUpdaterApi.updatePropertyValue(nodeId, propId, next);
+    },
+    [nodeId, data, nodeUpdaterApi]
+  );
+
+  const updateNodeAsset = useCallback(
+    (asset: NodeAssetPayload | null) => {
+      if (!nodeId) return;
+      const external = (data as any)?.updateNodeAsset as
+        | ((id: string, asset: NodeAssetPayload | null) => void)
+        | undefined;
+      if (typeof external === "function") {
+        external(nodeId, asset);
+        return;
+      }
+      nodeUpdaterApi.updateNodeAsset(nodeId, asset);
     },
     [nodeId, data, nodeUpdaterApi]
   );
@@ -130,6 +147,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           variant="node"
           graph={graph}
           className="h-full"
+          asset={currentAsset ?? undefined}
           getProperty={(propId: string) => {
             const props: any[] = Array.isArray((data as any)?.template?.properties)
               ? ((data as any).template.properties as any[])
@@ -141,6 +159,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             if (!nodeId || !propId) return;
             updatePropertyValue(propId, next);
           }}
+          setAsset={(next) => updateNodeAsset(next ? { ...next } : null)}
         />
       );
     }
@@ -148,7 +167,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <AssetsPanel variant="node" className="h-full" />;
     }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
-  }, [editorPanelKey, graph, data, nodeId, updatePropertyValue]);
+  }, [editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
 
   if (isEditor) {
     return (

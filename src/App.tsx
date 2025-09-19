@@ -16,14 +16,16 @@ import {
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
-import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
+import type { AssetItem, NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
+import { fetchAssetLibrary } from "./core/schema/assets";
 // Panels are now hosted inside a unified dock overlay
 import { useReactFlow } from "@xyflow/react";
 import { GraphNode } from "./components/GraphNode";
 import { buildRFNodeFromTemplate, parseEditorSize } from "./core/ui/nodeFactory";
-import { attachNodeUpdateApi, attachNodesUpdateApi, type NodeUpdaterApi } from "./core/ui/nodeUpdaters";
+import { attachNodeUpdateApi, attachNodesUpdateApi, type NodeAssetPayload, type NodeUpdaterApi } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
+import { persistGet } from "./lib/storage";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { serializeGraph as serializeGraphForSave, inflateGraph } from "./core/ui/graphSerde";
@@ -71,6 +73,8 @@ const VIEW_HOTKEY_MAP: Record<string, EditorPanelKey> = VIEW_MENU_ITEMS.reduce<R
   },
   {}
 );
+
+const USER_ASSETS_STORAGE_KEY = "assets.user";
 
 export function App() {
   const rf = useReactFlow();
@@ -190,6 +194,7 @@ export function App() {
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      const pendingSizeUpdates: Array<{ id: string; width?: number; height?: number }> = [];
       for (const change of changes) {
         if (change.type === "remove") {
           resizingEditorIdsRef.current.delete(change.id);
@@ -217,11 +222,89 @@ export function App() {
               setTimeout(flush, 0);
             }
           }
+          const readDimension = (key: "width" | "height"): number | undefined => {
+            const dims = change.dimensions;
+            const dimVal = dims ? (dims as any)[key] : undefined;
+            if (typeof dimVal === "number" && Number.isFinite(dimVal)) return Math.round(dimVal);
+            if (!node) return undefined;
+            const styleVal = (node as any)?.style?.[key];
+            if (typeof styleVal === "number" && Number.isFinite(styleVal)) return Math.round(styleVal);
+            if (typeof styleVal === "string") {
+              const parsed = Number.parseFloat(styleVal);
+              if (Number.isFinite(parsed)) return Math.round(parsed);
+            }
+            const direct = (node as any)?.[key];
+            if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
+            const dimensionVal = (node as any)?.dimensions?.[key];
+            if (typeof dimensionVal === "number" && Number.isFinite(dimensionVal)) return Math.round(dimensionVal);
+            const measured = (node as any)?.measured?.[key];
+            if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
+            return undefined;
+          };
+          const width = readDimension("width");
+          const height = readDimension("height");
+          if (Number.isFinite(width) || Number.isFinite(height)) {
+            pendingSizeUpdates.push({ id: change.id, width, height });
+          }
         }
+      }
+      if (pendingSizeUpdates.length) {
+        const updates = new Map<string, { width?: number; height?: number }>();
+        pendingSizeUpdates.forEach((entry) => {
+          updates.set(entry.id, {
+            width: Number.isFinite(entry.width) ? entry.width : undefined,
+            height: Number.isFinite(entry.height) ? entry.height : undefined,
+          });
+        });
+        setNodes((prev) =>
+          prev.map((n) => {
+            const entry = updates.get(n.id);
+            if (!entry) return n;
+            const tpl = (n.data as any)?.template;
+            if (!tpl || !Array.isArray(tpl.meta) || !tpl.meta.includes("editor_node")) return n;
+            const meta = [...tpl.meta];
+            const currentSize = parseEditorSize(meta as string[]);
+            const nextWidthRaw = Number.isFinite(entry.width) ? entry.width! : currentSize.width;
+            const nextHeightRaw = Number.isFinite(entry.height) ? entry.height! : currentSize.height;
+            if (!Number.isFinite(nextWidthRaw) || !Number.isFinite(nextHeightRaw)) return n;
+            const nextWidth = Math.max(0, Math.round(nextWidthRaw!));
+            const nextHeight = Math.max(0, Math.round(nextHeightRaw!));
+            const formatted = `editor_size:${nextWidth}x${nextHeight}`;
+            const idx = meta.findIndex((m: any) => typeof m === "string" && m.startsWith("editor_size:"));
+            let metaChanged = false;
+            if (idx >= 0) {
+              if (meta[idx] !== formatted) {
+                meta[idx] = formatted;
+                metaChanged = true;
+              }
+            } else {
+              meta.push(formatted);
+              metaChanged = true;
+            }
+            const nextTpl = metaChanged ? { ...tpl, meta } : tpl;
+            const style = { ...(n.style ?? {}) } as Record<string, unknown>;
+            let styleChanged = false;
+            if (style.width !== nextWidth) {
+              style.width = nextWidth;
+              styleChanged = true;
+            }
+            if (style.height !== nextHeight) {
+              style.height = nextHeight;
+              styleChanged = true;
+            }
+            if (!metaChanged && !styleChanged) return n;
+            const nextNode: any = {
+              ...n,
+              data: { ...(n.data as any), template: nextTpl },
+            };
+            if (styleChanged) nextNode.style = style;
+            return nextNode;
+          })
+        );
       }
       onNodesChange(changes);
     },
-    [onNodesChange, recomputeGraphData]
+    [onNodesChange, recomputeGraphData, setNodes]
   );
 
   // Visible graph based on current viewPath (root vs. inside a group)
@@ -278,6 +361,21 @@ export function App() {
     );
   }, [setNodes]);
 
+  const updateNodeAsset = useCallback((id: string, asset: NodeAssetPayload | null) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const nextData = { ...(n.data as any) };
+        if (asset && asset.id && asset.source) {
+          nextData.asset = { ...asset };
+        } else {
+          delete nextData.asset;
+        }
+        return { ...n, data: nextData } as any;
+      })
+    );
+  }, [setNodes]);
+
   // Centralized updaters for node label and metas to preserve parentId
   const updateNodeLabel = useCallback((id: string, label: string) => {
     setNodes((prev) =>
@@ -321,8 +419,9 @@ export function App() {
       updateNodeLabel,
       addNodeMeta,
       removeNodeMeta,
+      updateNodeAsset,
     }),
-    [updateNodeInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta]
+    [updateNodeInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta, updateNodeAsset]
   );
 
   const nodesById = useMemo(() => {
@@ -468,6 +567,47 @@ export function App() {
         ? (root.nodes.find((n: any) => n?.type === "surface") ?? root.nodes[0])
         : (inflatedGraph as any);
 
+      type AssetEntry = { id: string; source: string; label?: string; type?: string; builtin?: boolean };
+      const assetById = new Map<string, AssetEntry>();
+      const assetBySource = new Map<string, AssetEntry>();
+      const registerAsset = (entry: AssetEntry) => {
+        if (!entry.id || !entry.source) return;
+        assetById.set(entry.id, entry);
+        assetBySource.set(entry.source, entry);
+      };
+      try {
+        const library = await fetchAssetLibrary();
+        for (const category of library.categories ?? []) {
+          for (const item of category.items ?? []) {
+            if (!item || typeof item.id !== "string" || typeof item.source !== "string") continue;
+            registerAsset({
+              id: item.id,
+              source: item.source,
+              label: item.label,
+              type: item.type,
+              builtin: item.builtin !== false,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load asset library while inflating graph", err);
+      }
+      try {
+        const stored = await persistGet<AssetItem[]>(USER_ASSETS_STORAGE_KEY);
+        for (const item of stored ?? []) {
+          if (!item || typeof item.id !== "string" || typeof item.source !== "string") continue;
+          registerAsset({
+            id: item.id,
+            source: item.source,
+            label: item.label,
+            type: item.type,
+            builtin: false,
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to load user assets while inflating graph", err);
+      }
+
       const createdNodes: Node[] = [];
       const createdEdges: Edge[] = [];
       const depthX = 240;
@@ -487,22 +627,82 @@ export function App() {
         perParentRow[parentId ?? "root"] = row + 1;
         const meta = Array.isArray(n.meta) ? [...n.meta] : [];
         const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
-        const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
-        if (assetMeta) {
-          const source = assetMeta.slice("asset:".length).trim();
-          if (source) {
-            let assigned = false;
-            for (let i = 0; i < properties.length; i++) {
-              const prop = properties[i];
-              if (prop && typeof prop === "object" && (prop.id === "source" || prop.id === "texture_source")) {
-                properties[i] = { ...prop, value: source };
-                assigned = true;
-                break;
+        const assetMetaIndex = meta.findIndex((m: any) => typeof m === "string" && m.startsWith("asset:"));
+        let assetToken: string | null = null;
+        if (assetMetaIndex >= 0) {
+          const token = meta[assetMetaIndex].slice("asset:".length).trim();
+          if (token) assetToken = token;
+        }
+        const assetPropIndices: number[] = [];
+        const assetPropertyIds = new Set(["source", "texture_source", "model_source"]);
+        let lastAssetPropId: string | null = null;
+        for (let i = 0; i < properties.length; i++) {
+          const prop = properties[i];
+          if (!prop || typeof prop !== "object" || typeof prop.id !== "string") continue;
+          if (!assetPropertyIds.has(prop.id)) continue;
+          assetPropIndices.push(i);
+          lastAssetPropId = prop.id;
+          const rawValue = (prop as any).value;
+          if (typeof rawValue === "string" && rawValue.startsWith("asset:")) {
+            const token = rawValue.slice("asset:".length).trim();
+            if (token) assetToken = token;
+          }
+        }
+        let resolvedAsset: AssetEntry | undefined;
+        if (assetToken) resolvedAsset = assetById.get(assetToken);
+        if (!resolvedAsset) {
+          for (const index of assetPropIndices) {
+            const rawValue = (properties[index] as any)?.value;
+            if (typeof rawValue !== "string") continue;
+            const entry = assetBySource.get(rawValue.trim());
+            if (entry) {
+              resolvedAsset = entry;
+              assetToken = entry.id;
+              break;
+            }
+          }
+        }
+        let attachedAsset: { id: string; label?: string; type?: string; source: string; builtin?: boolean } | null = null;
+        if (resolvedAsset) {
+          const { id, source, label: assetLabel, type: assetType, builtin } = resolvedAsset;
+          for (const index of assetPropIndices) {
+            properties[index] = { ...properties[index], value: source };
+          }
+          if (assetPropIndices.length === 0) {
+            const fallbackPropId = lastAssetPropId ?? (n.type === "editor_preview" ? "model_source" : "source");
+            const fallbackLabel = fallbackPropId === "model_source" ? "Model Asset" : "Texture Asset";
+            const fallbackKind = fallbackPropId === "model_source" ? "model" : "texture";
+            properties.push({ id: fallbackPropId, type: "asset", label: fallbackLabel, assetKind: fallbackKind, value: source });
+          }
+          attachedAsset = {
+            id,
+            source,
+            label: assetLabel ?? id,
+            type: assetType ?? (n.type === "editor_preview" ? "model" : "texture"),
+            builtin,
+          };
+        } else if (assetToken) {
+          for (const index of assetPropIndices) {
+            properties[index] = { ...properties[index], value: `asset:${assetToken}` };
+          }
+        }
+        if (attachedAsset) {
+          const labelPropIndex = properties.findIndex((prop: any) => prop && typeof prop === "object" && prop.id === "model_label");
+          if (labelPropIndex >= 0) {
+            const labelProp = properties[labelPropIndex];
+            const nextLabel = attachedAsset.label ?? attachedAsset.id;
+            if (labelProp && typeof labelProp === "object") {
+              const currentValue = (labelProp as any).value;
+              if (typeof nextLabel === "string" && (!currentValue || !String(currentValue).trim())) {
+                properties[labelPropIndex] = { ...labelProp, value: nextLabel };
+              }
+              const resolvedLabel = (properties[labelPropIndex] as any)?.value;
+              if (typeof resolvedLabel === "string" && resolvedLabel.trim().length) {
+                attachedAsset.label = resolvedLabel;
               }
             }
-            if (!assigned) {
-              properties.push({ id: "source", type: "asset", label: "Texture Asset", assetKind: "texture", value: source });
-            }
+          } else if (attachedAsset.label) {
+            properties.push({ id: "model_label", type: "string", value: attachedAsset.label });
           }
         }
         if (n.type === "fragment_output") {
@@ -562,6 +762,17 @@ export function App() {
                     if (n.position) clone.position = n.position;
                     return clone;
                   })(),
+                }
+              : {}),
+            ...(attachedAsset
+              ? {
+                  asset: {
+                    id: attachedAsset.id,
+                    label: attachedAsset.label,
+                    type: attachedAsset.type,
+                    source: attachedAsset.source,
+                    builtin: attachedAsset.builtin,
+                  },
                 }
               : {}),
           },

@@ -22,6 +22,7 @@ export type SerializedGraph = {
 };
 
 type TemplateById = Map<number, NodeTemplate>;
+type AssetByNodeId = Map<number, { id?: string; source?: string; type?: string; label?: string; builtin?: boolean }>;
 
 const REF_PREFIX = "../";
 
@@ -75,6 +76,24 @@ function collectDefaults(nodes: Node[]): TemplateById {
     ensurePinIds(clone.outputs as any);
     clone.id = id;
     map.set(id, clone);
+  }
+  return map;
+}
+
+function collectAssets(nodes: Node[]): AssetByNodeId {
+  const map: AssetByNodeId = new Map();
+  for (const node of nodes) {
+    const id = Number(node.id);
+    if (!Number.isFinite(id)) continue;
+    const asset = (node.data as any)?.asset;
+    if (!asset || typeof asset !== "object") continue;
+    const entry: { id?: string; source?: string; type?: string; label?: string; builtin?: boolean } = {};
+    if (typeof asset.id === "string" && asset.id.trim().length) entry.id = asset.id.trim();
+    if (typeof asset.source === "string" && asset.source.trim().length) entry.source = asset.source.trim();
+    if (typeof asset.type === "string" && asset.type.trim().length) entry.type = asset.type.trim();
+    if (typeof asset.label === "string" && asset.label.trim().length) entry.label = asset.label.trim();
+    if (typeof asset.builtin === "boolean") entry.builtin = asset.builtin;
+    if (entry.id || entry.source) map.set(id, entry);
   }
   return map;
 }
@@ -144,7 +163,7 @@ function pruneNode(node: SerializedGraphNode) {
   if (!node.nodes || node.nodes.length === 0) delete (node as any).nodes;
 }
 
-function diffNode(node: GraphNode, defaultsById: TemplateById): SerializedGraphNode {
+function diffNode(node: GraphNode, defaultsById: TemplateById, assets: AssetByNodeId): SerializedGraphNode {
   const result: SerializedGraphNode = {
     id: node.id,
     type: node.type,
@@ -153,13 +172,14 @@ function diffNode(node: GraphNode, defaultsById: TemplateById): SerializedGraphN
 
   const defaults = defaultsById.get(node.id);
 
+  const assetMetaToAppend: string[] = [];
+
   if (node.name && (!defaults || node.name !== defaults.name)) {
     result.name = node.name;
   }
 
   const meta = Array.isArray(node.meta) ? node.meta : [];
-  const baseMeta = Array.isArray(defaults?.meta) ? defaults!.meta! : [];
-  if (meta.length && (!defaults || !valuesEqual(meta, baseMeta))) {
+  if (meta.length) {
     result.meta = cloneValue(meta);
   }
 
@@ -170,10 +190,50 @@ function diffNode(node: GraphNode, defaultsById: TemplateById): SerializedGraphN
   if (pinsOutputs.length) result.outputs = pinsOutputs;
 
   const propDiff = diffProperties(node.properties as NodeProperty[] | undefined, defaults?.properties as NodeProperty[] | undefined);
-  if (propDiff.length) result.properties = propDiff;
+  if (propDiff.length) {
+    const assetInfo = assets.get(node.id);
+    const sanitized: Array<{ id: string; value?: any } | NodeProperty> = [];
+    for (const entry of propDiff) {
+      if (!assetInfo) {
+        sanitized.push(entry);
+        continue;
+      }
+      const currentValue = (entry as any)?.value;
+      if (typeof currentValue !== "string" || !currentValue.startsWith("data:")) {
+        sanitized.push(entry);
+        continue;
+      }
+      const clone = cloneValue(entry);
+      const source = assetInfo.source && !assetInfo.source.startsWith("data:") ? assetInfo.source : undefined;
+      if (source) {
+        (clone as any).value = source;
+        sanitized.push(clone);
+        continue;
+      }
+      const assetId = assetInfo.id;
+      if (assetId && assetId.length) {
+        const token = `asset:${assetId}`;
+        (clone as any).value = token;
+        sanitized.push(clone);
+        assetMetaToAppend.push(token);
+        continue;
+      }
+      // No safe serialization target; drop this override.
+    }
+    if (sanitized.length) result.properties = sanitized;
+  }
 
   if (Array.isArray(node.nodes) && node.nodes.length) {
-    result.nodes = node.nodes.map((child) => diffNode(child, defaultsById));
+    result.nodes = node.nodes.map((child) => diffNode(child, defaultsById, assets));
+  }
+
+  if (assetMetaToAppend.length) {
+    const baseMeta = Array.isArray(result.meta) ? result.meta.slice() : undefined;
+    const metaSet = new Set(baseMeta ?? []);
+    for (const token of assetMetaToAppend) {
+      if (!metaSet.has(token)) metaSet.add(token);
+    }
+    result.meta = Array.from(metaSet);
   }
 
   pruneNode(result);
@@ -182,11 +242,12 @@ function diffNode(node: GraphNode, defaultsById: TemplateById): SerializedGraphN
 
 export function serializeGraph(nodes: Node[], edges: Edge[], graphName: string): SerializedGraph {
   const defaults = collectDefaults(nodes);
+  const assets = collectAssets(nodes);
   const root = buildGraphData(nodes, edges, graphName);
   const serialized: SerializedGraph = {
     type: root.type,
     name: root.name,
-    nodes: Array.isArray(root.nodes) ? root.nodes.map((node) => diffNode(node, defaults)) : [],
+    nodes: Array.isArray(root.nodes) ? root.nodes.map((node) => diffNode(node, defaults, assets)) : [],
   };
   if (!serialized.nodes || serialized.nodes.length === 0) delete serialized.nodes;
   if (!serialized.type) delete serialized.type;
@@ -330,4 +391,3 @@ export async function inflateGraph(rawGraph: any, loadTemplate: LoadTemplateFn):
 
   return { graph, defaults };
 }
-
