@@ -2,6 +2,9 @@ import { useCallback } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, NodeResizer, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
 // inputs are provided by extracted components
 import ColorInput from "./inputs/ColorInput";
@@ -54,6 +57,9 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const name = data?.label ?? data?.type ?? "Node";
   const inputs: Pin[] = Array.isArray(data?.template?.inputs) ? data!.template!.inputs! : [];
   const outputs: Pin[] = Array.isArray(data?.template?.outputs) ? data!.template!.outputs! : [];
+  const properties: NodeProperty[] = Array.isArray(data?.template?.properties)
+    ? ((data!.template!.properties! as unknown) as NodeProperty[])
+    : [];
   const nodeId = useNodeId();
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
@@ -73,6 +79,21 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         return;
       }
       nodeUpdaterApi.updateInputValue(nodeId, pinId, next);
+    },
+    [nodeId, data, nodeUpdaterApi]
+  );
+
+  const updatePropertyValue = useCallback(
+    (propId: string, next: unknown) => {
+      if (!nodeId || !propId) return;
+      const external = (data as any)?.updatePropertyValue as
+        | ((id: string, propId: string, val: unknown) => void)
+        | undefined;
+      if (typeof external === "function") {
+        external(nodeId, propId, next);
+        return;
+      }
+      nodeUpdaterApi.updatePropertyValue(nodeId, propId, next);
     },
     [nodeId, data, nodeUpdaterApi]
   );
@@ -217,6 +238,101 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             })}
           </div>
         </div>
+        {properties.length > 0 && (
+          <div className="mt-3 pt-2 border-t">
+            <div className="flex flex-col gap-2">
+              {properties.map((prop: any) => {
+                if (!prop || typeof prop !== "object" || !prop.id) return null;
+                const label = String(prop.label ?? prop.id);
+                const value = prop?.value ?? prop?.default ?? (prop.type === "boolean" ? false : "");
+                if (prop.type === "enum") {
+                  const options: Array<{ value: string; label: string }> = Array.isArray(prop.options)
+                    ? prop.options.map((opt: any) => ({ value: String(opt.value), label: String(opt.label ?? opt.value) }))
+                    : [];
+                  const normalizedValue = options.some((opt) => opt.value === String(value))
+                    ? String(value)
+                    : options[0]?.value ?? "";
+                  return (
+                    <div key={prop.id} className="flex flex-col gap-1">
+                      <label className="text-[11px] text-muted-foreground">{label}</label>
+                      <Select value={normalizedValue} onValueChange={(next) => updatePropertyValue(prop.id, next)}>
+                        <SelectTrigger aria-label={label} className="h-7 px-2 text-xs">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {options.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                }
+                if (prop.type === "boolean") {
+                  const boolValue = Boolean(value);
+                  return (
+                    <div key={prop.id} className="flex flex-col gap-1">
+                      <label className="text-[11px] text-muted-foreground">{label}</label>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          variant={boolValue ? "default" : "outline"}
+                          onClick={() => updatePropertyValue(prop.id, !boolValue)}
+                        >
+                          {boolValue ? "Enabled" : "Disabled"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+                if (prop.type === "number") {
+                  const min = typeof prop.min === "number" ? prop.min : undefined;
+                  const max = typeof prop.max === "number" ? prop.max : undefined;
+                  const step = typeof prop.step === "number" ? prop.step : undefined;
+                  return (
+                    <div key={prop.id} className="flex flex-col gap-1">
+                      <label className="text-[11px] text-muted-foreground">{label}</label>
+                      <Input
+                        type="number"
+                        className="h-7 px-2 text-xs"
+                        value={value ?? ""}
+                        min={min}
+                        max={max}
+                        step={step}
+                        onChange={(event) => {
+                          const nextVal = event.target.value;
+                          updatePropertyValue(prop.id, nextVal === "" ? undefined : Number(nextVal));
+                        }}
+                      />
+                    </div>
+                  );
+                }
+                if (prop.type === "asset") {
+                  return (
+                    <div key={prop.id} className="flex flex-col gap-1">
+                      <label className="text-[11px] text-muted-foreground">{label}</label>
+                      <div className="flex items-center gap-2">
+                        <Input value={value ?? ""} placeholder="Drop asset here" readOnly className="h-7 px-2 text-xs" />
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => updatePropertyValue(prop.id, undefined)}>
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={prop.id} className="flex flex-col gap-1">
+                    <label className="text-[11px] text-muted-foreground">{label}</label>
+                    <Input value={value ?? ""} onChange={(event) => updatePropertyValue(prop.id, event.target.value)} className="h-7 px-2 text-xs" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
