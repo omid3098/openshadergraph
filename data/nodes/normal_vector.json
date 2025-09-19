@@ -25,6 +25,7 @@
       "options": [
         { "value": "world", "label": "World" },
         { "value": "object", "label": "Object" },
+        { "value": "view", "label": "View" },
         { "value": "tangent", "label": "Tangent" }
       ]
     }

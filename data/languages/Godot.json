@@ -286,9 +286,10 @@
       "template": "vec3 {{name}} = {{property:space}};",
       "properties": {
         "space": {
-          "world": { "template": "NORMAL" },
-          "object": { "template": "NORMAL" },
-          "tangent": { "template": "NORMAL" }
+          "world": { "template": "normalize(mat3(INV_VIEW_MATRIX) * NORMAL)" },
+          "object": { "template": "normalize(inverse(MODEL_NORMAL_MATRIX) * (mat3(INV_VIEW_MATRIX) * NORMAL))" },
+          "view": { "template": "NORMAL" },
+          "tangent": { "template": "vec3(0.0, 0.0, 1.0)" }
         }
       }
     },
