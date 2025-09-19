@@ -136,6 +136,7 @@ export function buildPreviewVertexShader(chunk?: string, parsed?: ParsedShader):
 precision highp float;
 ${uniformDecls}varying vec2 vUv;
 varying vec3 vNormal;
+varying vec3 vObjectNormal;
 varying vec3 vViewPosition;
 void main() {
   vUv = uv;
@@ -153,6 +154,8 @@ ${formatted}#undef COLOR
 #undef VERTEX
   vec3 transformedNormal = normalize(normalMatrix * osg_VertexNormal);
   vNormal = transformedNormal;
+  // Object-space normal varying for downstream object-space needs
+  vObjectNormal = normalize(osg_InputNormal);
   vec4 mvPos = modelViewMatrix * vec4(osg_VertexPosition, 1.0);
   vViewPosition = -mvPos.xyz;
   gl_Position = projectionMatrix * mvPos;
