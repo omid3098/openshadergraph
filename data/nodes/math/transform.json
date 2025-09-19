@@ -13,6 +13,16 @@
   ],
   "properties": [
     {
+      "id": "vector_type",
+      "label": "Vector Type",
+      "type": "enum",
+      "default": "direction",
+      "options": [
+        { "value": "direction", "label": "Direction" },
+        { "value": "position", "label": "Position" }
+      ]
+    },
+    {
       "id": "conversion",
       "label": "Conversion",
       "type": "enum",

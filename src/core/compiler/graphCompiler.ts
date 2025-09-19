@@ -140,7 +140,8 @@ export class GraphCompiler {
     const candidates = [output.name, String(output.id), output.name?.toLowerCase(), output.name?.toUpperCase()].filter(Boolean) as string[];
     for (const key of candidates) {
       if (key in outputs) {
-        return outputs[key].replace(/\{\{name\}\}/g, name);
+        const tpl = outputs[key];
+        if (typeof tpl === "string") return tpl.replace(/\{\{name\}\}/g, name);
       }
     }
     return name;
@@ -148,11 +149,13 @@ export class GraphCompiler {
 
   private resolve_ref(node: GraphNode, input: InputPin) {
     const path = String(input.value).split("/");
+    if (path.length < 2) throw new Error(`Invalid input ref path: ${input.value}`);
     let ref_node: GraphNode = node;
     for (const p of path) {
       if (p === "..") ref_node = ref_node.parent!;
     }
-    let target = this.get_node(ref_node, path[path.length - 2]);
+    const nodeIdPart: string = path[path.length - 2] ?? "";
+    let target = this.get_node(ref_node, nodeIdPart);
     if (!target) throw new Error(`Cannot resolve ref node from ${input.value}`);
     let output_id = Number(path[path.length - 1]);
 
@@ -375,19 +378,39 @@ export class GraphCompiler {
     propId: string,
     langNode?: LanguagePack["nodes"][string]
   ): { template: string; placement?: "inline" | "meta" } {
-    const result = { template: "", placement: undefined as "inline" | "meta" | undefined };
+    const result: { template: string; placement?: "inline" | "meta" } = { template: "" };
     const props = Array.isArray(node.properties) ? node.properties : [];
-    const prop = props.find((p: any) => p?.id === propId);
-    const value = prop?.value ?? prop?.default;
+    let prop = props.find((p: any) => p?.id === propId);
+    let value = prop?.value ?? prop?.default;
+    // Property aliasing: allow language to request conversion_dir/conversion_pos and map to node's 'conversion'
+    if (!prop && propId.startsWith("conversion_")) {
+      const base = props.find((p: any) => p?.id === "conversion");
+      if (base) {
+        value = base?.value ?? base?.default;
+        // Continue without assigning prop so enum path below will use language variants keyed by this value
+      }
+    }
     if (prop?.type === "enum") {
       const options: any[] = Array.isArray(prop.options) ? prop.options : [];
       const option = options.find((o) => o?.value === value) ?? options[0];
       const token = option?.langKey ?? option?.value ?? value;
       if (token && langNode?.properties?.[propId]?.[String(token)]) {
         const variant = langNode.properties[propId][String(token)];
-        return { template: variant?.template ?? "", placement: variant?.placement };
+        const tpl = (variant as any)?.template ?? "";
+        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
+        return plc ? { template: tpl, placement: plc } : { template: tpl };
       }
       return result;
+    }
+    // When prop was not found on the node (aliased path), try resolve by language property map directly using the raw value
+    if (!prop && langNode?.properties?.[propId]) {
+      const token = String(value ?? "");
+      const variant = (langNode.properties as any)[propId]?.[token];
+      if (variant) {
+        const tpl = (variant as any)?.template ?? "";
+        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
+        return plc ? { template: tpl, placement: plc } : { template: tpl };
+      }
     }
     if (prop?.type === "boolean") {
       return { template: value ? "true" : "false", placement: "inline" };
@@ -398,14 +421,20 @@ export class GraphCompiler {
   private resolve_template_properties(node: GraphNode) {
     if (!node._code) return;
     const regex = /(\{\{property:([^}]+)\}\})/g;
-    const matches = [...(node._code.matchAll(regex) ?? [])];
-    if (!matches.length) return;
     const langNode = this.lang_def.nodes?.[node.type];
-    for (const m of matches) {
-      const full = m[1];
-      const propId = m[2]?.trim();
-      const { template } = propId ? this.render_property(node, propId, langNode) : { template: "" };
-      node._code = node._code.replace(full, template ?? "");
+    // Resolve recursively until no property placeholders remain (safety cap)
+    let guard = 0;
+    while ((node._code && node._code.includes("{{property:")) && guard++ < 10) {
+      const text = node._code ?? "";
+      const matches: RegExpMatchArray[] = Array.from(text.matchAll(regex));
+      if (!matches.length) break;
+      for (const m of matches) {
+        const full = (m[1] ?? "") as string;
+        const propId = ((m[2] ?? "") as string).trim();
+        const rendered = propId ? this.render_property(node, propId, langNode) : { template: "" };
+        const tpl = rendered.template ?? "";
+        node._code = (node._code ?? "").replace(full, tpl);
+      }
     }
   }
 
@@ -599,7 +628,8 @@ export class GraphCompiler {
           if (placement === "meta" && template) propertyMeta.add(template);
         }
       }
-      for (const c of n.nodes ?? []) walk(c);
+      const children: GraphNode[] = Array.isArray(n.nodes) ? n.nodes : [];
+      for (const c of children) walk(c);
     };
     walk(this.graph_data);
     let meta_code = "";
@@ -638,13 +668,16 @@ export class GraphCompiler {
       }
       // Now resolve inputs (use global replacement to cover multiple occurrences)
       for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
-        const val = this.formatInputLiteral(node.inputs[i].value);
-        code = code.replaceAll(`{{inputs:${i}}}`, val);
+        const val = this.formatInputLiteral((node.inputs as any)[i]?.value);
+        // Replace all occurrences using regex to support older runtimes without replaceAll
+        const re = new RegExp(`\\{\\{inputs:${i}\\}\\}`, "g");
+        code = code.replace(re, val);
       }
       const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
       exposed.push(wrapper.replace("{{definition}}", code));
     }
-    for (const child of node.nodes ?? []) this.collect_exposed_nodes(child, exposed);
+    const kids: GraphNode[] = Array.isArray(node.nodes) ? node.nodes : [];
+    for (const child of kids) this.collect_exposed_nodes(child, exposed);
   }
 
   public compile() {
