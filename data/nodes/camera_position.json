@@ -1,0 +1,34 @@
+{
+  "id": -1,
+  "type": "camera_position",
+  "name": "Camera Position",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "out",
+      "type": "float3"
+    }
+  ],
+  "properties": [
+    {
+      "id": "space",
+      "label": "Space",
+      "type": "enum",
+      "default": "world",
+      "options": [
+        { "value": "world", "label": "World" },
+        { "value": "object", "label": "Object" },
+        { "value": "tangent", "label": "Tangent" }
+      ]
+    }
+  ]
+}
+
+

@@ -174,6 +174,12 @@
     "tan": {
       "template": "{{type}} {{name}} = tan({{inputs:0}});"
     },
+    "length2": {
+      "template": "float {{name}} = length({{inputs:0}});"
+    },
+    "length3": {
+      "template": "float {{name}} = length({{inputs:0}});"
+    },
     "separate2": {
       "template": "vec2 {{name}} = {{inputs:0}};",
       "outputs": {
@@ -265,7 +271,7 @@
       "template": "vec4 {{name}} = COLOR;"
     },
     "vertex_position": {
-      "template": "vec3 {{name}} = VERTEX;"
+      "template": "vec3 {{name}} = -vViewPosition;"
     },
     "uv": {
       "template": "vec2 {{name}} = vUv;"
@@ -283,6 +289,16 @@
           "world": { "template": "vNormal" },
           "object": { "template": "vNormal" },
           "tangent": { "template": "vNormal" }
+        }
+      }
+    },
+    "camera_position": {
+      "template": "vec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "world": { "template": "vec3(0.0)" },
+          "object": { "template": "vec3(0.0)" },
+          "tangent": { "template": "vec3(0.0)" }
         }
       }
     },

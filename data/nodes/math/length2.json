@@ -1,0 +1,28 @@
+{
+  "id": -1,
+  "type": "length2",
+  "name": "Length (float2)",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "in",
+      "type": "float2",
+      "value": [0.0, 0.0]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "out",
+      "type": "float"
+    }
+  ]
+}
+
+
