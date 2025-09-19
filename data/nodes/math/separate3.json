@@ -1,0 +1,41 @@
+{
+  "id": -1,
+  "type": "separate3",
+  "name": "Separate 3",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "in",
+      "type": "float3",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "x",
+      "type": "float"
+    },
+    {
+      "id": 1,
+      "name": "y",
+      "type": "float"
+    },
+    {
+      "id": 2,
+      "name": "z",
+      "type": "float"
+    }
+  ]
+}
+

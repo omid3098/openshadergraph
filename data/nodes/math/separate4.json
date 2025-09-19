@@ -1,0 +1,47 @@
+{
+  "id": -1,
+  "type": "separate4",
+  "name": "Separate 4",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "in",
+      "type": "float4",
+      "value": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "x",
+      "type": "float"
+    },
+    {
+      "id": 1,
+      "name": "y",
+      "type": "float"
+    },
+    {
+      "id": 2,
+      "name": "z",
+      "type": "float"
+    },
+    {
+      "id": 3,
+      "name": "w",
+      "type": "float"
+    }
+  ]
+}
+

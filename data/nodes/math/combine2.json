@@ -1,0 +1,37 @@
+{
+  "id": -1,
+  "type": "combine2",
+  "name": "Combine 2",
+  "meta": [],
+  "position": [
+    0,
+    0
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "x",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 1,
+      "name": "y",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "out",
+      "type": "float2"
+    }
+  ]
+}
+

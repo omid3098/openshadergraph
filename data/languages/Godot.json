@@ -168,8 +168,42 @@
     "tan": {
       "template": "{{type}} {{name}} = tan({{inputs:0}});"
     },
-    "separate_xyz": {
-      "template": "vec3 {{name}} = {{inputs:0}};"
+    "separate2": {
+      "template": "vec2 {{name}} = {{inputs:0}};",
+      "outputs": {
+        "x": "{{name}}.x",
+        "y": "{{name}}.y"
+      }
+    },
+    "separate3": {
+      "template": "vec3 {{name}} = {{inputs:0}};",
+      "outputs": {
+        "x": "{{name}}.x",
+        "y": "{{name}}.y",
+        "z": "{{name}}.z"
+      }
+    },
+    "separate4": {
+      "template": "vec4 {{name}} = {{inputs:0}};",
+      "outputs": {
+        "x": "{{name}}.x",
+        "y": "{{name}}.y",
+        "z": "{{name}}.z",
+        "w": "{{name}}.w",
+        "r": "{{name}}.r",
+        "g": "{{name}}.g",
+        "b": "{{name}}.b",
+        "a": "{{name}}.a"
+      }
+    },
+    "combine2": {
+      "template": "vec2 {{name}} = vec2({{inputs:0}}, {{inputs:1}});"
+    },
+    "combine3": {
+      "template": "vec3 {{name}} = vec3({{inputs:0}}, {{inputs:1}}, {{inputs:2}});"
+    },
+    "combine4": {
+      "template": "vec4 {{name}} = vec4({{inputs:0}}, {{inputs:1}}, {{inputs:2}}, {{inputs:3}});"
     },
     "time": {
       "template": "float {{name}} = TIME;"
