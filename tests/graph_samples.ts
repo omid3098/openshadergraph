@@ -208,3 +208,19 @@ export function dot_normalize_view_graph() {
   surface.connect_nodes(dot, fragment_output, 0, 5);
   return { surface, fragment_pass, fragment_output, n, v, norm_n, norm_v, dot, color };
 }
+
+export function transform_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+  const v = surface.create_node("float3", fragment_pass);
+  v.inputs[0].value = [1, 0, 0];
+  const t = surface.create_node("transform", fragment_pass);
+  // by default conversion is object_to_world per node definition
+  surface.connect_nodes(v, t, 0, 0);
+  const color = surface.create_node("color", fragment_pass);
+  color.inputs[0].value = [1, 1, 1, 1];
+  surface.connect_nodes(color, fragment_output, 0, 0);
+  surface.connect_nodes(t, fragment_output, 0, 3); // use transformed vector as emission to ensure it compiles
+  return { surface, fragment_pass, fragment_output, v, t, color };
+}

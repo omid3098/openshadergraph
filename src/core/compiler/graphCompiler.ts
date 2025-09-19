@@ -323,9 +323,7 @@ export class GraphCompiler {
     if (node._code?.includes("{{name}}")) {
       node._code = node._code.replace("{{name}}", getUniqueNodeName(node));
     }
-    // Replace indexed inputs
-    const regex = /(\{\{inputs:(\d+)\}\})/g;
-    const matches = [...(node._code?.matchAll(regex) ?? [])] as any[];
+    // Prepare inputs/types early so type tokens can be formatted
     const needsType = !!node._code && node._code.includes("{{type}}");
     this.prepare_node_inputs(node, needsType);
     if (needsType && node._code) {
@@ -335,15 +333,18 @@ export class GraphCompiler {
         node._code = node._code.replace(/\{\{type\}\}/g, formatted);
       }
     }
+    // Resolve property placeholders first, because property variants may introduce input tokens
+    if (node._code?.includes("{{property:")) {
+      this.resolve_template_properties(node);
+    }
+    // Replace indexed inputs (run after property resolution to catch placeholders introduced by properties)
+    const regex = /(\{\{inputs:(\d+)\}\})/g;
+    const matches = [...(node._code?.matchAll(regex) ?? [])] as any[];
     for (const m of matches) {
       const match = m[1] as string;
       const input_index = Number(m[2]);
       (node as any)._resolving_input = true;
       this.resolve_template_input(node, match, input_index);
-    }
-
-    if (node._code?.includes("{{property:")) {
-      this.resolve_template_properties(node);
     }
     if (!node.outputs || node.outputs.length === 0) {
       this.remove_default_inputs(node);
@@ -627,16 +628,18 @@ export class GraphCompiler {
     if (Array.isArray(node.meta) && node.meta.includes("exposed")) {
       let code = this.lang_def.nodes[node.type].template;
       code = code.replace("{{name}}", getUniqueNodeName(node));
-      for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
-        const val = this.formatInputLiteral(node.inputs[i].value);
-        code = code.replace(`{{inputs:${i}}}`, val);
-      }
+      // Resolve property placeholders first (may introduce input placeholders)
       if (code.includes("{{property:")) {
         const langNode = this.lang_def.nodes[node.type];
         code = code.replace(/\{\{property:([^}]+)\}\}/g, (_match, pid) => {
           const { template } = this.render_property(node, String(pid).trim(), langNode);
           return template;
         });
+      }
+      // Now resolve inputs (use global replacement to cover multiple occurrences)
+      for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
+        const val = this.formatInputLiteral(node.inputs[i].value);
+        code = code.replaceAll(`{{inputs:${i}}}`, val);
       }
       const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
       exposed.push(wrapper.replace("{{definition}}", code));

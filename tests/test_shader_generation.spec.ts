@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph, dot_normalize_view_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph, dot_normalize_view_graph, transform_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { mkdtempSync } from "fs";
@@ -216,5 +216,11 @@ describe("Godot shader generation", () => {
     sin.outputs[0].type = "float";
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "vector_wave_legacy");
     expect(shader_code).toMatch(/vec3 sin_\d+ = sin\(multiply_\d+\);/);
+  });
+
+  it("transform node compiles (Godot)", async () => {
+    const { surface } = transform_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "transform_node");
+    expect(shader_code).toMatch(/vec3 transform_\d+\s*=\s*/);
   });
 });

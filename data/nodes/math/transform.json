@@ -1,0 +1,62 @@
+{
+  "id": -1,
+  "type": "transform",
+  "name": "Transform",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "in", "type": "float3" }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float3" }
+  ],
+  "properties": [
+    {
+      "id": "conversion",
+      "label": "Conversion",
+      "type": "enum",
+      "default": "object_to_world",
+      "options": [
+        { "value": "object_to_object", "label": "Object → Object" },
+        { "value": "object_to_world", "label": "Object → World" },
+        { "value": "object_to_view", "label": "Object → View" },
+        { "value": "object_to_tangent", "label": "Object → Tangent" },
+        { "value": "object_to_absolute_world", "label": "Object → Absolute World" },
+        { "value": "object_to_screen", "label": "Object → Screen" },
+        { "value": "world_to_object", "label": "World → Object" },
+        { "value": "world_to_world", "label": "World → World" },
+        { "value": "world_to_view", "label": "World → View" },
+        { "value": "world_to_tangent", "label": "World → Tangent" },
+        { "value": "world_to_absolute_world", "label": "World → Absolute World" },
+        { "value": "world_to_screen", "label": "World → Screen" },
+        { "value": "view_to_object", "label": "View → Object" },
+        { "value": "view_to_world", "label": "View → World" },
+        { "value": "view_to_view", "label": "View → View" },
+        { "value": "view_to_tangent", "label": "View → Tangent" },
+        { "value": "view_to_absolute_world", "label": "View → Absolute World" },
+        { "value": "view_to_screen", "label": "View → Screen" },
+        { "value": "tangent_to_object", "label": "Tangent → Object" },
+        { "value": "tangent_to_world", "label": "Tangent → World" },
+        { "value": "tangent_to_view", "label": "Tangent → View" },
+        { "value": "tangent_to_tangent", "label": "Tangent → Tangent" },
+        { "value": "tangent_to_absolute_world", "label": "Tangent → Absolute World" },
+        { "value": "tangent_to_screen", "label": "Tangent → Screen" },
+        { "value": "absolute_world_to_object", "label": "Absolute World → Object" },
+        { "value": "absolute_world_to_world", "label": "Absolute World → World" },
+        { "value": "absolute_world_to_view", "label": "Absolute World → View" },
+        { "value": "absolute_world_to_tangent", "label": "Absolute World → Tangent" },
+        { "value": "absolute_world_to_absolute_world", "label": "Absolute World → Absolute World" },
+        { "value": "absolute_world_to_screen", "label": "Absolute World → Screen" },
+        { "value": "screen_to_object", "label": "Screen → Object" },
+        { "value": "screen_to_world", "label": "Screen → World" },
+        { "value": "screen_to_view", "label": "Screen → View" },
+        { "value": "screen_to_tangent", "label": "Screen → Tangent" },
+        { "value": "screen_to_absolute_world", "label": "Screen → Absolute World" },
+        { "value": "screen_to_screen", "label": "Screen → Screen" }
+      ]
+    }
+  ]
+}
+
+

@@ -68,7 +68,7 @@ describe("Shader formatting: indentation hygiene", () => {
   beforeAll(() => {
     try {
       rmSync(SHADERS_DIR, { recursive: true, force: true });
-    } catch (err) {
+    } catch (_err) {
       // Ignore transient ENOTEMPTY from parallel writers; tests will still proceed
     }
   });
