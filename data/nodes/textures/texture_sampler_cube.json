@@ -1,0 +1,31 @@
+{
+  "id": -1,
+  "type": "texture_sampler_cube",
+  "name": "TextureSamplerCube",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "texture", "type": "samplerCube" },
+    { "id": 1, "name": "direction", "type": "float3", "value": [0.0, 0.0, 1.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "rgb", "type": "float3" },
+    { "id": 1, "name": "r", "type": "float" },
+    { "id": 2, "name": "g", "type": "float" },
+    { "id": 3, "name": "b", "type": "float" },
+    { "id": 4, "name": "a", "type": "float" }
+  ],
+  "properties": [
+    {
+      "id": "filter_mode",
+      "label": "Filter",
+      "type": "enum",
+      "default": "linear",
+      "options": [
+        { "value": "linear", "label": "Linear", "langKey": "filter_linear" },
+        { "value": "nearest", "label": "Nearest", "langKey": "filter_nearest" }
+      ]
+    }
+  ]
+}

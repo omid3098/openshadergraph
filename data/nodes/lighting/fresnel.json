@@ -1,0 +1,18 @@
+{
+  "id": -1,
+  "type": "fresnel",
+  "name": "Fresnel",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "normal", "type": "float3" },
+    { "id": 1, "name": "view", "type": "float3" },
+    { "id": 2, "name": "bias", "type": "float", "value": [0.0] },
+    { "id": 3, "name": "scale", "type": "float", "value": [1.0] },
+    { "id": 4, "name": "power", "type": "float", "value": [5.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float" }
+  ]
+}

@@ -18,6 +18,7 @@ type PinState = {
   code?: string;
   refNodeId?: number;
   refExpression?: string;
+  missingRef?: boolean;
 };
 
 type NodeState = {
@@ -118,6 +119,20 @@ export class GraphCompiler {
     return tmpl;
   }
 
+  private cloneTemplateInputDefault(node: GraphNode, input: InputPin): any {
+    const template = getNodeTemplate(node.type);
+    if (!template?.inputs?.length) return undefined;
+    const idx = node.inputs?.indexOf(input) ?? -1;
+    if (idx < 0) return undefined;
+    const targetId = typeof input.id === "number" ? input.id : undefined;
+    const tmplPin = template.inputs.find((pin, pinIdx) =>
+      typeof pin?.id === "number" && targetId !== undefined ? pin.id === targetId : pinIdx === idx
+    );
+    if (!tmplPin) return undefined;
+    if (tmplPin.value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(tmplPin.value));
+  }
+
   private convert_type(value: string, from_type?: any, to_type?: any): string {
     const fromName = normalizePinType(from_type);
     const toName = normalizePinType(to_type);
@@ -212,7 +227,15 @@ export class GraphCompiler {
     }
     const nodeIdPart: string = path[path.length - 2] ?? "";
     let target = this.get_node(ref_node, nodeIdPart);
-    if (!target) throw new Error(`Cannot resolve ref node from ${input.value}`);
+    if (!target) {
+      const state = this.getPinState(input);
+      state.refType = undefined;
+      state.refNodeId = undefined;
+      state.refExpression = undefined;
+      state.missingRef = true;
+      input.value = this.cloneTemplateInputDefault(node, input);
+      return;
+    }
     let output_id = Number(path[path.length - 1]);
 
     if (target.type === "group") {
@@ -255,6 +278,7 @@ export class GraphCompiler {
     const output_pin = target.outputs.find((o) => o.id === output_id)!;
     const targetState = this.getNodeState(target);
     const inputState = this.getPinState(input);
+    inputState.missingRef = false;
     if (Array.isArray(output_pin.type)) {
       inputState.refType = targetState.resolvedType ?? output_pin.type[0];
     } else {
@@ -341,6 +365,11 @@ export class GraphCompiler {
       if (!input) return "";
       this.ensure_input_prepared(node, input);
       const pinState = this.getPinState(input);
+      if (pinState.missingRef) {
+        const fallback = this.getMissingInputLiteral(node, input, pinState);
+        pinState.code = fallback;
+        return fallback;
+      }
       const expected = pinState.expectedType ?? this.getNodeState(node).resolvedType ?? pinState.declaredType;
       if (pinState.expectedType === undefined && expected) {
         pinState.expectedType = expected;
@@ -428,6 +457,14 @@ export class GraphCompiler {
     const needsType = code.includes("{{type}}");
     this.prepare_node_inputs(node, needsType);
 
+    const fallbackCode = this.tryRenderMissingInputFallback(node);
+    if (fallbackCode !== undefined) {
+      if (options.mutate) {
+        this.setNodeCode(node, fallbackCode);
+      }
+      return fallbackCode;
+    }
+
     if (needsType) {
       const nodeState = this.getNodeState(node);
       const resolved = nodeState.resolvedType ?? normalizePinType(node.outputs?.[0]?.type);
@@ -456,6 +493,58 @@ export class GraphCompiler {
     }
 
     return code;
+  }
+
+  private tryRenderMissingInputFallback(node: GraphNode): string | undefined {
+    const inputs = node.inputs ?? [];
+    if (!inputs.length) return undefined;
+    const missing = inputs.some((pin) => this.getPinState(pin).missingRef);
+    if (!missing) return undefined;
+
+    if (node.type === "texture_sampler" || node.type === "texture_sampler_cube") {
+      const unique = getUniqueNodeName(node);
+      return `vec4 ${unique} = vec4(0.0);`;
+    }
+
+    const outputs = node.outputs ?? [];
+    if (!outputs.length) return "";
+    const primaryType = normalizePinType(outputs[0]?.type);
+    const glslType = formatTypeForGLSL(primaryType);
+    const literal = this.getZeroLiteralForType(primaryType);
+    if (!glslType || !literal) {
+      return `// ${node.type} skipped due to missing input`;
+    }
+    const unique = getUniqueNodeName(node);
+    return `${glslType} ${unique} = ${literal};`;
+  }
+
+  private getZeroLiteralForType(type?: string): string | undefined {
+    switch (type) {
+      case "float":
+        return "0.0";
+      case "float2":
+        return "vec2(0.0)";
+      case "float3":
+        return "vec3(0.0)";
+      case "float4":
+        return "vec4(0.0)";
+      case "matrix2":
+        return "mat2(1.0)";
+      case "matrix3":
+        return "mat3(1.0)";
+      case "matrix4":
+        return "mat4(1.0)";
+      default:
+        return undefined;
+    }
+  }
+
+  private getMissingInputLiteral(node: GraphNode, input: InputPin, state: PinState): string {
+    const declared = state.declaredType ?? normalizePinType(input.type);
+    const literal = this.getZeroLiteralForType(declared);
+    if (literal) return literal;
+    // Fallback to empty literal to avoid undefined references; callers may handle node-level fallback.
+    return "";
   }
 
   private computeReachableChildIds(node: GraphNode): Set<number> | undefined {

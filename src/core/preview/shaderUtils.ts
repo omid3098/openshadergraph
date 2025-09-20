@@ -9,10 +9,15 @@ export type ParsedUniform = {
   value: number | number[];
 };
 
+export type ParsedSampler = {
+  type: string;
+  name: string;
+};
+
 export type ParsedShader = {
   fragment: string;
   uniforms: ParsedUniform[];
-  samplerUniforms: string[];
+  samplers: ParsedSampler[];
 };
 
 // Match lines like: "uniform vec4 color_3 = vec4(1.0, 0.0, 0.0, 1.0);"
@@ -68,16 +73,22 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
     const leading = typeof p1 === "string" ? p1 : "\n";
     return `${leading}uniform ${type} ${name};`;
   });
-  const samplerUniforms = Array.from(
-    new Set(
-      [
-        ...out.matchAll(
-          /uniform\s+sampler2D\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z_][A-Za-z0-9_]*)?\s*;/g
-        ),
-      ].map((m) => m[1])
-    )
-  );
-  return { fragment: out, uniforms, samplerUniforms };
+  const samplerMatches = [
+    ...out.matchAll(
+      /uniform\s+(sampler2D|samplerCube)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z_][A-Za-z0-9_]*)?\s*;/g
+    ),
+  ];
+  const samplers: ParsedSampler[] = [];
+  const seen = new Set<string>();
+  for (const match of samplerMatches) {
+    const type = match[1];
+    const name = match[2];
+    if (!type || !name) continue;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    samplers.push({ type, name });
+  }
+  return { fragment: out, uniforms, samplers };
 }
 
 function formatVertexChunk(chunk: string): string {
@@ -120,10 +131,11 @@ function buildUniformDeclarations(parsed?: ParsedShader): string {
       seen.add(u.name);
       decls.push(`uniform ${u.type} ${u.name};`);
     }
-    for (const name of parsed.samplerUniforms ?? []) {
-      if (!name || seen.has(name)) continue;
-      seen.add(name);
-      decls.push(`uniform sampler2D ${name};`);
+    for (const sampler of parsed.samplers ?? []) {
+      if (!sampler?.name || !sampler?.type) continue;
+      if (seen.has(sampler.name)) continue;
+      seen.add(sampler.name);
+      decls.push(`uniform ${sampler.type} ${sampler.name};`);
     }
   }
   return decls.length ? decls.join("\n") + "\n" : "";

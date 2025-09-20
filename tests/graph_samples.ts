@@ -224,3 +224,54 @@ export function transform_graph() {
   surface.connect_nodes(t, fragment_output, 0, 3); // use transformed vector as emission to ensure it compiles
   return { surface, fragment_pass, fragment_output, v, t, color };
 }
+
+export function logic_fresnel_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+
+  const a = surface.create_node("float", fragment_pass);
+  a.inputs[0].value = [0.8];
+  const b = surface.create_node("float", fragment_pass);
+  b.inputs[0].value = [0.3];
+  const compare = surface.create_node("greater_than", fragment_pass);
+  surface.connect_nodes(a, compare, 0, 0);
+  surface.connect_nodes(b, compare, 0, 1);
+
+  const trueColor = surface.create_node("float3", fragment_pass);
+  trueColor.inputs[0].value = [1.0, 0.8, 0.6];
+  const falseColor = surface.create_node("float3", fragment_pass);
+  falseColor.inputs[0].value = [0.2, 0.3, 0.4];
+  const select = surface.create_node("select", fragment_pass);
+  surface.connect_nodes(compare, select, 0, 0);
+  surface.connect_nodes(trueColor, select, 0, 1);
+  surface.connect_nodes(falseColor, select, 0, 2);
+  surface.connect_nodes(select, fragment_output, 0, 0);
+
+  const normal = surface.create_node("normal_vector", fragment_pass);
+  const view = surface.create_node("view_direction", fragment_pass);
+  const fresnel = surface.create_node("fresnel", fragment_pass);
+  surface.connect_nodes(normal, fresnel, 0, 0);
+  surface.connect_nodes(view, fresnel, 0, 1);
+  surface.connect_nodes(fresnel, fragment_output, 0, 3);
+
+  return { surface, fragment_pass, fragment_output, a, b, compare, trueColor, falseColor, select, normal, view, fresnel };
+}
+
+export function cubemap_sampling_graph() {
+  const surface = new NodeBuilder("surface");
+  const fragment_pass = surface.get_node_by_type("fragment_pass")!;
+  const fragment_output = surface.find_nested_node_by_type(fragment_pass, "fragment_output")!;
+
+  const cube = surface.create_node("texture_cube", fragment_pass);
+  const sampler = surface.create_node("texture_sampler_cube", fragment_pass);
+  const direction = surface.create_node("float3", fragment_pass);
+  direction.inputs[0].value = [0.0, 0.0, 1.0];
+
+  surface.connect_nodes(cube, sampler, 0, 0);
+  surface.connect_nodes(direction, sampler, 0, 1);
+  surface.connect_nodes(sampler, fragment_output, 0, 0);
+  surface.connect_nodes(sampler, fragment_output, 4, 5);
+
+  return { surface, fragment_pass, fragment_output, cube, sampler, direction };
+}

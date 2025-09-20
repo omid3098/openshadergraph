@@ -17,6 +17,7 @@ const PIN_TYPES: Record<string, PinTypeDescriptor> = {
   matrix3: { name: "matrix3", kind: "matrix", components: 3, glslType: "mat3", rank: 0x30 + 3 },
   matrix4: { name: "matrix4", kind: "matrix", components: 4, glslType: "mat4", rank: 0x30 + 4 },
   sampler2D: { name: "sampler2D", kind: "sampler", components: 1, glslType: "sampler2D", rank: 0x05 },
+  samplerCube: { name: "samplerCube", kind: "sampler", components: 1, glslType: "samplerCube", rank: 0x05 },
 };
 
 export function getPinTypeDescriptor(type: string | undefined): PinTypeDescriptor | undefined {

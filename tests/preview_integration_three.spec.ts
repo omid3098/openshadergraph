@@ -89,6 +89,6 @@ describe("preview integration (ThreeJS_GLSL)", () => {
     const code = await compileThree(surface.to_dict());
     const { fragment } = extractPreviewShaders(code);
     const parsed = parseUniformsAndSanitize(fragment);
-    expect(parsed.samplerUniforms.some((name) => name.startsWith("texture_"))).toBe(true);
+    expect(parsed.samplers.some((sampler) => sampler.name.startsWith("texture_"))).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs, rmSync } from "fs";
 import path from "path";
-import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph, dot_normalize_view_graph, transform_graph } from "./graph_samples";
+import { basic_color_graph, addition_graph, vector_scalar_addition_graph, float_graph, meta_graph, external_graph, vertex_color_graph, exposed_addition_graph, full_fragment_graph, texture_sampling_graph, vector_wave_graph, texture_sampler_default_uv_graph, texture_sampler_channels_graph, dot_normalize_view_graph, transform_graph, logic_fresnel_graph, cubemap_sampling_graph } from "./graph_samples";
 import { GraphCompiler } from "../src/core/compiler/graphCompiler";
 import { loadLanguage } from "../src/core/schema/registry";
 import { mkdtempSync } from "fs";
@@ -222,5 +222,23 @@ describe("Godot shader generation", () => {
     const { surface } = transform_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "transform_node");
     expect(shader_code).toMatch(/vec3 transform_\d+\s*=\s*/);
+  });
+
+  it("logic selectors and fresnel nodes compile", async () => {
+    const { surface } = logic_fresnel_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "logic_fresnel");
+    expect(shader_code).toMatch(/float greater_than_\d+ = .* > .* \? 1.0 : 0.0;/);
+    expect(shader_code).toMatch(/vec3 select_\d+ = mix\(/);
+    expect(shader_code).toMatch(/float fresnel_\d+ = clamp\(/);
+    expect(shader_code).toMatch(/EMISSION = vec3\([^;]*fresnel_\d+[^;]*\);/);
+  });
+
+  it("cubemap textures compile", async () => {
+    const { surface } = cubemap_sampling_graph();
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "texture_cube");
+    expect(shader_code).toMatch(/samplerCube texture_cube_\d+;/);
+    expect(shader_code).toMatch(/vec4 texture_sampler_cube_\d+ = texture\(texture_cube_\d+, normalize\(/);
+    expect(shader_code).toMatch(/ALBEDO = vec3\(texture_sampler_cube_\d+\.rgb\);/);
+    expect(shader_code).toMatch(/ALPHA = texture_sampler_cube_\d+\.a;/);
   });
 });

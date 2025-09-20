@@ -1,0 +1,16 @@
+{
+  "id": -1,
+  "type": "equal",
+  "name": "Equal",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "a", "type": "float", "value": [0.0] },
+    { "id": 1, "name": "b", "type": "float", "value": [0.0] },
+    { "id": 2, "name": "tolerance", "type": "float", "value": [0.0001] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float" }
+  ]
+}

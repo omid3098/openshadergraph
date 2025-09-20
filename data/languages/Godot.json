@@ -72,20 +72,32 @@
     "power": {
       "template": "{{type}} {{name}} = pow({{inputs:0}}, {{inputs:1}});"
     },
-    "pow": {
-      "template": "{{type}} {{name}} = pow({{inputs:0}}, {{inputs:1}});"
-    },
     "max": {
       "template": "{{type}} {{name}} = max({{inputs:0}}, {{inputs:1}});"
     },
     "min": {
       "template": "{{type}} {{name}} = min({{inputs:0}}, {{inputs:1}});"
     },
+    "greater_than": {
+      "template": "float {{name}} = {{inputs:0}} > {{inputs:1}} ? 1.0 : 0.0;"
+    },
+    "less_than": {
+      "template": "float {{name}} = {{inputs:0}} < {{inputs:1}} ? 1.0 : 0.0;"
+    },
+    "equal": {
+      "template": "float {{name}} = abs({{inputs:0}} - {{inputs:1}}) <= {{inputs:2}} ? 1.0 : 0.0;"
+    },
+    "select": {
+      "template": "{{type}} {{name}} = mix({{inputs:2}}, {{inputs:1}}, step(0.5, {{inputs:0}}));"
+    },
     "atan2": {
       "template": "float {{name}} = atan({{inputs:0}}, {{inputs:1}});"
     },
     "reflect": {
       "template": "vec3 {{name}} = reflect({{inputs:0}}, {{inputs:1}});"
+    },
+    "fresnel": {
+      "template": "float {{name}} = clamp({{inputs:2}} + {{inputs:3}} * pow(max(0.0, 1.0 - dot(normalize({{inputs:0}}), normalize({{inputs:1}}))), {{inputs:4}}), 0.0, 1.0);"
     },
     "step": {
       "template": "{{type}} {{name}} = step({{inputs:0}}, {{inputs:1}});"
@@ -230,6 +242,15 @@
         }
       }
     },
+    "texture_cube": {
+      "template": "samplerCube {{name}}{{property:texture_type}};",
+      "properties": {
+        "texture_type": {
+          "data": { "template": "" },
+          "source_hdr": { "template": "" }
+        }
+      }
+    },
     "texture_sampler": {
       "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});",
       "properties": {
@@ -256,6 +277,26 @@
           },
           "filter_cubic": {
             "template": "// filter: cubic"
+          }
+        }
+      },
+      "outputs": {
+        "rgb": "{{name}}.rgb",
+        "r": "{{name}}.r",
+        "g": "{{name}}.g",
+        "b": "{{name}}.b",
+        "a": "{{name}}.a"
+      }
+    },
+    "texture_sampler_cube": {
+      "template": "{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, normalize({{inputs:1}}));",
+      "properties": {
+        "filter_mode": {
+          "filter_linear": {
+            "template": "// filter: linear"
+          },
+          "filter_nearest": {
+            "template": "// filter: nearest"
           }
         }
       },

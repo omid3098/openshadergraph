@@ -55,7 +55,7 @@ function collectTextureUniforms(graph: unknown): Map<string, string> {
       continue;
     }
     const type = (node as any).type;
-    if (type === "texture") {
+    if (type === "texture" || type === "texture_cube") {
       const id = Number((node as any).id);
       if (Number.isFinite(id)) {
         const props = Array.isArray((node as any).properties) ? (node as any).properties : [];
@@ -66,7 +66,10 @@ function collectTextureUniforms(graph: unknown): Map<string, string> {
           const assetMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("asset:"));
           if (assetMeta) source = assetMeta.slice("asset:".length).trim();
         }
-        if (source) map.set(`texture_${id}`, source);
+        if (source) {
+          const prefix = type === "texture_cube" ? "texture_cube" : "texture";
+          map.set(`${prefix}_${id}`, source);
+        }
       }
     }
     if (Array.isArray((node as any).nodes)) {
@@ -96,7 +99,9 @@ function collectSamplerSettings(graph: unknown): Map<string, SamplerPreviewSetti
 
   const refRe = /^\.\.\/(\d+)\/(\d+)$/;
   for (const node of nodesById.values()) {
-    if (!node || node.type !== "texture_sampler") continue;
+    if (!node) continue;
+    const isCube = node.type === "texture_sampler_cube";
+    if (node.type !== "texture_sampler" && !isCube) continue;
     const props: any[] = Array.isArray(node.properties) ? node.properties : [];
     const wrapProp = props.find((p) => p?.id === "wrap_mode");
     const filterProp = props.find((p) => p?.id === "filter_mode");
@@ -106,9 +111,9 @@ function collectSamplerSettings(graph: unknown): Map<string, SamplerPreviewSetti
     if (!match) continue;
     const textureId = Number(match[1]);
     if (!Number.isFinite(textureId)) continue;
-    const uniform = `texture_${textureId}`;
+    const uniform = `${isCube ? "texture_cube" : "texture"}_${textureId}`;
     const entry: SamplerPreviewSettings = settings.get(uniform) ?? {};
-    if (wrapProp && typeof wrapProp.value === "string") entry.wrap = wrapProp.value;
+    if (!isCube && wrapProp && typeof wrapProp.value === "string") entry.wrap = wrapProp.value;
     if (filterProp && typeof filterProp.value === "string") entry.filter = filterProp.value;
     settings.set(uniform, entry);
   }
@@ -126,6 +131,7 @@ function applySamplerSettings(texture: any, settings?: SamplerPreviewSettings) {
   else if (wrapKey === "border") wrap = (THREE as any).ClampToEdgeWrapping;
   texture.wrapS = wrap;
   texture.wrapT = wrap;
+  if ("wrapR" in texture) (texture as any).wrapR = wrap;
 
   const filterKey = settings.filter ?? "";
   if (filterKey === "nearest") {
@@ -258,7 +264,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const pmremRef = useRef<any | null>(null);
   const envRTRef = useRef<any | null>(null);
   const _lightDirsViewRef = useRef<{ key: any; fill: any; rim: any } | null>(null);
-  const samplerFallbackRef = useRef<any | null>(null);
+  const samplerFallbackRef = useRef<{ sampler2D?: any; samplerCube?: any }>({});
   const startTimeRef = useRef<number | null>(null);
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
@@ -271,8 +277,24 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const [compileError, setCompileError] = useState<string>("");
   const [working, setWorking] = useState<boolean>(false);
 
-  const ensureSamplerFallback = useCallback((): any => {
-    if (!samplerFallbackRef.current) {
+  const ensureSamplerFallback = useCallback((samplerType: string): any => {
+    const store = samplerFallbackRef.current;
+    if (samplerType === "samplerCube") {
+      if (!store.samplerCube) {
+        const data = new Uint8Array([255, 255, 255, 255]);
+        const image = { data, width: 1, height: 1 };
+        const cube = new (THREE as any).CubeTexture([image, image, image, image, image, image]);
+        cube.name = "PreviewFallbackCubeTexture";
+        cube.colorSpace = (THREE as any).SRGBColorSpace;
+        cube.magFilter = (THREE as any).LinearFilter;
+        cube.minFilter = (THREE as any).LinearFilter;
+        cube.generateMipmaps = false;
+        cube.needsUpdate = true;
+        store.samplerCube = cube;
+      }
+      return store.samplerCube;
+    }
+    if (!store.sampler2D) {
       const data = new Uint8Array([255, 255, 255, 255]);
       const tex = new (THREE as any).DataTexture(data, 1, 1, (THREE as any).RGBAFormat, (THREE as any).UnsignedByteType);
       tex.name = "PreviewFallbackTexture";
@@ -284,9 +306,9 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       tex.wrapT = (THREE as any).ClampToEdgeWrapping;
       tex.needsUpdate = true;
       tex.flipY = false;
-      samplerFallbackRef.current = tex;
+      store.sampler2D = tex;
     }
-    return samplerFallbackRef.current!;
+    return store.sampler2D;
   }, []);
 
   // Compile the graph to ThreeJS GLSL fragment shader
@@ -422,13 +444,18 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (materialRef.current) {
-        const preserve = samplerFallbackRef.current ? new Set([samplerFallbackRef.current]) : undefined;
+        const fallbackValues = Object.values(samplerFallbackRef.current ?? {}).filter(Boolean);
+        const preserve = fallbackValues.length ? new Set(fallbackValues) : undefined;
         disposeMaterial(materialRef.current, preserve);
       }
       if (geometryRef.current && geometryRef.current !== customGeometryRef.current) geometryRef.current.dispose();
       if (envRTRef.current) { envRTRef.current.dispose(); envRTRef.current = null; }
       if (pmremRef.current) { pmremRef.current.dispose(); pmremRef.current = null; }
-      if (samplerFallbackRef.current) { samplerFallbackRef.current.dispose(); samplerFallbackRef.current = null; }
+      const fallbackDisposables = Object.values(samplerFallbackRef.current ?? {}).filter(Boolean);
+      for (const tex of fallbackDisposables) {
+        if (tex && typeof tex.dispose === "function") tex.dispose();
+      }
+      samplerFallbackRef.current = {};
       startTimeRef.current = null;
       if (customGeometryRef.current) { customGeometryRef.current.dispose(); customGeometryRef.current = null; }
       if (orbitControlsRef.current) {
@@ -595,19 +622,22 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         uniforms[key] = { value: val };
       }
     }
-    const missingTextures: Array<{ name: string; url: string }> = [];
-    if (parsed.samplerUniforms.length) {
-      const fallbackTexture = ensureSamplerFallback();
-      for (const name of parsed.samplerUniforms) {
+    const missingTextures: Array<{ name: string; url: string; type: string }> = [];
+    if (parsed.samplers.length) {
+      for (const sampler of parsed.samplers) {
+        const name = sampler.name;
+        const type = sampler.type;
+        if (!name || !type) continue;
         const assetUrl = textureAssignments.get(name);
+        const fallbackTexture = ensureSamplerFallback(type);
         if (assetUrl) {
           const cached = textureCacheRef.current.get(assetUrl);
           if (cached) {
             uniforms[name] = { value: cloneTextureForUniform(cached, samplerSettings.get(name)) };
           } else {
             uniforms[name] = { value: fallbackTexture };
-            if (!pendingTextureLoadsRef.current.has(assetUrl)) {
-              missingTextures.push({ name, url: assetUrl });
+            if (type === "sampler2D" && !pendingTextureLoadsRef.current.has(assetUrl)) {
+              missingTextures.push({ name, url: assetUrl, type });
             }
           }
         } else {
@@ -651,7 +681,8 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       fog: false,
     } as any);
     if (materialRef.current) {
-      const preserve = samplerFallbackRef.current ? new Set([samplerFallbackRef.current]) : undefined;
+      const fallbackValues = Object.values(samplerFallbackRef.current ?? {}).filter(Boolean);
+      const preserve = fallbackValues.length ? new Set(fallbackValues) : undefined;
       disposeMaterial(materialRef.current, preserve);
     }
     materialRef.current = mat;

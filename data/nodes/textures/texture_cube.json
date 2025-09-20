@@ -1,0 +1,33 @@
+{
+  "id": -1,
+  "type": "texture_cube",
+  "name": "Texture Cube",
+  "meta": [
+    "exposed"
+  ],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [
+    { "id": 0, "name": "texture", "type": "samplerCube" }
+  ],
+  "properties": [
+    {
+      "id": "source",
+      "label": "Cubemap Asset",
+      "type": "asset",
+      "assetKind": "textureCube",
+      "default": ""
+    },
+    {
+      "id": "texture_type",
+      "label": "Content",
+      "type": "enum",
+      "default": "data",
+      "options": [
+        { "value": "data", "label": "Data" },
+        { "value": "hdr", "label": "HDR", "langKey": "source_hdr" }
+      ]
+    }
+  ]
+}
