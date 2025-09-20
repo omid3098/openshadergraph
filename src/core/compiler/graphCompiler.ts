@@ -10,14 +10,29 @@ import {
 } from "../types/pinTypes";
 import { getBuiltinPinType, isBuiltinToken, resolveBuiltinExpression } from "../types/builtinInputs";
 
+type PinState = {
+  prepared?: boolean;
+  refType?: string;
+  declaredType?: string;
+  expectedType?: string;
+  code?: string;
+  refNodeId?: number;
+  refExpression?: string;
+};
+
+type NodeState = {
+  code?: string;
+  resolvedType?: string;
+  allowResolvedType?: boolean;
+};
+
 function fmtNum(n: number): string {
   if (Number.isInteger(n)) return n.toFixed(1);
-  // keep a reasonable precision but strip trailing zeros
   let s = n.toString();
-  // normalize like Python would print repr of floats in lists (often 0.5, 0.0)
   if (!s.includes(".")) s = n.toFixed(1);
   return s;
 }
+
 function getUniqueNodeName(node: GraphNode): string {
   return node.type ? `${node.type}_${node.id}` : `NO_TYPE_${node.id}`;
 }
@@ -31,30 +46,71 @@ function coercePropertyValue(value: unknown): string {
 }
 
 export class GraphCompiler {
-  constructor(private graph_data: Graph, private lang_def: LanguagePack) { }
+  constructor(private graph_data: Graph, private lang_def: LanguagePack) {}
+
   public result_code = "";
+
+  private pinState: WeakMap<InputPin, PinState> = new WeakMap();
+  private nodeState: WeakMap<GraphNode, NodeState> = new WeakMap();
+  private nodeIndex = new Map<number, GraphNode>();
 
   private has_nodes(node: GraphNode) {
     return Array.isArray(node.nodes) && node.nodes.length > 0;
   }
+
   private has_code(node: GraphNode) {
-    return typeof node._code === "string" && node._code.length > 0;
+    const state = this.nodeState.get(node);
+    return typeof state?.code === "string" && state.code.length > 0;
   }
-  private get_node(parent: GraphNode, id: number | string): GraphNode | undefined {
-    const n = Number(id);
-    const direct = parent.nodes.find((x) => x.id === n);
-    if (direct) return direct;
-    // Fallback: search anywhere in the graph to be resilient to mis-parented nodes
-    const stack: GraphNode[] = [this.graph_data];
-    while (stack.length) {
-      const cur = stack.pop()!;
-      for (const ch of cur.nodes ?? []) {
-        if (ch.id === n) return ch;
-        stack.push(ch);
-      }
+
+  private getNodeState(node: GraphNode): NodeState {
+    let state = this.nodeState.get(node);
+    if (!state) {
+      state = {};
+      this.nodeState.set(node, state);
     }
-    return undefined;
+    return state;
   }
+
+  private getPinState(pin: InputPin): PinState {
+    let state = this.pinState.get(pin);
+    if (!state) {
+      state = {};
+      this.pinState.set(pin, state);
+    }
+    return state;
+  }
+
+  private setNodeCode(node: GraphNode, code: string) {
+    this.getNodeState(node).code = code;
+  }
+
+  private getNodeCode(node: GraphNode): string {
+    return this.getNodeState(node).code ?? "";
+  }
+
+  private initializeGraph() {
+    this.pinState = new WeakMap();
+    this.nodeState = new WeakMap();
+    this.nodeIndex.clear();
+    this.indexNode(this.graph_data, undefined);
+  }
+
+  private indexNode(node: GraphNode, parent: GraphNode | undefined) {
+    node.parent = parent;
+    this.nodeIndex.set(node.id, node);
+    for (const child of node.nodes ?? []) {
+      this.indexNode(child, node);
+    }
+  }
+
+  private get_node(parent: GraphNode, id: number | string): GraphNode | undefined {
+    const numericId = Number(id);
+    const direct = parent.nodes?.find((x) => x.id === numericId);
+    if (direct) return direct;
+    return this.nodeIndex.get(numericId);
+  }
+
   private get_template(node: GraphNode): string {
     const node_type = node.type;
     const tmpl = this.lang_def.nodes?.[node_type]?.template;
@@ -159,9 +215,7 @@ export class GraphCompiler {
     if (!target) throw new Error(`Cannot resolve ref node from ${input.value}`);
     let output_id = Number(path[path.length - 1]);
 
-    // Route through grouping meta-nodes
     if (target.type === "group") {
-      // Map group output pin -> internal producer via group_output child
       const groupOut = (target.nodes ?? []).find((n) => n.type === "group_output");
       const pin = groupOut?.inputs?.find((p) => p.id === output_id);
       const v = pin?.value;
@@ -178,7 +232,6 @@ export class GraphCompiler {
         }
       }
     } else if (target.type === "group_input") {
-      // Map group_input output pin -> group's external input source
       const parent = target.parent;
       if (parent && parent.type === "group") {
         const pin = parent.inputs?.find((p) => p.id === output_id);
@@ -200,177 +253,445 @@ export class GraphCompiler {
 
     this.process_node(target);
     const output_pin = target.outputs.find((o) => o.id === output_id)!;
-    const resolved = (target as any)._resolved_type;
+    const targetState = this.getNodeState(target);
+    const inputState = this.getPinState(input);
     if (Array.isArray(output_pin.type)) {
-      (input as any)._ref_type = resolved ?? output_pin.type[0];
+      inputState.refType = targetState.resolvedType ?? output_pin.type[0];
     } else {
-      (input as any)._ref_type = resolved ?? (output_pin.type as string);
+      inputState.refType = targetState.resolvedType ?? (output_pin.type as string);
     }
     const expr = this.get_output_expression(target, output_pin);
-    (input as any)._ref_node_id = target.id;
-    (input as any)._ref_expression = expr;
-    (input as any).value = expr;
+    inputState.refNodeId = target.id;
+    inputState.refExpression = expr;
+    input.value = expr;
   }
 
   private ensure_input_prepared(node: GraphNode, input: InputPin) {
-    const prepared = (input as any)._prepared;
-    if (prepared) return;
+    const state = this.getPinState(input);
+    if (state.prepared) return;
     if (typeof input.value === "string" && input.value.includes("../")) {
       this.resolve_ref(node, input);
     } else if (isBuiltinToken(input.value)) {
-      (input as any)._ref_type = getBuiltinPinType(input.value);
-    } else if ((input as any)._ref_type === undefined) {
+      state.refType = getBuiltinPinType(input.value);
+    } else if (state.refType === undefined) {
       const inferred = guessPinTypeFromLiteral(input.value);
-      if (inferred) (input as any)._ref_type = inferred;
+      if (inferred) state.refType = inferred;
     }
-    (input as any)._prepared = true;
+    state.prepared = true;
   }
 
   private prepare_node_inputs(node: GraphNode, unifyType: boolean) {
     if (!Array.isArray(node.inputs)) return;
+    const nodeState = this.getNodeState(node);
     if (!unifyType) {
-      (node as any)._resolved_type = undefined;
-      (node as any)._allow_resolved_type = false;
+      nodeState.resolvedType = undefined;
+      nodeState.allowResolvedType = false;
     } else {
-      (node as any)._allow_resolved_type = true;
+      nodeState.allowResolvedType = true;
     }
+
     const candidate: string[] = [];
     const fallback: string[] = [];
     for (const input of node.inputs) {
       this.ensure_input_prepared(node, input);
-      const refType = (input as any)._ref_type;
-      if (refType) candidate.push(refType);
+      const pinState = this.getPinState(input);
       const declared = normalizePinType(input.type);
+      if (pinState.refType) candidate.push(pinState.refType);
       if (declared) fallback.push(declared);
-      (input as any)._declared_type = declared;
+      pinState.declaredType = declared;
     }
+
     if (unifyType) {
       const resolved = chooseDominantPinType([...candidate, ...fallback]);
-      if (resolved) (node as any)._resolved_type = resolved;
+      if (resolved) nodeState.resolvedType = resolved;
     }
+
     for (const input of node.inputs) {
-      const declared = (input as any)._declared_type;
-      const refType = (input as any)._ref_type;
+      const pinState = this.getPinState(input);
       let target: string | undefined;
       if (unifyType) {
-        target = (node as any)._resolved_type ?? refType ?? declared;
+        target = nodeState.resolvedType ?? pinState.refType ?? pinState.declaredType;
       } else {
-        target = declared ?? refType;
+        target = pinState.declaredType ?? pinState.refType;
       }
-      if (target) (input as any)._expected_type = target;
+      if (target) pinState.expectedType = target;
     }
   }
 
-  private resolve_template_input(node: GraphNode, match: string, index: number) {
-    const input = node.inputs[index];
-    if (!input) return;
-    this.ensure_input_prepared(node, input);
-    const declared = normalizePinType(input.type);
-    let expected_type = (input as any)._expected_type ?? (node as any)._resolved_type ?? declared;
-    if (!expected_type) expected_type = declared;
-    const allowResolved = Boolean((node as any)._allow_resolved_type);
-    if (allowResolved && (node as any)._resolved_type === undefined && expected_type) {
-      (node as any)._resolved_type = expected_type;
+  private replacePropertyPlaceholders(node: GraphNode, template: string): string {
+    const regex = /(\{\{property:([^}]+)\}\})/g;
+    const langNode = this.lang_def.nodes?.[node.type];
+    let guard = 0;
+    let code = template;
+    while (regex.test(code) && guard++ < 10) {
+      regex.lastIndex = 0;
+      code = code.replace(regex, (_match, full: string, propId: string) => {
+        const rendered = this.render_property(node, String(propId).trim(), langNode);
+        return rendered.template ?? "";
+      });
     }
-    let code = this.formatInputLiteral(input.value);
-    const fromType = (input as any)._ref_type ?? declared;
-    if (fromType || expected_type) {
-      code = this.convert_type(code, fromType, expected_type);
-    }
-    (input as any)._code = code;
-    node._code = (node._code ?? "").replace(match, code);
+    return code;
   }
 
-  private remove_default_inputs(node: GraphNode) {
+  private replaceInputPlaceholders(node: GraphNode, template: string): string {
+    const regex = /(\{\{inputs:(\d+)\}\})/g;
+    return template.replace(regex, (_match, _full, indexStr: string) => {
+      const index = Number(indexStr);
+      const input = node.inputs?.[index];
+      if (!input) return "";
+      this.ensure_input_prepared(node, input);
+      const pinState = this.getPinState(input);
+      const expected = pinState.expectedType ?? this.getNodeState(node).resolvedType ?? pinState.declaredType;
+      if (pinState.expectedType === undefined && expected) {
+        pinState.expectedType = expected;
+      }
+      let code = this.formatInputLiteral(input.value);
+      const fromType = pinState.refType ?? pinState.declaredType;
+      if (fromType || expected) {
+        code = this.convert_type(code, fromType, expected);
+      }
+      pinState.code = code;
+      return code;
+    });
+  }
+
+  private stripDefaultAssignments(node: GraphNode, code: string): string {
+    const template = getNodeTemplate(node.type);
+    if (!template) return code;
     const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
     const isVertexOut = node.type === "vertex_output";
-    const t = getNodeTemplate(node.type);
-    if (!t) return;
-    // Normalize defaults by uppercased name for case-insensitive matching
+
     const defaults = new Map<string, any>(
-      (t.inputs ?? []).map((i) => [String(i.name).toUpperCase(), i.value]) as [string, any][]
+      (template.inputs ?? []).map((i) => [String(i.name).toUpperCase(), i.value]) as [string, any][]
     );
-    const lines = (node._code ?? "").split("\n");
+    const lines = code.split("\n");
     const out: string[] = [];
     for (const line of lines) {
       const stripped = line.trim();
-      if (!stripped) { out.push(line); continue; }
+      if (!stripped) {
+        out.push(line);
+        continue;
+      }
       const prop = stripped.split("=")[0]?.trim();
       const propKey = String(prop).toUpperCase();
       const input_pin = node.inputs.find((i) => String(i.name).toUpperCase() === propKey);
       const defVal = defaults.get(propKey);
-      if (!input_pin || defVal === undefined) { out.push(line); continue; }
+      if (!input_pin || defVal === undefined) {
+        out.push(line);
+        continue;
+      }
       const value = input_pin.value;
-      if (typeof value === "string" && value.includes("../")) { out.push(line); continue; }
-      // ThreeJS preview vertex_output special-casing:
-      // - Always keep VERTEX and COLOR assignments so vertex chunk exists
-      // - Drop NORMAL if it is at default (to use geometry normals)
+      if (typeof value === "string" && value.includes("../")) {
+        out.push(line);
+        continue;
+      }
       if (isThree && isVertexOut) {
-        if (propKey === "VERTEX" || propKey === "COLOR") { out.push(line); continue; }
+        if (propKey === "VERTEX" || propKey === "COLOR") {
+          out.push(line);
+          continue;
+        }
         if (propKey === "NORMAL") {
           const vv = JSON.stringify(value);
           const dd = JSON.stringify(defVal);
-          if (vv !== dd) { out.push(line); }
+          if (vv !== dd) {
+            out.push(line);
+          }
           continue;
         }
       }
-      // Only keep line if value differs from default
       const vv = JSON.stringify(value);
       const dd = JSON.stringify(defVal);
       if (vv !== dd) out.push(line);
     }
-    node._code = out.join("\n");
+    return out.join("\n");
   }
 
-  private resolve_template(node: GraphNode) {
-    if (node._code?.includes("{{name}}")) {
-      node._code = node._code.replace("{{name}}", getUniqueNodeName(node));
-    }
-    // Prepare inputs/types early so type tokens can be formatted
-    const needsType = !!node._code && node._code.includes("{{type}}");
-    this.prepare_node_inputs(node, needsType);
-    if (needsType && node._code) {
-      const resolved = (node as any)._resolved_type ?? normalizePinType(node.outputs?.[0]?.type);
-      const formatted = formatTypeForGLSL(resolved);
-      if (formatted) {
-        node._code = node._code.replace(/\{\{type\}\}/g, formatted);
-      }
-    }
-    // Resolve property placeholders first, because property variants may introduce input tokens
-    if (node._code?.includes("{{property:")) {
-      this.resolve_template_properties(node);
-    }
-    // Replace indexed inputs (run after property resolution to catch placeholders introduced by properties)
-    const regex = /(\{\{inputs:(\d+)\}\})/g;
-    const matches = [...(node._code?.matchAll(regex) ?? [])] as any[];
-    for (const m of matches) {
-      const match = m[1] as string;
-      const input_index = Number(m[2]);
-      (node as any)._resolving_input = true;
-      this.resolve_template_input(node, match, input_index);
-    }
-    if (!node.outputs || node.outputs.length === 0) {
-      this.remove_default_inputs(node);
+  private applyDirectionSwizzle(node: GraphNode, code: string): string {
+    if (node.type !== "normal_vector" && node.type !== "view_direction") return code;
+    const cs = getCoordinateSystem(this.lang_def);
+    const name = getUniqueNodeName(node);
+    const swizzled = swizzleDirectionRefToTarget(name, cs);
+    if (swizzled === name || !code) return code;
+    const lines = code.split("\n");
+    if (!lines.length) return code;
+    lines.push(`${name} = ${swizzled};`);
+    return lines.join("\n");
+  }
+
+  private populateTemplate(node: GraphNode, template: string, options: { mutate?: boolean; stripDefaults?: boolean } = {}): string {
+    let code = template;
+    if (code.includes("{{name}}")) {
+      const unique = getUniqueNodeName(node);
+      code = code.replace(/\{\{name\}\}/g, unique);
     }
 
-    // Coordinate system adaptation for direction vectors authored in reference space.
-    // Apply to well-known direction vector nodes where their output should reflect target engine axes.
-    if (node.type === "normal_vector" || node.type === "view_direction") {
-      const cs = getCoordinateSystem(this.lang_def);
-      // Node emits a vec3 named by unique node name; wrap in swizzle if needed.
-      const name = getUniqueNodeName(node);
-      const swizzled = swizzleDirectionRefToTarget(name, cs);
-      if (swizzled !== name && node._code) {
-        // Replace the declaration's identifier usage with a swizzled alias by introducing a new assignment line.
-        // We append a line after the declaration to redefine the variable with the swizzled value.
-        // Example: vec3 normal_vector_1 = ...; -> vec3 normal_vector_1 = ...; normal_vector_1 = swizzle(...);
-        const lines = node._code.split("\n");
-        if (lines.length > 0) {
-          lines.push(`${name} = ${swizzled};`);
-          node._code = lines.join("\n");
+    const needsType = code.includes("{{type}}");
+    this.prepare_node_inputs(node, needsType);
+
+    if (needsType) {
+      const nodeState = this.getNodeState(node);
+      const resolved = nodeState.resolvedType ?? normalizePinType(node.outputs?.[0]?.type);
+      const formatted = formatTypeForGLSL(resolved);
+      if (formatted) {
+        code = code.replace(/\{\{type\}\}/g, formatted);
+      }
+    }
+
+    if (code.includes("{{property:")) {
+      code = this.replacePropertyPlaceholders(node, code);
+    }
+
+    if (code.includes("{{inputs:")) {
+      code = this.replaceInputPlaceholders(node, code);
+    }
+
+    if ((!node.outputs || node.outputs.length === 0) && options.stripDefaults !== false) {
+      code = this.stripDefaultAssignments(node, code);
+    }
+
+    code = this.applyDirectionSwizzle(node, code);
+
+    if (options.mutate) {
+      this.setNodeCode(node, code);
+    }
+
+    return code;
+  }
+
+  private computeReachableChildIds(node: GraphNode): Set<number> | undefined {
+    const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
+    if (!isPass) return undefined;
+
+    const children = node.nodes ?? [];
+    const byId = new Map<number, GraphNode>(children.map((c) => [c.id, c] as const));
+    const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+    const producersByConsumer = new Map<number, number[]>();
+
+    for (const child of children) {
+      for (const pin of child.inputs ?? []) {
+        this.ensure_input_prepared(child, pin);
+        const pinState = this.getPinState(pin);
+        let fromId = pinState.refNodeId;
+        if (fromId === undefined && typeof pin.value === "string") {
+          const m = pin.value.match(refRe);
+          if (m) fromId = Number(m[1]);
+        }
+        if (fromId === undefined) continue;
+        if (!byId.has(fromId)) continue;
+        let list = producersByConsumer.get(child.id);
+        if (!list) {
+          list = [];
+          producersByConsumer.set(child.id, list);
+        }
+        list.push(fromId);
+      }
+    }
+
+    const sinkTypes = node.type === "vertex_pass" ? new Set(["vertex_output"]) : new Set(["fragment_output"]);
+    const reachable = new Set<number>();
+    const stack: number[] = [];
+    for (const child of children) {
+      if (sinkTypes.has(child.type)) {
+        reachable.add(child.id);
+        stack.push(child.id);
+      }
+    }
+
+    while (stack.length) {
+      const cid = stack.pop()!;
+      const producers = producersByConsumer.get(cid) ?? [];
+      for (const pid of producers) {
+        if (!reachable.has(pid)) {
+          reachable.add(pid);
+          stack.push(pid);
         }
       }
     }
+
+    for (const child of children) {
+      if (child.type === "group") reachable.add(child.id);
+    }
+
+    return reachable;
+  }
+
+  private renderInternalNodes(node: GraphNode, template: string): string {
+    if (!template.includes("{{internal_nodes}}")) return template;
+
+    if (!this.has_nodes(node)) {
+      const code = template.replace("{{internal_nodes}}", "");
+      this.setNodeCode(node, code);
+      return code;
+    }
+
+    const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
+    const indent = isPass ? "\t" : "";
+    const reachable = this.computeReachableChildIds(node);
+    const children = node.nodes ?? [];
+
+    const grouped: GraphNode[] = [];
+    const others: GraphNode[] = [];
+    if (isPass) {
+      for (const child of children) {
+        if (child.type === "group") grouped.push(child);
+        else others.push(child);
+      }
+    }
+    const ordered = isPass ? [...grouped, ...others] : children;
+
+    const lines: string[] = [];
+    for (const child of ordered) {
+      if (reachable && !reachable.has(child.id)) continue;
+      const childCode = this.getNodeCode(child);
+      if (!childCode) continue;
+      const childLines = childCode.split("\n");
+      for (const line of childLines) {
+        if (line.length === 0) {
+          lines.push("");
+        } else {
+          lines.push(`${indent}${line}`);
+        }
+      }
+    }
+
+    const block = lines.length ? `${lines.join("\n")}\n` : "";
+    const code = template.replace("{{internal_nodes}}", block);
+    this.setNodeCode(node, code);
+    return code;
+  }
+
+  private resolve_internals(node: GraphNode): string {
+    if (node.type === "group_input" || node.type === "group_output") {
+      this.setNodeCode(node, "");
+      return "";
+    }
+
+    const baseTemplate = node.type === "group" ? "{{internal_nodes}}" : this.get_template(node);
+    const hydrated = this.populateTemplate(node, baseTemplate, { mutate: true, stripDefaults: true });
+    if (!hydrated.includes("{{internal_nodes}}")) {
+      return hydrated;
+    }
+
+    return this.renderInternalNodes(node, hydrated);
+  }
+
+  private compile_node(node: GraphNode) {
+    if (this.has_code(node)) return;
+    if (Array.isArray(node.meta) && (node.meta.includes("editor_node") || node.meta.includes("exposed"))) {
+      this.setNodeCode(node, "");
+      return;
+    }
+    const code = this.resolve_internals(node);
+    if (code) {
+      this.setNodeCode(node, code);
+    }
+  }
+
+  private process_node(node: GraphNode) {
+    if (this.has_code(node)) return;
+    if (!this.has_nodes(node)) {
+      this.compile_node(node);
+      return;
+    }
+    const sorted = this.sort_children_by_dependencies(node);
+    node.nodes = sorted;
+    for (const child of sorted) {
+      child.parent = node;
+      this.process_node(child);
+    }
+    this.compile_node(node);
+  }
+
+  private sort_children_by_dependencies(node: GraphNode): GraphNode[] {
+    const children = [...(node.nodes ?? [])];
+    const byId = new Map(children.map((c) => [c.id, c] as const));
+    const indeg = new Map<number, number>();
+    const adj = new Map<number, number[]>();
+    for (const c of children) {
+      indeg.set(c.id, 0);
+      adj.set(c.id, []);
+    }
+    const refRe = /^\.\.\/(\d+)\/(\d+)$/;
+    for (const c of children) {
+      for (const pin of c.inputs ?? []) {
+        if (typeof pin.value !== "string") continue;
+        const m = pin.value.match(refRe);
+        if (!m) continue;
+        const fromId = Number(m[1]);
+        if (!byId.has(fromId)) continue;
+        adj.get(fromId)!.push(c.id);
+        indeg.set(c.id, (indeg.get(c.id) ?? 0) + 1);
+      }
+    }
+    const queue: number[] = [];
+    for (const [id, d] of indeg.entries()) if (d === 0) queue.push(id);
+    queue.sort((a, b) => a - b);
+    const out: GraphNode[] = [];
+    while (queue.length) {
+      const id = queue.shift()!;
+      const n = byId.get(id);
+      if (n) out.push(n);
+      for (const v of adj.get(id) ?? []) {
+        indeg.set(v, (indeg.get(v) ?? 0) - 1);
+        if ((indeg.get(v) ?? 0) === 0) {
+          let i = 0;
+          while (i < queue.length && queue[i] < v) i++;
+          queue.splice(i, 0, v);
+        }
+      }
+    }
+    if (out.length < children.length) {
+      const seen = new Set(out.map((n) => n.id));
+      const rest = children.filter((c) => !seen.has(c.id)).sort((a, b) => a.id - b.id);
+      out.push(...rest);
+    }
+    return out;
+  }
+
+  private add_meta_to_result() {
+    const allMeta = new Set<string>();
+    const propertyMeta = new Set<string>();
+    const walk = (n: GraphNode) => {
+      if (Array.isArray(n.meta)) {
+        for (const m of n.meta) if (typeof m === "string") allMeta.add(m);
+      }
+      const langNode = this.lang_def.nodes?.[n.type];
+      if (langNode && Array.isArray(n.properties)) {
+        for (const prop of n.properties) {
+          if (!prop || typeof prop !== "object" || !prop.id) continue;
+          const { template, placement } = this.render_property(n, String(prop.id), langNode);
+          if (placement === "meta" && template) propertyMeta.add(template);
+        }
+      }
+      for (const c of n.nodes ?? []) walk(c);
+    };
+    walk(this.graph_data);
+
+    let meta_code = "";
+    for (const m of allMeta) {
+      if (m === "exposed") continue;
+      const tpl = this.lang_def.meta?.[m]?.template ?? "";
+      if (tpl) meta_code += `${tpl}\n`;
+    }
+    for (const tpl of propertyMeta) {
+      if (!tpl) continue;
+      meta_code += `${tpl}\n`;
+    }
+    this.result_code = this.result_code.replace("{{meta}}", meta_code);
+  }
+
+  private renderExposedDefinition(node: GraphNode): string {
+    const template = this.get_template(node);
+    return this.populateTemplate(node, template, { stripDefaults: false });
+  }
+
+  private collect_exposed_nodes(node: GraphNode, exposed: string[]) {
+    if (Array.isArray(node.meta) && node.meta.includes("exposed")) {
+      const definition = this.renderExposedDefinition(node);
+      const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
+      exposed.push(wrapper.replace("{{definition}}", definition));
+    }
+    for (const child of node.nodes ?? []) this.collect_exposed_nodes(child, exposed);
   }
 
   private render_property(
@@ -382,12 +703,10 @@ export class GraphCompiler {
     const props = Array.isArray(node.properties) ? node.properties : [];
     let prop = props.find((p: any) => p?.id === propId);
     let value = prop?.value ?? prop?.default;
-    // Property aliasing: allow language to request conversion_dir/conversion_pos and map to node's 'conversion'
     if (!prop && propId.startsWith("conversion_")) {
       const base = props.find((p: any) => p?.id === "conversion");
       if (base) {
         value = base?.value ?? base?.default;
-        // Continue without assigning prop so enum path below will use language variants keyed by this value
       }
     }
     if (prop?.type === "enum") {
@@ -402,7 +721,6 @@ export class GraphCompiler {
       }
       return result;
     }
-    // When prop was not found on the node (aliased path), try resolve by language property map directly using the raw value
     if (!prop && langNode?.properties?.[propId]) {
       const token = String(value ?? "");
       const variant = (langNode.properties as any)[propId]?.[token];
@@ -418,279 +736,15 @@ export class GraphCompiler {
     return { template: coercePropertyValue(value), placement: "inline" };
   }
 
-  private resolve_template_properties(node: GraphNode) {
-    if (!node._code) return;
-    const regex = /(\{\{property:([^}]+)\}\})/g;
-    const langNode = this.lang_def.nodes?.[node.type];
-    // Resolve recursively until no property placeholders remain (safety cap)
-    let guard = 0;
-    while ((node._code && node._code.includes("{{property:")) && guard++ < 10) {
-      const text = node._code ?? "";
-      const matches: RegExpMatchArray[] = Array.from(text.matchAll(regex));
-      if (!matches.length) break;
-      for (const m of matches) {
-        const full = (m[1] ?? "") as string;
-        const propId = ((m[2] ?? "") as string).trim();
-        const rendered = propId ? this.render_property(node, propId, langNode) : { template: "" };
-        const tpl = rendered.template ?? "";
-        node._code = (node._code ?? "").replace(full, tpl);
-      }
-    }
-  }
-
-  private resolve_internals(node: GraphNode): string {
-    // Special handling for grouping meta-nodes
-    if (node.type === "group_input" || node.type === "group_output") {
-      node._code = "";
-      return node._code;
-    }
-    if (node.type === "group") {
-      // Transparent container: just emit internal nodes where this node appears
-      node._code = "{{internal_nodes}}";
-    } else {
-      node._code = this.get_template(node);
-    }
-    this.resolve_template(node);
-    if (!node._code?.includes("{{internal_nodes}}")) return node._code ?? "";
-
-    if (!this.has_nodes(node)) {
-      node._code = node._code.replace("{{internal_nodes}}", "");
-    } else {
-      // Build internal code by embedding each child's compiled code.
-      // Filter out orphan nodes (those not reachable from pass sinks like fragment_output/vertex_output).
-      // Only indent inside real pass blocks (e.g., function bodies). Transparent containers like
-      // 'group' should not add indentation; their parent (e.g., fragment_pass) will handle it.
-      const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
-      const indent = isPass ? "\t" : "";
-
-      // Compute reachable child ids only for known pass containers; otherwise include all.
-      const reachable = new Set<number>();
-      if (isPass) {
-        // Map consumers to their local producers based on ../<id>/<pinId> refs
-        const byId = new Map<number, GraphNode>(node.nodes.map((c) => [c.id, c] as const));
-        const refRe = /^\.\.\/(\d+)\/(\d+)$/;
-        const producersByConsumer = new Map<number, number[]>();
-        const sinkTypes = node.type === "vertex_pass" ? new Set(["vertex_output"]) : new Set(["fragment_output"]);
-        for (const c of node.nodes) {
-          for (const pin of c.inputs ?? []) {
-            let fromId: number | undefined;
-            const maybeRef = (pin as any)._ref_node_id;
-            if (typeof maybeRef === "number") {
-              fromId = maybeRef;
-            } else if (typeof pin.value === "string") {
-              const m = pin.value.match(refRe);
-              if (m) fromId = Number(m[1]);
-            }
-            if (fromId === undefined) continue;
-            if (!byId.has(fromId)) continue; // external dep; ignore at this scope
-            let list = producersByConsumer.get(c.id);
-            if (!list) { list = []; producersByConsumer.set(c.id, list); }
-            list.push(fromId);
-          }
-        }
-        // Start from sink nodes (e.g., fragment_output, vertex_output) and walk upstream to include dependencies.
-        const stack: number[] = [];
-        for (const c of node.nodes) {
-          if (sinkTypes.has(c.type)) {
-            reachable.add(c.id);
-            stack.push(c.id);
-          }
-        }
-        while (stack.length) {
-          const cid = stack.pop()!;
-          const producers = producersByConsumer.get(cid) ?? [];
-          for (const pid of producers) {
-            if (!reachable.has(pid)) {
-              reachable.add(pid);
-              stack.push(pid);
-            }
-          }
-        }
-        // Ensure transparent groups are always included so their internal declarations are emitted
-        for (const c of node.nodes) {
-          if (c.type === "group") reachable.add(c.id);
-        }
-      }
-
-      // For passes, embed groups first to ensure their declarations appear before consumers,
-      // but preserve the original relative order within each bucket.
-      const childrenForEmbed = isPass
-        ? ([
-          ...node.nodes.filter((c) => c.type === "group"),
-          ...node.nodes.filter((c) => c.type !== "group"),
-        ])
-        : node.nodes;
-
-      let internal = "";
-      for (const child of childrenForEmbed) {
-        if (isPass && !reachable.has(child.id)) continue; // skip orphans in passes
-        const c = (child._code ?? "").split("\n");
-        for (const line of c) {
-          if (line.length === 0) { internal += "\n"; continue; }
-          internal += `${indent}${line}\n`;
-        }
-      }
-      node._code = node._code.replace("{{internal_nodes}}", internal);
-    }
-    return node._code;
-  }
-
-  private compile_node(node: GraphNode) {
-    if (this.has_code(node)) return;
-    if (Array.isArray(node.meta) && node.meta.includes("editor_node")) {
-      node._code = "";
-      return;
-    }
-    if (Array.isArray(node.meta) && node.meta.includes("exposed")) {
-      node._code = "";
-      return;
-    }
-    const code = this.resolve_internals(node);
-    if (code) {
-      node._code = code;
-      // Do not append to global result here; parent nodes will embed child code via {{internal_nodes}}.
-      // Root result is assigned after processing in compile().
-    }
-  }
-
-  private process_node(node: GraphNode) {
-    if (this.has_code(node)) return;
-    if (!this.has_nodes(node)) { this.compile_node(node); return; }
-    const sorted = this.sort_children_by_dependencies(node);
-    // Ensure embedding order respects dependencies
-    node.nodes = sorted;
-    for (const child of sorted) {
-      child.parent = node;
-      this.process_node(child);
-    }
-    // After children are processed and have _code, compile the parent to embed them.
-    this.compile_node(node);
-  }
-
-  private sort_children_by_dependencies(node: GraphNode): GraphNode[] {
-    const children = [...(node.nodes ?? [])];
-    const byId = new Map(children.map((c) => [c.id, c] as const));
-    const indeg = new Map<number, number>();
-    const adj = new Map<number, number[]>();
-    for (const c of children) { indeg.set(c.id, 0); adj.set(c.id, []); }
-    const refRe = /^\.\.\/(\d+)\/(\d+)$/;
-    for (const c of children) {
-      for (const pin of c.inputs ?? []) {
-        if (typeof pin.value !== "string") continue;
-        const m = pin.value.match(refRe);
-        if (!m) continue;
-        const fromId = Number(m[1]);
-        if (!byId.has(fromId)) continue; // external dependency, ignore for local order
-        adj.get(fromId)!.push(c.id);
-        indeg.set(c.id, (indeg.get(c.id) ?? 0) + 1);
-      }
-    }
-    // Kahn's algorithm with stability by id
-    const queue: number[] = [];
-    for (const [id, d] of indeg.entries()) if (d === 0) queue.push(id);
-    queue.sort((a, b) => a - b);
-    const out: GraphNode[] = [];
-    while (queue.length) {
-      const id = queue.shift()!;
-      const n = byId.get(id);
-      if (n) out.push(n);
-      for (const v of adj.get(id) ?? []) {
-        indeg.set(v, (indeg.get(v) ?? 0) - 1);
-        if ((indeg.get(v) ?? 0) === 0) {
-          // insert in sorted position to keep stability
-          let i = 0; while (i < queue.length && queue[i] < v) i++;
-          queue.splice(i, 0, v);
-        }
-      }
-    }
-    // If cycle or unresolved, append remaining by id
-    if (out.length < children.length) {
-      const seen = new Set(out.map((n) => n.id));
-      const rest = children.filter((c) => !seen.has(c.id)).sort((a, b) => a.id - b.id);
-      out.push(...rest);
-    }
-    return out;
-  }
-
-  private add_meta_to_result() {
-    // Collect meta from entire graph (deduped), not just root
-    const allMeta = new Set<string>();
-    const propertyMeta = new Set<string>();
-    const walk = (n: GraphNode) => {
-      if (Array.isArray(n.meta)) {
-        for (const m of n.meta) if (typeof m === "string") allMeta.add(m);
-      }
-      const langNode = this.lang_def.nodes?.[n.type];
-      if (langNode && Array.isArray(n.properties)) {
-        for (const prop of n.properties) {
-          if (!prop || typeof prop !== "object" || !prop.id) continue;
-          const { template, placement } = this.render_property(n, String(prop.id), langNode);
-          if (placement === "meta" && template) propertyMeta.add(template);
-        }
-      }
-      const children: GraphNode[] = Array.isArray(n.nodes) ? n.nodes : [];
-      for (const c of children) walk(c);
-    };
-    walk(this.graph_data);
-    let meta_code = "";
-    for (const m of allMeta) {
-      // 'exposed' is a wrapper used for emitting uniform definitions, not a
-      // standalone meta directive to inject at the top of the shader.
-      if (m === "exposed") continue;
-      const tpl = this.lang_def.meta?.[m]?.template ?? "";
-      if (tpl) meta_code += `${tpl}\n`;
-    }
-    for (const tpl of propertyMeta) {
-      if (!tpl) continue;
-      meta_code += `${tpl}\n`;
-    }
-    this.result_code = this.result_code.replace("{{meta}}", meta_code);
-  }
-
-  private set_parents(node: GraphNode) {
-    for (const child of node.nodes ?? []) {
-      child.parent = node;
-      this.set_parents(child);
-    }
-  }
-
-  private collect_exposed_nodes(node: GraphNode, exposed: string[]) {
-    if (Array.isArray(node.meta) && node.meta.includes("exposed")) {
-      let code = this.lang_def.nodes[node.type].template;
-      code = code.replace("{{name}}", getUniqueNodeName(node));
-      // Resolve property placeholders first (may introduce input placeholders)
-      if (code.includes("{{property:")) {
-        const langNode = this.lang_def.nodes[node.type];
-        code = code.replace(/\{\{property:([^}]+)\}\}/g, (_match, pid) => {
-          const { template } = this.render_property(node, String(pid).trim(), langNode);
-          return template;
-        });
-      }
-      // Now resolve inputs (use global replacement to cover multiple occurrences)
-      for (let i = 0; i < (node.inputs?.length ?? 0); i++) {
-        const val = this.formatInputLiteral((node.inputs as any)[i]?.value);
-        // Replace all occurrences using regex to support older runtimes without replaceAll
-        const re = new RegExp(`\\{\\{inputs:${i}\\}\\}`, "g");
-        code = code.replace(re, val);
-      }
-      const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
-      exposed.push(wrapper.replace("{{definition}}", code));
-    }
-    const kids: GraphNode[] = Array.isArray(node.nodes) ? node.nodes : [];
-    for (const child of kids) this.collect_exposed_nodes(child, exposed);
-  }
-
   public compile() {
-    this.set_parents(this.graph_data);
+    this.initializeGraph();
     this.process_node(this.graph_data);
-    // Use the compiled root code as the base result
-    this.result_code = this.graph_data._code ?? "";
+    this.result_code = this.getNodeCode(this.graph_data) ?? "";
     this.add_meta_to_result();
     const exposed: string[] = [];
     this.collect_exposed_nodes(this.graph_data, exposed);
     const exposed_code = exposed.length ? exposed.join("\n") + "\n" : "";
     this.result_code = this.result_code.replace("{{exposed_nodes}}", exposed_code);
-    // Ensure no unresolved placeholders remain
     this.result_code = this.result_code.replace("{{internal_nodes}}", "");
   }
 }
