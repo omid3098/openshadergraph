@@ -116,6 +116,8 @@ export function App() {
   const fileHandleRef = useRef<any | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [recentGraphs, setRecentGraphs] = useState<RecentGraphEntry[]>([]);
+  const [recentGraphsInitialized, setRecentGraphsInitialized] = useState(false);
+  const SESSION_GRAPH_KEY = "openshadergraph.sessionGraph";
   const [menu, setMenu] = useState<{
     open: boolean;
     kind: ContextKind;
@@ -125,6 +127,8 @@ export function App() {
   }>({ open: false, kind: "background", x: 0, y: 0 });
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const initialLoadDoneRef = useRef(false);
+  const startupAttemptedRef = useRef(false);
 
   const onConnect = (params: Connection) =>
     setEdges((eds) => connectSingleInputEdge(eds, params));
@@ -193,7 +197,10 @@ export function App() {
 
   useEffect(() => {
     setRecentGraphs(loadRecentGraphs());
+    setRecentGraphsInitialized(true);
   }, []);
+
+  
 
   const getFlowCenterClient = useCallback((): { x: number; y: number } => {
     const rect = flowContainerRef.current?.getBoundingClientRect();
@@ -683,6 +690,68 @@ export function App() {
     [inflateAndLoadGraph, rememberRecentGraph]
   );
 
+  // Unified startup loader: session (temp/disk) -> recent graph -> examples
+  useEffect(() => {
+    if (initialLoadDoneRef.current || startupAttemptedRef.current || !recentGraphsInitialized) return;
+    const tryStartup = async () => {
+      let attempted = false;
+      // 1) Try restoring last session (unsaved temp or disk)
+      try {
+        if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
+          const raw = window.localStorage.getItem(SESSION_GRAPH_KEY);
+          if (raw && raw.trim().length) {
+            const session = JSON.parse(raw) as { kind?: string; name?: string; contents?: string };
+            const name = typeof session?.name === "string" && session.name.trim().length ? session.name.trim() : "UntitledGraph.osg";
+            const contents = typeof session?.contents === "string" ? session.contents : "";
+            if (contents && contents.trim().length) {
+              // Validate that the stored graph has content (at least one node)
+              try {
+                const parsed = JSON.parse(contents);
+                const hasNodes = Array.isArray(parsed?.nodes) && parsed.nodes.length > 0;
+                if (!hasNodes) {
+                  // Skip restoring empty session graphs
+                  throw new Error("empty-session-graph");
+                }
+              } catch (_e) {
+                // Invalid or empty; do not restore from session
+                throw new Error("skip-session");
+              }
+              if (session?.kind === "disk") {
+                const handle = await loadRecentGraphHandle(name);
+                await openGraphFromContents({ name, contents, handle: handle ?? undefined });
+              } else {
+                await openGraphFromContents({ name, contents });
+              }
+              initialLoadDoneRef.current = true;
+              attempted = true;
+            }
+          }
+        }
+      } catch (err) {
+        // Ignore session restore errors and continue
+      }
+
+      // 2) Fallback to most recent graph entry if session didn't restore
+      if (!attempted && recentGraphs.length) {
+        try {
+          const entry = recentGraphs[0]!;
+          const handle = await loadRecentGraphHandle(entry.name);
+          await openGraphFromContents({ name: entry.name, contents: entry.contents, handle: handle ?? undefined });
+          initialLoadDoneRef.current = true;
+          attempted = true;
+        } catch (err) {
+          console.warn("Failed to open recent graph during initial load", recentGraphs[0]?.name, err);
+          setRecentGraphs(removeRecentGraph(recentGraphs[0]!.name));
+          void removeRecentGraphHandle(recentGraphs[0]!.name);
+        }
+      }
+
+      // Mark that we've decided; example loader will run only if not loaded
+      startupAttemptedRef.current = true;
+    };
+    void tryStartup();
+  }, [recentGraphsInitialized, recentGraphs, openGraphFromContents, setRecentGraphs]);
+
   const writeFileHandle = useCallback(async (handle: any, contents: string) => {
     try {
       const permitted = await ensureReadWritePermission(handle);
@@ -813,6 +882,25 @@ export function App() {
     setRecentGraphs(clearRecentGraphs());
   }, [recentGraphs, setRecentGraphs]);
 
+  // Lightweight autosave of current session (supports restoring unsaved graphs)
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.localStorage === "undefined") return;
+    if (!startupAttemptedRef.current || !initialLoadDoneRef.current) return;
+    if (!nodesRef.current.length) return;
+    try {
+      const label = (() => {
+        const trimmed = (graphName || "UntitledGraph").trim();
+        return trimmed.length ? trimmed : "UntitledGraph";
+      })();
+      const name = (fileName && fileName.trim().length ? fileName : `${label.replace(/\s+/g, "_")}.osg`);
+      const contents = serializeGraph(label);
+      const kind = fileHandleRef.current ? "disk" : "temp";
+      window.localStorage.setItem(SESSION_GRAPH_KEY, JSON.stringify({ kind, name, contents }));
+    } catch (_err) {
+      // Ignore autosave failures
+    }
+  }, [nodes, edges, graphName]);
+
   // Create a brand-new surface graph with vertex + fragment passes
   const createNewGraph = useCallback(
     async (shading: "pbr" | "unlit" | "toon") => {
@@ -892,7 +980,7 @@ export function App() {
     [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
   );
 
-  // Fetch example graphs and load the first by default
+  // Fetch example graphs and load the first by default (only if no recent graph was loaded)
   useEffect(() => {
     const abort = new AbortController();
     (async () => {
@@ -902,9 +990,9 @@ export function App() {
         const data = await res.json();
         const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
         setExamples(list);
-        if (list.length) {
-          // Default: load the first example
+        if (startupAttemptedRef.current && !initialLoadDoneRef.current && list.length) {
           await loadExampleGraph(list[0]!);
+          initialLoadDoneRef.current = true;
         }
       } catch (err: any) {
         if (isAbortError(err)) return;
@@ -912,7 +1000,7 @@ export function App() {
       }
     })();
     return () => abort.abort();
-  }, [loadExampleGraph]);
+  }, [loadExampleGraph, recentGraphs, recentGraphsInitialized]);
 
   const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
