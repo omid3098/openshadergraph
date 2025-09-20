@@ -920,6 +920,7 @@ export function App() {
         const fpassTpl = await loadTemplateDefaults("fragment_pass");
         const voutTpl = await loadTemplateDefaults("vertex_output");
         const foutTpl = await loadTemplateDefaults("fragment_output");
+        const previewTpl = await loadTemplateDefaults("editor_preview");
         if (!surfaceTpl || !vpassTpl || !fpassTpl || !voutTpl || !foutTpl) {
           console.warn("Missing required templates for new graph");
           return;
@@ -931,9 +932,21 @@ export function App() {
         const fragmentPass = deepClone(fpassTpl);
         const vertexOutput = deepClone(voutTpl);
         const fragmentOutput = deepClone(foutTpl);
+        const previewNode = previewTpl ? deepClone(previewTpl) : undefined;
 
         vertexPass.nodes = [vertexOutput];
         fragmentPass.nodes = [fragmentOutput];
+
+        // Position preview panel next to fragment output if available
+        // Use the same row (y) and push it to the right (x) so they appear side-by-side
+        // Layout defaults come from buildReactFlowGraph: baseX=80, baseY=40, depthX=240
+        // Children of fragment_pass are at depth=2 -> fallback x would be 80 + 2*240 = 560
+        if (previewNode) {
+          // Ensure meta array exists (editor node sizing comes from template meta)
+          if (!Array.isArray(previewNode.meta)) previewNode.meta = [];
+          previewNode.position = [560 + 170, 40];
+          fragmentPass.nodes.push(previewNode as any);
+        }
 
         const shadingProps: any[] = Array.isArray(fragmentOutput.properties)
           ? deepClone(fragmentOutput.properties as any[])
