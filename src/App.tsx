@@ -129,6 +129,7 @@ export function App() {
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
   const startupAttemptedRef = useRef(false);
+  const fitAfterLoadRef = useRef(false);
 
   const onConnect = (params: Connection) =>
     setEdges((eds) => connectSingleInputEdge(eds, params));
@@ -284,17 +285,20 @@ export function App() {
           const width = readDimension("width");
           const height = readDimension("height");
           if (Number.isFinite(width) || Number.isFinite(height)) {
-            pendingSizeUpdates.push({ id: change.id, width, height });
+            const next: { id: string; width?: number; height?: number } = { id: change.id };
+            if (typeof width === "number" && Number.isFinite(width)) next.width = width;
+            if (typeof height === "number" && Number.isFinite(height)) next.height = height;
+            pendingSizeUpdates.push(next);
           }
         }
       }
       if (pendingSizeUpdates.length) {
         const updates = new Map<string, { width?: number; height?: number }>();
         pendingSizeUpdates.forEach((entry) => {
-          updates.set(entry.id, {
-            width: Number.isFinite(entry.width) ? entry.width : undefined,
-            height: Number.isFinite(entry.height) ? entry.height : undefined,
-          });
+          const next: { width?: number; height?: number } = {};
+          if (typeof entry.width === "number" && Number.isFinite(entry.width)) next.width = entry.width;
+          if (typeof entry.height === "number" && Number.isFinite(entry.height)) next.height = entry.height;
+          updates.set(entry.id, next);
         });
         setNodes((prev) =>
           prev.map((n) => {
@@ -615,6 +619,8 @@ export function App() {
       setEdges(buildResult.edges);
       setGraphName(label ?? "UntitledGraph");
       setViewPath(buildResult.defaultViewPath);
+      // Request a one-time fitView after nodes render for this load
+      fitAfterLoadRef.current = true;
     },
     [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath]
   );
@@ -727,7 +733,7 @@ export function App() {
             }
           }
         }
-      } catch (err) {
+      } catch (_err) {
         // Ignore session restore errors and continue
       }
 
@@ -899,7 +905,7 @@ export function App() {
     } catch (_err) {
       // Ignore autosave failures
     }
-  }, [nodes, edges, graphName]);
+  }, [nodes, edges, graphName, fileName, serializeGraph]);
 
   // Create a brand-new surface graph with vertex + fragment passes
   const createNewGraph = useCallback(
@@ -973,6 +979,8 @@ export function App() {
         setEdges(buildResult.edges);
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setViewPath(buildResult.defaultViewPath);
+        // Request a one-time fitView after nodes render for this new graph
+        fitAfterLoadRef.current = true;
       } catch (err) {
         console.warn("Failed to create new graph", shading, err);
       }
@@ -1229,7 +1237,7 @@ export function App() {
               </BreadcrumbLink>
             </BreadcrumbItem>
             {viewPath.map((id, i) => {
-              const n = nodes.find((nn) => nn.id === id);
+              const n = nodes.find((nn) => (nn as any).id === id);
               const isLast = i === viewPath.length - 1;
               const label = (n?.data as any)?.label ?? (n?.data as any)?.type ?? id;
               const key = `${id}-${i}`;
@@ -1256,6 +1264,31 @@ export function App() {
   );
 
   // SidebarMenus removed; moved to header menubar
+
+  // After a graph is loaded/created and the view path is applied, fit the viewport to visible nodes once
+  useEffect(() => {
+    if (!fitAfterLoadRef.current) return;
+    if (!visibleNodes.length) return;
+    // Defer to ensure nodes are mounted and measured
+    const run = () => {
+      try {
+        fitAfterLoadRef.current = false;
+        rf.fitView({
+          padding: 0.12,
+          includeHiddenNodes: false,
+          nodes: visibleNodes.map((n: any) => ({ id: n.id })),
+        } as any);
+      } catch (_err) {
+        // ignore
+        fitAfterLoadRef.current = false;
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+    } else {
+      setTimeout(run, 0);
+    }
+  }, [rf, visibleNodes, currentParentId]);
 
   return (
     <GraphStateProvider value={graphStateValue}>
