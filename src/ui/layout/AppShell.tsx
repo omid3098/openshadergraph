@@ -14,14 +14,14 @@ type AppShellProps = {
 };
 
 export function AppShell({ header, children, sidebarContent }: AppShellProps) {
-  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [collapsed, setCollapsed] = useState<boolean>(true);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       const saved = await persistGet<boolean>("ui.sidebar.collapsed");
       if (!mounted) return;
-      setCollapsed(Boolean(saved));
+      if (typeof saved === "boolean") setCollapsed(saved);
     })();
     return () => {
       mounted = false;
