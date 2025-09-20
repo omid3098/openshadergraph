@@ -57,6 +57,160 @@
       "value": [
         1.0
       ]
+    },
+    {
+      "id": 6,
+      "name": "Specular",
+      "type": "float",
+      "value": [
+        0.5
+      ]
+    },
+    {
+      "id": 7,
+      "name": "AO",
+      "type": "float",
+      "value": [
+        1.0
+      ]
+    },
+    {
+      "id": 8,
+      "name": "AO Light Affect",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Clearcoat",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Clearcoat Roughness",
+      "type": "float",
+      "value": [
+        0.5
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Transmission",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Transmission Roughness",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 13,
+      "name": "SSS Strength",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 14,
+      "name": "SSS Transmittance Color",
+      "type": "float3",
+      "value": [
+        1.0,
+        0.8,
+        0.7
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Sheen",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Sheen Tint",
+      "type": "float3",
+      "value": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Anisotropy",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Anisotropy Flow",
+      "type": "float3",
+      "value": [
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 19,
+      "name": "IOR",
+      "type": "float",
+      "value": [
+        1.5
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Refraction",
+      "type": "float3",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Thickness",
+      "type": "float",
+      "value": [
+        0.0
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Backlight",
+      "type": "float3",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Emission Strength",
+      "type": "float",
+      "value": [
+        1.0
+      ]
     }
   ],
   "outputs": [],
@@ -67,9 +221,21 @@
       "type": "enum",
       "default": "pbr",
       "options": [
-        { "value": "pbr", "label": "PBR", "langKey": "pbr" },
-        { "value": "unlit", "label": "Unlit", "langKey": "unlit" },
-        { "value": "toon", "label": "Toon", "langKey": "toon" }
+        {
+          "value": "pbr",
+          "label": "PBR",
+          "langKey": "pbr"
+        },
+        {
+          "value": "unlit",
+          "label": "Unlit",
+          "langKey": "unlit"
+        },
+        {
+          "value": "toon",
+          "label": "Toon",
+          "langKey": "toon"
+        }
       ]
     }
   ]

@@ -1,0 +1,21 @@
+{
+  "id": -1,
+  "type": "texture_array",
+  "name": "Texture2DArray",
+  "meta": ["exposed"],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [
+    { "id": 0, "name": "texture", "type": "sampler2DArray" }
+  ],
+  "properties": [
+    {
+      "id": "source",
+      "label": "Texture Asset",
+      "type": "asset",
+      "assetKind": "texture_array",
+      "default": ""
+    }
+  ]
+}

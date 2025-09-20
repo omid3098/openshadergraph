@@ -40,10 +40,11 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(countMain).toBe(1);
     // Color declaration and usage with .rgb swizzle
     expect(parsed.fragment).toMatch(/vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);/);
-    expect(parsed.fragment).toMatch(/gl_FragColor\s*=\s*vec4\(color_\d+\.rgb,\s*1.0\);/);
+    expect(parsed.fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(color_\d+\.rgb\);/);
+    expect(parsed.fragment).toMatch(/gl_FragColor\s*=\s*vec4\(color,\s*outAlpha\);/);
     // Declaration comes before usage
     const firstDecl = parsed.fragment.indexOf("vec4 ");
-    const firstUse = parsed.fragment.indexOf("gl_FragColor = vec4(");
+    const firstUse = parsed.fragment.indexOf("gl_FragColor = vec4(color, outAlpha);");
     expect(firstDecl).toBeGreaterThan(-1);
     expect(firstUse).toBeGreaterThan(-1);
     expect(firstDecl).toBeLessThan(firstUse);
@@ -71,7 +72,8 @@ describe("ThreeJS GLSL shader generation", () => {
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "addition");
     const { fragment } = extractPreviewShaders(shader_code);
     expect(fragment).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
-    expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(add_\d+\.rgb,\s*1.0\);/);
+    expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(add_\d+\.rgb\);/);
+    expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(color,\s*outAlpha\);/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "addition.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
@@ -95,7 +97,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toMatch(/vec4 float4_\d+ = vec4\(0.9, 0.7, 0.5, 0.25\);/);
     expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+, float2_\d+\);/);
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(texture_sampler_\d+\.rgb\);/);
-    expect(fragment).toMatch(/vec3 emission\s*=\s*vec3\(float3_\d+\);/);
+    expect(fragment).toMatch(/vec3 emission\s*=\s*vec3\(float3_\d+\)(?:\s*\*\s*[^\n;]+)?;/);
     expect(fragment).toMatch(/float alpha\s*=\s*float4_\d+\.x;/);
     expect(fragment).toContain("wrap: repeat");
     expect(fragment).toContain("filter: linear");
@@ -128,7 +130,8 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toMatch(/uniform vec4 color_\d+ = vec4\(1.0, 0.0, 0.0, 1.0\);/);
     expect(fragment).toMatch(/uniform vec4 color_\d+ = vec4\(0.0, 1.0, 0.0, 1.0\);/);
     expect(fragment).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
-    expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(add_\d+\.rgb,\s*1.0\);/);
+    expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(add_\d+\.rgb\);/);
+    expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(color,\s*outAlpha\);/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "exposed.glsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });

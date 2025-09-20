@@ -1,0 +1,45 @@
+{
+  "id": -1,
+  "type": "texture_sampler_array",
+  "name": "TextureSampler2DArray",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "texture", "type": "sampler2DArray" },
+    { "id": 1, "name": "uv", "type": "float2", "value": "builtin:uv" },
+    { "id": 2, "name": "layer", "type": "float", "value": [0.0] },
+    { "id": 3, "name": "lod", "type": "float", "value": [0.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "rgb", "type": "float3" },
+    { "id": 1, "name": "r", "type": "float" },
+    { "id": 2, "name": "g", "type": "float" },
+    { "id": 3, "name": "b", "type": "float" },
+    { "id": 4, "name": "a", "type": "float" }
+  ],
+  "properties": [
+    {
+      "id": "wrap_mode",
+      "label": "Wrap Mode",
+      "type": "enum",
+      "default": "repeat",
+      "options": [
+        { "value": "repeat", "label": "Repeat", "langKey": "wrap_repeat" },
+        { "value": "clamp", "label": "Clamp", "langKey": "wrap_clamp" },
+        { "value": "mirror", "label": "Mirror", "langKey": "wrap_mirror" },
+        { "value": "border", "label": "Border", "langKey": "wrap_border" }
+      ]
+    },
+    {
+      "id": "filter_mode",
+      "label": "Filter",
+      "type": "enum",
+      "default": "linear",
+      "options": [
+        { "value": "linear", "label": "Linear", "langKey": "filter_linear" },
+        { "value": "nearest", "label": "Nearest", "langKey": "filter_nearest" }
+      ]
+    }
+  ]
+}

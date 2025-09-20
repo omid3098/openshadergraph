@@ -98,7 +98,8 @@ export class GraphCompiler {
   }
 
   private indexNode(node: GraphNode, parent: GraphNode | undefined) {
-    node.parent = parent;
+    if (parent !== undefined) (node as any).parent = parent;
+    else if ("parent" in node) delete (node as any).parent;
     this.nodeIndex.set(node.id, node);
     for (const child of node.nodes ?? []) {
       this.indexNode(child, node);
@@ -229,9 +230,9 @@ export class GraphCompiler {
     let target = this.get_node(ref_node, nodeIdPart);
     if (!target) {
       const state = this.getPinState(input);
-      state.refType = undefined;
-      state.refNodeId = undefined;
-      state.refExpression = undefined;
+      delete state.refType;
+      delete state.refNodeId;
+      delete state.refExpression;
       state.missingRef = true;
       input.value = this.cloneTemplateInputDefault(node, input);
       return;
@@ -280,9 +281,11 @@ export class GraphCompiler {
     const inputState = this.getPinState(input);
     inputState.missingRef = false;
     if (Array.isArray(output_pin.type)) {
-      inputState.refType = targetState.resolvedType ?? output_pin.type[0];
+      const t = targetState.resolvedType ?? (output_pin.type[0] as string | undefined);
+      if (t) inputState.refType = t; else delete inputState.refType;
     } else {
-      inputState.refType = targetState.resolvedType ?? (output_pin.type as string);
+      const t = targetState.resolvedType ?? (output_pin.type as string | undefined);
+      if (t) inputState.refType = t; else delete inputState.refType;
     }
     const expr = this.get_output_expression(target, output_pin);
     inputState.refNodeId = target.id;
@@ -308,7 +311,7 @@ export class GraphCompiler {
     if (!Array.isArray(node.inputs)) return;
     const nodeState = this.getNodeState(node);
     if (!unifyType) {
-      nodeState.resolvedType = undefined;
+      delete nodeState.resolvedType;
       nodeState.allowResolvedType = false;
     } else {
       nodeState.allowResolvedType = true;
@@ -321,8 +324,12 @@ export class GraphCompiler {
       const pinState = this.getPinState(input);
       const declared = normalizePinType(input.type);
       if (pinState.refType) candidate.push(pinState.refType);
-      if (declared) fallback.push(declared);
-      pinState.declaredType = declared;
+      if (declared) {
+        fallback.push(declared);
+        pinState.declaredType = declared;
+      } else {
+        delete pinState.declaredType;
+      }
     }
 
     if (unifyType) {
@@ -390,8 +397,16 @@ export class GraphCompiler {
     const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
     const isVertexOut = node.type === "vertex_output";
 
+    const normalizeKey = (s: string) =>
+      s
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+
     const defaults = new Map<string, any>(
-      (template.inputs ?? []).map((i) => [String(i.name).toUpperCase(), i.value]) as [string, any][]
+      (template.inputs ?? [])
+        .filter((i) => i && typeof (i as any).name === "string")
+        .map((i) => [normalizeKey(String((i as any).name)), (i as any).value]) as [string, any][]
     );
     const lines = code.split("\n");
     const out: string[] = [];
@@ -402,9 +417,10 @@ export class GraphCompiler {
         continue;
       }
       const prop = stripped.split("=")[0]?.trim();
-      const propKey = String(prop).toUpperCase();
-      const input_pin = node.inputs.find((i) => String(i.name).toUpperCase() === propKey);
-      const defVal = defaults.get(propKey);
+      const propKey = String(prop);
+      const propKeyNorm = normalizeKey(propKey);
+      const input_pin = node.inputs.find((i) => normalizeKey(String(i.name)) === propKeyNorm);
+      const defVal = defaults.get(propKeyNorm);
       if (!input_pin || defVal === undefined) {
         out.push(line);
         continue;
@@ -720,11 +736,11 @@ export class GraphCompiler {
       const id = queue.shift()!;
       const n = byId.get(id);
       if (n) out.push(n);
-      for (const v of adj.get(id) ?? []) {
+    for (const v of adj.get(id) ?? []) {
         indeg.set(v, (indeg.get(v) ?? 0) - 1);
         if ((indeg.get(v) ?? 0) === 0) {
           let i = 0;
-          while (i < queue.length && queue[i] < v) i++;
+          while (i < queue.length && queue[i]! < v) i++;
           queue.splice(i, 0, v);
         }
       }

@@ -55,7 +55,7 @@ function collectTextureUniforms(graph: unknown): Map<string, string> {
       continue;
     }
     const type = (node as any).type;
-    if (type === "texture" || type === "texture_cube") {
+    if (type === "texture" || type === "texture_cube" || type === "texture3d" || type === "texture_array") {
       const id = Number((node as any).id);
       if (Number.isFinite(id)) {
         const props = Array.isArray((node as any).properties) ? (node as any).properties : [];
@@ -67,7 +67,7 @@ function collectTextureUniforms(graph: unknown): Map<string, string> {
           if (assetMeta) source = assetMeta.slice("asset:".length).trim();
         }
         if (source) {
-          const prefix = type === "texture_cube" ? "texture_cube" : "texture";
+          const prefix = type === "texture_cube" ? "texture_cube" : type === "texture3d" ? "texture3d" : type === "texture_array" ? "texture_array" : "texture";
           map.set(`${prefix}_${id}`, source);
         }
       }
@@ -100,8 +100,9 @@ function collectSamplerSettings(graph: unknown): Map<string, SamplerPreviewSetti
   const refRe = /^\.\.\/(\d+)\/(\d+)$/;
   for (const node of nodesById.values()) {
     if (!node) continue;
-    const isCube = node.type === "texture_sampler_cube";
-    if (node.type !== "texture_sampler" && !isCube) continue;
+    const samplerType = node.type;
+    const samplerKind = samplerType === "texture_sampler_cube" ? "texture_cube" : samplerType === "texture_sampler3d" ? "texture3d" : samplerType === "texture_sampler_array" ? "texture_array" : samplerType === "texture_sampler" ? "texture" : null;
+    if (!samplerKind) continue;
     const props: any[] = Array.isArray(node.properties) ? node.properties : [];
     const wrapProp = props.find((p) => p?.id === "wrap_mode");
     const filterProp = props.find((p) => p?.id === "filter_mode");
@@ -111,9 +112,9 @@ function collectSamplerSettings(graph: unknown): Map<string, SamplerPreviewSetti
     if (!match) continue;
     const textureId = Number(match[1]);
     if (!Number.isFinite(textureId)) continue;
-    const uniform = `${isCube ? "texture_cube" : "texture"}_${textureId}`;
+    const uniform = `${samplerKind}_${textureId}`;
     const entry: SamplerPreviewSettings = settings.get(uniform) ?? {};
-    if (!isCube && wrapProp && typeof wrapProp.value === "string") entry.wrap = wrapProp.value;
+    if (samplerKind !== "texture_cube" && wrapProp && typeof wrapProp.value === "string") entry.wrap = wrapProp.value;
     if (filterProp && typeof filterProp.value === "string") entry.filter = filterProp.value;
     settings.set(uniform, entry);
   }
@@ -264,7 +265,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const pmremRef = useRef<any | null>(null);
   const envRTRef = useRef<any | null>(null);
   const _lightDirsViewRef = useRef<{ key: any; fill: any; rim: any } | null>(null);
-  const samplerFallbackRef = useRef<{ sampler2D?: any; samplerCube?: any }>({});
+  const samplerFallbackRef = useRef<{ sampler2D?: any; samplerCube?: any; sampler3D?: any; sampler2DArray?: any }>({});
   const startTimeRef = useRef<number | null>(null);
   const stableGraph = useMemo(() => {
     try { return JSON.parse(JSON.stringify(graph ?? {})); } catch { return {} as any; }
@@ -293,6 +294,44 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         store.samplerCube = cube;
       }
       return store.samplerCube;
+    }
+    if (samplerType === "sampler3D") {
+      if (!store.sampler3D) {
+        const data = new Uint8Array([255, 255, 255, 255]);
+        const tex = new (THREE as any).DataTexture3D(data, 1, 1, 1);
+        tex.name = "PreviewFallbackTexture3D";
+        tex.format = (THREE as any).RGBAFormat;
+        tex.type = (THREE as any).UnsignedByteType;
+        tex.colorSpace = (THREE as any).SRGBColorSpace;
+        tex.wrapS = (THREE as any).ClampToEdgeWrapping;
+        tex.wrapT = (THREE as any).ClampToEdgeWrapping;
+        tex.wrapR = (THREE as any).ClampToEdgeWrapping;
+        tex.magFilter = (THREE as any).LinearFilter;
+        tex.minFilter = (THREE as any).LinearFilter;
+        tex.generateMipmaps = false;
+        tex.needsUpdate = true;
+        store.sampler3D = tex;
+      }
+      return store.sampler3D;
+    }
+    if (samplerType === "sampler2DArray") {
+      if (!store.sampler2DArray) {
+        const data = new Uint8Array([255, 255, 255, 255]);
+        const tex = new (THREE as any).DataTexture2DArray(data, 1, 1, 1);
+        tex.name = "PreviewFallbackTextureArray";
+        tex.format = (THREE as any).RGBAFormat;
+        tex.type = (THREE as any).UnsignedByteType;
+        tex.colorSpace = (THREE as any).SRGBColorSpace;
+        tex.wrapS = (THREE as any).ClampToEdgeWrapping;
+        tex.wrapT = (THREE as any).ClampToEdgeWrapping;
+        tex.wrapR = (THREE as any).ClampToEdgeWrapping;
+        tex.magFilter = (THREE as any).LinearFilter;
+        tex.minFilter = (THREE as any).LinearFilter;
+        tex.generateMipmaps = false;
+        tex.needsUpdate = true;
+        store.sampler2DArray = tex;
+      }
+      return store.sampler2DArray;
     }
     if (!store.sampler2D) {
       const data = new Uint8Array([255, 255, 255, 255]);

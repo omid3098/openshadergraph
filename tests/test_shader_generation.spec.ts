@@ -139,7 +139,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/vec4 float4_\d+ = vec4\(0.9, 0.7, 0.5, 0.25\);/);
     expect(shader_code).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+, float2_\d+\);/);
     expect(shader_code).toMatch(/ALBEDO = vec3\(texture_sampler_\d+\.rgb\);/);
-    expect(shader_code).toMatch(/EMISSION = vec3\(float3_\d+\);/);
+    expect(shader_code).toMatch(/EMISSION = vec3\(float3_\d+\)(?:\s*\*\s*[^\n;]+)?;/);
     expect(shader_code).toMatch(/ALPHA = float4_\d+\.x;/);
     expect(shader_code).toContain("wrap: repeat");
     expect(shader_code).toContain("filter: linear");
@@ -200,7 +200,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/ALBEDO = vec3\(color_\d+\.rgb\);/);
     expect(shader_code).toMatch(/ROUGHNESS = float_\d+;/);
     expect(shader_code).toMatch(/METALLIC = float_\d+;/);
-    expect(shader_code).toMatch(/EMISSION = vec3\(color_\d+\.rgb\);/);
+    expect(shader_code).toMatch(/EMISSION = vec3\(color_\d+\.rgb\)(?:\s*\*\s*[^\n;]+)?;/);
     expect(shader_code).toMatch(/NORMAL = vec3\(color_\d+\.rgb\);/);
     expect(shader_code).toMatch(/ALPHA = float_\d+;/);
     const out_file = path.join(SHADERS_DIR, "godot", "fragment_features.gdshader");
@@ -230,7 +230,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/float greater_than_\d+ = .* > .* \? 1.0 : 0.0;/);
     expect(shader_code).toMatch(/vec3 select_\d+ = mix\(/);
     expect(shader_code).toMatch(/float fresnel_\d+ = clamp\(/);
-    expect(shader_code).toMatch(/EMISSION = vec3\([^;]*fresnel_\d+[^;]*\);/);
+    expect(shader_code).toMatch(/EMISSION = vec3\([^;]*fresnel_\d+[^;]*\)(?:\s*\*\s*[^\n;]+)?;/);
   });
 
   it("cubemap textures compile", async () => {

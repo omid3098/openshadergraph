@@ -26,7 +26,7 @@ describe("compiler resolves refs even if source node misplaced", () => {
     // Color declaration present somewhere
     expect(code).toMatch(/vec4 color_\d+ = vec4\(/);
     // main() writes from that color
-    expect(code).toMatch(/gl_FragColor\s*=\s*vec4\(color_\d+\.rgb,\s*1.0\);/);
+    expect(code).toMatch(/gl_FragColor\s*=\s*vec4\(color,\s*outAlpha\);/);
   });
 });
 

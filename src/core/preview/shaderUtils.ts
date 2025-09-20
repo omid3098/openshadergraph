@@ -75,7 +75,7 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
   });
   const samplerMatches = [
     ...out.matchAll(
-      /uniform\s+(sampler2D|samplerCube)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z_][A-Za-z0-9_]*)?\s*;/g
+      /uniform\s+(sampler2D|samplerCube|sampler3D|sampler2DArray)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z_][A-Za-z0-9_]*)?\s*;/g
     ),
   ];
   const samplers: ParsedSampler[] = [];

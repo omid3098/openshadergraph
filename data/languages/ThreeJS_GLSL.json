@@ -36,7 +36,7 @@
       "template": "vec4 {{name}} = vec4({{inputs:0}});"
     },
     "fragment_output": {
-      "template": "#if defined(SHADING_PBR)\nvec3 baseColor = vec3({{inputs:0}});\nfloat roughness = clamp({{inputs:1}}, 0.04, 1.0);\nfloat metalness = clamp({{inputs:2}}, 0.0, 1.0);\nvec3 emission = vec3({{inputs:3}});\nvec3 nrm_in = vec3({{inputs:4}});\nfloat alpha = {{inputs:5}};\n// Combine geometry normal with input delta (so default (0,0,1) means keep vNormal)\nvec3 N = normalize(vNormal + (nrm_in - vec3(0.0, 0.0, 1.0)));\nvec3 V = normalize(vViewPosition);\nfloat a = max(0.001, roughness * roughness);\nvec3 f0 = mix(vec3(0.04), baseColor, metalness);\n\nvec3 Lo = vec3(0.0);\nfloat NoV = saturate(dot(N, V));\n\n// Key light (safe normalize)\n{\n  float lenL = max(length(uKeyDir), 1e-6);\n  vec3 L = uKeyDir / lenL;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (uKeyColor * NoL);\n}\n// Fill light (safe normalize)\n{\n  float lenL = max(length(uFillDir), 1e-6);\n  vec3 L = uFillDir / lenL;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (uFillColor * NoL);\n}\n// Rim light (safe normalize)\n{\n  float lenL = max(length(uRimDir), 1e-6);\n  vec3 L = uRimDir / lenL;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (uRimColor * NoL);\n}\n\n// Ambient term\nLo += uAmbient * baseColor;\n\nvec3  color = saturate((Lo + emission) * uExposure);\ngl_FragColor = vec4(color, alpha);\n#elif defined(SHADING_TOON)\nvec3 baseColor = vec3({{inputs:0}});\nfloat alpha = {{inputs:5}};\nvec3 N = normalize(vNormal);\nfloat lenL = max(length(uKeyDir), 1e-6);\nvec3 L = uKeyDir / lenL;\nfloat ndl = max(dot(N, L), 0.0);\nfloat ramp = step(0.2, ndl) + step(0.6, ndl);\nramp = clamp(ramp, 0.0, 1.0);\nvec3 color = mix(baseColor * 0.6, baseColor, ramp);\ngl_FragColor = vec4(color, alpha);\n#else\n// Unlit fallback\ngl_FragColor = vec4({{inputs:0}}, {{inputs:5}});\n#endif",
+      "template": "#if defined(SHADING_PBR)\nvec3 baseColor = vec3({{inputs:0}});\nfloat roughness = clamp({{inputs:1}}, 0.04, 1.0);\nfloat metalness = clamp({{inputs:2}}, 0.0, 1.0);\nvec3 emission = vec3({{inputs:3}}) * {{inputs:23}};\nvec3 nrm_in = vec3({{inputs:4}});\nfloat alpha = {{inputs:5}};\nfloat specular = clamp({{inputs:6}}, 0.0, 1.0);\nfloat ao = clamp({{inputs:7}}, 0.0, 1.0);\nfloat aoLightAffect = clamp({{inputs:8}}, 0.0, 1.0);\nfloat clearcoat = clamp({{inputs:9}}, 0.0, 1.0);\nfloat clearcoatRoughness = clamp({{inputs:10}}, 0.04, 1.0);\nfloat transmission = clamp({{inputs:11}}, 0.0, 1.0);\nfloat transmissionRoughness = clamp({{inputs:12}}, 0.0, 1.0);\nfloat subsurface = clamp({{inputs:13}}, 0.0, 1.0);\nvec3 subsurfaceColor = vec3({{inputs:14}});\nfloat sheen = clamp({{inputs:15}}, 0.0, 1.0);\nvec3 sheenColor = vec3({{inputs:16}});\nfloat anisotropy = clamp({{inputs:17}}, -0.9, 0.9);\nvec3 anisotropyDir = normalize(vec3({{inputs:18}}) + vec3(1e-4, 0.0, 0.0));\nfloat ior = max({{inputs:19}}, 1.0);\nvec3 refractionColor = vec3({{inputs:20}});\nfloat thickness = max({{inputs:21}}, 0.0);\nvec3 backlight = vec3({{inputs:22}});\nvec3 N = normalize(vNormal + (nrm_in - vec3(0.0, 0.0, 1.0)));\nvec3 V = normalize(vViewPosition);\nfloat NoV = saturate(dot(N, V));\nfloat anisotropyFactor = 1.0 - abs(anisotropy) * 0.5;\nfloat a = max(0.001, (roughness * roughness) * anisotropyFactor);\nvec3 f0 = mix(vec3(0.04 * mix(1.0, 2.0, specular)), baseColor, metalness);\n\nvec3 Lo = vec3(0.0);\n\n// Key light (safe normalize)\n{\n  float lenL = max(length(uKeyDir), 1e-6);\n  vec3 L = uKeyDir / lenL;\n  vec3 lightColor = uKeyColor;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (lightColor * NoL);\n  if (clearcoat > 0.001) {\n    float clearA = max(0.001, clearcoatRoughness * clearcoatRoughness);\n    float Dc = D_GGX(NoH, clearA);\n    float Vc = V_SmithGGXCorrelated(NoV, NoL, clearA);\n    vec3 Fc = F_Schlick(vec3(0.04), VoH);\n    Lo += clearcoat * (Dc * Vc) * Fc * (lightColor * NoL);\n  }\n}\n// Fill light (safe normalize)\n{\n  float lenL = max(length(uFillDir), 1e-6);\n  vec3 L = uFillDir / lenL;\n  vec3 lightColor = uFillColor;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (lightColor * NoL);\n  if (clearcoat > 0.001) {\n    float clearA = max(0.001, clearcoatRoughness * clearcoatRoughness);\n    float Dc = D_GGX(NoH, clearA);\n    float Vc = V_SmithGGXCorrelated(NoV, NoL, clearA);\n    vec3 Fc = F_Schlick(vec3(0.04), VoH);\n    Lo += clearcoat * (Dc * Vc) * Fc * (lightColor * NoL);\n  }\n}\n// Rim light (safe normalize)\n{\n  float lenL = max(length(uRimDir), 1e-6);\n  vec3 L = uRimDir / lenL;\n  vec3 lightColor = uRimColor;\n  vec3 H = normalize(V + L);\n  float NoL = saturate(dot(N, L));\n  float NoH = saturate(dot(N, H));\n  float VoH = saturate(dot(V, H));\n  float D = D_GGX(NoH, a);\n  float Vis = V_SmithGGXCorrelated(NoV, NoL, a);\n  vec3  F = F_Schlick(f0, VoH);\n  vec3  Fr = (D * Vis) * F;\n  vec3  kd = (1.0 - F) * (1.0 - metalness);\n  vec3  diffuse = BRDF_Lambert(baseColor) * kd;\n  Lo += (diffuse + Fr) * (lightColor * NoL);\n  if (clearcoat > 0.001) {\n    float clearA = max(0.001, clearcoatRoughness * clearcoatRoughness);\n    float Dc = D_GGX(NoH, clearA);\n    float Vc = V_SmithGGXCorrelated(NoV, NoL, clearA);\n    vec3 Fc = F_Schlick(vec3(0.04), VoH);\n    Lo += clearcoat * (Dc * Vc) * Fc * (lightColor * NoL);\n  }\n}\n\n// Ambient term\nLo += uAmbient * baseColor;\nLo = mix(baseColor * aoLightAffect, Lo, ao);\n\nvec3 extras = vec3(0.0);\nextras += subsurfaceColor * subsurface * pow(1.0 - NoV, 1.5) * (1.0 + thickness);\nextras += sheenColor * sheen * pow(1.0 - NoV, 4.0);\nextras += backlight * pow(saturate(dot(-N, V)), 2.0) * thickness;\n\nvec3 color = saturate((Lo + extras + emission) * uExposure);\n\nvec3 refractDir = refract(-V, N, 1.0 / ior);\nvec3 transmissionColor = mix(color, refractionColor, transmissionRoughness);\ncolor = mix(color, transmissionColor, transmission);\nfloat outAlpha = mix(alpha, clamp(1.0 - transmission, 0.0, 1.0), transmission);\n\ngl_FragColor = vec4(color, outAlpha);\n#elif defined(SHADING_TOON)\nvec3 baseColor = vec3({{inputs:0}});\nfloat alpha = {{inputs:5}};\nvec3 N = normalize(vNormal);\nfloat lenL = max(length(uKeyDir), 1e-6);\nvec3 L = uKeyDir / lenL;\nfloat ndl = max(dot(N, L), 0.0);\nfloat ramp = step(0.2, ndl) + step(0.6, ndl);\nramp = clamp(ramp, 0.0, 1.0);\nvec3 color = mix(baseColor * 0.6, baseColor, ramp) + vec3({{inputs:3}}) * {{inputs:23}};\ngl_FragColor = vec4(color, alpha);\n#else\n// Unlit fallback\ngl_FragColor = vec4({{inputs:0}} + vec3({{inputs:3}}) * {{inputs:23}}, {{inputs:5}});\n#endif",
       "properties": {
         "shading_model": {
           "pbr": {
@@ -236,9 +236,15 @@
       "template": "sampler2D {{name}};",
       "properties": {
         "texture_type": {
-          "data": { "template": "" },
-          "source_color": { "template": "" },
-          "hint_normal": { "template": "" }
+          "data": {
+            "template": ""
+          },
+          "source_color": {
+            "template": ""
+          },
+          "hint_normal": {
+            "template": ""
+          }
         }
       }
     },
@@ -246,8 +252,12 @@
       "template": "samplerCube {{name}};",
       "properties": {
         "texture_type": {
-          "data": { "template": "" },
-          "source_hdr": { "template": "" }
+          "data": {
+            "template": ""
+          },
+          "source_hdr": {
+            "template": ""
+          }
         }
       }
     },
@@ -327,10 +337,18 @@
       "template": "vec3 {{name}} = {{property:space}};",
       "properties": {
         "space": {
-          "world": { "template": "normalize(transpose(mat3(viewMatrix)) * vNormal)" },
-          "object": { "template": "normalize(vObjectNormal)" },
-          "view": { "template": "normalize(vNormal)" },
-          "tangent": { "template": "vec3(0.0, 0.0, 1.0)" }
+          "world": {
+            "template": "normalize(transpose(mat3(viewMatrix)) * vNormal)"
+          },
+          "object": {
+            "template": "normalize(vObjectNormal)"
+          },
+          "view": {
+            "template": "normalize(vNormal)"
+          },
+          "tangent": {
+            "template": "vec3(0.0, 0.0, 1.0)"
+          }
         }
       }
     },
@@ -338,137 +356,342 @@
       "template": "vec3 {{name}} = {{property:vector_type}};",
       "properties": {
         "vector_type": {
-          "direction": { "template": "{{property:conversion_dir}}" },
-          "position": { "template": "{{property:conversion_pos}}" }
+          "direction": {
+            "template": "{{property:conversion_dir}}"
+          },
+          "position": {
+            "template": "{{property:conversion_pos}}"
+          }
         },
         "conversion": {
-          "object_to_object": { "template": "vec3({{inputs:0}})" },
-          "object_to_world": { "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))" },
-          "object_to_view": { "template": "normalize(mat3(modelViewMatrix) * vec3({{inputs:0}}))" },
-          "object_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "object_to_absolute_world": { "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))" },
-          "object_to_screen": { "template": "normalize(mat3(projectionMatrix * modelViewMatrix) * vec3({{inputs:0}}))" },
-
-          "world_to_object": { "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))" },
-          "world_to_world": { "template": "vec3({{inputs:0}})" },
-          "world_to_view": { "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))" },
-          "world_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "world_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "world_to_screen": { "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))" },
-
-          "view_to_object": { "template": "normalize(inverse(mat3(modelViewMatrix)) * vec3({{inputs:0}}))" },
-          "view_to_world": { "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))" },
-          "view_to_view": { "template": "vec3({{inputs:0}})" },
-          "view_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "view_to_absolute_world": { "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))" },
-          "view_to_screen": { "template": "normalize(mat3(projectionMatrix) * vec3({{inputs:0}}))" },
-
-          "tangent_to_object": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_world": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_view": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_screen": { "template": "vec3({{inputs:0}})" },
-
-          "absolute_world_to_object": { "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))" },
-          "absolute_world_to_world": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_view": { "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))" },
-          "absolute_world_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_screen": { "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))" },
-
-          "screen_to_object": { "template": "normalize(inverse(mat3(projectionMatrix * modelViewMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_world": { "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_view": { "template": "normalize(inverse(mat3(projectionMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "screen_to_absolute_world": { "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_screen": { "template": "vec3({{inputs:0}})" }
+          "object_to_object": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "object_to_world": {
+            "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))"
+          },
+          "object_to_view": {
+            "template": "normalize(mat3(modelViewMatrix) * vec3({{inputs:0}}))"
+          },
+          "object_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "object_to_absolute_world": {
+            "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))"
+          },
+          "object_to_screen": {
+            "template": "normalize(mat3(projectionMatrix * modelViewMatrix) * vec3({{inputs:0}}))"
+          },
+          "world_to_object": {
+            "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))"
+          },
+          "world_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_view": {
+            "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "world_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_screen": {
+            "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "view_to_object": {
+            "template": "normalize(inverse(mat3(modelViewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "view_to_world": {
+            "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "view_to_view": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "view_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "view_to_absolute_world": {
+            "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "view_to_screen": {
+            "template": "normalize(mat3(projectionMatrix) * vec3({{inputs:0}}))"
+          },
+          "tangent_to_object": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_view": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_screen": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_object": {
+            "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))"
+          },
+          "absolute_world_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_view": {
+            "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "absolute_world_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_screen": {
+            "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "screen_to_object": {
+            "template": "normalize(inverse(mat3(projectionMatrix * modelViewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_world": {
+            "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_view": {
+            "template": "normalize(inverse(mat3(projectionMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "screen_to_absolute_world": {
+            "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_screen": {
+            "template": "vec3({{inputs:0}})"
+          }
         },
         "conversion_dir": {
-          "object_to_object": { "template": "vec3({{inputs:0}})" },
-          "object_to_world": { "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))" },
-          "object_to_view": { "template": "normalize(mat3(modelViewMatrix) * vec3({{inputs:0}}))" },
-          "object_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "object_to_absolute_world": { "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))" },
-          "object_to_screen": { "template": "normalize(mat3(projectionMatrix * modelViewMatrix) * vec3({{inputs:0}}))" },
-
-          "world_to_object": { "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))" },
-          "world_to_world": { "template": "vec3({{inputs:0}})" },
-          "world_to_view": { "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))" },
-          "world_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "world_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "world_to_screen": { "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))" },
-
-          "view_to_object": { "template": "normalize(inverse(mat3(modelViewMatrix)) * vec3({{inputs:0}}))" },
-          "view_to_world": { "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))" },
-          "view_to_view": { "template": "vec3({{inputs:0}})" },
-          "view_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "view_to_absolute_world": { "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))" },
-          "view_to_screen": { "template": "normalize(mat3(projectionMatrix) * vec3({{inputs:0}}))" },
-
-          "tangent_to_object": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_world": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_view": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_screen": { "template": "vec3({{inputs:0}})" },
-
-          "absolute_world_to_object": { "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))" },
-          "absolute_world_to_world": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_view": { "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))" },
-          "absolute_world_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_screen": { "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))" },
-
-          "screen_to_object": { "template": "normalize(inverse(mat3(projectionMatrix * modelViewMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_world": { "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_view": { "template": "normalize(inverse(mat3(projectionMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "screen_to_absolute_world": { "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))" },
-          "screen_to_screen": { "template": "vec3({{inputs:0}})" }
+          "object_to_object": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "object_to_world": {
+            "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))"
+          },
+          "object_to_view": {
+            "template": "normalize(mat3(modelViewMatrix) * vec3({{inputs:0}}))"
+          },
+          "object_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "object_to_absolute_world": {
+            "template": "normalize(mat3(modelMatrix) * vec3({{inputs:0}}))"
+          },
+          "object_to_screen": {
+            "template": "normalize(mat3(projectionMatrix * modelViewMatrix) * vec3({{inputs:0}}))"
+          },
+          "world_to_object": {
+            "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))"
+          },
+          "world_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_view": {
+            "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "world_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_screen": {
+            "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "view_to_object": {
+            "template": "normalize(inverse(mat3(modelViewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "view_to_world": {
+            "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "view_to_view": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "view_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "view_to_absolute_world": {
+            "template": "normalize(inverse(mat3(viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "view_to_screen": {
+            "template": "normalize(mat3(projectionMatrix) * vec3({{inputs:0}}))"
+          },
+          "tangent_to_object": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_view": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_screen": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_object": {
+            "template": "normalize(inverse(mat3(modelMatrix)) * vec3({{inputs:0}}))"
+          },
+          "absolute_world_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_view": {
+            "template": "normalize(mat3(viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "absolute_world_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_screen": {
+            "template": "normalize(mat3(projectionMatrix * viewMatrix) * vec3({{inputs:0}}))"
+          },
+          "screen_to_object": {
+            "template": "normalize(inverse(mat3(projectionMatrix * modelViewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_world": {
+            "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_view": {
+            "template": "normalize(inverse(mat3(projectionMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "screen_to_absolute_world": {
+            "template": "normalize(inverse(mat3(projectionMatrix * viewMatrix)) * vec3({{inputs:0}}))"
+          },
+          "screen_to_screen": {
+            "template": "vec3({{inputs:0}})"
+          }
         },
         "conversion_pos": {
-          "object_to_object": { "template": "vec3({{inputs:0}})" },
-          "object_to_world": { "template": "(modelMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-          "object_to_view": { "template": "(modelViewMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-          "object_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "object_to_absolute_world": { "template": "(modelMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-          "object_to_screen": { "template": "(projectionMatrix * modelViewMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-
-          "world_to_object": { "template": "(inverse(modelMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "world_to_world": { "template": "vec3({{inputs:0}})" },
-          "world_to_view": { "template": "(viewMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-          "world_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "world_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "world_to_screen": { "template": "(projectionMatrix * viewMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-
-          "view_to_object": { "template": "(inverse(modelViewMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "view_to_world": { "template": "(inverse(viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "view_to_view": { "template": "vec3({{inputs:0}})" },
-          "view_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "view_to_absolute_world": { "template": "(inverse(viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "view_to_screen": { "template": "(projectionMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-
-          "tangent_to_object": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_world": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_view": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "tangent_to_screen": { "template": "vec3({{inputs:0}})" },
-
-          "absolute_world_to_object": { "template": "(inverse(modelMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "absolute_world_to_world": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_view": { "template": "(viewMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-          "absolute_world_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_absolute_world": { "template": "vec3({{inputs:0}})" },
-          "absolute_world_to_screen": { "template": "(projectionMatrix * viewMatrix * vec4({{inputs:0}}, 1.0)).xyz" },
-
-          "screen_to_object": { "template": "(inverse(projectionMatrix * modelViewMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "screen_to_world": { "template": "(inverse(projectionMatrix * viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "screen_to_view": { "template": "(inverse(projectionMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "screen_to_tangent": { "template": "vec3({{inputs:0}})" },
-          "screen_to_absolute_world": { "template": "(inverse(projectionMatrix * viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz" },
-          "screen_to_screen": { "template": "vec3({{inputs:0}})" }
+          "object_to_object": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "object_to_world": {
+            "template": "(modelMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "object_to_view": {
+            "template": "(modelViewMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "object_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "object_to_absolute_world": {
+            "template": "(modelMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "object_to_screen": {
+            "template": "(projectionMatrix * modelViewMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "world_to_object": {
+            "template": "(inverse(modelMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "world_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_view": {
+            "template": "(viewMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "world_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "world_to_screen": {
+            "template": "(projectionMatrix * viewMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "view_to_object": {
+            "template": "(inverse(modelViewMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "view_to_world": {
+            "template": "(inverse(viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "view_to_view": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "view_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "view_to_absolute_world": {
+            "template": "(inverse(viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "view_to_screen": {
+            "template": "(projectionMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "tangent_to_object": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_view": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "tangent_to_screen": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_object": {
+            "template": "(inverse(modelMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "absolute_world_to_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_view": {
+            "template": "(viewMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "absolute_world_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_absolute_world": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "absolute_world_to_screen": {
+            "template": "(projectionMatrix * viewMatrix * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "screen_to_object": {
+            "template": "(inverse(projectionMatrix * modelViewMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "screen_to_world": {
+            "template": "(inverse(projectionMatrix * viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "screen_to_view": {
+            "template": "(inverse(projectionMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "screen_to_tangent": {
+            "template": "vec3({{inputs:0}})"
+          },
+          "screen_to_absolute_world": {
+            "template": "(inverse(projectionMatrix * viewMatrix) * vec4({{inputs:0}}, 1.0)).xyz"
+          },
+          "screen_to_screen": {
+            "template": "vec3({{inputs:0}})"
+          }
         }
       }
     },
@@ -476,9 +699,15 @@
       "template": "vec3 {{name}} = {{property:space}};",
       "properties": {
         "space": {
-          "world": { "template": "vec3(0.0)" },
-          "object": { "template": "vec3(0.0)" },
-          "tangent": { "template": "vec3(0.0)" }
+          "world": {
+            "template": "vec3(0.0)"
+          },
+          "object": {
+            "template": "vec3(0.0)"
+          },
+          "tangent": {
+            "template": "vec3(0.0)"
+          }
         }
       }
     },
@@ -486,14 +715,208 @@
       "template": "vec3 {{name}} = {{property:space}};",
       "properties": {
         "space": {
-          "world": { "template": "normalize(vViewPosition)" },
-          "object": { "template": "normalize(vViewPosition)" },
-          "tangent": { "template": "normalize(vViewPosition)" }
+          "world": {
+            "template": "normalize(vViewPosition)"
+          },
+          "object": {
+            "template": "normalize(vViewPosition)"
+          },
+          "tangent": {
+            "template": "normalize(vViewPosition)"
+          }
         }
       }
     },
     "vertex_output": {
       "template": "VERTEX = VERTEX + vec3({{inputs:0}});\nNORMAL = vec3({{inputs:1}});\nCOLOR = vec4({{inputs:2}});"
+    },
+    "tangent_vector": {
+      "template": "vec3 {{name}}_basis_n = normalize(vNormal);\nvec3 {{name}}_basis_up = abs({{name}}_basis_n.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);\nvec3 {{name}}_t = normalize(cross({{name}}_basis_up, {{name}}_basis_n));\nvec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "world": {
+            "template": "normalize(transpose(mat3(viewMatrix)) * {{name}}_t)"
+          },
+          "object": {
+            "template": "normalize(mat3(modelMatrix) * {{name}}_t)"
+          },
+          "view": {
+            "template": "{{name}}_t"
+          },
+          "tangent": {
+            "template": "vec3(1.0, 0.0, 0.0)"
+          }
+        }
+      }
+    },
+    "bitangent_vector": {
+      "template": "vec3 {{name}}_basis_n = normalize(vNormal);\nvec3 {{name}}_basis_up = abs({{name}}_basis_n.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);\nvec3 {{name}}_t = normalize(cross({{name}}_basis_up, {{name}}_basis_n));\nvec3 {{name}}_b = cross({{name}}_basis_n, {{name}}_t);\nvec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "world": {
+            "template": "normalize(transpose(mat3(viewMatrix)) * {{name}}_b)"
+          },
+          "object": {
+            "template": "normalize(mat3(modelMatrix) * {{name}}_b)"
+          },
+          "view": {
+            "template": "{{name}}_b"
+          },
+          "tangent": {
+            "template": "vec3(0.0, 1.0, 0.0)"
+          }
+        }
+      }
+    },
+    "screen_uv": {
+      "template": "vec2 {{name}} = gl_FragCoord.xy;"
+    },
+    "screen_position": {
+      "template": "vec4 {{name}} = gl_FragCoord;"
+    },
+    "screen_depth": {
+      "template": "float {{name}} = gl_FragCoord.z;"
+    },
+    "world_position": {
+      "template": "vec3 {{name}} = cameraPosition - transpose(mat3(viewMatrix)) * vViewPosition;"
+    },
+    "view_position": {
+      "template": "vec3 {{name}} = -vViewPosition;"
+    },
+    "instance_id": {
+      "template": "float {{name}} = float(gl_InstanceID);"
+    },
+    "derivative_x": {
+      "template": "{{type}} {{name}} = dFdx({{inputs:0}});"
+    },
+    "derivative_y": {
+      "template": "{{type}} {{name}} = dFdy({{inputs:0}});"
+    },
+    "derivative_width": {
+      "template": "{{type}} {{name}} = fwidth({{inputs:0}});"
+    },
+    "texture3d": {
+      "template": "uniform sampler3D {{name}};"
+    },
+    "texture_sampler3d": {
+      "template": "vec4 {{name}} = textureLod({{inputs:0}}, {{inputs:1}}, {{inputs:2}});",
+      "outputs": {
+        "rgb": "{{name}}.rgb",
+        "r": "{{name}}.r",
+        "g": "{{name}}.g",
+        "b": "{{name}}.b",
+        "a": "{{name}}.a"
+      },
+      "properties": {
+        "wrap_mode": {
+          "wrap_repeat": {
+            "template": "// wrap: repeat"
+          },
+          "wrap_clamp": {
+            "template": "// wrap: clamp"
+          },
+          "wrap_mirror": {
+            "template": "// wrap: mirror"
+          },
+          "wrap_border": {
+            "template": "// wrap: border"
+          }
+        },
+        "filter_mode": {
+          "filter_linear": {
+            "template": "// filter: linear"
+          },
+          "filter_nearest": {
+            "template": "// filter: nearest"
+          }
+        }
+      }
+    },
+    "texture_array": {
+      "template": "uniform sampler2DArray {{name}};"
+    },
+    "texture_sampler_array": {
+      "template": "vec4 {{name}} = textureLod({{inputs:0}}, vec3({{inputs:1}}, {{inputs:2}}), {{inputs:3}});",
+      "outputs": {
+        "rgb": "{{name}}.rgb",
+        "r": "{{name}}.r",
+        "g": "{{name}}.g",
+        "b": "{{name}}.b",
+        "a": "{{name}}.a"
+      },
+      "properties": {
+        "wrap_mode": {
+          "wrap_repeat": {
+            "template": "// wrap: repeat"
+          },
+          "wrap_clamp": {
+            "template": "// wrap: clamp"
+          },
+          "wrap_mirror": {
+            "template": "// wrap: mirror"
+          },
+          "wrap_border": {
+            "template": "// wrap: border"
+          }
+        },
+        "filter_mode": {
+          "filter_linear": {
+            "template": "// filter: linear"
+          },
+          "filter_nearest": {
+            "template": "// filter: nearest"
+          }
+        }
+      }
+    },
+    "triplanar": {
+      "template": "{{property:space}}\nvec3 {{name}}_n = normalize({{name}}_normal);\nvec3 {{name}}_w = pow(abs({{name}}_n), vec3({{inputs:4}}));\n{{name}}_w = {{name}}_w / max(dot({{name}}_w, vec3(1.0)), 1e-5);\nvec2 {{name}}_uvx = {{name}}_pos.yz * {{inputs:3}};\nvec2 {{name}}_uvy = {{name}}_pos.xz * {{inputs:3}};\nvec2 {{name}}_uvz = {{name}}_pos.xy * {{inputs:3}};\nvec4 {{name}}_sample_x = texture({{inputs:0}}, {{name}}_uvx);\nvec4 {{name}}_sample_y = texture({{inputs:0}}, {{name}}_uvy);\nvec4 {{name}}_sample_z = texture({{inputs:0}}, {{name}}_uvz);\nvec4 {{name}} = {{name}}_sample_x * {{name}}_w.x + {{name}}_sample_y * {{name}}_w.y + {{name}}_sample_z * {{name}}_w.z;",
+      "properties": {
+        "space": {
+          "world": {
+            "template": "vec3 {{name}}_pos = vec3({{inputs:1}});\nvec3 {{name}}_normal = vec3({{inputs:2}});"
+          },
+          "object": {
+            "template": "vec3 {{name}}_pos = (modelMatrix * vec4(vec3({{inputs:1}}), 1.0)).xyz;\nvec3 {{name}}_normal = mat3(modelMatrix) * vec3({{inputs:2}});"
+          }
+        }
+      },
+      "outputs": {
+        "rgb": "{{name}}.rgb",
+        "r": "{{name}}.r",
+        "g": "{{name}}.g",
+        "b": "{{name}}.b",
+        "a": "{{name}}.a"
+      }
+    },
+    "normal_map_unpack": {
+      "template": "vec3 {{name}}_tangent = normalize(vec3({{inputs:0}}) * 2.0 - 1.0);\n{{name}}_tangent = normalize(mix(vec3(0.0, 0.0, 1.0), {{name}}_tangent, {{inputs:1}}));\nvec3 {{name}}_N = normalize(vNormal);\nvec3 {{name}}_up = abs({{name}}_N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);\nvec3 {{name}}_T = normalize(cross({{name}}_up, {{name}}_N));\nvec3 {{name}}_B = cross({{name}}_N, {{name}}_T);\nmat3 {{name}}_tbn = mat3({{name}}_T, {{name}}_B, {{name}}_N);\nvec3 {{name}}_view = normalize({{name}}_tbn * {{name}}_tangent);\nvec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "tangent": {
+            "template": "{{name}} = {{name}}_tangent;"
+          },
+          "object": {
+            "template": "vec3 {{name}}_world = normalize(transpose(mat3(viewMatrix)) * {{name}}_view);\n{{name}} = normalize(inverse(mat3(modelMatrix)) * {{name}}_world);"
+          },
+          "world": {
+            "template": "{{name}} = normalize(transpose(mat3(viewMatrix)) * {{name}}_view);"
+          }
+        }
+      }
+    },
+    "parallax": {
+      "template": "vec3 {{name}}_view = normalize({{inputs:2}});\nfloat {{name}}_height = texture({{inputs:0}}, {{inputs:1}}).r;\nfloat {{name}}_parallax = ({{name}}_height - 0.5) * {{inputs:3}};\nvec2 {{name}}_offset = {{name}}_view.xy / max(abs({{name}}_view.z), 1e-3) * {{name}}_parallax;\nvec2 {{name}}_uv = {{inputs:1}} - {{name}}_offset;\nfloat {{name}}_depth = {{name}}_height;\nvec2 {{name}} = {{name}}_uv;",
+      "outputs": {
+        "uv": "{{name}}",
+        "depth": "{{name}}_depth"
+      }
+    },
+    "value_noise": {
+      "template": "float {{name}}_hash(vec3 p) {\n  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);\n}\nvec3 {{name}}_p = vec3({{inputs:0}}) * {{inputs:1}} + vec3({{inputs:2}});\nvec3 {{name}}_i = floor({{name}}_p);\nvec3 {{name}}_f = fract({{name}}_p);\n{{name}}_f = {{name}}_f * {{name}}_f * (3.0 - 2.0 * {{name}}_f);\nfloat {{name}}_n000 = {{name}}_hash({{name}}_i + vec3(0.0, 0.0, 0.0));\nfloat {{name}}_n100 = {{name}}_hash({{name}}_i + vec3(1.0, 0.0, 0.0));\nfloat {{name}}_n010 = {{name}}_hash({{name}}_i + vec3(0.0, 1.0, 0.0));\nfloat {{name}}_n110 = {{name}}_hash({{name}}_i + vec3(1.0, 1.0, 0.0));\nfloat {{name}}_n001 = {{name}}_hash({{name}}_i + vec3(0.0, 0.0, 1.0));\nfloat {{name}}_n101 = {{name}}_hash({{name}}_i + vec3(1.0, 0.0, 1.0));\nfloat {{name}}_n011 = {{name}}_hash({{name}}_i + vec3(0.0, 1.0, 1.0));\nfloat {{name}}_n111 = {{name}}_hash({{name}}_i + vec3(1.0, 1.0, 1.0));\nfloat {{name}}_nx00 = mix({{name}}_n000, {{name}}_n100, {{name}}_f.x);\nfloat {{name}}_nx10 = mix({{name}}_n010, {{name}}_n110, {{name}}_f.x);\nfloat {{name}}_nx01 = mix({{name}}_n001, {{name}}_n101, {{name}}_f.x);\nfloat {{name}}_nx11 = mix({{name}}_n011, {{name}}_n111, {{name}}_f.x);\nfloat {{name}}_nxy0 = mix({{name}}_nx00, {{name}}_nx10, {{name}}_f.y);\nfloat {{name}}_nxy1 = mix({{name}}_nx01, {{name}}_nx11, {{name}}_f.y);\nfloat {{name}} = mix({{name}}_nxy0, {{name}}_nxy1, {{name}}_f.z);"
+    },
+    "fbm_noise": {
+      "template": "float {{name}}_hash(vec3 p) {\n  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);\n}\nvec3 {{name}}_p = vec3({{inputs:0}}) * {{inputs:1}};\nfloat {{name}}_amp = 1.0;\nfloat {{name}}_freq = 1.0;\nfloat {{name}}_sum = 0.0;\nint {{name}}_oct = int(clamp(floor({{inputs:2}} + 0.5), 1.0, 8.0));\nfor (int {{name}}_i = 0; {{name}}_i < 8; {{name}}_i++) {\n  if ({{name}}_i >= {{name}}_oct) break;\n  vec3 {{name}}_pp = {{name}}_p * {{name}}_freq;\n  vec3 {{name}}_i3 = floor({{name}}_pp);\n  vec3 {{name}}_f3 = fract({{name}}_pp);\n  {{name}}_f3 = {{name}}_f3 * {{name}}_f3 * (3.0 - 2.0 * {{name}}_f3);\n  float {{name}}_n000 = {{name}}_hash({{name}}_i3 + vec3(0.0, 0.0, 0.0));\n  float {{name}}_n100 = {{name}}_hash({{name}}_i3 + vec3(1.0, 0.0, 0.0));\n  float {{name}}_n010 = {{name}}_hash({{name}}_i3 + vec3(0.0, 1.0, 0.0));\n  float {{name}}_n110 = {{name}}_hash({{name}}_i3 + vec3(1.0, 1.0, 0.0));\n  float {{name}}_n001 = {{name}}_hash({{name}}_i3 + vec3(0.0, 0.0, 1.0));\n  float {{name}}_n101 = {{name}}_hash({{name}}_i3 + vec3(1.0, 0.0, 1.0));\n  float {{name}}_n011 = {{name}}_hash({{name}}_i3 + vec3(0.0, 1.0, 1.0));\n  float {{name}}_n111 = {{name}}_hash({{name}}_i3 + vec3(1.0, 1.0, 1.0));\n  float {{name}}_nx00 = mix({{name}}_n000, {{name}}_n100, {{name}}_f3.x);\n  float {{name}}_nx10 = mix({{name}}_n010, {{name}}_n110, {{name}}_f3.x);\n  float {{name}}_nx01 = mix({{name}}_n001, {{name}}_n101, {{name}}_f3.x);\n  float {{name}}_nx11 = mix({{name}}_n011, {{name}}_n111, {{name}}_f3.x);\n  float {{name}}_nxy0 = mix({{name}}_nx00, {{name}}_nx10, {{name}}_f3.y);\n  float {{name}}_nxy1 = mix({{name}}_nx01, {{name}}_nx11, {{name}}_f3.y);\n  float {{name}}_noise = mix({{name}}_nxy0, {{name}}_nxy1, {{name}}_f3.z);\n  {{name}}_sum += {{name}}_noise * {{name}}_amp;\n  {{name}}_freq *= {{inputs:4}};\n  {{name}}_amp *= {{inputs:3}};\n}\nfloat {{name}} = {{name}}_sum;"
     }
   },
   "meta": {

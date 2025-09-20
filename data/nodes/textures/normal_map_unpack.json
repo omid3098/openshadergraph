@@ -1,0 +1,28 @@
+{
+  "id": -1,
+  "type": "normal_map_unpack",
+  "name": "Normal Unpack",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "in", "type": "float3", "value": [0.5, 0.5, 1.0] },
+    { "id": 1, "name": "strength", "type": "float", "value": [1.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float3" }
+  ],
+  "properties": [
+    {
+      "id": "space",
+      "label": "Space",
+      "type": "enum",
+      "default": "tangent",
+      "options": [
+        { "value": "tangent", "label": "Tangent" },
+        { "value": "object", "label": "Object" },
+        { "value": "world", "label": "World" }
+      ]
+    }
+  ]
+}

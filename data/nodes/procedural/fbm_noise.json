@@ -1,0 +1,18 @@
+{
+  "id": -1,
+  "type": "fbm_noise",
+  "name": "FBM Noise",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "position", "type": ["float", "float2", "float3"], "value": [0.0] },
+    { "id": 1, "name": "scale", "type": "float", "value": [1.0] },
+    { "id": 2, "name": "octaves", "type": "float", "value": [4.0] },
+    { "id": 3, "name": "persistence", "type": "float", "value": [0.5] },
+    { "id": 4, "name": "lacunarity", "type": "float", "value": [2.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float" }
+  ]
+}

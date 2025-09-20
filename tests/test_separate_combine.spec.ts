@@ -44,7 +44,7 @@ describe("Separate/Combine nodes", () => {
     surface.connect_nodes(cmb, out, 0, 3); // Emission
     const code = await compile("Godot.json", surface.to_dict());
     expect(code).toMatch(/vec3 combine3_\d+ = vec3\(float_\d+, float_\d+, float_\d+\);/);
-    expect(code).toMatch(/EMISSION\s*=\s*vec3\(combine3_\d+\);/);
+    expect(code).toMatch(/EMISSION\s*=\s*vec3\(combine3_\d+\)(?:\s*\*\s*[^\n;]+)?;/);
   });
 
   it("separate4 and combine4 work in ThreeJS", async () => {

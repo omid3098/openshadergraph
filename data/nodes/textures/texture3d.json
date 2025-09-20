@@ -1,0 +1,21 @@
+{
+  "id": -1,
+  "type": "texture3d",
+  "name": "Texture3D",
+  "meta": ["exposed"],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [
+    { "id": 0, "name": "texture", "type": "sampler3D" }
+  ],
+  "properties": [
+    {
+      "id": "source",
+      "label": "Texture Asset",
+      "type": "asset",
+      "assetKind": "texture3d",
+      "default": ""
+    }
+  ]
+}

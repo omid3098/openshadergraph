@@ -1,0 +1,20 @@
+{
+  "id": -1,
+  "type": "parallax",
+  "name": "Parallax Offset",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "height_map", "type": "sampler2D" },
+    { "id": 1, "name": "uv", "type": "float2", "value": "builtin:uv" },
+    { "id": 2, "name": "view_dir", "type": "float3", "value": [0.0, 0.0, 1.0] },
+    { "id": 3, "name": "scale", "type": "float", "value": [0.05] },
+    { "id": 4, "name": "min_layers", "type": "float", "value": [8.0] },
+    { "id": 5, "name": "max_layers", "type": "float", "value": [32.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "uv", "type": "float2" },
+    { "id": 1, "name": "depth", "type": "float" }
+  ]
+}

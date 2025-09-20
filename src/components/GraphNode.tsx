@@ -212,7 +212,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         <CardTitle className="text-sm">{name}</CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3">
-        <div className="grid grid-cols-2 gap-x-2">
+        <div className={cn("gap-x-2 grid", outputs.length > 0 ? "grid-cols-2" : "grid-cols-1")}> 
           <div className="flex flex-col gap-2">
             {inputs.map((pin, idx) => {
               const pid = typeof pin.id === "number" ? pin.id : idx;
@@ -252,7 +252,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                     position={Position.Left}
                     style={{ left: HANDLE_OFFSET, width: HANDLE_SIZE, height: HANDLE_SIZE, borderRadius: 9999 }}
                   />
-                  <span className="text-xs text-muted-foreground">{pin.name}</span>
+                  <span className="text-xs text-muted-foreground break-words max-w-[120px] leading-4" title={pin.name}>{pin.name}</span>
                 </div>
               );
             })}
@@ -262,7 +262,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
               const pid = typeof pin.id === "number" ? pin.id : idx;
               return (
                 <div key={`out-${pid}`} className="relative flex items-center gap-2 min-h-[24px]">
-                  <span className="text-xs text-muted-foreground">{pin.name}</span>
+                  <span className="text-xs text-muted-foreground break-words max-w-[120px] leading-4" title={pin.name}>{pin.name}</span>
                   <Handle
                     id={`out-${pid}`}
                     type="source"
