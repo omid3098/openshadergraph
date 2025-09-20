@@ -8,6 +8,7 @@ import {
   useEdgesState,
   Position,
   SelectionMode,
+  useReactFlow,
   type Connection,
   type Edge,
   type Node,
@@ -16,16 +17,17 @@ import {
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
-import type { AssetItem, NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
-import { fetchAssetLibrary } from "./core/schema/assets";
-// Panels are now hosted inside a unified dock overlay
-import { useReactFlow } from "@xyflow/react";
+import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
 import { GraphNode } from "./components/GraphNode";
 import { buildRFNodeFromTemplate, parseEditorSize } from "./core/ui/nodeFactory";
-import { attachNodeUpdateApi, attachNodesUpdateApi, type NodeAssetPayload, type NodeUpdaterApi } from "./core/ui/nodeUpdaters";
+import {
+  attachNodeUpdateApi,
+  attachNodesUpdateApi,
+  type NodeAssetPayload,
+  type NodeUpdaterApi,
+} from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import { isAbortError } from "./lib/errors";
-import { persistGet } from "./lib/storage";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { serializeGraph as serializeGraphForSave, inflateGraph } from "./core/ui/graphSerde";
@@ -40,12 +42,16 @@ import {
 import { loadRecentGraphHandle, removeRecentGraphHandle, saveRecentGraphHandle } from "./core/ui/recentGraphHandles";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
+import { loadAssetRegistry } from "./core/assets/registry";
+import { createTemplateCache, type TemplateCache } from "./core/ui/templateCache";
+import { buildReactFlowGraph } from "./core/ui/reactFlowGraph";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
 import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
 import { Check } from "lucide-react";
+import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -57,6 +63,30 @@ const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
 type ViewMenuItem = { key: EditorPanelKey; label: string; digit: "1" | "2" | "3" | "4" | "5"; hotkey: string };
+
+type CanonicalNode = {
+  id: number;
+  type: string;
+  name?: string;
+  meta?: any[];
+  position?: [number, number];
+  nodes?: CanonicalNode[];
+  inputs?: Array<{ id: number; name: string; type: any; value?: any }>;
+  outputs?: Array<{ id: number; name: string; type: any }>;
+  properties?: any[];
+};
+
+function triggerDownload(name: string, contents: string) {
+  const blob = new Blob([contents], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 const VIEW_MENU_ITEMS: ViewMenuItem[] = [
   { key: "properties", label: "Properties", digit: "1", hotkey: "⌘1" },
@@ -73,8 +103,6 @@ const VIEW_HOTKEY_MAP: Record<string, EditorPanelKey> = VIEW_MENU_ITEMS.reduce<R
   },
   {}
 );
-
-const USER_ASSETS_STORAGE_KEY = "assets.user";
 
 export function App() {
   const rf = useReactFlow();
@@ -111,18 +139,23 @@ export function App() {
     return map;
   }, [palette]);
 
-  const templateCache = useRef(new Map<string, NodeTemplate>());
+  const templateCacheRef = useRef<TemplateCache | null>(null);
+  if (!templateCacheRef.current) {
+    templateCacheRef.current = createTemplateCache(fetchNodeTemplate);
+  }
+  useEffect(() => {
+    templateCacheRef.current?.reset();
+  }, [paletteByType]);
 
   const loadTemplateDefaults = useCallback(
     async (type: string): Promise<NodeTemplate | undefined> => {
       if (!type) return undefined;
-      if (templateCache.current.has(type)) return templateCache.current.get(type);
       const item = paletteByType.get(type);
       if (!item) return undefined;
+      const cache = templateCacheRef.current;
+      if (!cache) return undefined;
       try {
-        const tpl = await fetchNodeTemplate(item.path);
-        templateCache.current.set(type, tpl);
-        return tpl;
+        return await cache.load(type, item.path);
       } catch (err) {
         console.warn("Failed to fetch node defaults for", type, err);
         return undefined;
@@ -430,6 +463,8 @@ export function App() {
     return map;
   }, [nodes]);
 
+  const selectedCount = useMemo(() => nodes.filter((node) => node.selected).length, [nodes]);
+
   const graphStateValue = useMemo(
     () => ({ nodesById, nodeUpdaterApi, graph: graphData as any }),
     [nodesById, nodeUpdaterApi, graphData]
@@ -466,6 +501,8 @@ export function App() {
       } catch (err) {
         console.warn("Failed to load editor panel template", type, err);
       }
+
+      if (template) templateCacheRef.current?.prime(type, template);
 
       const nextId = String(++idCounter.current);
       const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
@@ -546,292 +583,33 @@ export function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [toggleEditorNode, getFlowCenterClient]);
 
-  // Helpers to load an example graph JSON into the canvas
-  type GNode = {
-    id: number;
-    type: string;
-    name?: string;
-    meta?: any[];
-    position?: [number, number];
-    nodes?: GNode[];
-    inputs?: Array<{ id: number; name: string; type: any; value?: any }>;
-    outputs?: Array<{ id: number; name: string; type: any }>;
-    properties?: any[];
-  };
-  // Helper: Inflate canonical graph JSON into RF nodes/edges and load
   const inflateAndLoadGraph = useCallback(
-    async (graph: GNode, label: string) => {
+    async (graph: CanonicalNode, label: string) => {
       const { graph: inflatedGraph, defaults } = await inflateGraph(graph, loadTemplateDefaults);
-      const root: any = inflatedGraph as any;
-      const rootGraph: GNode = (!root?.type || root.type === "") && Array.isArray(root?.nodes)
-        ? (root.nodes.find((n: any) => n?.type === "surface") ?? root.nodes[0])
+      const rootCandidate: any = inflatedGraph as any;
+      const rootGraph: CanonicalNode = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
+        ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0])
         : (inflatedGraph as any);
 
-      type AssetEntry = { id: string; source: string; label?: string; type?: string; builtin?: boolean };
-      const assetById = new Map<string, AssetEntry>();
-      const assetBySource = new Map<string, AssetEntry>();
-      const registerAsset = (entry: AssetEntry) => {
-        if (!entry.id || !entry.source) return;
-        assetById.set(entry.id, entry);
-        assetBySource.set(entry.source, entry);
-      };
-      try {
-        const library = await fetchAssetLibrary();
-        for (const category of library.categories ?? []) {
-          for (const item of category.items ?? []) {
-            if (!item || typeof item.id !== "string" || typeof item.source !== "string") continue;
-            registerAsset({
-              id: item.id,
-              source: item.source,
-              label: item.label,
-              type: item.type,
-              builtin: item.builtin !== false,
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to load asset library while inflating graph", err);
-      }
-      try {
-        const stored = await persistGet<AssetItem[]>(USER_ASSETS_STORAGE_KEY);
-        for (const item of stored ?? []) {
-          if (!item || typeof item.id !== "string" || typeof item.source !== "string") continue;
-          registerAsset({
-            id: item.id,
-            source: item.source,
-            label: item.label,
-            type: item.type,
-            builtin: false,
-          });
-        }
-      } catch (err) {
-        console.warn("Failed to load user assets while inflating graph", err);
-      }
+      const assetRegistry = await loadAssetRegistry();
 
-      const createdNodes: Node[] = [];
-      const createdEdges: Edge[] = [];
-      const depthX = 240;
-      const rowY = 120;
-      const baseX = 80;
-      const baseY = 40;
-      const perParentRow: Record<string, number> = {};
-      const all: Record<string, GNode> = {};
+      const buildResult = buildReactFlowGraph({
+        root: rootGraph as any,
+        defaults,
+        assets: assetRegistry,
+        options: { nodeDefaults },
+      });
 
-      const walk = (n: GNode, parentId?: string, depth = 0) => {
-        const idStr = String(n.id);
-        all[idStr] = n;
-        const row = perParentRow[parentId ?? "root"] ?? 0;
-        const pos = n.position
-          ? { x: n.position[0], y: n.position[1] }
-          : { x: baseX + depth * depthX, y: baseY + row * rowY };
-        perParentRow[parentId ?? "root"] = row + 1;
-        const meta = Array.isArray(n.meta) ? [...n.meta] : [];
-        const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
-        const assetMetaIndex = meta.findIndex((m: any) => typeof m === "string" && m.startsWith("asset:"));
-        let assetToken: string | null = null;
-        if (assetMetaIndex >= 0) {
-          const token = meta[assetMetaIndex].slice("asset:".length).trim();
-          if (token) assetToken = token;
-        }
-        const assetPropIndices: number[] = [];
-        const assetPropertyIds = new Set(["source", "texture_source", "model_source"]);
-        let lastAssetPropId: string | null = null;
-        for (let i = 0; i < properties.length; i++) {
-          const prop = properties[i];
-          if (!prop || typeof prop !== "object" || typeof prop.id !== "string") continue;
-          if (!assetPropertyIds.has(prop.id)) continue;
-          assetPropIndices.push(i);
-          lastAssetPropId = prop.id;
-          const rawValue = (prop as any).value;
-          if (typeof rawValue === "string" && rawValue.startsWith("asset:")) {
-            const token = rawValue.slice("asset:".length).trim();
-            if (token) assetToken = token;
-          }
-        }
-        let resolvedAsset: AssetEntry | undefined;
-        if (assetToken) resolvedAsset = assetById.get(assetToken);
-        if (!resolvedAsset) {
-          for (const index of assetPropIndices) {
-            const rawValue = (properties[index] as any)?.value;
-            if (typeof rawValue !== "string") continue;
-            const entry = assetBySource.get(rawValue.trim());
-            if (entry) {
-              resolvedAsset = entry;
-              assetToken = entry.id;
-              break;
-            }
-          }
-        }
-        let attachedAsset: { id: string; label?: string; type?: string; source: string; builtin?: boolean } | null = null;
-        if (resolvedAsset) {
-          const { id, source, label: assetLabel, type: assetType, builtin } = resolvedAsset;
-          for (const index of assetPropIndices) {
-            properties[index] = { ...properties[index], value: source };
-          }
-          if (assetPropIndices.length === 0) {
-            const fallbackPropId = lastAssetPropId ?? (n.type === "editor_preview" ? "model_source" : "source");
-            const fallbackLabel = fallbackPropId === "model_source" ? "Model Asset" : "Texture Asset";
-            const fallbackKind = fallbackPropId === "model_source" ? "model" : "texture";
-            properties.push({ id: fallbackPropId, type: "asset", label: fallbackLabel, assetKind: fallbackKind, value: source });
-          }
-          attachedAsset = {
-            id,
-            source,
-            label: assetLabel ?? id,
-            type: assetType ?? (n.type === "editor_preview" ? "model" : "texture"),
-            builtin,
-          };
-        } else if (assetToken) {
-          for (const index of assetPropIndices) {
-            properties[index] = { ...properties[index], value: `asset:${assetToken}` };
-          }
-        }
-        if (attachedAsset) {
-          const labelPropIndex = properties.findIndex((prop: any) => prop && typeof prop === "object" && prop.id === "model_label");
-          if (labelPropIndex >= 0) {
-            const labelProp = properties[labelPropIndex];
-            const nextLabel = attachedAsset.label ?? attachedAsset.id;
-            if (labelProp && typeof labelProp === "object") {
-              const currentValue = (labelProp as any).value;
-              if (typeof nextLabel === "string" && (!currentValue || !String(currentValue).trim())) {
-                properties[labelPropIndex] = { ...labelProp, value: nextLabel };
-              }
-              const resolvedLabel = (properties[labelPropIndex] as any)?.value;
-              if (typeof resolvedLabel === "string" && resolvedLabel.trim().length) {
-                attachedAsset.label = resolvedLabel;
-              }
-            }
-          } else if (attachedAsset.label) {
-            properties.push({ id: "model_label", type: "string", value: attachedAsset.label });
-          }
-        }
-        if (n.type === "fragment_output") {
-          const shadingMeta = meta.find((m: any) => typeof m === "string" && m.startsWith("shading_"));
-          if (shadingMeta) {
-            const slug = shadingMeta.slice("shading_".length).trim();
-            const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
-            const value = map[slug] ?? undefined;
-            if (value) {
-              let assigned = false;
-              for (let i = 0; i < properties.length; i++) {
-                const prop = properties[i];
-                if (prop && typeof prop === "object" && prop.id === "shading_model") {
-                  properties[i] = { ...prop, value };
-                  assigned = true;
-                  break;
-                }
-              }
-              if (!assigned) {
-                properties.push({ id: "shading_model", type: "enum", value });
-              }
-            }
-          }
-        }
-        const filteredMeta = meta.filter((m: any) => {
-          if (typeof m !== "string") return true;
-          if (m.startsWith("asset:")) return false;
-          if (m.startsWith("shading_")) return false;
-          return true;
-        });
-
-        const dimensions = parseEditorSize(filteredMeta as string[]);
-        const templateDefaults = defaults.get(n.id);
-        const nodePayload: any = {
-          id: idStr,
-          type: "graphNode",
-          position: pos,
-          data: {
-            label: n.name ?? n.type,
-            type: n.type,
-            template: {
-              id: n.id,
-              type: n.type,
-              name: n.name,
-              meta: filteredMeta,
-              position: n.position ?? [pos.x, pos.y],
-              nodes: n.nodes ?? [],
-              inputs: n.inputs ?? [],
-              outputs: n.outputs ?? [],
-              properties,
-            },
-            ...(templateDefaults
-              ? {
-                  templateDefaults: (() => {
-                    const clone = JSON.parse(JSON.stringify(templateDefaults));
-                    clone.id = n.id;
-                    if (n.position) clone.position = n.position;
-                    return clone;
-                  })(),
-                }
-              : {}),
-            ...(attachedAsset
-              ? {
-                  asset: {
-                    id: attachedAsset.id,
-                    label: attachedAsset.label,
-                    type: attachedAsset.type,
-                    source: attachedAsset.source,
-                    builtin: attachedAsset.builtin,
-                  },
-                }
-              : {}),
-          },
-          ...(parentId ? { parentId } : {}),
-          ...nodeDefaults,
-        };
-        if (Number.isFinite(dimensions.width) || Number.isFinite(dimensions.height)) {
-          nodePayload.style = {
-            ...(Number.isFinite(dimensions.width) ? { width: dimensions.width } : {}),
-            ...(Number.isFinite(dimensions.height) ? { height: dimensions.height } : {}),
-          };
-        }
-        createdNodes.push(nodePayload);
-        for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
-      };
-      walk(rootGraph, undefined, 0);
-
-      const refRe = /^\.\.\/(\d+)\/(\d+)$/;
-      for (const gid of Object.keys(all)) {
-        const gn = all[gid];
-        if (!gn || !Array.isArray(gn.inputs)) continue;
-        for (const pin of gn.inputs ?? []) {
-          if (typeof pin.value !== "string") continue;
-          const m = pin.value.match(refRe);
-          if (!m) continue;
-          const fromId = m[1];
-          const fromPin = Number(m[2]);
-          const toId = gid;
-          const toPin = pin.id;
-          createdEdges.push({
-            id: `e${fromId}-${toId}-${fromPin}-${toPin}`,
-            source: String(fromId),
-            target: String(toId),
-            sourceHandle: `out-${fromPin}`,
-            targetHandle: `in-${toPin}`,
-          });
-        }
-      }
-
-      const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
-      idCounter.current = maxId;
-
-      const surfaceId = String(rootGraph.id);
-      const fragmentPass = (rootGraph.nodes ?? []).find((n) => n.type === "fragment_pass");
-      const vertexPass = (rootGraph.nodes ?? []).find((n) => n.type === "vertex_pass");
-      const defaultPath = fragmentPass
-        ? [surfaceId, String(fragmentPass.id)]
-        : vertexPass
-          ? [surfaceId, String(vertexPass.id)]
-          : [surfaceId];
-
+      idCounter.current = buildResult.maxId;
       resizingEditorIdsRef.current.clear();
       pendingGraphUpdateRef.current = false;
-      setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
-      setEdges(createdEdges);
+
+      setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
+      setEdges(buildResult.edges);
       setGraphName(label ?? "UntitledGraph");
-      setViewPath(defaultPath);
+      setViewPath(buildResult.defaultViewPath);
     },
-    [setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi, loadTemplateDefaults]
+    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
@@ -841,7 +619,7 @@ export function App() {
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
-      const graph = data.graph as GNode;
+      const graph = data.graph as CanonicalNode;
       await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
@@ -857,18 +635,6 @@ export function App() {
     },
     [nodes, edges, graphName]
   );
-
-  const triggerDownload = (name: string, contents: string) => {
-    const blob = new Blob([contents], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
 
   const ensureReadWritePermission = useCallback(async (handle: any): Promise<boolean> => {
     if (!handle || typeof handle !== "object") return false;
@@ -1065,136 +831,60 @@ export function App() {
           return;
         }
 
-        // Deep clone to avoid mutating cached templates
-        const clone = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj));
-        const surface = clone(surfaceTpl);
-        const vertexPass = clone(vpassTpl);
-        const fragmentPass = clone(fpassTpl);
-        const vertexOutput = clone(voutTpl);
-        const fragmentOutput = clone(foutTpl);
+        const deepClone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+        const surface = deepClone(surfaceTpl);
+        const vertexPass = deepClone(vpassTpl);
+        const fragmentPass = deepClone(fpassTpl);
+        const vertexOutput = deepClone(voutTpl);
+        const fragmentOutput = deepClone(foutTpl);
 
-        // Ensure passes contain their IO nodes from defaults
         vertexPass.nodes = [vertexOutput];
         fragmentPass.nodes = [fragmentOutput];
 
-        // Set fragment shading property
-        const props: any[] = Array.isArray(fragmentOutput.properties)
-          ? clone(fragmentOutput.properties as any[])
+        const shadingProps: any[] = Array.isArray(fragmentOutput.properties)
+          ? deepClone(fragmentOutput.properties as any[])
           : [];
-        let set = false;
-        for (let i = 0; i < props.length; i++) {
-          const p = props[i];
-          if (p && typeof p === "object" && p.id === "shading_model") {
-            props[i] = { ...p, value: shading };
-            set = true;
+        let shadingSet = false;
+        for (let i = 0; i < shadingProps.length; i++) {
+          const prop = shadingProps[i];
+          if (prop && typeof prop === "object" && prop.id === "shading_model") {
+            shadingProps[i] = { ...prop, value: shading };
+            shadingSet = true;
             break;
           }
         }
-        if (!set) props.push({ id: "shading_model", type: "enum", value: shading });
-        fragmentOutput.properties = props as any;
+        if (!shadingSet) shadingProps.push({ id: "shading_model", type: "enum", value: shading });
+        fragmentOutput.properties = shadingProps as any;
 
-        // Compose surface children
         surface.nodes = [vertexPass, fragmentPass];
 
-        // Assign unique incremental ids across the tree
-        let next = 1;
-        const assignIds = (n: any): void => {
-          n.id = next++;
-          if (Array.isArray(n.nodes)) {
-            for (const c of n.nodes) assignIds(c);
-          }
+        let nextId = 1;
+        const assignIds = (node: CanonicalNode) => {
+          node.id = nextId++;
+          for (const child of node.nodes ?? []) assignIds(child);
         };
-        assignIds(surface);
+        assignIds(surface as CanonicalNode);
 
-        type GNode = {
-          id: number;
-          type: string;
-          name?: string;
-          meta?: any[];
-          position?: [number, number];
-          nodes?: GNode[];
-          inputs?: Array<{ id: number; name: string; type: any; value?: any }>;
-          outputs?: Array<{ id: number; name: string; type: any }>;
-          properties?: any[];
+        const defaults = new Map<number, NodeTemplate>();
+        const captureDefaults = (node: CanonicalNode) => {
+          defaults.set(node.id, deepClone(node) as any);
+          for (const child of node.nodes ?? []) captureDefaults(child);
         };
+        captureDefaults(surface as CanonicalNode);
 
-        // Flatten graph nodes and build ReactFlow nodes (no edges initially)
-        const createdNodes: Node[] = [];
-        const all: Record<string, GNode> = {};
-        const depthX = 240;
-        const rowY = 120;
-        const baseX = 80;
-        const baseY = 40;
-        const perParentRow: Record<string, number> = {};
+        const buildResult = buildReactFlowGraph({
+          root: surface as any,
+          defaults,
+          options: { nodeDefaults },
+        });
 
-        const walk = (n: GNode, parentId?: string, depth = 0) => {
-          const idStr = String(n.id);
-          all[idStr] = n;
-          const row = perParentRow[parentId ?? "root"] ?? 0;
-          const pos = n.position
-            ? { x: n.position[0], y: n.position[1] }
-            : { x: baseX + depth * depthX, y: baseY + row * rowY };
-          perParentRow[parentId ?? "root"] = row + 1;
-          const meta = Array.isArray(n.meta) ? [...n.meta] : [];
-          const properties = Array.isArray(n.properties) ? JSON.parse(JSON.stringify(n.properties)) : [];
-
-          const dimensions = parseEditorSize(meta as string[]);
-          const nodePayload: any = {
-            id: idStr,
-            type: "graphNode",
-            position: pos,
-            data: {
-              label: n.name ?? n.type,
-              type: n.type,
-              template: {
-                id: n.id,
-                type: n.type,
-                name: n.name,
-                meta,
-                position: n.position ?? [pos.x, pos.y],
-                nodes: n.nodes ?? [],
-                inputs: n.inputs ?? [],
-                outputs: n.outputs ?? [],
-                properties,
-              },
-            },
-            ...(parentId ? { parentId } : {}),
-            ...nodeDefaults,
-          };
-          if (Number.isFinite(dimensions.width) || Number.isFinite(dimensions.height)) {
-            nodePayload.style = {
-              ...(Number.isFinite(dimensions.width) ? { width: dimensions.width } : {}),
-              ...(Number.isFinite(dimensions.height) ? { height: dimensions.height } : {}),
-            };
-          }
-          createdNodes.push(nodePayload);
-          for (const child of n.nodes ?? []) walk(child, idStr, depth + 1);
-        };
-        walk(surface as unknown as GNode);
-
-        const createdEdges: Edge[] = [];
-
-        // Compute idCounter from max id
-        const maxId = Math.max(...Object.keys(all).map((s) => Number(s)));
-        idCounter.current = maxId;
-
-        // Default view path: surface -> fragment_pass
-        const surfaceId = String(surface.id);
-        const fragmentPassNode = (surface.nodes ?? []).find((n: any) => n?.type === "fragment_pass");
-        const vertexPassNode = (surface.nodes ?? []).find((n: any) => n?.type === "vertex_pass");
-        const defaultPath = fragmentPassNode
-          ? [surfaceId, String(fragmentPassNode.id)]
-          : vertexPassNode
-            ? [surfaceId, String(vertexPassNode.id)]
-            : [surfaceId];
-
-        // Apply state
+        idCounter.current = buildResult.maxId;
         resizingEditorIdsRef.current.clear();
         pendingGraphUpdateRef.current = false;
-        setNodes(attachNodesUpdateApi(createdNodes as any, nodeUpdaterApi) as any);
-        setEdges(createdEdges);
+        setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
+        setEdges(buildResult.edges);
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
-        setViewPath(defaultPath);
+        setViewPath(buildResult.defaultViewPath);
       } catch (err) {
         console.warn("Failed to create new graph", shading, err);
       }
@@ -1234,6 +924,7 @@ export function App() {
     } catch (err) {
       console.warn("Failed to fetch node template", item.path, err);
     }
+    if (template) templateCacheRef.current?.prime(item.type, template);
     const rfArgs: any = {
       id: nextId,
       item,
@@ -1250,11 +941,10 @@ export function App() {
 
   const deleteNodeById = useCallback(
     async (id: string) => {
-      const node = rf.getNode(id);
+      const node = nodesById.get(id);
       if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
       const removed = new Set<string>([id]);
-      const dependents = rf
-        .getNodes()
+      const dependents = nodesRef.current
         .filter((n) => n.id !== id)
         .filter((n) => {
           const tpl: any = (n.data as any)?.template;
@@ -1293,12 +983,12 @@ export function App() {
       );
       setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
     },
-    [loadTemplateDefaults, nodeUpdaterApi, rf, setEdges, setNodes]
+    [loadTemplateDefaults, nodeUpdaterApi, nodesById, setEdges, setNodes]
   );
 
   // Group selected nodes into a new container node with dynamic I/O
   const groupSelected = () => {
-    const selected = rf.getNodes().filter((n) => n.selected);
+    const selected = nodesRef.current.filter((n) => n.selected);
     if (!selected.length) return;
     const selectedIds = new Set(selected.map((n) => n.id));
     const idGen = () => String(++idCounter.current);
@@ -1325,7 +1015,7 @@ export function App() {
     const item = paletteByType.get("texture");
     if (!item) return;
     const { clientX, clientY } = event;
-        const projected = rf.screenToFlowPosition({ x: clientX, y: clientY });
+    const projected = rf.screenToFlowPosition({ x: clientX, y: clientY });
     const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
     const position = parentNode
       ? { x: projected.x - parentNode.position.x, y: projected.y - parentNode.position.y }
@@ -1481,9 +1171,9 @@ export function App() {
 
   return (
     <GraphStateProvider value={graphStateValue}>
-      <AppShell header={Header}> 
+      <AppShell header={Header}>
         <div ref={flowContainerRef} className="w-full h-full relative">
-        <ReactFlow
+          <ReactFlow
           nodes={visibleNodes}
           edges={visibleEdges}
           nodeTypes={{ graphNode: GraphNode }}
@@ -1529,26 +1219,27 @@ export function App() {
           }}
           fitView
         >
-          <Background />
-          <Controls />
-          <MiniMap />
-        </ReactFlow>
-        <GraphContextMenu
+            <Background />
+            <Controls />
+            <MiniMap />
+          </ReactFlow>
+          <GraphContextMenu
           open={menu.open}
           kind={menu.kind}
           x={menu.x}
           y={menu.y}
           {...(menu.targetId ? { targetId: menu.targetId } : {})}
           {...(palette ? { palette } : {})}
-          selectedCount={rf.getNodes().filter((n) => n.selected).length}
+          selectedCount={selectedCount}
           onGroupSelected={() => {
             groupSelected();
             setMenu((m) => ({ ...m, open: false }));
           }}
           canUngroup={(() => {
             if (!menu.targetId) return false;
-            const n = rf.getNode(menu.targetId);
-            return (n?.data as any)?.type === "group";
+            const target = nodesById.get(menu.targetId);
+            const type = (target?.data as any)?.template?.type ?? (target?.data as any)?.type;
+            return type === "group";
           })()}
           onUngroupNode={(id) => {
             ungroupGroup(id);
@@ -1566,11 +1257,9 @@ export function App() {
           }}
           onClose={() => setMenu((m) => ({ ...m, open: false }))}
         />
-      </div>
+        </div>
       </AppShell>
     </GraphStateProvider>
   );
 }
-
 export default App;
-import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
