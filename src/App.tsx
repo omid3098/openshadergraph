@@ -20,6 +20,7 @@ import { GraphContextMenu, type ContextKind } from "./components/GraphContextMen
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
 import { GraphNode } from "./components/GraphNode";
+import ColoredEdge from "./components/ColoredEdge";
 import { buildRFNodeFromTemplate, parseEditorSize } from "./core/ui/nodeFactory";
 import {
   attachNodeUpdateApi,
@@ -1354,6 +1355,8 @@ export function App() {
           nodes={visibleNodes}
           edges={visibleEdges}
           nodeTypes={{ graphNode: GraphNode }}
+          edgeTypes={{ colored: ColoredEdge as any }}
+          defaultEdgeOptions={{ type: "colored" as any }}
           isValidConnection={(conn) => isConnectionCompatible(nodesRef.current as any, conn)}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
