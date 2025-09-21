@@ -33,6 +33,9 @@ export function arePinTypesCompatible(source: NormalizedPinType, target: Normali
   if (source === target) return true;
   // Scalar broadcast to vectors
   if (source === "float" && (target === "float2" || target === "float3" || target === "float4")) return true;
+  // Vector downcast (drop components): allow float4->float3/2 and float3->float2
+  if (source === "float4" && (target === "float3" || target === "float2")) return true;
+  if (source === "float3" && target === "float2") return true;
   // Texture/sampler types must match their precise kind
   const isSamplerSrc = source.startsWith("sampler");
   const isSamplerDst = target.startsWith("sampler");

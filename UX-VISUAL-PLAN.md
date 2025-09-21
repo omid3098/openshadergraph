@@ -41,7 +41,7 @@ This document tracks the plan and implementation status for improving node and c
 
 3. Phase 3 – Assistive features
    - Adapter suggestions (auto-insert helpers)
-   - Asset manifest export and compile-only view toggle
+   - Usage guideline for target platforms (replaces asset manifest export)
 
 ### Implementation Notes
 
@@ -71,8 +71,8 @@ Delivered in Phase 1:
 
 Next (Phase 2 – Validation & feedback):
 
-- Type compatibility checks in connect flow (block mismatches)
-- Drag feedback colors (valid/invalid) and a micro-toast on mismatch
+- Type compatibility checks in connect flow (block mismatches) [done]
+- Drag feedback colors (valid/invalid) and a micro-toast on mismatch [skipped]
 
 ### Future Tests (Phase 2/3)
 

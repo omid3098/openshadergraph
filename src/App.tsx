@@ -140,7 +140,20 @@ export function App() {
       console.warn("Type mismatch: blocking connection", params);
       return;
     }
-    setEdges((eds) => connectSingleInputEdge(eds, params));
+    setEdges((eds) => {
+      const next = connectSingleInputEdge(eds, params);
+      // annotate dashed edges when either endpoint is an editor node
+      const isEditorNode = (id: string) => {
+        const n = nodesById.get(id);
+        const meta: any[] = Array.isArray((n?.data as any)?.template?.meta) ? (n!.data as any).template.meta : [];
+        return meta.includes("editor_node");
+      };
+      if (params.source && params.target && (isEditorNode(params.source) || isEditorNode(params.target))) {
+        const edgeId = `e${params.source}-${params.target}-${params.sourceHandle}-${params.targetHandle}`;
+        return next.map((e) => (e.id === edgeId ? { ...e, style: { ...(e.style ?? {}), strokeDasharray: "4 3" } } : e));
+      }
+      return next;
+    });
   };
 
   const paletteByType = useMemo(() => {
