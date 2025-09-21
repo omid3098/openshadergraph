@@ -79,4 +79,12 @@ export function isConnectionCompatible(nodes: Node[], conn: { source?: string | 
   return arePinTypesCompatible(sourceType, targetType);
 }
 
+// Helpers for edge coloring (optional callers)
+export function getSourceType(nodes: Node[], e: { source?: string | null; sourceHandle?: string | null }) {
+  return getPinTypeFor(nodes, String(e.source ?? ""), e.sourceHandle ?? undefined);
+}
+export function getTargetType(nodes: Node[], e: { target?: string | null; targetHandle?: string | null }) {
+  return getPinTypeFor(nodes, String(e.target ?? ""), e.targetHandle ?? undefined);
+}
+
 

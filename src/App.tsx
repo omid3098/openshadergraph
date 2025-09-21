@@ -14,7 +14,7 @@ import {
   type Node,
   type NodeChange,
 } from "@xyflow/react";
-import { isConnectionCompatible } from "@/core/ui/compat";
+import { isConnectionCompatible, getSourceType, getTargetType } from "@/core/ui/compat";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
@@ -142,7 +142,8 @@ export function App() {
       return;
     }
     setEdges((eds) => {
-      const next = connectSingleInputEdge(eds, params);
+      const nextRaw = connectSingleInputEdge(eds, params);
+      const next = ensureColoredEdges(nextRaw);
       // annotate dashed edges when either endpoint is an editor node
       const isEditorNode = (id: string) => {
         const n = nodesById.get(id);
@@ -209,6 +210,33 @@ export function App() {
   useEffect(() => { edgesRef.current = edges; }, [edges]);
   const graphNameRef = useRef(graphName);
   useEffect(() => { graphNameRef.current = graphName; }, [graphName]);
+
+  const ensureColoredEdges = useCallback((list: Edge[]): Edge[] => {
+    const nodesNow = nodesRef.current as any as Node[];
+    return list.map((e) => {
+      const typed = (e && (e as any).type) ? e : ({ ...e, type: "colored" as any } as any);
+      const srcType = (e as any)?.data?.sourceType ?? ((e?.source && e?.sourceHandle) ? getSourceType(nodesNow as any, e as any) : undefined);
+      const dstType = (e as any)?.data?.targetType ?? ((e?.target && e?.targetHandle) ? getTargetType(nodesNow as any, e as any) : undefined);
+      if (srcType || dstType) {
+        return { ...typed, data: { ...(typed as any).data, sourceType: srcType, targetType: dstType } } as any;
+      }
+      return typed;
+    });
+  }, []);
+
+  // Backfill existing edges (from older sessions) with colored type and pin types
+  useEffect(() => {
+    setEdges((prev) => {
+      let needsUpdate = false;
+      for (const e of prev) {
+        if (!(e as any).type || !(e as any).data || !(e as any).data.sourceType || !(e as any).data.targetType) {
+          needsUpdate = true;
+          break;
+        }
+      }
+      return needsUpdate ? ensureColoredEdges(prev) : prev;
+    });
+  }, [ensureColoredEdges, setEdges]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -644,13 +672,13 @@ export function App() {
       pendingGraphUpdateRef.current = false;
 
       setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
-      setEdges(buildResult.edges);
+      setEdges(ensureColoredEdges(buildResult.edges));
       setGraphName(label ?? "UntitledGraph");
       setViewPath(buildResult.defaultViewPath);
       // Request a one-time fitView after nodes render for this load
       fitAfterLoadRef.current = true;
     },
-    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath]
+    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, ensureColoredEdges]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
@@ -1017,7 +1045,7 @@ export function App() {
         resizingEditorIdsRef.current.clear();
         pendingGraphUpdateRef.current = false;
         setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
-        setEdges(buildResult.edges);
+        setEdges(ensureColoredEdges(buildResult.edges));
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setViewPath(buildResult.defaultViewPath);
         // Request a one-time fitView after nodes render for this new graph
@@ -1026,7 +1054,7 @@ export function App() {
         console.warn("Failed to create new graph", shading, err);
       }
     },
-    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
+    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi, ensureColoredEdges]
   );
 
   // Fetch example graphs and load the first by default (only if no recent graph was loaded)
@@ -1131,14 +1159,14 @@ export function App() {
     const idGen = () => String(++idCounter.current);
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
-    setEdges(res.edges as any);
+    setEdges(ensureColoredEdges(res.edges as any));
   };
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
-    setEdges(res.edges as any);
+    setEdges(ensureColoredEdges(res.edges as any));
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 

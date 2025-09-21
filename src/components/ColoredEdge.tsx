@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { EdgeProps } from "@xyflow/react";
-import { getBezierPath } from "@xyflow/react";
+import { getBezierPath, useReactFlow } from "@xyflow/react";
 import { normalizePinType, type NormalizedPinType } from "@/core/ui/compat";
 import { THEME } from "@/styles/theme";
 
@@ -39,11 +39,14 @@ function getPinTypeFromNode(node: any, handleId: string | null | undefined, dir:
 }
 
 export default function ColoredEdge(props: EdgeProps) {
-  const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style, sourceNode, targetNode, sourceHandle, targetHandle, selected } = props as any;
+  const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style, source, target, sourceHandle, targetHandle, selected, data } = props as any;
+  const rf = useReactFlow();
+  const sourceNode = source ? rf.getNode(source) : undefined;
+  const targetNode = target ? rf.getNode(target) : undefined;
   const [edgePath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-  const sourceType = getPinTypeFromNode(sourceNode, sourceHandle, "out");
-  const targetType = getPinTypeFromNode(targetNode, targetHandle, "in");
+  const sourceType = data?.sourceType ?? getPinTypeFromNode(sourceNode, sourceHandle, "out");
+  const targetType = data?.targetType ?? getPinTypeFromNode(targetNode, targetHandle, "in");
   const sourceKey = mapNormalizedToThemeKey(sourceType);
   const targetKey = mapNormalizedToThemeKey(targetType);
   const colorStart = THEME.pinColors[sourceKey] ?? THEME.selectionColor;
@@ -51,6 +54,15 @@ export default function ColoredEdge(props: EdgeProps) {
   const gradientId = `edge-gradient-${id}`;
 
   const strokeWidth = selected ? 3.5 : 3;
+
+  // Avoid any external style "stroke" overriding our gradient
+  const cleanedStyle = (() => {
+    const next = { ...(style ?? {}) } as any;
+    if (next && typeof next === "object" && "stroke" in next) {
+      delete (next as any).stroke;
+    }
+    return next;
+  })();
 
   return (
     <g>
@@ -66,7 +78,7 @@ export default function ColoredEdge(props: EdgeProps) {
         fill="none"
         stroke={`url(#${gradientId})`}
         strokeWidth={strokeWidth}
-        style={style}
+        style={cleanedStyle}
         markerEnd={markerEnd}
       />
     </g>
