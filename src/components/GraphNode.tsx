@@ -412,19 +412,16 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 }
                 if (prop.type === "boolean") {
                   const boolValue = Boolean(value);
+                  const checkboxId = `prop-${String(prop.id)}`;
                   return (
-                    <div key={prop.id} className="flex flex-col gap-1">
-                      <label className="text-[11px] text-muted-foreground">{label}</label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          variant={boolValue ? "default" : "outline"}
-                          onClick={() => updatePropertyValue(prop.id, !boolValue)}
-                        >
-                          {boolValue ? "Enabled" : "Disabled"}
-                        </Button>
-                      </div>
+                    <div key={prop.id} className="flex items-center gap-2">
+                      <input
+                        id={checkboxId}
+                        type="checkbox"
+                        checked={boolValue}
+                        onChange={(e) => updatePropertyValue(prop.id, e.currentTarget.checked)}
+                      />
+                      <label htmlFor={checkboxId} className="text-[11px] text-muted-foreground select-none">{label}</label>
                     </div>
                   );
                 }

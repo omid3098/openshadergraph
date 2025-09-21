@@ -138,6 +138,91 @@ export function App() {
     const nodesNow = nodesRef.current;
     const ok = isConnectionCompatible(nodesNow as any, params);
     if (!ok) {
+      // Attempt adapter insertion for known cases (sampler2D->float/vecN, float->vecN, vec4->vec3, vec3->vec4)
+      const srcType = getSourceType(nodesRef.current as any, params as any);
+      const dstType = getTargetType(nodesRef.current as any, params as any);
+      const paletteGet = (t: string) => paletteByType.get(t);
+
+      const insertAndConnect = async (item: NodePaletteItem, position: { x: number; y: number }, template?: NodeTemplate, hookups?: (id: string) => void) => {
+        const nextId = String(++idCounter.current);
+        const rfArgs: any = { id: nextId, item, position, nodeDefaults };
+        if (template) rfArgs.template = template;
+        const rfNode = buildRFNodeFromTemplate(rfArgs);
+        const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
+        setNodes((prev) => [...prev, decoratedNode as any]);
+        if (hookups) hookups(nextId);
+      };
+
+      const srcNode = rf.getNode(String(params.source));
+      const dstNode = rf.getNode(String(params.target));
+      const mid = (() => {
+        const sx = srcNode?.position?.x ?? 0; const sy = srcNode?.position?.y ?? 0;
+        const tx = dstNode?.position?.x ?? 0; const ty = dstNode?.position?.y ?? 0;
+        return { x: Math.round((sx + tx) / 2), y: Math.round((sy + ty) / 2) };
+      })();
+
+      // 1) TextureSampler
+      if (srcType === "sampler2d" && (dstType === "float3" || dstType === "float4" || dstType === "float2" || dstType === "float")) {
+        const item = paletteGet("texture_sampler");
+        if (item) {
+          (async () => {
+            let template: NodeTemplate | undefined;
+            try { template = await fetchNodeTemplate(item.path); } catch (_err) { /* ignore */ }
+            await insertAndConnect(item, mid, template, (id) => {
+              const toSampler: Connection = { source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-0" } as any;
+              const outHandle = dstType === "float" ? "out-1" : "out-0";
+              const fromSampler: Connection = { source: id, sourceHandle: outHandle, target: String(params.target), targetHandle: params.targetHandle } as any;
+              setEdges((eds) => ensureColoredEdges(connectSingleInputEdge(connectSingleInputEdge(eds, toSampler), fromSampler)));
+            });
+          })();
+          return;
+        }
+      }
+
+      // 2) Broadcast float -> vecN via combineN
+      if (srcType === "float" && (dstType === "float2" || dstType === "float3" || dstType === "float4")) {
+        const map: Record<string, string> = { float2: "combine2", float3: "combine3", float4: "combine4" };
+        const item = paletteGet(map[dstType]);
+        if (item) {
+          (async () => {
+            let template: NodeTemplate | undefined;
+            try { template = await fetchNodeTemplate(item.path); } catch (_err) { /* ignore */ }
+            await insertAndConnect(item, mid, template, (id) => {
+              const connects: Connection[] = [];
+              connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-0" } as any);
+              connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-1" } as any);
+              if (dstType === "float3" || dstType === "float4") connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-2" } as any);
+              if (dstType === "float4") connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-3" } as any);
+              connects.push({ source: id, sourceHandle: "out-0", target: String(params.target), targetHandle: params.targetHandle } as any);
+              setEdges((eds) => ensureColoredEdges(connects.reduce((acc, c) => connectSingleInputEdge(acc, c), eds)));
+            });
+          })();
+          return;
+        }
+      }
+
+      // 3) vec4 -> vec3 (drop alpha) or vec3 -> vec4 (alpha=1)
+      if ((srcType === "float4" && dstType === "float3") || (srcType === "float3" && dstType === "float4")) {
+        const combineKey = srcType === "float4" && dstType === "float3" ? "combine3" : "combine4";
+        const item = paletteGet(combineKey);
+        if (item) {
+          (async () => {
+            let template: NodeTemplate | undefined;
+            try { template = await fetchNodeTemplate(item.path); } catch (_err) { /* ignore */ }
+            await insertAndConnect(item, mid, template, (id) => {
+              const connects: Connection[] = [];
+              // Connect src to x,y,z; for vec4->vec3 we drop w, for vec3->vec4 w uses default=1
+              connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-0" } as any);
+              connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-1" } as any);
+              connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-2" } as any);
+              connects.push({ source: id, sourceHandle: "out-0", target: String(params.target), targetHandle: params.targetHandle } as any);
+              setEdges((eds) => ensureColoredEdges(connects.reduce((acc, c) => connectSingleInputEdge(acc, c), eds)));
+            });
+          })();
+          return;
+        }
+      }
+
       console.warn("Type mismatch: blocking connection", params);
       return;
     }
@@ -236,7 +321,7 @@ export function App() {
       }
       return needsUpdate ? ensureColoredEdges(prev) : prev;
     });
-  }, [ensureColoredEdges, setEdges]);
+  }, [ensureColoredEdges, setEdges, nodes]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -414,8 +499,9 @@ export function App() {
   }, [nodes, currentParentId, showCompileOnly]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
   const visibleEdges = useMemo(() => {
-    return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
-  }, [edges, visibleNodeIds]);
+    const filtered = edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+    return ensureColoredEdges(filtered);
+  }, [edges, visibleNodeIds, ensureColoredEdges]);
 
   const activeEditorPanels = useMemo(() => {
     const set = new Set<EditorPanelKey>();

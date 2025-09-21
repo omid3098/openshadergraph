@@ -682,7 +682,12 @@ export class GraphCompiler {
 
   private compile_node(node: GraphNode) {
     if (this.has_code(node)) return;
-    if (Array.isArray(node.meta) && (node.meta.includes("editor_node") || node.meta.includes("exposed"))) {
+    const props = Array.isArray(node.properties) ? node.properties : [];
+    const isExposedProperty = !!props.find((p: any) => p && p.id === "expose" && !!(p as any).value);
+    if (
+      (Array.isArray(node.meta) && (node.meta.includes("editor_node") || node.meta.includes("exposed"))) ||
+      isExposedProperty
+    ) {
       this.setNodeCode(node, "");
       return;
     }
@@ -791,7 +796,9 @@ export class GraphCompiler {
   }
 
   private collect_exposed_nodes(node: GraphNode, exposed: string[]) {
-    if (Array.isArray(node.meta) && node.meta.includes("exposed")) {
+    const props = Array.isArray(node.properties) ? node.properties : [];
+    const isExposedProperty = !!props.find((p: any) => p && p.id === "expose" && !!(p as any).value);
+    if ((Array.isArray(node.meta) && node.meta.includes("exposed")) || isExposedProperty) {
       const definition = this.renderExposedDefinition(node);
       const wrapper = this.lang_def.meta?.["exposed"]?.template ?? "{{definition}}";
       exposed.push(wrapper.replace("{{definition}}", definition));

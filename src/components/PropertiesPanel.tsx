@@ -243,17 +243,16 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
                   if (prop.type === "boolean") {
                     const boolValue = Boolean(value);
                     return (
-                      <div key={prop.id} className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">{prop.label ?? prop.id}</label>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant={boolValue ? "default" : "outline"}
-                            onClick={() => updateProperty(prop.id, !boolValue)}
-                          >
-                            {boolValue ? "Enabled" : "Disabled"}
-                          </Button>
-                        </div>
+                      <div key={prop.id} className="flex items-center gap-2">
+                        <input
+                          id={`prop-${prop.id}`}
+                          type="checkbox"
+                          checked={boolValue}
+                          onChange={(e) => updateProperty(prop.id, e.currentTarget.checked)}
+                        />
+                        <label htmlFor={`prop-${prop.id}`} className="text-xs text-muted-foreground select-none">
+                          {prop.label ?? prop.id}
+                        </label>
                       </div>
                     );
                   }

@@ -24,5 +24,13 @@
       "name": "out",
       "type": "float"
     }
+  ],
+  "properties": [
+    {
+      "id": "expose",
+      "label": "Expose",
+      "type": "boolean",
+      "default": false
+    }
   ]
 }

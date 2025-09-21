@@ -18,7 +18,15 @@
       "template": "// __VERTEX_PASS_BEGIN__\n{{internal_nodes}}// __VERTEX_PASS_END__\n"
     },
     "fragment_pass": {
-      "template": "void main() {\n{{internal_nodes}}\n}\n"
+      "template": "void main() {\n{{internal_nodes}}\n}\n",
+      "properties": {
+        "blend_mode": {
+          "opaque": { "template": "", "placement": "meta" },
+          "transparent": { "template": "// three: enable blending (transparent)\n", "placement": "meta" },
+          "add": { "template": "// three: enable additive blending\n", "placement": "meta" },
+          "multiply": { "template": "// three: enable multiply blending\n", "placement": "meta" }
+        }
+      }
     },
     "color": {
       "template": "vec4 {{name}} = vec4({{inputs:0}});"

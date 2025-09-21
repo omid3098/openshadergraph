@@ -18,7 +18,21 @@
       "template": "void vertex() {\n{{internal_nodes}}}\n"
     },
     "fragment_pass": {
-      "template": "void fragment() {\n{{internal_nodes}}}\n"
+      "template": "void fragment() {\n{{internal_nodes}}}\n",
+      "properties": {
+        "blend_mode": {
+          "opaque": { "template": "", "placement": "meta" },
+          "transparent": { "template": "render_mode blend_mix;", "placement": "meta" },
+          "add": { "template": "render_mode blend_add;", "placement": "meta" },
+          "multiply": { "template": "render_mode blend_mul;", "placement": "meta" }
+        },
+        "feature_transmission": { "true": { "template": "render_mode transmission;", "placement": "meta" } },
+        "feature_subsurface_scattering": { "true": { "template": "render_mode subsurface_scattering;", "placement": "meta" } },
+        "feature_sheen": { "true": { "template": "render_mode sheen;", "placement": "meta" } },
+        "feature_anisotropic": { "true": { "template": "render_mode anisotropic;", "placement": "meta" } },
+        "feature_refraction": { "true": { "template": "render_mode refraction;", "placement": "meta" } },
+        "feature_backlight": { "true": { "template": "render_mode backlight;", "placement": "meta" } }
+      }
     },
     "color": {
       "template": "vec4 {{name}} = vec4({{inputs:0}});"

@@ -70,6 +70,19 @@ Minimal graph rules:
 
 These are non-negotiable to ship green and stay maintainable.
 
+### Meta vs Properties Policy (Hard Rules)
+
+- Properties-first: Any user-configurable option that affects generated shader code or runtime parameters MUST be a property, not meta.
+  - Examples: `shading_model`, render/blend modes, asset bindings (`source`, `texture_source`, `model_source`), boolean/enum feature toggles, and constant exposure/uniform toggles.
+- Meta is reserved for editor/infra only and MUST NOT change shader semantics:
+  - Allowed: `editor_node`, `editor_panel:*`, `editor_size:WxH`, transient UI tokens/objects that are stripped on save.
+  - Disallowed: `shading_*`, `asset:*`, `exposed`, or any token that affects shader output. Use properties instead.
+- Render/blend/engine modes live as properties on the owning pass (prefer `fragment_pass`). The language pack maps these properties to code with `placement: "meta"` when needed.
+- Exposed uniforms: Implement via a property (e.g., `expose` or `is_uniform`) on nodes that support it. The compiler suppresses node body code based on that property and relies on the property template (with `placement: "meta"`) to emit uniform definitions. Do not gate this behavior on meta.
+- Assets: Use `asset`-typed properties only. Do not use `asset:<id>` meta tokens as a transport. Serialization may normalize property values (e.g., swap data URI → stable asset id) without writing meta.
+- Graph-level meta: Avoid for shader configuration. Prefer properties on `surface` or the owning pass.
+- Meta hygiene: Treat `meta` as `string[]` in canonical data. UI-only/transient objects (e.g., polymorphic helpers) must not be rendered as text and must be filtered out during graph build.
+
 ## Quick Commands
 
 - Run unit tests: `bun run test`
