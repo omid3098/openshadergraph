@@ -23,6 +23,8 @@ This document tracks the plan and implementation status for improving node and c
   - transform: blue band
   - output: violet band
 - Pins: color + shape cues (circles for numeric/color, squares for textures/samplers, diamonds for bool, hex for int). Edge color inherits from source pin color (later phases).
+- Headers use compact icons instead of category text; icon placed left of node title (keeps header compact).
+- Card corners remain rounded; header inherits rounded top corners.
 
 ### Phases
 
@@ -55,10 +57,22 @@ This document tracks the plan and implementation status for improving node and c
 ### Status Checklist
 
 - [x] Plan document created
-- [ ] Phase 1: Theme tokens for categories and pins
-- [ ] Phase 1: Node header bands + badges
-- [ ] Phase 1: Pin color/shape mapping for Handles
-- [ ] Lint + tests green
+- [x] Phase 1: Theme tokens for categories and pins
+- [x] Phase 1: Node header bands + badges (icons only, no text; icon left of title; rounded top)
+- [x] Phase 1: Pin color/shape mapping for Handles
+- [x] Lint + tests green
+
+Delivered in Phase 1:
+
+- Category header bands and compact iconography (Editor, Asset, Input, Output, Transform)
+- Pin shapes and colors applied to Handles
+- Restored rounded node headers for consistent curvature
+- No behavioral changes (compile/serde untouched)
+
+Next (Phase 2 – Validation & feedback):
+
+- Type compatibility checks in connect flow (block mismatches)
+- Drag feedback colors (valid/invalid) and a micro-toast on mismatch
 
 ### Future Tests (Phase 2/3)
 

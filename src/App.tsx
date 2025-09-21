@@ -14,6 +14,7 @@ import {
   type Node,
   type NodeChange,
 } from "@xyflow/react";
+import { isConnectionCompatible } from "@/core/ui/compat";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
@@ -125,14 +126,22 @@ export function App() {
     y: number;
     targetId?: string;
   }>({ open: false, kind: "background", x: 0, y: 0 });
+  const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
   const startupAttemptedRef = useRef(false);
   const fitAfterLoadRef = useRef(false);
 
-  const onConnect = (params: Connection) =>
+  const onConnect = (params: Connection) => {
+    const nodesNow = nodesRef.current;
+    const ok = isConnectionCompatible(nodesNow as any, params);
+    if (!ok) {
+      console.warn("Type mismatch: blocking connection", params);
+      return;
+    }
     setEdges((eds) => connectSingleInputEdge(eds, params));
+  };
 
   const paletteByType = useMemo(() => {
     const map = new Map<string, NodePaletteItem>();
@@ -354,8 +363,13 @@ export function App() {
   // Visible graph based on current viewPath (root vs. inside a group)
   const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
   const visibleNodes = useMemo(() => {
-    return prepareVisibleNodes(nodes as any, currentParentId) as any;
-  }, [nodes, currentParentId]);
+    const base = prepareVisibleNodes(nodes as any, currentParentId) as any;
+    if (!showCompileOnly) return base;
+    return base.filter((n: any) => {
+      const meta: any[] = Array.isArray((n.data as any)?.template?.meta) ? (n.data as any).template.meta : [];
+      return !meta.includes("editor_node");
+    });
+  }, [nodes, currentParentId, showCompileOnly]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
   const visibleEdges = useMemo(() => {
     return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
@@ -1205,6 +1219,22 @@ export function App() {
           <MenubarMenu>
             <MenubarTrigger>View</MenubarTrigger>
             <MenubarContent>
+              <MenubarItem
+                data-state={showCompileOnly ? "checked" : "unchecked"}
+                onClick={() => setShowCompileOnly((v) => !v)}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    {showCompileOnly ? (
+                      <Check aria-hidden="true" className="h-3 w-3" />
+                    ) : (
+                      <span aria-hidden="true" className="inline-block h-3 w-3" />
+                    )}
+                    <span>Compile-only view</span>
+                  </span>
+                </div>
+              </MenubarItem>
+              <MenubarSeparator />
               {VIEW_MENU_ITEMS.map(({ key, label, hotkey }) => {
                 const active = activeEditorPanels.has(key);
                 return (
@@ -1311,6 +1341,7 @@ export function App() {
           nodes={visibleNodes}
           edges={visibleEdges}
           nodeTypes={{ graphNode: GraphNode }}
+          isValidConnection={(conn) => isConnectionCompatible(nodesRef.current as any, conn)}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
