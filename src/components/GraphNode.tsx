@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, NodeResizer, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -19,6 +19,7 @@ import { GraphDataPanel } from "./GraphDataPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { AssetsPanel } from "./AssetsPanel";
 import { getBuiltinDisplayLabel, isBuiltinToken } from "@/core/types/builtinInputs";
+import { Paperclip, ArrowDownLeft, ArrowUpRight, SlidersHorizontal, PanelsTopLeft } from "lucide-react";
 
 type Pin = {
   id?: number;
@@ -56,11 +57,17 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const HANDLE_SIZE = 8; // px
   const HANDLE_OFFSET = -Math.ceil(HANDLE_SIZE / 2 + 8);
   const name = data?.label ?? data?.type ?? "Node";
-  const inputs: Pin[] = Array.isArray(data?.template?.inputs) ? data!.template!.inputs! : [];
-  const outputs: Pin[] = Array.isArray(data?.template?.outputs) ? data!.template!.outputs! : [];
-  const properties: NodeProperty[] = Array.isArray(data?.template?.properties)
-    ? ((data!.template!.properties! as unknown) as NodeProperty[])
-    : [];
+  const inputs: Pin[] = useMemo(() => {
+    return Array.isArray(data?.template?.inputs) ? (data!.template!.inputs! as Pin[]) : [];
+  }, [data]);
+  const outputs: Pin[] = useMemo(() => {
+    return Array.isArray(data?.template?.outputs) ? (data!.template!.outputs! as Pin[]) : [];
+  }, [data]);
+  const properties: NodeProperty[] = useMemo(() => {
+    return Array.isArray(data?.template?.properties)
+      ? ((data!.template!.properties! as unknown) as NodeProperty[])
+      : [];
+  }, [data]);
   const nodeId = useNodeId();
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
@@ -70,6 +77,74 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
   const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
   const currentAsset = (data as any)?.asset as NodeAssetPayload | undefined;
+
+  const hasAssetProperty = useMemo(() => {
+    if (!Array.isArray(properties)) return false;
+    return properties.some((p: any) => p && typeof p === "object" && p.type === "asset");
+  }, [properties]);
+
+  type NodeCategory = "editor" | "asset" | "input" | "transform" | "output";
+  const category: NodeCategory = useMemo(() => {
+    if (isEditor) return "editor";
+    const t = (data?.template?.type ?? data?.type ?? "").toLowerCase();
+    if (t.endsWith("_output") || t === "vertex_output" || t === "fragment_output") return "output";
+    if (currentAsset || hasAssetProperty) return "asset";
+    const hasNoInputs = (Array.isArray(inputs) ? inputs.length : 0) === 0;
+    const hasOutputs = (Array.isArray(outputs) ? outputs.length : 0) > 0;
+    if (hasNoInputs && hasOutputs) return "input";
+    return "transform";
+  }, [isEditor, data, currentAsset, hasAssetProperty, inputs, outputs]);
+
+  const headerStyle = useMemo(() => {
+    const defaultCategoryColors = {
+      editor: "#64748B",
+      asset: "#F59E0B",
+      input: "#10B981",
+      transform: "#3B82F6",
+      output: "#8B5CF6",
+    } as Record<string, string>;
+    const categoryColors = (THEME as any)?.categoryColors ?? defaultCategoryColors;
+    const color = categoryColors[category] ?? categoryColors.transform;
+    return { backgroundColor: color, color: "white" } as React.CSSProperties;
+  }, [category]);
+
+  function getPinTypeColor(type: string | string[] | undefined): { color: string; shape: "circle" | "square" | "diamond" } {
+    const defaultPinColors = {
+      scalar: "#2563EB",
+      vec2: "#7C3AED",
+      vec3: "#7C3AED",
+      vec4: "#7C3AED",
+      color: "#DB2777",
+      int: "#1E3A8A",
+      bool: "#0D9488",
+      mat3: "#6B7280",
+      mat4: "#6B7280",
+      texture2D: "#EA580C",
+      texture3D: "#C2410C",
+      textureCube: "#EA580C",
+      sampler: "#92400E",
+      uv: "#7C3AED",
+      normal: "#7C3AED",
+      position: "#7C3AED",
+    } as Record<string, string>;
+    const pinColors = (THEME as any)?.pinColors ?? defaultPinColors;
+    const t = Array.isArray(type) ? String(type[0] ?? "") : String(type ?? "");
+    const lower = t.toLowerCase();
+    const is = (needle: string) => lower.includes(needle);
+    if (is("sampler2d") || is("texture2d") || lower === "sampler2d") return { color: pinColors.texture2D, shape: "square" };
+    if (is("sampler3d") || is("texture3d") || lower === "sampler3d") return { color: pinColors.texture3D, shape: "square" };
+    if (is("samplercube") || is("texturecube") || lower === "samplercube") return { color: pinColors.textureCube, shape: "square" };
+    if (is("sampler")) return { color: pinColors.sampler, shape: "square" };
+    if (lower === "bool" || is("bool")) return { color: pinColors.bool, shape: "diamond" };
+    if (lower === "int" || is("int")) return { color: pinColors.int, shape: "square" };
+    if (lower === "float2" || is("float2") || lower === "vec2" || is("vec2") || lower === "uv") return { color: pinColors.vec2, shape: "circle" };
+    if (lower === "float3" || is("float3") || lower === "vec3" || is("vec3") || lower === "normal" || lower === "position") return { color: pinColors.vec3, shape: "circle" };
+    if (lower === "float4" || is("float4") || lower === "vec4" || is("vec4") || lower === "color") return { color: pinColors.vec4, shape: "circle" };
+    if (lower === "mat3" || is("mat3")) return { color: pinColors.mat3, shape: "square" };
+    if (lower === "mat4" || is("mat4")) return { color: pinColors.mat4, shape: "square" };
+    // default numeric scalar
+    return { color: pinColors.scalar, shape: "circle" };
+  }
 
   // Updater must be defined before effects that reference it
   const updateInputValue = useCallback(
@@ -187,8 +262,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             }
           }}
         >
-          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing">
-            <CardTitle className="text-sm">{name}</CardTitle>
+          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center rounded-t-xl" style={headerStyle}>
+            <div className="flex items-center gap-2">
+              <PanelsTopLeft className="h-3.5 w-3.5 text-white/90" />
+              <CardTitle className="text-sm text-white">{name}</CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-hidden">
             {renderEditorContent()}
@@ -208,8 +286,16 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         }
       }}
     >
-      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing">
-        <CardTitle className="text-sm">{name}</CardTitle>
+      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center rounded-t-xl" style={headerStyle}>
+        <div className="flex items-center gap-2">
+          {(() => {
+            if (category === "asset") return <Paperclip className="h-3.5 w-3.5 text-white/90" />;
+            if (category === "input") return <ArrowDownLeft className="h-3.5 w-3.5 text-white/90" />;
+            if (category === "output") return <ArrowUpRight className="h-3.5 w-3.5 text-white/90" />;
+            return <SlidersHorizontal className="h-3.5 w-3.5 text-white/90" />; // transform/default
+          })()}
+          <CardTitle className="text-sm text-white">{name}</CardTitle>
+        </div>
       </CardHeader>
       <CardContent className="px-3 pb-3">
         <div className={cn("gap-x-2 grid", outputs.length > 0 ? "grid-cols-2" : "grid-cols-1")}> 
@@ -222,6 +308,15 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
               const nodeType = data?.template?.type ?? data?.type ?? "";
               const showColor = !connected && nodeType === "color" && pin.name === "in" && Array.isArray(val) && val.length >= 3;
               const showDefaultWidget = !connected && (Array.isArray(val) || typeof builtinLabel === "string");
+              const { color: inColor, shape: inShape } = getPinTypeColor(pin.type);
+              const inHandleStyle: React.CSSProperties = {
+                left: HANDLE_OFFSET,
+                width: HANDLE_SIZE,
+                height: HANDLE_SIZE,
+                backgroundColor: inColor,
+                borderRadius: inShape === "circle" ? 9999 : 2,
+                transform: inShape === "diamond" ? "rotate(45deg)" : undefined,
+              };
               return (
                 <div key={`in-${pid}`} className="relative flex items-center gap-2 justify-between min-h-[24px] w-full">
                   {/* Mini default-value editor docked to the left of the node, similar to Unity */}
@@ -250,7 +345,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                     id={`in-${pid}`}
                     type="target"
                     position={Position.Left}
-                    style={{ left: HANDLE_OFFSET, width: HANDLE_SIZE, height: HANDLE_SIZE, borderRadius: 9999 }}
+                    style={inHandleStyle}
                   />
                   <span className="text-xs text-muted-foreground break-words max-w-[120px] leading-4" title={pin.name}>{pin.name}</span>
                 </div>
@@ -260,6 +355,15 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           <div className="flex flex-col gap-2 items-end">
             {outputs.map((pin, idx) => {
               const pid = typeof pin.id === "number" ? pin.id : idx;
+              const { color: outColor, shape: outShape } = getPinTypeColor(pin.type);
+              const outHandleStyle: React.CSSProperties = {
+                right: HANDLE_OFFSET,
+                width: HANDLE_SIZE,
+                height: HANDLE_SIZE,
+                backgroundColor: outColor,
+                borderRadius: outShape === "circle" ? 9999 : 2,
+                transform: outShape === "diamond" ? "rotate(45deg)" : undefined,
+              };
               return (
                 <div key={`out-${pid}`} className="relative flex items-center gap-2 min-h-[24px]">
                   <span className="text-xs text-muted-foreground break-words max-w-[120px] leading-4" title={pin.name}>{pin.name}</span>
@@ -267,7 +371,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                     id={`out-${pid}`}
                     type="source"
                     position={Position.Right}
-                    style={{ right: HANDLE_OFFSET, width: HANDLE_SIZE, height: HANDLE_SIZE, borderRadius: 9999 }}
+                    style={outHandleStyle}
                   />
                 </div>
               );
