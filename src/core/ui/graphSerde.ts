@@ -172,7 +172,7 @@ function diffNode(node: GraphNode, defaultsById: TemplateById, assets: AssetByNo
 
   const defaults = defaultsById.get(node.id);
 
-  const assetMetaToAppend: string[] = [];
+  const _assetMetaToAppend: string[] = [];
 
   if (node.name && (!defaults || node.name !== defaults.name)) {
     result.name = node.name;

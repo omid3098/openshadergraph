@@ -67,6 +67,21 @@ describe("ThreeJS GLSL shader generation", () => {
     await expect(fs.stat(out_file)).resolves.toBeDefined();
   });
 
+  it("unlit shading compiles for empty PBR graph when switching shading_model", async () => {
+    const { surface, fragment_output } = basic_color_graph();
+    // Explicitly set shading_model to unlit via properties to simulate UI change
+    const props = ((fragment_output as any).properties ?? ((fragment_output as any).properties = [])) as any[];
+    const existing = props.find((p) => p && p.id === "shading_model");
+    if (existing) existing.value = "unlit"; else props.push({ id: "shading_model", type: "enum", value: "unlit" });
+    const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "unlit_basic");
+    const { fragment } = extractPreviewShaders(shader_code);
+    // Should select unlit branch and produce a single main with gl_FragColor assignment
+    expect(fragment).toMatch(/#define SHADING_UNLIT 1/);
+    const countMain = (fragment.match(/\bvoid\s+main\s*\(\s*\)/g) ?? []).length;
+    expect(countMain).toBe(1);
+    expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(/);
+  });
+
   it("addition shader", async () => {
     const { surface } = addition_graph();
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "addition");
