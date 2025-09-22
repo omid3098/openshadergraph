@@ -428,6 +428,7 @@ export function App() {
 
   const resizingEditorIdsRef = useRef(new Set<string>());
   const pendingGraphUpdateRef = useRef(false);
+  const draggingNodeIdsRef = useRef(new Set<string>());
 
   const recomputeGraphData = useCallback(() => {
     const next = buildGraphData(nodesRef.current as any, edgesRef.current as any, graphNameRef.current);
@@ -435,7 +436,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (resizingEditorIdsRef.current.size > 0) {
+    if (resizingEditorIdsRef.current.size > 0 || draggingNodeIdsRef.current.size > 0) {
       pendingGraphUpdateRef.current = true;
       return;
     }
@@ -1606,6 +1607,30 @@ export function App() {
               // ignore
             } finally {
               connectDragRef.current = null;
+            }
+          }}
+          onNodeDragStart={(_e, node) => {
+            try {
+              draggingNodeIdsRef.current.add(node.id);
+              pendingGraphUpdateRef.current = true;
+            } catch (_err) {
+              // ignore
+            }
+          }}
+          onNodeDragStop={(_e, node) => {
+            try {
+              draggingNodeIdsRef.current.delete(node.id);
+              if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+                pendingGraphUpdateRef.current = false;
+                const flush = () => recomputeGraphData();
+                if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+                  window.requestAnimationFrame(flush);
+                } else {
+                  setTimeout(flush, 0);
+                }
+              }
+            } catch (_err) {
+              // ignore
             }
           }}
           panOnDrag={[1]}
