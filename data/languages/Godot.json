@@ -25,13 +25,7 @@
           "transparent": { "template": "render_mode blend_mix;", "placement": "meta" },
           "add": { "template": "render_mode blend_add;", "placement": "meta" },
           "multiply": { "template": "render_mode blend_mul;", "placement": "meta" }
-        },
-        "feature_transmission": { "true": { "template": "render_mode transmission;", "placement": "meta" } },
-        "feature_subsurface_scattering": { "true": { "template": "render_mode subsurface_scattering;", "placement": "meta" } },
-        "feature_sheen": { "true": { "template": "render_mode sheen;", "placement": "meta" } },
-        "feature_anisotropic": { "true": { "template": "render_mode anisotropic;", "placement": "meta" } },
-        "feature_refraction": { "true": { "template": "render_mode refraction;", "placement": "meta" } },
-        "feature_backlight": { "true": { "template": "render_mode backlight;", "placement": "meta" } }
+        }
       }
     },
     "color": {
@@ -65,7 +59,13 @@
             "template": "",
             "placement": "meta"
           }
-        }
+        },
+        "enable_transmission": { "true": { "template": "render_mode transmission;", "placement": "meta" } },
+        "enable_sss": { "true": { "template": "render_mode subsurface_scattering;", "placement": "meta" } },
+        "enable_sheen": { "true": { "template": "render_mode sheen;", "placement": "meta" } },
+        "enable_anisotropy": { "true": { "template": "render_mode anisotropic;", "placement": "meta" } },
+        "enable_refraction": { "true": { "template": "render_mode refraction;", "placement": "meta" } },
+        "enable_backlight": { "true": { "template": "render_mode backlight;", "placement": "meta" } }
       }
     },
     "add": {

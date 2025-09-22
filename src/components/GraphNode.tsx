@@ -217,13 +217,13 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <GraphDataPanel variant="node" data={graph} className="h-full" />;
     }
     if (key === "preview") {
-      return (
-        <PreviewPanel
-          variant="node"
-          graph={graph}
-          className="h-full"
-          asset={currentAsset ?? undefined}
-          getProperty={(propId: string) => {
+          return (
+            <PreviewPanel
+              variant="node"
+              graph={graph}
+              className="h-full"
+              asset={currentAsset ?? null}
+              getProperty={(propId: string) => {
             const props: any[] = Array.isArray((data as any)?.template?.properties)
               ? ((data as any).template.properties as any[])
               : [];
@@ -234,7 +234,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             if (!nodeId || !propId) return;
             updatePropertyValue(propId, next);
           }}
-          setAsset={(next) => updateNodeAsset(next ? { ...next } : null)}
+              setAsset={(next) => updateNodeAsset(next as any)}
         />
       );
     }
@@ -300,7 +300,24 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       <CardContent className="px-3 pb-3">
         <div className={cn("gap-x-2 grid", outputs.length > 0 ? "grid-cols-2" : "grid-cols-1")}> 
           <div className="flex flex-col gap-2">
-            {inputs.map((pin, idx) => {
+            {inputs
+              .filter((pin, idx) => {
+                const meta = Array.isArray((data as any)?.template?.meta) ? ((data as any).template.meta as any[]) : [];
+                // Find any object meta with uiPinGroups
+                const groupEntry = meta.find((m) => m && typeof m === "object" && Array.isArray((m as any).uiPinGroups));
+                if (!groupEntry) return true;
+                const groups: Array<{ enabledBy: string; pins: number[] }> = (groupEntry as any).uiPinGroups;
+                const props: any[] = Array.isArray(data?.template?.properties) ? ((data!.template!.properties! as unknown) as any[]) : [];
+                const isEnabled = (id: string) => Boolean(props.find((p) => p && p.id === id && !!p.value));
+                const pid = typeof pin.id === "number" ? pin.id : idx;
+                for (const g of groups) {
+                  if (Array.isArray(g.pins) && g.pins.includes(pid)) {
+                    return isEnabled(String(g.enabledBy));
+                  }
+                }
+                return true;
+              })
+              .map((pin, idx) => {
               const pid = typeof pin.id === "number" ? pin.id : idx;
               const connected = isConnected(pid);
               const val = Array.isArray(pin.value) ? (pin.value as number[]) : undefined;

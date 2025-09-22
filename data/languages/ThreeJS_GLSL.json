@@ -59,7 +59,13 @@
             "template": "#define SHADING_TOON 1",
             "placement": "meta"
           }
-        }
+        },
+        "enable_transmission": { "true": { "template": "// transmission enabled\n", "placement": "meta" } },
+        "enable_sss": { "true": { "template": "// subsurface_scattering enabled\n", "placement": "meta" } },
+        "enable_sheen": { "true": { "template": "// sheen enabled\n", "placement": "meta" } },
+        "enable_anisotropy": { "true": { "template": "// anisotropic enabled\n", "placement": "meta" } },
+        "enable_refraction": { "true": { "template": "// refraction enabled\n", "placement": "meta" } },
+        "enable_backlight": { "true": { "template": "// backlight enabled\n", "placement": "meta" } }
       }
     },
     "add": {

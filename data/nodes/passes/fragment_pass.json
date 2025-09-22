@@ -22,12 +22,6 @@
         { "value": "add", "label": "Add", "langKey": "add" },
         { "value": "multiply", "label": "Multiply", "langKey": "multiply" }
       ]
-    },
-    { "id": "feature_transmission", "label": "Transmission", "type": "boolean", "default": false },
-    { "id": "feature_subsurface_scattering", "label": "Subsurface Scattering", "type": "boolean", "default": false },
-    { "id": "feature_sheen", "label": "Sheen", "type": "boolean", "default": false },
-    { "id": "feature_anisotropic", "label": "Anisotropic", "type": "boolean", "default": false },
-    { "id": "feature_refraction", "label": "Refraction", "type": "boolean", "default": false },
-    { "id": "feature_backlight", "label": "Backlight", "type": "boolean", "default": false }
+    }
   ]
 }
