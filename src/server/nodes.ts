@@ -20,7 +20,9 @@ export async function nodesListHandler(): Promise<Response> {
             const type = String(json.type ?? "");
             if (!type) continue;
             const name = String(json.name ?? type);
-            const category = rel.split(path.sep)[0] ?? "root";
+            // Determine category from directory segment, not filename
+            const dirPart = prefix ? prefix.split(path.sep)[0] : "";
+            const category = dirPart || "root";
             items.push({ type, name, path: rel, category });
           } catch (err) {
             console.warn("Failed parsing node template:", rel, err);
@@ -37,7 +39,9 @@ export async function nodesListHandler(): Promise<Response> {
       .sort((a, b) => a.localeCompare(b))
       .map((name) => ({
         name,
-        nodes: categories[name].sort((a, b) => a.name.localeCompare(b.name)),
+        nodes: categories[name]
+          .map((n) => ({ ...n, path: n.path }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
       }));
 
     return Response.json({

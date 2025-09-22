@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
 import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 export type ContextKind = "background" | "node" | "edge" | "selection";
 
@@ -26,11 +27,22 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
   const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode, onGroupSelected, selectedCount, canUngroup, onUngroupNode } = props;
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
+
+  const formatCategory = (name: string): string => {
+    if (!name) return name;
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
     };
     const onDown = (e: MouseEvent) => {
       if (!ref.current) return;
@@ -45,26 +57,112 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open) setQuery("");
+    if (open) {
+      setQuery("");
+      setExpanded(new Set());
+      setHighlightIndex(0);
+    }
   }, [open, kind]);
 
-  // Compute filtered list for background menu
-  const filtered = useMemo(() => {
-    if (kind !== "background" || !palette) return [] as Array<{ heading: string; items: any[] }>;
+  type VisibleItem =
+    | { kind: "category"; key: string }
+    | { kind: "node"; key: string; node: NodePaletteItem; parent?: string };
+
+  const visibleItems: VisibleItem[] = useMemo(() => {
+    if (kind !== "background" || !palette) return [];
     const q = query.trim().toLowerCase();
-    if (!q) {
-      return palette.categories.map((c) => ({ heading: c.name, items: c.nodes }));
+    // When searching, show flat node list with category labels
+    if (q) {
+      const matches = palette.flat
+        .filter((n) => [n.name, n.type, n.category].some((s) => s.toLowerCase().includes(q)))
+        .sort((a, b) => a.name.localeCompare(b.name) || a.category.localeCompare(b.category));
+      return matches.map((n) => ({ kind: "node", key: `${n.category}/${n.type}`, node: n }));
     }
-    const matches = palette.flat.filter((n) =>
-      [n.name, n.type, n.category].some((s) => s.toLowerCase().includes(q)),
-    );
-    // Group matched by category for display
-    const grouped: Record<string, typeof matches> = {};
-    for (const m of matches) (grouped[m.category] ??= []).push(m);
-    return Object.keys(grouped)
-      .sort((a, b) => a.localeCompare(b))
-      .map((k) => ({ heading: k, items: grouped[k].sort((a, b) => a.name.localeCompare(b.name)) }));
-  }, [kind, palette, query]);
+    // No query: show categories first; expanded categories reveal nodes
+    const items: VisibleItem[] = [];
+    for (const c of palette.categories) {
+      items.push({ kind: "category", key: c.name });
+      if (expanded.has(c.name)) {
+        for (const n of [...c.nodes].sort((a, b) => a.name.localeCompare(b.name))) {
+          items.push({ kind: "node", key: `${c.name}/${n.type}`, node: n, parent: c.name });
+        }
+      }
+    }
+    return items;
+  }, [kind, palette, query, expanded]);
+
+  // Keep highlight index in range when list changes
+  useEffect(() => {
+    if (highlightIndex >= visibleItems.length) {
+      setHighlightIndex(visibleItems.length > 0 ? visibleItems.length - 1 : 0);
+    }
+  }, [visibleItems, highlightIndex]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    const el = itemRefs.current[highlightIndex];
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIndex, visibleItems]);
+
+  // Keyboard navigation for the background add-node menu
+  useEffect(() => {
+    if (!open || kind !== "background") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!visibleItems.length) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIndex((i) => (i + 1) % visibleItems.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIndex((i) => (i - 1 + visibleItems.length) % visibleItems.length);
+      } else if (e.key === "ArrowRight") {
+        const item = visibleItems[highlightIndex];
+        if (!item) return;
+        if (item.kind === "category") {
+          e.preventDefault();
+          if (!expanded.has(item.key)) {
+            setExpanded((prev) => new Set([...prev, item.key]));
+          }
+        }
+      } else if (e.key === "ArrowLeft") {
+        const item = visibleItems[highlightIndex];
+        if (!item) return;
+        if (item.kind === "category") {
+          e.preventDefault();
+          if (expanded.has(item.key)) {
+            setExpanded((prev) => {
+              const next = new Set(prev);
+              next.delete(item.key);
+              return next;
+            });
+          }
+        } else if (item.kind === "node" && item.parent) {
+          e.preventDefault();
+          // Move highlight to parent category row
+          const parentIndex = visibleItems.findIndex((it) => it.kind === "category" && it.key === item.parent);
+          if (parentIndex >= 0) setHighlightIndex(parentIndex);
+        }
+      } else if (e.key === "Enter") {
+        const item = visibleItems[highlightIndex];
+        if (!item) return;
+        e.preventDefault();
+        if (item.kind === "category") {
+          setExpanded((prev) => {
+            const next = new Set(prev);
+            if (next.has(item.key)) next.delete(item.key);
+            else next.add(item.key);
+            return next;
+          });
+        } else if (item.kind === "node") {
+          if (onAddNode) onAddNode(item.node);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, kind, visibleItems, highlightIndex, expanded, onAddNode]);
 
   if (!open) return null;
 
@@ -105,37 +203,71 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 onChange={(e) => setQuery(e.target.value)}
                 autoFocus
               />
-              <div className="flex flex-col gap-3">
-                {filtered.length === 0 && (
+              <div className="flex flex-col gap-1">
+                {visibleItems.length === 0 && (
                   <div className="text-muted-foreground text-sm">No nodes found</div>
                 )}
-                {filtered.map((group) => (
-                  <div key={group.heading}>
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                      {group.heading}
-                    </div>
-                    <ul className="flex flex-col">
-                      {group.items.map((n) => (
+                <ul className="flex flex-col">
+                  {visibleItems.map((it, idx) => {
+                    if (it.kind === "category") {
+                      const isOpen = expanded.has(it.key);
+                      return (
                         <li
-                          key={`${n.category}/${n.type}`}
+                          key={`cat:${it.key}`}
+                          ref={(el) => { itemRefs.current[idx] = el; }}
                           className={cn(
-                            "px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                            "px-2 py-1.5 rounded-md cursor-pointer select-none flex items-center justify-between",
+                            idx === highlightIndex && "bg-accent text-accent-foreground"
                           )}
+                          role="menuitem"
+                          aria-selected={idx === highlightIndex}
+                          onMouseEnter={() => setHighlightIndex(idx)}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (onAddNode) onAddNode(n);
+                            setExpanded((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(it.key)) next.delete(it.key);
+                              else next.add(it.key);
+                              return next;
+                            });
                           }}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium">{n.name}</span>
-                            <span className="text-xs text-muted-foreground">{n.type}</span>
-                          </div>
+                          <span className="text-sm font-semibold">{formatCategory(it.key)}</span>
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4 opacity-70" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 opacity-70" />
+                          )}
                         </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                      );
+                    }
+                    // node item
+                    return (
+                      <li
+                        key={`node:${it.key}`}
+                        ref={(el) => { itemRefs.current[idx] = el; }}
+                        className={cn(
+                          "px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent/80 hover:text-accent-foreground select-none",
+                          idx === highlightIndex && "bg-accent text-accent-foreground"
+                        )}
+                        role="menuitem"
+                        aria-selected={idx === highlightIndex}
+                        onMouseEnter={() => setHighlightIndex(idx)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (onAddNode) onAddNode(it.node);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium">{it.node.name}</span>
+                          <span className="text-xs text-muted-foreground">{formatCategory(it.node.category)}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             </>
           ) : kind === "selection" ? (
