@@ -68,7 +68,7 @@ describe("data schema validation", () => {
     await walk(langRoot, async (abs, rel) => { if (rel.endsWith(".json")) languageFiles.push(abs); });
     for (const file of languageFiles) {
       const raw = await fs.readFile(file, "utf8");
-      const lang = JSON.parse(raw);
+      const lang = validateLanguagePack(JSON.parse(raw));
       const nodes = lang?.nodes ?? {};
       const missing: string[] = [];
       for (const type of nodeTypes) {
@@ -84,7 +84,7 @@ describe("data schema validation", () => {
 
     for (const file of languageFiles) {
       const raw = await fs.readFile(file, "utf8");
-      const lang = JSON.parse(raw);
+      const lang = validateLanguagePack(JSON.parse(raw));
       const nodes = lang?.nodes ?? {};
       const missingProps: string[] = [];
       for (const type of Object.keys(nodeTemplates)) {

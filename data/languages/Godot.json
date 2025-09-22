@@ -44,7 +44,31 @@
       "template": "vec4 {{name}} = vec4({{inputs:0}});"
     },
     "fragment_output": {
-      "template": "ALBEDO = vec3({{inputs:0}});\nNORMAL = vec3({{inputs:4}});\nROUGHNESS = {{inputs:1}};\nMETALLIC = {{inputs:2}};\nSPECULAR = {{inputs:6}};\nAO = {{inputs:7}};\nAO_LIGHT_AFFECT = {{inputs:8}};\nCLEARCOAT = {{inputs:9}};\nCLEARCOAT_ROUGHNESS = {{inputs:10}};\nTRANSMISSION = {{inputs:11}};\nTRANSMISSION_ROUGHNESS = {{inputs:12}};\nSSS_STRENGTH = {{inputs:13}};\nSSS_TRANSMITTANCE_COLOR = vec4({{inputs:14}}, 1.0);\nSHEEN = {{inputs:15}};\nSHEEN_TINT = vec3({{inputs:16}});\nANISOTROPY = {{inputs:17}};\nANISOTROPY_FLOW = vec3({{inputs:18}});\nIOR = {{inputs:19}};\nREFRACTION = vec3({{inputs:20}});\nTHICKNESS = {{inputs:21}};\nBACKLIGHT = vec3({{inputs:22}});\nEMISSION = vec3({{inputs:3}}) * {{inputs:23}};\nALPHA = {{inputs:5}};",
+      "template": [
+        "ALBEDO = vec3({{inputs:0}});",
+        "NORMAL = vec3({{inputs:4}});",
+        "ROUGHNESS = {{inputs:1}};",
+        "METALLIC = {{inputs:2}};",
+        "SPECULAR = {{inputs:6}};",
+        "AO = {{inputs:7}};",
+        "AO_LIGHT_AFFECT = {{inputs:8}};",
+        "CLEARCOAT = {{inputs:9}};",
+        "CLEARCOAT_ROUGHNESS = {{inputs:10}};",
+        "TRANSMISSION = {{inputs:11}};",
+        "TRANSMISSION_ROUGHNESS = {{inputs:12}};",
+        "SSS_STRENGTH = {{inputs:13}};",
+        "SSS_TRANSMITTANCE_COLOR = vec4({{inputs:14}}, 1.0);",
+        "SHEEN = {{inputs:15}};",
+        "SHEEN_TINT = vec3({{inputs:16}});",
+        "ANISOTROPY = {{inputs:17}};",
+        "ANISOTROPY_FLOW = vec3({{inputs:18}});",
+        "IOR = {{inputs:19}};",
+        "REFRACTION = vec3({{inputs:20}});",
+        "THICKNESS = {{inputs:21}};",
+        "BACKLIGHT = vec3({{inputs:22}});",
+        "EMISSION = vec3({{inputs:3}}) * {{inputs:23}};",
+        "ALPHA = {{inputs:5}};"
+      ],
       "properties": {
         "shading_model": {
           "pbr": {

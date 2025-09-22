@@ -122,12 +122,15 @@ export const ZNodeTemplate = z.object({
 });
 
 const ZLanguagePropertyVariant = z.object({
-  template: z.string(),
+  template: z.union([z.string(), z.array(z.string())]),
   placement: z.enum(["inline", "meta"]).optional(),
 });
 
 const ZLanguageNodeTemplate = z.object({
-  template: z.string().min(1),
+  template: z.union([z.string(), z.array(z.string())]).refine((t) => {
+    if (typeof t === "string") return t.length > 0;
+    return t.length > 0;
+  }, { message: "template must be non-empty" }),
   properties: z.record(z.record(ZLanguagePropertyVariant)).optional(),
   outputs: z.record(z.string()).optional(),
 });
@@ -153,7 +156,7 @@ export const ZLanguagePack = z.object({
       }
     })
     .optional(),
-  meta: z.record(z.object({ template: z.string() })).optional(),
+  meta: z.record(z.object({ template: z.union([z.string(), z.array(z.string())]) })).optional(),
 });
 
 const ZAssetItem = z.object({
@@ -192,7 +195,38 @@ export function validateLanguagePack(obj: unknown): LanguagePack {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid language pack: ${msg}`);
   }
-  return parsed.data as unknown as LanguagePack;
+
+  const normalize = (t: string | string[] | undefined): string => {
+    if (!t) return "";
+    return Array.isArray(t) ? t.join("\n") : t;
+  };
+
+  const lang = parsed.data as any;
+  if (lang && lang.nodes) {
+    for (const [_key, node] of Object.entries<any>(lang.nodes)) {
+      if (!node) continue;
+      node.template = normalize(node.template);
+      if (node.properties) {
+        for (const [_propId, variants] of Object.entries<any>(node.properties)) {
+          if (!variants) continue;
+          for (const [_variantKey, variant] of Object.entries<any>(variants)) {
+            if (variant && typeof variant === "object") {
+              variant.template = normalize(variant.template);
+            }
+          }
+        }
+      }
+    }
+  }
+  if (lang && lang.meta) {
+    for (const [_key, item] of Object.entries<any>(lang.meta)) {
+      if (item && typeof item === "object") {
+        item.template = normalize(item.template);
+      }
+    }
+  }
+
+  return lang as LanguagePack;
 }
 
 export function validateAssetLibrary(obj: unknown): AssetLibrary {
