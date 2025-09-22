@@ -14,7 +14,7 @@ import {
   type Node,
   type NodeChange,
 } from "@xyflow/react";
-import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType } from "@/core/ui/compat";
+import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType, getPinTypeFor, arePinTypesCompatible } from "@/core/ui/compat";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
@@ -127,12 +127,15 @@ export function App() {
     y: number;
     targetId?: string;
   }>({ open: false, kind: "background", x: 0, y: 0 });
+  const [menuPaletteOverride, setMenuPaletteOverride] = useState<NodePalette | null>(null);
   const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
   const startupAttemptedRef = useRef(false);
   const fitAfterLoadRef = useRef(false);
+  const connectDragRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
+  const pinIndexCacheRef = useRef<Map<string, { inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }>>(new Map());
 
   const onConnect = (params: Connection) => {
     const nodesNow = nodesRef.current;
@@ -182,7 +185,8 @@ export function App() {
       // 2) Broadcast float -> vecN via combineN
       if (srcType === "float" && (dstType === "float2" || dstType === "float3" || dstType === "float4")) {
         const map: Record<string, string> = { float2: "combine2", float3: "combine3", float4: "combine4" };
-        const item = paletteGet(map[dstType]);
+        const key = map[dstType as keyof typeof map];
+        const item = key ? paletteGet(key) : undefined;
         if (item) {
           (async () => {
             let template: NodeTemplate | undefined;
@@ -287,6 +291,39 @@ export function App() {
         console.warn("Failed to load node palette", err);
       });
     return () => ctrl.abort();
+  }, []);
+
+  // helper to build a filtered palette
+  const buildFilteredPalette = useCallback((items: NodePaletteItem[]): NodePalette => {
+    const byCategory = new Map<string, NodePaletteItem[]>();
+    for (const it of items) {
+      const list = byCategory.get(it.category) ?? [];
+      list.push(it);
+      byCategory.set(it.category, list);
+    }
+    const categories = Array.from(byCategory.entries()).map(([name, nodes]) => ({ name, nodes }));
+    return { categories, flat: items };
+  }, []);
+
+  // load and cache pin type indices for a node palette item
+  const loadPinIndex = useCallback(async (item: NodePaletteItem): Promise<{ inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }> => {
+    const cached = pinIndexCacheRef.current.get(item.type);
+    if (cached) return cached;
+    let tpl: NodeTemplate | undefined;
+    try { tpl = await fetchNodeTemplate(item.path); } catch (_err) { /* ignore */ }
+    const read = (arr: any[] | undefined) => {
+      const pins: any[] = Array.isArray(arr) ? arr : [];
+      const types: ReturnType<typeof normalizePinType>[] = [];
+      for (let i = 0; i < pins.length; i++) {
+        const p = pins[i];
+        if (!p || typeof p !== "object") continue;
+        types.push(normalizePinType((p as any).type));
+      }
+      return types;
+    };
+    const entry = { inputs: read(tpl?.inputs as any), outputs: read(tpl?.outputs as any) };
+    pinIndexCacheRef.current.set(item.type, entry);
+    return entry;
   }, []);
 
   const nodesRef = useRef<Node[]>(nodes);
@@ -1196,6 +1233,39 @@ export function App() {
     setNodes((prev) => [...prev, decoratedNode as any]);
   };
 
+  const openAddNodeMenuAt = useCallback((x: number, y: number, override: NodePalette | null) => {
+    setMenuPaletteOverride(override);
+    setMenu({ open: true, kind: "background", x, y });
+  }, []);
+
+  const openFilteredAddMenuForDrag = useCallback(async (client: { x: number; y: number }) => {
+    const drag = connectDragRef.current;
+    connectDragRef.current = null;
+    if (!drag) return;
+    if (!palette) {
+      openAddNodeMenuAt(client.x, client.y, null);
+      return;
+    }
+    const draggedType = drag.type;
+    const fromSource = drag.side === "source";
+    const items = palette.flat;
+    const results: NodePaletteItem[] = [];
+    await Promise.all(
+      items.map(async (it) => {
+        const idx = await loadPinIndex(it);
+        if (fromSource) {
+          // dragging from an output; candidate must have a compatible input
+          if (idx.inputs.some((t) => arePinTypesCompatible(draggedType, t))) results.push(it);
+        } else {
+          // dragging from an input; candidate must have a compatible output
+          if (idx.outputs.some((t) => arePinTypesCompatible(t, draggedType))) results.push(it);
+        }
+      })
+    );
+    const filtered = buildFilteredPalette(results);
+    openAddNodeMenuAt(client.x, client.y, filtered);
+  }, [palette, loadPinIndex, buildFilteredPalette, openAddNodeMenuAt]);
+
   const deleteNodeById = useCallback(
     async (id: string) => {
       const node = nodesById.get(id);
@@ -1481,6 +1551,32 @@ export function App() {
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onConnectStart={(e: any, params: any) => {
+            try {
+              const side = String(params?.handleType) === "source" ? "source" : "target";
+              const nodeId = String(params?.nodeId ?? "");
+              const handleId = String(params?.handleId ?? "");
+              const t = getPinTypeFor(nodesRef.current as any, nodeId, handleId);
+              connectDragRef.current = { side, nodeId, handleId, type: t } as any;
+            } catch (_err) {
+              connectDragRef.current = null;
+            }
+          }}
+          onConnectEnd={(e: any) => {
+            try {
+              const target = e?.target as Element | null;
+              const droppedOnHandle = !!(target && target.closest && target.closest(".react-flow__handle"));
+              if (!droppedOnHandle) {
+                const client = { x: e?.clientX ?? lastPointerRef.current?.x ?? 0, y: e?.clientY ?? lastPointerRef.current?.y ?? 0 };
+                void openFilteredAddMenuForDrag(client);
+                return;
+              }
+            } catch (_err) {
+              // ignore
+            } finally {
+              connectDragRef.current = null;
+            }
+          }}
           panOnDrag={[1]}
           selectionOnDrag
           selectionMode={SelectionMode.Partial}
@@ -1494,13 +1590,16 @@ export function App() {
           onPaneClick={() => {
             // Close context menu when clicking the background pane
             setMenu((m) => (m.open ? { ...m, open: false } : m));
+            setMenuPaletteOverride(null);
           }}
           onPaneContextMenu={(e) => {
             e.preventDefault();
+            setMenuPaletteOverride(null);
             setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
           }}
           onSelectionContextMenu={(e) => {
             e.preventDefault();
+            setMenuPaletteOverride(null);
             setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
           }}
           onDragOver={(event) => {
@@ -1512,10 +1611,12 @@ export function App() {
           onDrop={handleAssetDrop}
           onNodeContextMenu={(e, node) => {
             e.preventDefault();
+            setMenuPaletteOverride(null);
             setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
           }}
           onEdgeContextMenu={(e, edge) => {
             e.preventDefault();
+            setMenuPaletteOverride(null);
             setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
           }}
           fitView
@@ -1530,11 +1631,13 @@ export function App() {
           x={menu.x}
           y={menu.y}
           {...(menu.targetId ? { targetId: menu.targetId } : {})}
-          {...(palette ? { palette } : {})}
+          {...((menuPaletteOverride ?? palette) ? { palette: (menuPaletteOverride ?? palette)! } : {})}
+          expandAllCategories={Boolean(menuPaletteOverride)}
           selectedCount={selectedCount}
           onGroupSelected={() => {
             groupSelected();
             setMenu((m) => ({ ...m, open: false }));
+            setMenuPaletteOverride(null);
           }}
           canUngroup={(() => {
             if (!menu.targetId) return false;
@@ -1545,18 +1648,21 @@ export function App() {
           onUngroupNode={(id) => {
             ungroupGroup(id);
             setMenu((m) => ({ ...m, open: false }));
+            setMenuPaletteOverride(null);
           }}
           onAddNode={async (item) => {
             if (!item) return;
             await addNodeAt({ item, x: menu.x, y: menu.y });
             setMenu((m) => ({ ...m, open: false }));
+            setMenuPaletteOverride(null);
           }}
           onDeleteNode={async (id) => {
             if (!id) return;
             await deleteNodeById(id);
             setMenu((m) => ({ ...m, open: false }));
+            setMenuPaletteOverride(null);
           }}
-          onClose={() => setMenu((m) => ({ ...m, open: false }))}
+          onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); }}
         />
         </div>
       </AppShell>

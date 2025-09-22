@@ -21,10 +21,11 @@ export type GraphContextMenuProps = {
   canUngroup?: boolean;
   onUngroupNode?: (id: string) => void;
   onClose: () => void;
+  expandAllCategories?: boolean;
 };
 
 export function GraphContextMenu(props: GraphContextMenuProps) {
-  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode, onGroupSelected, selectedCount, canUngroup, onUngroupNode } = props;
+  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode, onGroupSelected, selectedCount, canUngroup, onUngroupNode, expandAllCategories } = props;
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -57,10 +58,18 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open) {
-      setQuery("");
+    if (!open) return;
+    setQuery("");
+    setHighlightIndex(0);
+    if (kind === "background" && expandAllCategories) {
+      // Expand all categories when requested
+      const all = new Set<string>();
+      if (palette && Array.isArray(palette.categories)) {
+        for (const c of palette.categories) all.add(c.name);
+      }
+      setExpanded(all);
+    } else {
       setExpanded(new Set());
-      setHighlightIndex(0);
     }
   }, [open, kind]);
 
