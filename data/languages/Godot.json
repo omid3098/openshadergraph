@@ -934,41 +934,11 @@
     }
   },
   "meta": {
-    "blend_mode_transparent": {
-      "template": "render_mode blend_mix;"
-    },
-    "blend_mode_opaque": {
-      "template": ""
-    },
-    "alpha_mode_SrcAlpha_OneMinusSrcAlpha": {
-      "template": "render_mode blend_mul;"
-    },
-    "shading_unlit": {
-      "template": "render_mode unshaded;"
-    },
     "varing": {
       "template": "varing {{definitaion}}"
     },
     "exposed": {
       "template": "uniform {{definition}}"
-    },
-    "render_mode_transmission": {
-      "template": "render_mode transmission;"
-    },
-    "render_mode_subsurface_scattering": {
-      "template": "render_mode subsurface_scattering;"
-    },
-    "render_mode_sheen": {
-      "template": "render_mode sheen;"
-    },
-    "render_mode_anisotropic": {
-      "template": "render_mode anisotropic;"
-    },
-    "render_mode_refraction": {
-      "template": "render_mode refraction;"
-    },
-    "render_mode_backlight": {
-      "template": "render_mode backlight;"
     }
   }
 }

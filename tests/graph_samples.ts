@@ -68,7 +68,11 @@ export function float_graph() {
 
 export function meta_graph() {
   const { surface, fragment_pass, fragment_output, color } = basic_color_graph();
-  surface.add_meta("blend_mode_transparent");
+  // Set blend mode property on fragment_pass now (replaces meta usage)
+  const passProps = (fragment_pass as any).properties ?? ((fragment_pass as any).properties = []);
+  const existing = passProps.find((p: any) => p && p.id === "blend_mode");
+  if (existing) existing.value = "transparent";
+  else passProps.push({ id: "blend_mode", type: "enum", value: "transparent" });
   return { surface, fragment_pass, fragment_output, color };
 }
 

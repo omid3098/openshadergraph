@@ -934,29 +934,11 @@
     }
   },
   "meta": {
-    "blend_mode_transparent": {
-      "template": ""
-    },
-    "blend_mode_opaque": {
-      "template": ""
-    },
-    "alpha_mode_SrcAlpha_OneMinusSrcAlpha": {
-      "template": ""
-    },
-    "shading_unlit": {
-      "template": "#define SHADING_UNLIT 1"
-    },
     "varing": {
       "template": "varing {{definitaion}}"
     },
     "exposed": {
       "template": "uniform {{definition}}"
-    },
-    "shading_pbr": {
-      "template": "#define SHADING_PBR 1"
-    },
-    "shading_toon": {
-      "template": "#define SHADING_TOON 1"
     }
   }
 }

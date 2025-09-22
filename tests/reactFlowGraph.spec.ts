@@ -48,15 +48,15 @@ describe("buildReactFlowGraph", () => {
     expect(result.defaultViewPath).toEqual(["1", "2"]);
   });
 
-  it("applies assets from meta tokens", () => {
+  it("applies assets from asset property tokens", () => {
     const textureNode: GraphNode = {
       id: 4,
       type: "texture",
-      meta: ["asset:texture-one"],
+      meta: [],
       nodes: [],
       inputs: [],
       outputs: [],
-      properties: [],
+      properties: [{ id: "source", value: "asset:texture-one" }],
     } as any;
     surface.nodes = [textureNode];
     const registry: AssetRegistry = {

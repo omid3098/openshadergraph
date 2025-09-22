@@ -210,15 +210,14 @@ function diffNode(node: GraphNode, defaultsById: TemplateById, assets: AssetByNo
         sanitized.push(clone);
         continue;
       }
+      // No non-data source available. If we have a stable asset id, persist as an asset token in the property value.
       const assetId = assetInfo.id;
       if (assetId && assetId.length) {
-        const token = `asset:${assetId}`;
-        (clone as any).value = token;
+        (clone as any).value = `asset:${assetId}`;
         sanitized.push(clone);
-        assetMetaToAppend.push(token);
         continue;
       }
-      // No safe serialization target; drop this override.
+      // Otherwise drop this override.
     }
     if (sanitized.length) result.properties = sanitized;
   }
@@ -227,14 +226,7 @@ function diffNode(node: GraphNode, defaultsById: TemplateById, assets: AssetByNo
     result.nodes = node.nodes.map((child) => diffNode(child, defaultsById, assets));
   }
 
-  if (assetMetaToAppend.length) {
-    const baseMeta = Array.isArray(result.meta) ? result.meta.slice() : undefined;
-    const metaSet = new Set(baseMeta ?? []);
-    for (const token of assetMetaToAppend) {
-      if (!metaSet.has(token)) metaSet.add(token);
-    }
-    result.meta = Array.from(metaSet);
-  }
+  // Do not append asset: tokens to meta anymore
 
   pruneNode(result);
   return result;

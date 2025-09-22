@@ -37,7 +37,9 @@ describe("Graph JSON structure", () => {
   });
 
   it("node meta stored on graph", () => {
-    const { surface } = meta_graph();
-    expect(surface.graph_data.meta).toEqual(["blend_mode_transparent"]);
+    const { surface, fragment_pass } = meta_graph();
+    const passProps = Array.isArray((fragment_pass as any).properties) ? (fragment_pass as any).properties : [];
+    const blend = passProps.find((p: any) => p && p.id === "blend_mode");
+    expect(blend?.value ?? blend?.default).toBe("transparent");
   });
 });

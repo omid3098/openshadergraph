@@ -117,7 +117,6 @@ describe("graph serialization", () => {
     const graph = serializeGraph([textureNode], [] as Edge[], "Assets");
     const savedTexture = lastSavedNode(graph, "texture");
     expect(savedTexture?.properties).toEqual([{ id: "source", value: "asset:user-texture-1" }]);
-    expect(savedTexture?.meta).toContain("asset:user-texture-1");
   });
 
 });

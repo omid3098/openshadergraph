@@ -62,25 +62,15 @@ function normalizePosition(position: [number, number] | undefined, fallback: XYP
 
 function filterMeta(meta: any[] | undefined): string[] {
   if (!Array.isArray(meta)) return [];
+  // Keep string tokens, and preserve object entries that define UI groups
   return meta.filter((entry) => {
-    if (typeof entry !== "string") return true;
-    if (entry.startsWith("asset:")) return false;
-    if (entry.startsWith("shading_")) return false;
-    return true;
+    if (typeof entry === "string") return true;
+    if (entry && typeof entry === "object" && Array.isArray((entry as any).uiPinGroups)) return true;
+    return false;
   }) as string[];
 }
 
-function resolveAssetFromMeta(meta: any[] | undefined): string | undefined {
-  if (!Array.isArray(meta)) return undefined;
-  for (const entry of meta) {
-    if (typeof entry !== "string") continue;
-    if (entry.startsWith("asset:")) {
-      const token = entry.slice("asset:".length).trim();
-      if (token) return token;
-    }
-  }
-  return undefined;
-}
+// Removed meta-based asset resolution
 
 function normalizeAssetLabel(entry: AssetEntry | undefined, properties: NodeProperty[] | undefined): string | undefined {
   if (!entry) return undefined;
@@ -137,29 +127,7 @@ function collectAssetCandidates(properties: NodeProperty[] | undefined, assetPro
   return { indices, tokens };
 }
 
-function registerShadingProperty(properties: NodeProperty[] | undefined, meta: any[] | undefined) {
-  if (!Array.isArray(meta)) return properties;
-  const shadingMeta = meta.find((entry) => typeof entry === "string" && entry.startsWith("shading_"));
-  if (!shadingMeta) return properties;
-  const slug = shadingMeta.slice("shading_".length).trim();
-  const map: Record<string, string> = { pbr: "pbr", unlit: "unlit", toon: "toon" };
-  const value = map[slug];
-  if (!value) return properties;
-
-  const next: NodeProperty[] = Array.isArray(properties) ? properties.map((prop) => cloneValue(prop)) : [];
-  let assigned = false;
-  for (let i = 0; i < next.length; i++) {
-    const prop = next[i];
-    if (!prop || typeof prop !== "object" || prop.id !== "shading_model") continue;
-    (next[i] as any).value = value;
-    assigned = true;
-    break;
-  }
-  if (!assigned) {
-    next.push({ id: "shading_model", type: "enum", value } as any);
-  }
-  return next;
-}
+// Removed meta-to-property shading conversion
 
 export function buildReactFlowGraph({ root, defaults, assets, options }: BuildReactFlowGraphContext): BuildReactFlowGraphResult {
   const layout = {
@@ -199,10 +167,6 @@ export function buildReactFlowGraph({ root, defaults, assets, options }: BuildRe
     let properties = propertiesOriginal ? cloneValue(propertiesOriginal) : [];
 
     let asset: AssetEntry | undefined;
-    const metaToken = resolveAssetFromMeta(rawMeta);
-    if (metaToken && assets?.byId.has(metaToken)) {
-      asset = assets?.byId.get(metaToken);
-    }
 
     const { indices: assetPropertyIndices, tokens: propertyTokens } = collectAssetCandidates(propertiesOriginal, assetPropIds);
     if (!asset && assets) {
@@ -238,7 +202,7 @@ export function buildReactFlowGraph({ root, defaults, assets, options }: BuildRe
       }
     }
 
-    properties = registerShadingProperty(properties, rawMeta) ?? properties;
+    // Shading model should already be provided as a property; no meta conversion
 
     const nodePayload: Node = {
       id: String(id),
