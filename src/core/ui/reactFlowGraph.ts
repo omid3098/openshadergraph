@@ -270,12 +270,32 @@ export function buildReactFlowGraph({ root, defaults, assets, options }: BuildRe
       if (!match) continue;
       const fromId = match[1];
       const fromPin = Number(match[2]);
+      // Determine pin types from canonical nodes to embed as edge data hints
+      const srcNode = allNodes.get(Number(fromId));
+      const dstNode = allNodes.get(Number(node.id));
+      const readPinType = (side: "inputs" | "outputs", n: any, pid: number | string | undefined): unknown => {
+        if (!n) return undefined;
+        const pins = Array.isArray((n as any)[side]) ? (n as any)[side] : [];
+        for (let i = 0; i < pins.length; i++) {
+          const p = pins[i];
+          if (!p || typeof p !== "object") continue;
+          const idVal = typeof p.id === "number" ? p.id : i;
+          if (idVal === pid) return p.type;
+        }
+        return undefined;
+      };
+      const edgeData: any = {};
+      const srcType = readPinType("outputs", srcNode, fromPin);
+      const dstType = readPinType("inputs", dstNode, (pin as any)?.id);
+      if (srcType !== undefined) edgeData.sourceType = srcType;
+      if (dstType !== undefined) edgeData.targetType = dstType;
       createdEdges.push({
         id: `e${fromId}-${node.id}-${fromPin}-${pin.id}`,
         source: String(fromId),
         target: String(node.id),
         sourceHandle: `out-${fromPin}`,
         targetHandle: `in-${pin.id}`,
+        ...(Object.keys(edgeData).length ? { data: edgeData } : {}),
       });
     }
   }

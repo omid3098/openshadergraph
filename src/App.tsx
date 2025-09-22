@@ -14,8 +14,8 @@ import {
   type Node,
   type NodeChange,
 } from "@xyflow/react";
-import { isConnectionCompatible, getSourceType, getTargetType } from "@/core/ui/compat";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType } from "@/core/ui/compat";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
@@ -172,7 +172,7 @@ export function App() {
               const toSampler: Connection = { source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-0" } as any;
               const outHandle = dstType === "float" ? "out-1" : "out-0";
               const fromSampler: Connection = { source: id, sourceHandle: outHandle, target: String(params.target), targetHandle: params.targetHandle } as any;
-              setEdges((eds) => ensureColoredEdges(connectSingleInputEdge(connectSingleInputEdge(eds, toSampler), fromSampler)));
+              setEdges((eds) => ensureColoredEdges(connectSingleInputEdge(connectSingleInputEdge(eds, toSampler), fromSampler), nodesRef.current));
             });
           })();
           return;
@@ -194,7 +194,7 @@ export function App() {
               if (dstType === "float3" || dstType === "float4") connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-2" } as any);
               if (dstType === "float4") connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-3" } as any);
               connects.push({ source: id, sourceHandle: "out-0", target: String(params.target), targetHandle: params.targetHandle } as any);
-              setEdges((eds) => ensureColoredEdges(connects.reduce((acc, c) => connectSingleInputEdge(acc, c), eds)));
+              setEdges((eds) => ensureColoredEdges(connects.reduce((acc, c) => connectSingleInputEdge(acc, c), eds), nodesRef.current));
             });
           })();
           return;
@@ -216,7 +216,7 @@ export function App() {
               connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-1" } as any);
               connects.push({ source: String(params.source), sourceHandle: params.sourceHandle, target: id, targetHandle: "in-2" } as any);
               connects.push({ source: id, sourceHandle: "out-0", target: String(params.target), targetHandle: params.targetHandle } as any);
-              setEdges((eds) => ensureColoredEdges(connects.reduce((acc, c) => connectSingleInputEdge(acc, c), eds)));
+              setEdges((eds) => ensureColoredEdges(connects.reduce((acc, c) => connectSingleInputEdge(acc, c), eds), nodesRef.current));
             });
           })();
           return;
@@ -228,7 +228,7 @@ export function App() {
     }
     setEdges((eds) => {
       const nextRaw = connectSingleInputEdge(eds, params);
-      const next = ensureColoredEdges(nextRaw);
+      const next = ensureColoredEdges(nextRaw, nodesRef.current);
       // annotate dashed edges when either endpoint is an editor node
       const isEditorNode = (id: string) => {
         const n = nodesById.get(id);
@@ -290,18 +290,24 @@ export function App() {
   }, []);
 
   const nodesRef = useRef<Node[]>(nodes);
-  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useLayoutEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const edgesRef = useRef<Edge[]>(edges);
-  useEffect(() => { edgesRef.current = edges; }, [edges]);
+  useLayoutEffect(() => { edgesRef.current = edges; }, [edges]);
   const graphNameRef = useRef(graphName);
-  useEffect(() => { graphNameRef.current = graphName; }, [graphName]);
+  useLayoutEffect(() => { graphNameRef.current = graphName; }, [graphName]);
 
-  const ensureColoredEdges = useCallback((list: Edge[]): Edge[] => {
-    const nodesNow = nodesRef.current as any as Node[];
+  const ensureColoredEdges = useCallback((list: Edge[], nodesOverride?: Node[]): Edge[] => {
+    const nodesNow = (nodesOverride ?? (nodesRef.current as any as Node[])) as any as Node[];
     return list.map((e) => {
       const typed = (e && (e as any).type) ? e : ({ ...e, type: "colored" as any } as any);
-      const srcType = (e as any)?.data?.sourceType ?? ((e?.source && e?.sourceHandle) ? getSourceType(nodesNow as any, e as any) : undefined);
-      const dstType = (e as any)?.data?.targetType ?? ((e?.target && e?.targetHandle) ? getTargetType(nodesNow as any, e as any) : undefined);
+      const srcRaw = (e as any)?.data?.sourceType;
+      const dstRaw = (e as any)?.data?.targetType;
+      const srcType = (srcRaw !== undefined)
+        ? normalizePinType(srcRaw)
+        : ((e?.source && e?.sourceHandle) ? getSourceType(nodesNow as any, e as any) : undefined);
+      const dstType = (dstRaw !== undefined)
+        ? normalizePinType(dstRaw)
+        : ((e?.target && e?.targetHandle) ? getTargetType(nodesNow as any, e as any) : undefined);
       if (srcType || dstType) {
         return { ...typed, data: { ...(typed as any).data, sourceType: srcType, targetType: dstType } } as any;
       }
@@ -319,7 +325,7 @@ export function App() {
           break;
         }
       }
-      return needsUpdate ? ensureColoredEdges(prev) : prev;
+      return needsUpdate ? ensureColoredEdges(prev, nodesRef.current) : prev;
     });
   }, [ensureColoredEdges, setEdges, nodes]);
 
@@ -500,7 +506,7 @@ export function App() {
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
   const visibleEdges = useMemo(() => {
     const filtered = edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
-    return ensureColoredEdges(filtered);
+    return ensureColoredEdges(filtered, nodesRef.current);
   }, [edges, visibleNodeIds, ensureColoredEdges]);
 
   const activeEditorPanels = useMemo(() => {
@@ -758,7 +764,7 @@ export function App() {
       pendingGraphUpdateRef.current = false;
 
       setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
-      setEdges(ensureColoredEdges(buildResult.edges));
+      setEdges(ensureColoredEdges(buildResult.edges, buildResult.nodes as any));
       setGraphName(label ?? "UntitledGraph");
       setViewPath(buildResult.defaultViewPath);
       // Request a one-time fitView after nodes render for this load
@@ -1131,7 +1137,7 @@ export function App() {
         resizingEditorIdsRef.current.clear();
         pendingGraphUpdateRef.current = false;
         setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
-        setEdges(ensureColoredEdges(buildResult.edges));
+        setEdges(ensureColoredEdges(buildResult.edges, buildResult.nodes as any));
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setViewPath(buildResult.defaultViewPath);
         // Request a one-time fitView after nodes render for this new graph
@@ -1245,14 +1251,14 @@ export function App() {
     const idGen = () => String(++idCounter.current);
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
-    setEdges(ensureColoredEdges(res.edges as any));
+    setEdges(ensureColoredEdges(res.edges as any, res.nodes as any));
   };
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
-    setEdges(ensureColoredEdges(res.edges as any));
+    setEdges(ensureColoredEdges(res.edges as any, res.nodes as any));
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 

@@ -17,7 +17,7 @@ function mapNormalizedToThemeKey(t: NormalizedPinType): keyof typeof THEME.pinCo
   if (t === "bool") return "bool";
   if (t === "mat3") return "mat3";
   if (t === "mat4") return "mat4";
-  return "scalar";
+  return "unknown";
 }
 
 function getPinTypeFromNode(node: any, handleId: string | null | undefined, dir: "in" | "out"): NormalizedPinType {
@@ -45,8 +45,8 @@ export default function ColoredEdge(props: EdgeProps) {
   const targetNode = target ? rf.getNode(target) : undefined;
   const [edgePath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-  const sourceType = data?.sourceType ?? getPinTypeFromNode(sourceNode, sourceHandle, "out");
-  const targetType = data?.targetType ?? getPinTypeFromNode(targetNode, targetHandle, "in");
+  const sourceType = normalizePinType(data?.sourceType) ?? getPinTypeFromNode(sourceNode, sourceHandle, "out");
+  const targetType = normalizePinType(data?.targetType) ?? getPinTypeFromNode(targetNode, targetHandle, "in");
   const sourceKey = mapNormalizedToThemeKey(sourceType);
   const targetKey = mapNormalizedToThemeKey(targetType);
   const colorStart = THEME.pinColors[sourceKey] ?? THEME.selectionColor;

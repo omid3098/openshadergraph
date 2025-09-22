@@ -12,6 +12,7 @@ export const THEME = {
   // Pin type colors (source edge color later phases)
   pinColors: {
     scalar: "#2563EB", // Blue-600
+    unknown: "#6B7280", // Gray-500 (neutral for unknown)
     vec2: "#7C3AED", // Purple-600
     vec3: "#7C3AED",
     vec4: "#7C3AED",
