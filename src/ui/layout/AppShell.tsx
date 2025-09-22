@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { persistGet, persistSet } from "@/lib/storage";
-import { PanelLeft, Home, Layers, Settings } from "lucide-react";
+import { PanelLeft, Home, Layers, Settings, Sun, Moon } from "lucide-react";
 import iconUrl from "../../assets/icon.png";
 
 type AppShellProps = {
@@ -15,6 +15,7 @@ type AppShellProps = {
 
 export function AppShell({ header, children, sidebarContent }: AppShellProps) {
   const [collapsed, setCollapsed] = useState<boolean>(true);
+  const [dark, setDark] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -31,6 +32,36 @@ export function AppShell({ header, children, sidebarContent }: AppShellProps) {
   useEffect(() => {
     void persistSet("ui.sidebar.collapsed", collapsed);
   }, [collapsed]);
+
+  // Load and apply theme on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const saved = await persistGet<string>("ui.theme");
+      let initialDark = false;
+      if (saved === "dark") initialDark = true;
+      else if (saved === "light") initialDark = false;
+      else if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+        initialDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      }
+      if (!mounted) return;
+      setDark(initialDark);
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.toggle("dark", initialDark);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Persist and apply theme when changed
+  useEffect(() => {
+    void persistSet("ui.theme", dark ? "dark" : "light");
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", dark);
+    }
+  }, [dark]);
 
   const sidebarWidth = collapsed ? 56 : 224; // px
 
@@ -52,7 +83,21 @@ export function AppShell({ header, children, sidebarContent }: AppShellProps) {
             <SidebarItem icon={<Settings className="h-4 w-4" />} label="Settings" collapsed={collapsed} />
           </nav>
         )}
-        {/* rail reserved space for hover/resize if needed */}
+        {/* Bottom toolbar */}
+        {!collapsed ? (
+          <div className="border-t px-2 py-2 flex items-center justify-start">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Toggle theme"
+              onClick={() => setDark((v) => !v)}
+              title={dark ? "Switch to light" : "Switch to dark"}
+            >
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+          </div>
+        ) : null}
       </aside>
       <section className="flex-1 h-full flex flex-col min-w-0">
         <header className="flex items-center gap-3 px-3 py-2 border-b bg-background/80 backdrop-blur">

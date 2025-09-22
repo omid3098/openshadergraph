@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Highlight, themes, type Language } from "prism-react-renderer";
 import { cn } from "@/lib/utils";
 
@@ -9,8 +9,36 @@ export type CodeBlockProps = {
 };
 
 export function CodeBlock({ code, language, className }: CodeBlockProps) {
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      return typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains("dark"));
+    update();
+    const obs = new MutationObserver((m) => {
+      for (const rec of m) {
+        if (rec.type === "attributes" && rec.attributeName === "class") {
+          update();
+        }
+      }
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
   return (
-    <Highlight theme={themes.github} code={code} language={language as Language}>
+    <Highlight
+      theme={isDark ? themes.vsDark : themes.github}
+      code={code}
+      language={language as Language}
+    >
       {({ className: cls, style, tokens, getLineProps, getTokenProps }) => (
         <pre
           className={cn(

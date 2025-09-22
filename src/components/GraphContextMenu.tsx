@@ -71,7 +71,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     } else {
       setExpanded(new Set());
     }
-  }, [open, kind]);
+  }, [open, kind, expandAllCategories, palette]);
 
   type VisibleItem =
     | { kind: "category"; key: string }

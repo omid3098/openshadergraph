@@ -38,12 +38,17 @@
   --sidebar-accent-foreground: hsl(0 0% 10%);
   --sidebar-border: hsl(220 13% 91%);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  /* MiniMap theming */
+  --minimap-node: hsl(240 5% 90%);
+  --minimap-stroke: hsl(240 6% 70%);
+  --minimap-mask: rgba(0, 0, 0, 0.12);
 }
 
 .dark {
   --background: hsl(240 10% 3.9%);
   --foreground: hsl(0 0% 98%);
-  --card: hsl(240 10% 3.9%);
+  /* slightly lighter than background so nodes stand out */
+  --card: hsl(240 6% 12%);
   --card-foreground: hsl(0 0% 98%);
   --popover: hsl(240 10% 3.9%);
   --popover-foreground: hsl(0 0% 98%);
@@ -73,6 +78,10 @@
   --sidebar-accent-foreground: hsl(0 0% 98%);
   --sidebar-border: hsl(240 3.7% 15.9%);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  /* MiniMap theming */
+  --minimap-node: hsl(240 6% 22%);
+  --minimap-stroke: hsl(240 6% 35%);
+  --minimap-mask: rgba(255, 255, 255, 0.06);
 }
 
 @theme inline {
@@ -141,6 +150,33 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* React Flow theming */
+.rf-controls {
+  background: color-mix(in oklab, var(--card) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  padding: 4px;
+}
+.rf-controls .react-flow__controls-button {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  width: 28px;
+  height: 28px;
+}
+.rf-controls .react-flow__controls-button:hover {
+  background: color-mix(in oklab, var(--muted) 35%, transparent);
+}
+
+.rf-minimap {
+  background: color-mix(in oklab, var(--card) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  overflow: hidden;
 }
 
 /* Hide number input spinners for float editors */

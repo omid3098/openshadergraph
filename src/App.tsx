@@ -137,6 +137,37 @@ export function App() {
   const connectDragRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
   const pinIndexCacheRef = useRef<Map<string, { inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }>>(new Map());
 
+  // MiniMap theme colors sourced from CSS variables and updated when theme changes
+  const [mmColors, setMmColors] = useState<{ node: string; stroke: string; mask: string }>(() => {
+    if (typeof document === "undefined") return { node: "#ccc", stroke: "#888", mask: "rgba(0,0,0,0.12)" };
+    const cs = getComputedStyle(document.documentElement);
+    return {
+      node: (cs.getPropertyValue("--minimap-node") || "#ccc").trim(),
+      stroke: (cs.getPropertyValue("--minimap-stroke") || "#888").trim(),
+      mask: (cs.getPropertyValue("--minimap-mask") || "rgba(0,0,0,0.12)").trim(),
+    };
+  });
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const read = () => {
+      const cs = getComputedStyle(document.documentElement);
+      setMmColors({
+        node: (cs.getPropertyValue("--minimap-node") || "#ccc").trim(),
+        stroke: (cs.getPropertyValue("--minimap-stroke") || "#888").trim(),
+        mask: (cs.getPropertyValue("--minimap-mask") || "rgba(0,0,0,0.12)").trim(),
+      });
+    };
+    read();
+    const el = document.documentElement;
+    const obs = new MutationObserver((m) => {
+      for (const rec of m) {
+        if (rec.type === "attributes" && rec.attributeName === "class") read();
+      }
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
   const onConnect = (params: Connection) => {
     const nodesNow = nodesRef.current;
     const ok = isConnectionCompatible(nodesNow as any, params);
@@ -1622,8 +1653,14 @@ export function App() {
           fitView
         >
             <Background />
-            <Controls />
-            <MiniMap />
+            <Controls className="rf-controls" position="bottom-left" />
+            <MiniMap
+              className="rf-minimap"
+              position="bottom-right"
+              nodeColor={mmColors.node}
+              nodeStrokeColor={mmColors.stroke}
+              maskColor={mmColors.mask}
+            />
           </ReactFlow>
           <GraphContextMenu
           open={menu.open}
