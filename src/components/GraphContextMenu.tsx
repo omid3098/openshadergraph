@@ -186,15 +186,16 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
         role="menu"
         aria-label="Graph context menu"
       >
-        <CardHeader>
-          <CardTitle className="text-sm">
-            {kind === "background" && "Add Node"}
-            {kind === "selection" && `Selection • ${selectedCount ?? 0} nodes`}
-            {kind === "node" && `Node • ${targetId ?? "(unknown)"}`}
-            {kind === "edge" && `Connection • ${targetId ?? "(unknown)"}`}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
+        {kind !== "background" && (
+          <CardHeader className="py-2 px-3">
+            <CardTitle className="text-sm">
+              {kind === "selection" && `Selection • ${selectedCount ?? 0} nodes`}
+              {kind === "node" && `Node • ${targetId ?? "(unknown)"}`}
+              {kind === "edge" && `Connection • ${targetId ?? "(unknown)"}`}
+            </CardTitle>
+          </CardHeader>
+        )}
+        <CardContent className="flex flex-col gap-1 p-3">
           {kind === "background" ? (
             <>
               <Input
@@ -202,6 +203,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 autoFocus
+                className="h-8 text-sm"
               />
               <div className="flex flex-col gap-1">
                 {visibleItems.length === 0 && (
@@ -216,7 +218,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                           key={`cat:${it.key}`}
                           ref={(el) => { itemRefs.current[idx] = el; }}
                           className={cn(
-                            "px-2 py-1.5 rounded-md cursor-pointer select-none flex items-center justify-between",
+                            "px-2 py-1 rounded-md cursor-pointer select-none flex items-center justify-between",
                             idx === highlightIndex && "bg-accent text-accent-foreground"
                           )}
                           role="menuitem"
@@ -248,7 +250,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                         key={`node:${it.key}`}
                         ref={(el) => { itemRefs.current[idx] = el; }}
                         className={cn(
-                          "px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent/80 hover:text-accent-foreground select-none",
+                          "pl-6 pr-2 py-1 rounded-md cursor-pointer hover:bg-accent/80 hover:text-accent-foreground select-none",
                           idx === highlightIndex && "bg-accent text-accent-foreground"
                         )}
                         role="menuitem"
