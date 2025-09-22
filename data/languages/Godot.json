@@ -12,13 +12,23 @@
   },
   "nodes": {
     "surface": {
-      "template": "shader_type spatial;\n{{meta}}\n{{exposed_nodes}}\n{{internal_nodes}}\n"
+      "template": [
+        "shader_type spatial;",
+        "{{meta}}",
+        "{{exposed_nodes}}",
+        "{{internal_nodes}}"]
     },
     "vertex_pass": {
-      "template": "void vertex() {\n{{internal_nodes}}}\n"
+      "template": [
+        "void vertex() {",
+        "{{internal_nodes}}}"
+      ]
     },
     "fragment_pass": {
-      "template": "void fragment() {\n{{internal_nodes}}}\n",
+      "template": [
+        "void fragment() {",
+        "{{internal_nodes}}}"
+      ],
       "properties": {
         "blend_mode": {
           "opaque": { "template": "", "placement": "meta" },
