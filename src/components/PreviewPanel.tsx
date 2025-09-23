@@ -350,46 +350,58 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     return store.sampler2D;
   }, []);
 
-  // Compile the graph to ThreeJS GLSL fragment shader
+  // Compile the graph to ThreeJS GLSL fragment shader with debounce + cancellation
+  const compileDebounceRef = useRef<number | null>(null);
   useEffect(() => {
+    if (compileDebounceRef.current) {
+      clearTimeout(compileDebounceRef.current);
+      compileDebounceRef.current = null;
+    }
     const abort = new AbortController();
     let cancelled = false;
-    (async () => {
-      try {
-        setWorking(true);
-        setCompileError("");
-        if (!isCompilableGraph(stableGraph as any)) {
+    compileDebounceRef.current = window.setTimeout(() => {
+      (async () => {
+        try {
+          setWorking(true);
+          setCompileError("");
+          if (!isCompilableGraph(stableGraph as any)) {
+            setFragCode("");
+            setVertexChunk("");
+            return;
+          }
+          const res = await fetch("/api/compile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abort.signal,
+            body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
+          });
+          if (!res.ok) {
+            const msg = await res.text().catch(() => String(res.status));
+            throw new Error(msg || String(res.status));
+          }
+          const data = await res.json();
+          if (!cancelled) {
+            const { fragment, vertexChunk } = extractPreviewShaders(String(data.code ?? ""));
+            setFragCode(fragment);
+            setVertexChunk(vertexChunk);
+          }
+        } catch (err: any) {
+          if (cancelled) return;
+          if (isAbortError(err)) return;
+          setCompileError(typeof err?.message === "string" ? err.message : "Compile failed");
           setFragCode("");
           setVertexChunk("");
-          return;
+        } finally {
+          if (!cancelled) setWorking(false);
         }
-        const res = await fetch("/api/compile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: abort.signal,
-          body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
-        });
-        if (!res.ok) {
-          const msg = await res.text().catch(() => String(res.status));
-          throw new Error(msg || String(res.status));
-        }
-        const data = await res.json();
-        if (!cancelled) {
-          const { fragment, vertexChunk } = extractPreviewShaders(String(data.code ?? ""));
-          setFragCode(fragment);
-          setVertexChunk(vertexChunk);
-        }
-      } catch (err: any) {
-        if (cancelled) return;
-        if (isAbortError(err)) return;
-        setCompileError(typeof err?.message === "string" ? err.message : "Compile failed");
-        setFragCode("");
-        setVertexChunk("");
-      } finally {
-        if (!cancelled) setWorking(false);
-      }
-    })();
-    return () => { cancelled = true; abort.abort(); };
+      })();
+    }, 180);
+    return () => {
+      cancelled = true;
+      abort.abort();
+      if (compileDebounceRef.current) clearTimeout(compileDebounceRef.current);
+      compileDebounceRef.current = null;
+    };
   }, [stableGraph]);
 
   // Keep auto-rotate flag in a ref to avoid re-initializing renderer

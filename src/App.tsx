@@ -266,8 +266,7 @@ export function App() {
       return;
     }
     setEdges((eds) => {
-      const nextRaw = connectSingleInputEdge(eds, params);
-      const next = ensureColoredEdges(nextRaw, nodesRef.current);
+      const next = connectSingleInputEdge(eds, params);
       // annotate dashed edges when either endpoint is an editor node
       const isEditorNode = (id: string) => {
         const n = nodesById.get(id);
@@ -396,19 +395,7 @@ export function App() {
     });
   }, []);
 
-  // Backfill existing edges (from older sessions) with colored type and pin types
-  useEffect(() => {
-    setEdges((prev) => {
-      let needsUpdate = false;
-      for (const e of prev) {
-        if (!(e as any).type || !(e as any).data || !(e as any).data.sourceType || !(e as any).data.targetType) {
-          needsUpdate = true;
-          break;
-        }
-      }
-      return needsUpdate ? ensureColoredEdges(prev, nodesRef.current) : prev;
-    });
-  }, [ensureColoredEdges, setEdges, nodes]);
+  // Edge coloring is applied in the visibleEdges selector; avoid mutating edge state here
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -448,14 +435,35 @@ export function App() {
     setGraphData(next as any);
   }, []);
 
-  useEffect(() => {
+  // Unit-of-Work scheduler: coalesce recomputes into a single RAF
+  const graphRenderRafRef = useRef<number | null>(null);
+  const scheduleGraphRender = useCallback(() => {
+    // If we are in the middle of dragging/resizing, mark pending and defer until stop
     if (resizingEditorIdsRef.current.size > 0 || draggingNodeIdsRef.current.size > 0) {
       pendingGraphUpdateRef.current = true;
       return;
     }
     pendingGraphUpdateRef.current = false;
-    recomputeGraphData();
-  }, [nodes, edges, graphName, recomputeGraphData]);
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      if (graphRenderRafRef.current) cancelAnimationFrame(graphRenderRafRef.current);
+      graphRenderRafRef.current = window.requestAnimationFrame(() => {
+        graphRenderRafRef.current = null;
+        recomputeGraphData();
+      });
+    } else {
+      // Fallback in non-browser/test environments
+      if (graphRenderRafRef.current) {
+        try { cancelAnimationFrame(graphRenderRafRef.current); } catch {}
+        graphRenderRafRef.current = null;
+      }
+      setTimeout(() => recomputeGraphData(), 0);
+    }
+  }, [recomputeGraphData]);
+
+  useEffect(() => {
+    // Coalesce changes across nodes/edges/name into one frame
+    scheduleGraphRender();
+  }, [nodes, edges, graphName, scheduleGraphRender]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -478,15 +486,10 @@ export function App() {
           pendingGraphUpdateRef.current = true;
         } else {
           resizingEditorIdsRef.current.delete(change.id);
-          if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-            pendingGraphUpdateRef.current = false;
-            const flush = () => recomputeGraphData();
-            if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-              window.requestAnimationFrame(flush);
-            } else {
-              setTimeout(flush, 0);
+            if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+              pendingGraphUpdateRef.current = false;
+              scheduleGraphRender();
             }
-          }
           const readDimension = (key: "width" | "height"): number | undefined => {
             const dims = change.dimensions;
             const dimVal = dims ? (dims as any)[key] : undefined;
@@ -588,6 +591,10 @@ export function App() {
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
   const visibleEdges = useMemo(() => {
     const filtered = edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+    // Avoid expensive edge recoloring while dragging/resizing; edge component can infer on the fly
+    if (resizingEditorIdsRef.current.size > 0 || draggingNodeIdsRef.current.size > 0) {
+      return filtered;
+    }
     return ensureColoredEdges(filtered, nodesRef.current);
   }, [edges, visibleNodeIds, ensureColoredEdges]);
 
@@ -710,6 +717,11 @@ export function App() {
     () => ({ nodesById, nodeUpdaterApi, graph: graphData as any }),
     [nodesById, nodeUpdaterApi, graphData]
   );
+
+  // Stabilize ReactFlow config to reduce unnecessary re-renders
+  const nodeTypes = useMemo(() => ({ graphNode: GraphNode }), []);
+  const edgeTypes = useMemo(() => ({ colored: ColoredEdge as any }), []);
+  const isValidConnectionCb = useCallback((conn: any) => isConnectionCompatible(nodesRef.current as any, conn as any), []);
 
   const toggleEditorNode = useCallback(
     async (
@@ -846,7 +858,7 @@ export function App() {
       pendingGraphUpdateRef.current = false;
 
       setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
-      setEdges(ensureColoredEdges(buildResult.edges, buildResult.nodes as any));
+      setEdges(buildResult.edges);
       setGraphName(label ?? "UntitledGraph");
       setViewPath(buildResult.defaultViewPath);
       // Request a one-time fitView after nodes render for this load
@@ -1219,7 +1231,7 @@ export function App() {
         resizingEditorIdsRef.current.clear();
         pendingGraphUpdateRef.current = false;
         setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
-        setEdges(ensureColoredEdges(buildResult.edges, buildResult.nodes as any));
+        setEdges(buildResult.edges);
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setViewPath(buildResult.defaultViewPath);
         // Request a one-time fitView after nodes render for this new graph
@@ -1331,7 +1343,7 @@ export function App() {
       const conn: Connection = isFromSource
         ? ({ source: drag.nodeId, sourceHandle: drag.handleId, target: nextId, targetHandle: newHandle, data: connData } as any)
         : ({ source: nextId, sourceHandle: newHandle, target: drag.nodeId, targetHandle: drag.handleId, data: connData } as any);
-      setEdges((eds) => ensureColoredEdges(connectSingleInputEdge(eds, conn), nodesRef.current));
+      setEdges((eds) => connectSingleInputEdge(eds, conn));
     } catch (_err) {
       // ignore auto-connect failures
     }
@@ -1427,14 +1439,14 @@ export function App() {
     const idGen = () => String(++idCounter.current);
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
-    setEdges(ensureColoredEdges(res.edges as any, res.nodes as any));
+    setEdges(res.edges as any);
   };
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
-    setEdges(ensureColoredEdges(res.edges as any, res.nodes as any));
+    setEdges(res.edges as any);
     setViewPath((p) => (p.length && p[p.length - 1] === groupId ? p.slice(0, -1) : p));
   };
 
@@ -1650,10 +1662,10 @@ export function App() {
           <ReactFlow
           nodes={visibleNodes}
           edges={visibleEdges}
-          nodeTypes={{ graphNode: GraphNode }}
-          edgeTypes={{ colored: ColoredEdge as any }}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           defaultEdgeOptions={{ type: "colored" as any }}
-          isValidConnection={(conn) => isConnectionCompatible(nodesRef.current as any, conn)}
+          isValidConnection={isValidConnectionCb}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
@@ -1698,15 +1710,10 @@ export function App() {
           onNodeDragStop={(_e, node) => {
             try {
               draggingNodeIdsRef.current.delete(node.id);
-              if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-                pendingGraphUpdateRef.current = false;
-                const flush = () => recomputeGraphData();
-                if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-                  window.requestAnimationFrame(flush);
-                } else {
-                  setTimeout(flush, 0);
-                }
-              }
+            if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+              pendingGraphUpdateRef.current = false;
+              scheduleGraphRender();
+            }
             } catch (_err) {
               // ignore
             }

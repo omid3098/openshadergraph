@@ -116,45 +116,53 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     }
   }, [graph]);
 
-  // Trigger compile on graph/language/engine changes
+  // Trigger compile on graph/language/engine changes with debounce + cancellation
+  const debounceRef = useRef<number | null>(null);
   useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
     const abort = new AbortController();
     let cancelled = false;
-    (async () => {
-      try {
-        setWorking(true);
-        setError("");
-        // Guard: only compile when graph is compilable (wrapper with surface or direct surface)
-        const canCompile = isCompilableGraph(stableGraph as any);
-        if (!canCompile) {
+    debounceRef.current = window.setTimeout(() => {
+      (async () => {
+        try {
+          setWorking(true);
+          setError("");
+          const canCompile = isCompilableGraph(stableGraph as any);
+          if (!canCompile) {
+            setCode("");
+            return;
+          }
+          const res = await fetch("/api/compile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abort.signal,
+            body: JSON.stringify({ graph: stableGraph, language, engine }),
+          });
+          if (!res.ok) {
+            const msg = await res.text().catch(() => String(res.status));
+            throw new Error(msg || String(res.status));
+          }
+          const data = await res.json();
+          if (cancelled) return;
+          setCode(String(data.code ?? ""));
+        } catch (err: any) {
+          if (cancelled) return;
+          if (isAbortError(err)) return;
+          setError(typeof err?.message === "string" ? err.message : "Compile failed");
           setCode("");
-          return;
+        } finally {
+          if (!cancelled) setWorking(false);
         }
-        const res = await fetch("/api/compile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: abort.signal,
-          body: JSON.stringify({ graph: stableGraph, language, engine }),
-        });
-        if (!res.ok) {
-          const msg = await res.text().catch(() => String(res.status));
-          throw new Error(msg || String(res.status));
-        }
-        const data = await res.json();
-        if (cancelled) return;
-        setCode(String(data.code ?? ""));
-      } catch (err: any) {
-        if (cancelled) return;
-        if (isAbortError(err)) return;
-        setError(typeof err?.message === "string" ? err.message : "Compile failed");
-        setCode("");
-      } finally {
-        if (!cancelled) setWorking(false);
-      }
-    })();
+      })();
+    }, 180);
     return () => {
       cancelled = true;
       abort.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = null;
     };
   }, [stableGraph, language, engine]);
 

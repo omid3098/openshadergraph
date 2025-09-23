@@ -33,17 +33,31 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
     return () => obs.disconnect();
   }, []);
 
+  // Large payload safeguard: avoid tokenizing extremely large strings with Prism
+  const tooLarge = typeof code === "string" && code.length > 50000;
+
+  if (tooLarge) {
+    return (
+      <pre
+        className={cn(
+          "text-xs leading-relaxed whitespace-pre overflow-auto rounded-md bg-muted p-2 font-mono",
+          className
+        )}
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
+        {code}
+      </pre>
+    );
+  }
+
   return (
-    <Highlight
-      theme={isDark ? themes.vsDark : themes.github}
-      code={code}
-      language={language as Language}
-    >
+    <Highlight theme={isDark ? themes.vsDark : themes.github} code={code} language={language as Language}>
       {({ className: cls, style, tokens, getLineProps, getTokenProps }) => (
         <pre
           className={cn(
             cls,
-            "text-xs leading-relaxed whitespace-pre-wrap break-words overflow-auto rounded-md bg-muted p-2",
+            "text-xs leading-relaxed whitespace-pre overflow-auto rounded-md bg-muted p-2",
             className
           )}
           style={style}
