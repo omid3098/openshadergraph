@@ -205,7 +205,7 @@ async function generateNodesIndex() {
       if (!type) continue;
       const name = String(json.name ?? type);
       const rel = entry.rel;
-      const category = (rel.split(path.sep)[0] ?? "root");
+      const category = rel.includes(path.sep) ? rel.split(path.sep)[0] : "root";
       items.push({ type, name, path: rel, category });
     } catch {}
   }

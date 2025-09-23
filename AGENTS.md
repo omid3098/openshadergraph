@@ -93,3 +93,64 @@ These are non-negotiable to ship green and stay maintainable.
 - Run production server: `bun run start`
 
 That’s it. If in doubt, follow the data in `data/**`, confirm APIs with Context7, and don’t submit unless tests and lint are clean.
+
+## Production (Pages) Deployment – Rules & Playbook
+
+Background: Cloudflare Pages is static. There is no Bun server at runtime, so any `/api/*` calls must either be served by Pages Functions or the app must fall back to static assets and client-side behavior. The preview must still compile ThreeJS GLSL in-browser; the Compile panel should work without relying on server APIs.
+
+What we ship in `dist/` (build.ts):
+
+- Copy canonical assets into output:
+  - `dist/data/**` (nodes, languages, assets)
+  - `dist/examples/**`
+- Generate indices so Pages can serve lists without directory listing:
+  - `dist/data/nodes.index.json`
+  - `dist/data/languages.index.json`
+  - `dist/examples/index.json`
+
+Browser vs server paths:
+
+- When `window` is defined, treat roots as absolute static paths:
+  - Nodes root: `/data/nodes`
+  - Languages root: `/data/languages`
+- Avoid `process.cwd()` and other Node/Bun-only globals in browser code paths.
+
+Client-side fallbacks (must exist for production):
+
+- Nodes list: try `/api/nodes`, else `/data/nodes.index.json`.
+- Node template: try `/api/node-template?path=…`, else `/data/nodes/<path>`.
+- Assets library: try `/api/assets`, else `/data/assets/library.json`.
+- Languages list: try `/api/languages`, else `/data/languages.index.json`.
+- Examples: try `/api/example-graphs`, else `/examples/index.json` and `/examples/<key>.json`.
+- Compile:
+  - Dev/Server: POST `/api/compile`.
+  - Cloudflare Pages (static): detect `.pages.dev` host and compile client‑side:
+    - Fetch `/data/languages/<language>.json` and validate with zod.
+    - Preload all node templates via `/data/nodes.index.json` → `/data/nodes/<path>.json`.
+    - Normalize graph root: if wrapper has empty `type`, use the first `surface` node.
+    - Coerce input pin numeric strings to numbers prior to compile to enable default-stripping.
+    - For preview, apply default PBR shading (`fragment_output.shading_model = "pbr"`) to match server behavior.
+
+Preview policy (re-affirmed for production):
+
+- Always compile ThreeJS GLSL in preview, regardless of selected output language.
+- Do not bake environment or exposure into language templates; preview uniforms are provided by the renderer.
+
+Operational tips:
+
+- Cache: on Pages, hard-refresh with cache disabled when testing new builds; purge cache if static JSON appears stale.
+- Avoid noisy 405s: on `.pages.dev` don’t call `/api/*` for compile—go straight to the client compiler.
+- If server parity is required, add Cloudflare Pages Functions for `/api/*` and keep the same handlers used in Bun.
+
+Deployment checklist (Pages):
+
+1. `bun run build` (ensures `dist/` contains `data/**`, `examples/**`, and generated indices).
+2. Cloudflare Pages config:
+   - Build command: `bun run build`
+   - Output directory: `dist`
+   - Root directory: (blank)
+3. Verify in Network tab (Disable cache):
+   - 200 for `/data/languages/ThreeJS_GLSL.json` and `/data/languages/Godot.json`
+   - 200 for `/data/nodes.index.json` and referenced `/data/nodes/*.json`
+   - 200 for `/examples/index.json`
+4. Confirm preview renders lit PBR sphere by default and Compile panel shows code without `/api/compile`.
