@@ -9,6 +9,50 @@ const LANG_ROOT = path.resolve(process.cwd(), "data", "languages");
 let templatesLoaded = false;
 const templateMap = new Map<string, NodeTemplate>();
 
+async function loadTemplatesBrowserOnce(): Promise<void> {
+  if (templatesLoaded) return;
+  if (typeof window === "undefined" || typeof fetch === "undefined") return; // not in browser
+  try {
+    const indexRes = await fetch("/data/nodes.index.json");
+    if (!indexRes.ok) return;
+    const indexJson: any = await indexRes.json();
+    const flat: Array<{ path: string }> = Array.isArray(indexJson?.flat) ? indexJson.flat : [];
+    for (const item of flat) {
+      const p = String(item?.path ?? "");
+      if (!p) continue;
+      try {
+        const tplRes = await fetch(`/data/nodes/${p}`);
+        if (!tplRes.ok) continue;
+        const json = await tplRes.json();
+        const valid = validateNodeTemplate(json);
+        if (Array.isArray(valid.properties)) {
+          valid.properties = valid.properties.map((prop) =>
+            prop && typeof prop === "object" && (prop as any).default !== undefined && (prop as any).value === undefined
+              ? { ...(prop as any), value: (prop as any).default }
+              : prop
+          );
+        } else {
+          valid.properties = [];
+        }
+        if (valid && typeof valid.type === "string" && valid.type) {
+          templateMap.set(valid.type, valid);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    templatesLoaded = true;
+  } catch {
+    // ignore
+  }
+}
+
+// Helper to load templates in browser before compiling
+export async function loadAllTemplatesForBrowser(): Promise<void> {
+  if (templatesLoaded) return;
+  await loadTemplatesBrowserOnce();
+}
+
 function loadTemplatesSyncOnce() {
   if (templatesLoaded) return;
   // Walk directories under NODE_ROOT and collect .json files
@@ -27,8 +71,8 @@ function loadTemplatesSyncOnce() {
           const valid = validateNodeTemplate(json);
           if (Array.isArray(valid.properties)) {
             valid.properties = valid.properties.map((prop) =>
-              prop && typeof prop === "object" && prop.default !== undefined && prop.value === undefined
-                ? { ...prop, value: prop.default }
+              prop && typeof prop === "object" && (prop as any).default !== undefined && (prop as any).value === undefined
+                ? { ...(prop as any), value: (prop as any).default }
                 : prop
             );
           } else {
@@ -42,6 +86,12 @@ function loadTemplatesSyncOnce() {
         }
       }
     }
+  }
+  // In browser, prefer async loader
+  if (typeof window !== "undefined") {
+    // Mark as loaded if browser preloading occurred; otherwise leave empty map and rely on caller to call loadAllTemplatesForBrowser()
+    templatesLoaded = true;
+    return;
   }
   walk(NODE_ROOT);
   // Synthetic 'surface' container if missing

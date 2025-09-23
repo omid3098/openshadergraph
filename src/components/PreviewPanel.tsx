@@ -369,19 +369,35 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             setVertexChunk("");
             return;
           }
-          const res = await fetch("/api/compile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: abort.signal,
-            body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
-          });
-          if (!res.ok) {
-            const msg = await res.text().catch(() => String(res.status));
-            throw new Error(msg || String(res.status));
+          // Try server compile first
+          let code: string | null = null;
+          try {
+            const res = await fetch("/api/compile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: abort.signal,
+              body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              code = String(data.code ?? "");
+            }
+          } catch {}
+          if (code == null) {
+            // Fallback: client-side compile with static language pack
+            const langPath = "/data/languages/ThreeJS_GLSL.json";
+            const res2 = await fetch(langPath, { signal: abort.signal } as any);
+            if (!res2.ok) throw new Error(`Failed to load language: ${res2.status}`);
+            const langJson = await res2.json();
+            const { validateLanguagePack } = await import("@/core/schema/validators");
+            const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
+            const lang = validateLanguagePack(langJson);
+            const compiler = new GraphCompiler(stableGraph as any, lang);
+            compiler.compile();
+            code = compiler.result_code;
           }
-          const data = await res.json();
           if (!cancelled) {
-            const { fragment, vertexChunk } = extractPreviewShaders(String(data.code ?? ""));
+            const { fragment, vertexChunk } = extractPreviewShaders(String(code ?? ""));
             setFragCode(fragment);
             setVertexChunk(vertexChunk);
           }
@@ -585,7 +601,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         const prim = typeof getProperty === "function" ? (getProperty("primitive") as Primitive | undefined) : undefined;
         if (typeof prim === "string") setPrimitive(prim as Primitive);
         if (src) {
-          void loadModelAsset(src, label || "Model", { persist: false, asset });
+          void loadModelAsset(src, label || "Model", { persist: false, asset: ((asset as any) ?? null) });
         }
       } catch {
         // ignore hydration errors; graph properties can be unset during initial mount
@@ -815,11 +831,11 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       void loadModelAsset(payload.source, label, {
         persist: true,
         asset: {
-          id: payload.id,
-          source: payload.source,
-          label: payload.label,
-          type: payload.type,
-          builtin: payload.builtin,
+          id: String(payload.id ?? payload.source ?? ""),
+          source: String(payload.source ?? ""),
+          label: String(payload.label ?? payload.id ?? "Asset"),
+          type: String(payload.type ?? "model"),
+          builtin: Boolean(payload.builtin ?? true),
         },
       });
     },

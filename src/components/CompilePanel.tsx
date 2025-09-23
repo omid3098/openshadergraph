@@ -161,11 +161,15 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
             }
           } catch {}
           if (outCode == null) {
-            // Do a client-side compile using existing code if API not present
-            const { loadLanguage } = await import("@/core/schema/registry");
+            // Client-side compile fallback using static language pack
+            const langFile = language.endsWith(".json") ? language : `${language}.json`;
+            const res2 = await fetch(`/data/languages/${langFile}`, { signal: abort.signal } as any);
+            if (!res2.ok) throw new Error(`Failed to load language: ${res2.status}`);
+            const langJson = await res2.json();
+            const { validateLanguagePack } = await import("@/core/schema/validators");
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
-            const lang = await loadLanguage(language);
-            const compiler = new GraphCompiler(stableGraph as any, lang);
+            const langPack = validateLanguagePack(langJson);
+            const compiler = new GraphCompiler(stableGraph as any, langPack);
             compiler.compile();
             outCode = compiler.result_code;
           }
