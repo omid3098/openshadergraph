@@ -391,7 +391,9 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             const langJson = await res2.json();
             const { validateLanguagePack } = await import("@/core/schema/validators");
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
+            const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
             const lang = validateLanguagePack(langJson);
+            await loadAllTemplatesForBrowser();
             const compiler = new GraphCompiler(stableGraph as any, lang);
             compiler.compile();
             code = compiler.result_code;

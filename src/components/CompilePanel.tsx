@@ -168,7 +168,9 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
             const langJson = await res2.json();
             const { validateLanguagePack } = await import("@/core/schema/validators");
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
+            const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
             const langPack = validateLanguagePack(langJson);
+            await loadAllTemplatesForBrowser();
             const compiler = new GraphCompiler(stableGraph as any, langPack);
             compiler.compile();
             outCode = compiler.result_code;
