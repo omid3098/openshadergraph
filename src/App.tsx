@@ -14,7 +14,7 @@ import {
   type Node,
   type NodeChange,
 } from "@xyflow/react";
-import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType, getPinTypeFor, arePinTypesCompatible } from "@/core/ui/compat";
+import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType, getPinTypeFor, arePinTypesCompatible, getPinTypeOptionsFor } from "@/core/ui/compat";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
@@ -352,7 +352,16 @@ export function App() {
       for (let i = 0; i < pins.length; i++) {
         const p = pins[i];
         if (!p || typeof p !== "object") continue;
-        types.push(normalizePinType((p as any).type));
+        const raw = (p as any).type;
+        if (Array.isArray(raw)) {
+          for (const opt of raw) {
+            const t = normalizePinType(opt);
+            if (t && t !== "unknown") types.push(t);
+          }
+        } else {
+          const t = normalizePinType(raw);
+          if (t && t !== "unknown") types.push(t);
+        }
       }
       return types;
     };
@@ -1274,30 +1283,35 @@ export function App() {
       pendingConnectRef.current = null;
       const tpl: any = (rfNode as any)?.data?.template;
       if (!drag || !tpl) return;
+      const draggedTypes = (() => {
+        const opts = getPinTypeOptionsFor(nodesRef.current as any, drag.nodeId, drag.handleId) as ReturnType<typeof normalizePinType>[];
+        return (Array.isArray(opts) && opts.length ? opts : [drag.type]).filter((t) => t && t !== "unknown");
+      })();
       const findFirstMatchingPinIndex = (
         pins: any[] | undefined,
         isFromSource: boolean,
-        draggedType: ReturnType<typeof normalizePinType>
+        dragged: ReturnType<typeof normalizePinType>[]
       ): number => {
         const list = Array.isArray(pins) ? pins : [];
         for (let i = 0; i < list.length; i++) {
           const p = list[i];
           if (!p || typeof p !== "object") continue;
-          const t = normalizePinType((p as any).type);
+          const raw = (p as any).type;
+          const opts: ReturnType<typeof normalizePinType>[] = Array.isArray(raw)
+            ? raw.map((r: any) => normalizePinType(r)).filter((t) => t && t !== "unknown")
+            : [normalizePinType(raw)].filter((t) => t && t !== "unknown");
           if (isFromSource) {
-            // dragging from an output; need input compatible with dragged -> candidate
-            if (arePinTypesCompatible(draggedType, t)) return i;
+            if (opts.some((t) => dragged.some((dt) => arePinTypesCompatible(dt, t)))) return i;
           } else {
-            // dragging from an input; need output compatible with candidate -> dragged
-            if (arePinTypesCompatible(t, draggedType)) return i;
+            if (opts.some((t) => dragged.some((dt) => arePinTypesCompatible(t, dt)))) return i;
           }
         }
         return -1;
       };
       const isFromSource = drag.side === "source";
       const idx = isFromSource
-        ? findFirstMatchingPinIndex(tpl?.inputs as any, true, drag.type)
-        : findFirstMatchingPinIndex(tpl?.outputs as any, false, drag.type);
+        ? findFirstMatchingPinIndex(tpl?.inputs as any, true, draggedTypes)
+        : findFirstMatchingPinIndex(tpl?.outputs as any, false, draggedTypes);
       if (idx < 0) return;
       const readPinId = (pins: any[] | undefined, index: number): string => {
         const list = Array.isArray(pins) ? pins : [];
@@ -1312,8 +1326,8 @@ export function App() {
         ? normalizePinType(((tpl?.inputs as any[])[idx] as any)?.type)
         : normalizePinType(((tpl?.outputs as any[])[idx] as any)?.type);
       const connData = isFromSource
-        ? { sourceType: drag.type, targetType: newPinType }
-        : { sourceType: newPinType, targetType: drag.type };
+        ? { sourceType: (draggedTypes[0] ?? drag.type), targetType: newPinType }
+        : { sourceType: newPinType, targetType: (draggedTypes[0] ?? drag.type) };
       const conn: Connection = isFromSource
         ? ({ source: drag.nodeId, sourceHandle: drag.handleId, target: nextId, targetHandle: newHandle, data: connData } as any)
         : ({ source: nextId, sourceHandle: newHandle, target: drag.nodeId, targetHandle: drag.handleId, data: connData } as any);
@@ -1338,7 +1352,9 @@ export function App() {
       openAddNodeMenuAt(client.x, client.y, null);
       return;
     }
-    const draggedType = drag.type;
+    // Expand dragged handle into all allowed type options
+    const draggedOptions = getPinTypeOptionsFor(nodesRef.current as any, drag.nodeId, drag.handleId) as ReturnType<typeof normalizePinType>[];
+    const draggedTypes: ReturnType<typeof normalizePinType>[] = (Array.isArray(draggedOptions) && draggedOptions.length ? draggedOptions : [drag.type]).filter((t) => t && t !== "unknown");
     const fromSource = drag.side === "source";
     const items = palette.flat;
     const results: NodePaletteItem[] = [];
@@ -1346,11 +1362,9 @@ export function App() {
       items.map(async (it) => {
         const idx = await loadPinIndex(it);
         if (fromSource) {
-          // dragging from an output; candidate must have a compatible input
-          if (idx.inputs.some((t) => arePinTypesCompatible(draggedType, t))) results.push(it);
+          if (idx.inputs.some((t) => draggedTypes.some((dt) => arePinTypesCompatible(dt, t)))) results.push(it);
         } else {
-          // dragging from an input; candidate must have a compatible output
-          if (idx.outputs.some((t) => arePinTypesCompatible(t, draggedType))) results.push(it);
+          if (idx.outputs.some((t) => draggedTypes.some((dt) => arePinTypesCompatible(t, dt)))) results.push(it);
         }
       })
     );

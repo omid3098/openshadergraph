@@ -18,13 +18,30 @@ export function normalizePinType(raw: unknown): NormalizedPinType {
   if (t === "float4" || t === "vec4" || t === "color") return "float4";
   if (t === "int") return "int";
   if (t === "bool") return "bool";
-  if (t === "mat3") return "mat3";
-  if (t === "mat4") return "mat4";
+  if (t === "mat3" || t === "matrix3") return "mat3";
+  if (t === "mat4" || t === "matrix4") return "mat4";
   if (t === "sampler2d" || t === "texture2d") return "sampler2d";
   if (t === "sampler3d" || t === "texture3d") return "sampler3d";
   if (t === "samplercube" || t === "texturecube") return "samplercube";
   if (t.includes("sampler")) return "sampler";
   return "unknown";
+}
+
+function normalizePinTypeOptions(raw: unknown): NormalizedPinType[] {
+  if (Array.isArray(raw)) {
+    const opts = raw
+      .map((r) => normalizePinType(r))
+      .filter((t): t is NormalizedPinType => !!t && t !== "unknown");
+    // Deduplicate while preserving order
+    const seen = new Set<string>();
+    const dedup: NormalizedPinType[] = [];
+    for (const o of opts) {
+      if (!seen.has(o)) { seen.add(o); dedup.push(o); }
+    }
+    return dedup;
+  }
+  const single = normalizePinType(raw);
+  return single === "unknown" ? [] : [single];
 }
 
 export function arePinTypesCompatible(source: NormalizedPinType, target: NormalizedPinType): boolean {
@@ -73,7 +90,40 @@ export function getPinTypeFor(nodes: Node[], nodeId: string, handleId: string | 
   return normalizePinType(found?.type);
 }
 
+export function getPinTypeOptionsFor(nodes: Node[], nodeId: string, handleId: string | null | undefined): NormalizedPinType[] {
+  if (!handleId) return [];
+  const node = nodes.find((n) => n.id === nodeId);
+  if (!node) return [];
+  const tpl: any = (node.data as any)?.template;
+  const m = String(handleId).match(/^(in|input|out|output)-(\d+)$/);
+  if (!m) return [];
+  const dir = m[1];
+  const pid = parseHandleId(handleId);
+  const pins: any[] = Array.isArray(dir.startsWith("in") ? tpl?.inputs : tpl?.outputs) ? (dir.startsWith("in") ? tpl.inputs : tpl.outputs) : [];
+  for (let i = 0; i < pins.length; i++) {
+    const p = pins[i];
+    if (!p || typeof p !== "object") continue;
+    const idVal = typeof p.id === "number" ? p.id : i;
+    if (idVal === pid) {
+      return normalizePinTypeOptions((p as any).type);
+    }
+  }
+  return [];
+}
+
 export function isConnectionCompatible(nodes: Node[], conn: { source?: string | null; target?: string | null; sourceHandle?: string | null; targetHandle?: string | null }): boolean {
+  const sourceOpts = getPinTypeOptionsFor(nodes, String(conn.source ?? ""), conn.sourceHandle);
+  const targetOpts = getPinTypeOptionsFor(nodes, String(conn.target ?? ""), conn.targetHandle);
+  // If we have option lists, allow any compatible pairing
+  if (sourceOpts.length || targetOpts.length) {
+    for (const s of sourceOpts.length ? sourceOpts : [getPinTypeFor(nodes, String(conn.source ?? ""), conn.sourceHandle)]) {
+      for (const t of targetOpts.length ? targetOpts : [getPinTypeFor(nodes, String(conn.target ?? ""), conn.targetHandle)]) {
+        if (arePinTypesCompatible(s, t)) return true;
+      }
+    }
+    return false;
+  }
+  // Fallback to single-type check
   const sourceType = getPinTypeFor(nodes, String(conn.source ?? ""), conn.sourceHandle);
   const targetType = getPinTypeFor(nodes, String(conn.target ?? ""), conn.targetHandle);
   return arePinTypesCompatible(sourceType, targetType);
