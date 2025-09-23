@@ -176,6 +176,19 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
             const normalizedGraph: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
               ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0] ?? rootCandidate)
               : rootCandidate;
+            // Coerce numeric strings → numbers for default-stripping to work
+            const coerceNumbers = (n: any) => {
+              if (!n || typeof n !== "object") return;
+              if (Array.isArray(n.inputs)) {
+                for (const p of n.inputs) {
+                  if (!p || typeof p !== "object") continue;
+                  const v = (p as any).value;
+                  if (Array.isArray(v)) (p as any).value = v.map((x) => (typeof x === "string" && x.trim() !== "" ? Number(x) : x));
+                }
+              }
+              if (Array.isArray(n.nodes)) for (const c of n.nodes) coerceNumbers(c);
+            };
+            coerceNumbers(normalizedGraph);
             const compiler = new GraphCompiler(normalizedGraph as any, langPack);
             compiler.compile();
             outCode = compiler.result_code;

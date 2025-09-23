@@ -10,6 +10,30 @@ import {
 } from "../types/pinTypes";
 import { getBuiltinPinType, isBuiltinToken, resolveBuiltinExpression } from "../types/builtinInputs";
 
+export function applyPreviewEngineDefaults(rootGraph: GraphNode): void {
+  const applyDefaultShading = (n: any) => {
+    if (n && typeof n === "object") {
+      if (n.type === "fragment_output") {
+        const props: any[] = Array.isArray(n.properties) ? n.properties : (n.properties = []);
+        let shading = props.find((p) => p && typeof p === "object" && p.id === "shading_model");
+        if (!shading) {
+          shading = { id: "shading_model", type: "enum", value: "pbr" };
+          props.push(shading);
+        }
+        if (shading.value == null || shading.value === "") {
+          shading.value = shading.default ?? "pbr";
+          if (!shading.value) shading.value = "pbr";
+        }
+        if (Array.isArray(n.meta)) {
+          n.meta = n.meta.filter((m: any) => !(typeof m === "string" && m.startsWith("shading_")));
+        }
+      }
+      for (const c of n.nodes ?? []) applyDefaultShading(c);
+    }
+  };
+  applyDefaultShading(rootGraph as any);
+}
+
 type PinState = {
   prepared?: boolean;
   refType?: string;

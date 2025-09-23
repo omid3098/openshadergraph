@@ -391,6 +391,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             const langJson = await res2.json();
             const { validateLanguagePack } = await import("@/core/schema/validators");
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
+            const { applyPreviewEngineDefaults } = await import("@/core/compiler/graphCompiler");
             const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
             const lang = validateLanguagePack(langJson);
             await loadAllTemplatesForBrowser();
@@ -398,6 +399,20 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             const normalized: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
               ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0] ?? rootCandidate)
               : rootCandidate;
+            const coerceNumbers = (n: any) => {
+              if (!n || typeof n !== "object") return;
+              if (Array.isArray(n.inputs)) {
+                for (const p of n.inputs) {
+                  if (!p || typeof p !== "object") continue;
+                  const v = (p as any).value;
+                  if (Array.isArray(v)) (p as any).value = v.map((x) => (typeof x === "string" && x.trim() !== "" ? Number(x) : x));
+                }
+              }
+              if (Array.isArray(n.nodes)) for (const c of n.nodes) coerceNumbers(c);
+            };
+            coerceNumbers(normalized);
+            // Ensure preview uses PBR by default like the server
+            applyPreviewEngineDefaults(normalized as any);
             const compiler = new GraphCompiler(normalized as any, lang);
             compiler.compile();
             code = compiler.result_code;
