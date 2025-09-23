@@ -833,6 +833,24 @@ export class GraphCompiler {
       }
       return result;
     }
+    // If property exists but isn't annotated as enum (e.g., diff/minimal graphs), try language mapping directly
+    if (langNode?.properties?.[propId]) {
+      const dict: any = (langNode.properties as any)[propId] ?? {};
+      const token = String(value ?? "");
+      // Try exact key, then common enum prefixes used in language packs
+      const variant =
+        dict[token] ??
+        dict[`${propId}_${token}`] ??
+        dict[`wrap_${token}`] ??
+        dict[`filter_${token}`] ??
+        dict[`space_${token}`] ??
+        undefined;
+      if (variant) {
+        const tpl = (variant as any)?.template ?? "";
+        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
+        return plc ? { template: tpl, placement: plc } : { template: tpl };
+      }
+    }
     if (!prop && langNode?.properties?.[propId]) {
       const token = String(value ?? "");
       const variant = (langNode.properties as any)[propId]?.[token];

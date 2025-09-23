@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy } from "react";
 import { DockLayout } from "../layout/DockLayout";
-import { PreviewPanel } from "@/components/PreviewPanel";
+const PreviewPanel = lazy(() => import("@/components/PreviewPanel").then(m => ({ default: m.PreviewPanel })));
 import { CompilePanel } from "@/components/CompilePanel";
 import { GraphDataPanel } from "@/components/GraphDataPanel";
 import { PropertiesPanel } from "@/components/PropertiesPanel";
@@ -185,7 +185,9 @@ export function PanelsOverlay({ graph, className, includePreview = true, include
         </div>
         {panels.preview ? (
           <div className="border-t" style={{ height: previewHeight }}>
-            <PreviewPanel variant="docked" graph={graph} />
+            <React.Suspense fallback={<div className="h-full flex items-center justify-center text-xs text-muted-foreground">Loading preview…</div>}>
+              <PreviewPanel variant="docked" graph={graph} />
+            </React.Suspense>
           </div>
         ) : null}
       </div>

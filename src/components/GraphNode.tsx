@@ -16,7 +16,8 @@ import type { NodeAssetPayload } from "@/core/ui/nodeUpdaters";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { CompilePanel } from "./CompilePanel";
 import { GraphDataPanel } from "./GraphDataPanel";
-import { PreviewPanel } from "./PreviewPanel";
+import React from "react";
+const PreviewPanel = React.lazy(() => import("./PreviewPanel").then(m => ({ default: m.PreviewPanel })));
 import { AssetsPanel } from "./AssetsPanel";
 import { getBuiltinDisplayLabel, isBuiltinToken } from "@/core/types/builtinInputs";
 import { Paperclip, ArrowDownLeft, ArrowUpRight, SlidersHorizontal, PanelsTopLeft } from "lucide-react";
@@ -217,25 +218,27 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <GraphDataPanel variant="node" data={graph} className="h-full" />;
     }
     if (key === "preview") {
-          return (
-            <PreviewPanel
-              variant="node"
-              graph={graph}
-              className="h-full"
-              asset={currentAsset ?? null}
-              getProperty={(propId: string) => {
-            const props: any[] = Array.isArray((data as any)?.template?.properties)
-              ? ((data as any).template.properties as any[])
-              : [];
-            const found = props.find((p) => p && typeof p === "object" && p.id === propId);
-            return found?.value ?? found?.default;
-          }}
-          setProperty={(propId: string, next: unknown) => {
-            if (!nodeId || !propId) return;
-            updatePropertyValue(propId, next);
-          }}
-              setAsset={(next) => updateNodeAsset(next as any)}
-        />
+      return (
+        <React.Suspense fallback={<div className="p-3 text-xs text-muted-foreground">Loading preview…</div>}>
+          <PreviewPanel
+            variant="node"
+            graph={graph}
+            className="h-full"
+            asset={currentAsset ?? null}
+            getProperty={(propId: string) => {
+              const props: any[] = Array.isArray((data as any)?.template?.properties)
+                ? ((data as any).template.properties as any[])
+                : [];
+              const found = props.find((p) => p && typeof p === "object" && p.id === propId);
+              return found?.value ?? found?.default;
+            }}
+            setProperty={(propId: string, next: unknown) => {
+              if (!nodeId || !propId) return;
+              updatePropertyValue(propId, next);
+            }}
+            setAsset={(next) => updateNodeAsset(next as any)}
+          />
+        </React.Suspense>
       );
     }
     if (key === "assets") {

@@ -429,6 +429,7 @@ export function App() {
   const resizingEditorIdsRef = useRef(new Set<string>());
   const pendingGraphUpdateRef = useRef(false);
   const draggingNodeIdsRef = useRef(new Set<string>());
+  const autosaveTimeoutRef = useRef<number | null>(null);
 
   const recomputeGraphData = useCallback(() => {
     const next = buildGraphData(nodesRef.current as any, edgesRef.current as any, graphNameRef.current);
@@ -453,7 +454,7 @@ export function App() {
     } else {
       // Fallback in non-browser/test environments
       if (graphRenderRafRef.current) {
-        try { cancelAnimationFrame(graphRenderRafRef.current); } catch {}
+        try { cancelAnimationFrame(graphRenderRafRef.current); } catch (_err) { void 0; }
         graphRenderRafRef.current = null;
       }
       setTimeout(() => recomputeGraphData(), 0);
@@ -486,10 +487,10 @@ export function App() {
           pendingGraphUpdateRef.current = true;
         } else {
           resizingEditorIdsRef.current.delete(change.id);
-            if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-              pendingGraphUpdateRef.current = false;
-              scheduleGraphRender();
-            }
+          if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+            pendingGraphUpdateRef.current = false;
+            scheduleGraphRender();
+          }
           const readDimension = (key: "width" | "height"): number | undefined => {
             const dims = change.dimensions;
             const dimVal = dims ? (dims as any)[key] : undefined;
@@ -575,7 +576,8 @@ export function App() {
       }
       onNodesChange(changes);
     },
-    [onNodesChange, recomputeGraphData, setNodes]
+    // scheduleGraphRender is stable; include to satisfy exhaustive-deps and avoid warning
+    [onNodesChange, setNodes, scheduleGraphRender]
   );
 
   // Visible graph based on current viewPath (root vs. inside a group)
@@ -864,7 +866,8 @@ export function App() {
       // Request a one-time fitView after nodes render for this load
       fitAfterLoadRef.current = true;
     },
-    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, ensureColoredEdges]
+    // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
+    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
@@ -1131,22 +1134,38 @@ export function App() {
   }, [recentGraphs, setRecentGraphs]);
 
   // Lightweight autosave of current session (supports restoring unsaved graphs)
+  // Debounced and paused during drag/resize to avoid heavy work on every frame
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.localStorage === "undefined") return;
     if (!startupAttemptedRef.current || !initialLoadDoneRef.current) return;
     if (!nodesRef.current.length) return;
-    try {
-      const label = (() => {
-        const trimmed = (graphName || "UntitledGraph").trim();
-        return trimmed.length ? trimmed : "UntitledGraph";
-      })();
-      const name = (fileName && fileName.trim().length ? fileName : `${label.replace(/\s+/g, "_")}.osg`);
-      const contents = serializeGraph(label);
-      const kind = fileHandleRef.current ? "disk" : "temp";
-      window.localStorage.setItem(SESSION_GRAPH_KEY, JSON.stringify({ kind, name, contents }));
-    } catch (_err) {
-      // Ignore autosave failures
+    // Skip scheduling while dragging/resizing; we'll save when motion stops
+    if (resizingEditorIdsRef.current.size > 0 || draggingNodeIdsRef.current.size > 0) return;
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
     }
+    const run = () => {
+      try {
+        const label = (() => {
+          const trimmed = (graphName || "UntitledGraph").trim();
+          return trimmed.length ? trimmed : "UntitledGraph";
+        })();
+        const name = (fileName && fileName.trim().length ? fileName : `${label.replace(/\s+/g, "_")}.osg`);
+        const contents = serializeGraph(label);
+        const kind = fileHandleRef.current ? "disk" : "temp";
+        window.localStorage.setItem(SESSION_GRAPH_KEY, JSON.stringify({ kind, name, contents }));
+      } catch (_err) {
+        // Ignore autosave failures
+      }
+    };
+    autosaveTimeoutRef.current = window.setTimeout(run, 800);
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+    };
   }, [nodes, edges, graphName, fileName, serializeGraph]);
 
   // Create a brand-new surface graph with vertex + fragment passes
@@ -1240,7 +1259,8 @@ export function App() {
         console.warn("Failed to create new graph", shading, err);
       }
     },
-    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi, ensureColoredEdges]
+    // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
+    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
   );
 
   // Fetch example graphs and load the first by default (only if no recent graph was loaded)

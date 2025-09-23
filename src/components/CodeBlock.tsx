@@ -33,8 +33,9 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
     return () => obs.disconnect();
   }, []);
 
-  // Large payload safeguard: avoid tokenizing extremely large strings with Prism
-  const tooLarge = typeof code === "string" && code.length > 50000;
+  // Large payload safeguard: avoid tokenizing large strings with Prism
+  // Lower threshold to reduce main-thread work for big JSON/shader outputs
+  const tooLarge = typeof code === "string" && code.length > 10000;
 
   if (tooLarge) {
     return (
