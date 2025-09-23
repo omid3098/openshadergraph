@@ -2,7 +2,7 @@
 import { build, type BuildConfig } from "bun";
 import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
-import { rm } from "fs/promises";
+import { rm, cp } from "fs/promises";
 import path from "path";
 
 // Print help text if requested
@@ -165,5 +165,17 @@ const outputTable = result.outputs.map(output => ({
 
 console.table(outputTable);
 const buildTime = (end - start).toFixed(2);
+
+// Copy runtime data directories needed by the server/ui
+async function copyIfExists(srcRel: string, destRel: string) {
+  const srcAbs = path.resolve(process.cwd(), srcRel);
+  const destAbs = path.resolve(outdir, destRel);
+  if (!existsSync(srcAbs)) return;
+  await cp(srcAbs, destAbs, { recursive: true, force: true });
+  console.log(`📦 Copied ${srcRel} → ${path.relative(process.cwd(), destAbs)}`);
+}
+
+await copyIfExists("data", "data");
+await copyIfExists("examples", "examples");
 
 console.log(`\n✅ Build completed in ${buildTime}ms\n`);
