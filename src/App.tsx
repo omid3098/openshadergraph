@@ -135,6 +135,7 @@ export function App() {
   const startupAttemptedRef = useRef(false);
   const fitAfterLoadRef = useRef(false);
   const connectDragRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
+  const pendingConnectRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
   const pinIndexCacheRef = useRef<Map<string, { inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }>>(new Map());
 
   // MiniMap theme colors sourced from CSS variables and updated when theme changes
@@ -1263,6 +1264,60 @@ export function App() {
     // Inject updater on the new node
     const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode as any]);
+
+    // If this node was added from a drag gesture, auto-connect first compatible opposite pin
+    try {
+      const drag = pendingConnectRef.current;
+      pendingConnectRef.current = null;
+      const tpl: any = (rfNode as any)?.data?.template;
+      if (!drag || !tpl) return;
+      const findFirstMatchingPinIndex = (
+        pins: any[] | undefined,
+        isFromSource: boolean,
+        draggedType: ReturnType<typeof normalizePinType>
+      ): number => {
+        const list = Array.isArray(pins) ? pins : [];
+        for (let i = 0; i < list.length; i++) {
+          const p = list[i];
+          if (!p || typeof p !== "object") continue;
+          const t = normalizePinType((p as any).type);
+          if (isFromSource) {
+            // dragging from an output; need input compatible with dragged -> candidate
+            if (arePinTypesCompatible(draggedType, t)) return i;
+          } else {
+            // dragging from an input; need output compatible with candidate -> dragged
+            if (arePinTypesCompatible(t, draggedType)) return i;
+          }
+        }
+        return -1;
+      };
+      const isFromSource = drag.side === "source";
+      const idx = isFromSource
+        ? findFirstMatchingPinIndex(tpl?.inputs as any, true, drag.type)
+        : findFirstMatchingPinIndex(tpl?.outputs as any, false, drag.type);
+      if (idx < 0) return;
+      const readPinId = (pins: any[] | undefined, index: number): string => {
+        const list = Array.isArray(pins) ? pins : [];
+        const p = list[index];
+        const idVal = typeof (p?.id) === "number" ? p.id : index;
+        return String(idVal);
+      };
+      const newHandle = isFromSource
+        ? (`in-${readPinId(tpl?.inputs as any, idx)}`)
+        : (`out-${readPinId(tpl?.outputs as any, idx)}`);
+      const newPinType = isFromSource
+        ? normalizePinType(((tpl?.inputs as any[])[idx] as any)?.type)
+        : normalizePinType(((tpl?.outputs as any[])[idx] as any)?.type);
+      const connData = isFromSource
+        ? { sourceType: drag.type, targetType: newPinType }
+        : { sourceType: newPinType, targetType: drag.type };
+      const conn: Connection = isFromSource
+        ? ({ source: drag.nodeId, sourceHandle: drag.handleId, target: nextId, targetHandle: newHandle, data: connData } as any)
+        : ({ source: nextId, sourceHandle: newHandle, target: drag.nodeId, targetHandle: drag.handleId, data: connData } as any);
+      setEdges((eds) => ensureColoredEdges(connectSingleInputEdge(eds, conn), nodesRef.current));
+    } catch (_err) {
+      // ignore auto-connect failures
+    }
   };
 
   const openAddNodeMenuAt = useCallback((x: number, y: number, override: NodePalette | null) => {
@@ -1274,6 +1329,8 @@ export function App() {
     const drag = connectDragRef.current;
     connectDragRef.current = null;
     if (!drag) return;
+    // remember for auto-connect when node is added
+    pendingConnectRef.current = drag;
     if (!palette) {
       openAddNodeMenuAt(client.x, client.y, null);
       return;
@@ -1717,6 +1774,7 @@ export function App() {
             await addNodeAt({ item, x: menu.x, y: menu.y });
             setMenu((m) => ({ ...m, open: false }));
             setMenuPaletteOverride(null);
+            pendingConnectRef.current = null;
           }}
           onDeleteNode={async (id) => {
             if (!id) return;
@@ -1724,7 +1782,7 @@ export function App() {
             setMenu((m) => ({ ...m, open: false }));
             setMenuPaletteOverride(null);
           }}
-          onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); }}
+          onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); pendingConnectRef.current = null; }}
         />
         </div>
       </AppShell>
