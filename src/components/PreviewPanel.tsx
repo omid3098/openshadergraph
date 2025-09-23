@@ -394,7 +394,11 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
             const lang = validateLanguagePack(langJson);
             await loadAllTemplatesForBrowser();
-            const compiler = new GraphCompiler(stableGraph as any, lang);
+            const rootCandidate: any = stableGraph as any;
+            const normalized: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
+              ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0] ?? rootCandidate)
+              : rootCandidate;
+            const compiler = new GraphCompiler(normalized as any, lang);
             compiler.compile();
             code = compiler.result_code;
           }

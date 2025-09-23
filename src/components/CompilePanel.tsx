@@ -91,7 +91,7 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
           }
         } catch {}
         if (!list) {
-          const res2 = await fetch("/data/languages.index.json", { signal: abort.signal });
+          const res2 = await fetch("/data/languages.index.json", { signal: abort.signal } as any);
           if (res2.ok) {
             const data2 = await res2.json();
             list = Array.isArray(data2.languages) ? data2.languages : [];
@@ -171,7 +171,12 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
             const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
             const langPack = validateLanguagePack(langJson);
             await loadAllTemplatesForBrowser();
-            const compiler = new GraphCompiler(stableGraph as any, langPack);
+            // Normalize root: if wrapper has empty type, use the first 'surface'
+            const rootCandidate: any = stableGraph as any;
+            const normalizedGraph: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
+              ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0] ?? rootCandidate)
+              : rootCandidate;
+            const compiler = new GraphCompiler(normalizedGraph as any, langPack);
             compiler.compile();
             outCode = compiler.result_code;
           }
