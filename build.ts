@@ -2,7 +2,7 @@
 import { build, type BuildConfig } from "bun";
 import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
-import { rm, cp } from "fs/promises";
+import { rm, cp, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import path from "path";
 
 // Print help text if requested
@@ -177,5 +177,93 @@ async function copyIfExists(srcRel: string, destRel: string) {
 
 await copyIfExists("data", "data");
 await copyIfExists("examples", "examples");
+
+// Generate static indices for Cloudflare Pages Functions (no directory listing at runtime)
+async function* walk(dir: string, prefix = ""): AsyncGenerator<{ rel: string; abs: string; isDir: boolean }> {
+  const entries = await readdir(dir, { withFileTypes: true } as any);
+  for (const e of entries as any[]) {
+    const rel = path.join(prefix, e.name);
+    const abs = path.join(dir, e.name);
+    const s = await stat(abs);
+    const isDir = s.isDirectory();
+    yield { rel, abs, isDir };
+    if (isDir) yield* walk(abs, rel);
+  }
+}
+
+async function generateNodesIndex() {
+  const root = path.resolve(process.cwd(), "data", "nodes");
+  if (!existsSync(root)) return;
+  const items: Array<{ type: string; name: string; path: string; category: string }> = [];
+  for await (const entry of walk(root)) {
+    if (entry.isDir) continue;
+    if (!entry.rel.endsWith(".json")) continue;
+    try {
+      const raw = await readFile(entry.abs, "utf8");
+      const json = JSON.parse(raw);
+      const type = String(json.type ?? "");
+      if (!type) continue;
+      const name = String(json.name ?? type);
+      const rel = entry.rel;
+      const category = (rel.split(path.sep)[0] ?? "root");
+      items.push({ type, name, path: rel, category });
+    } catch {}
+  }
+  const categories: Record<string, typeof items> = {};
+  for (const it of items) (categories[it.category] ??= []).push(it);
+  const orderedCategories = Object.keys(categories)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({
+      name,
+      nodes: (categories[name] ?? []).map((n) => ({ ...n, path: n.path })).sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  const out = { categories: orderedCategories, flat: items.sort((a, b) => a.name.localeCompare(b.name)) };
+  const outDir = path.join(outdir, "data");
+  if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
+  await writeFile(path.join(outDir, "nodes.index.json"), JSON.stringify(out, null, 2), "utf8");
+  console.log(`📄 Wrote data/nodes.index.json (${out.flat.length} nodes)`);
+}
+
+async function generateLanguagesIndex() {
+  const root = path.resolve(process.cwd(), "data", "languages");
+  if (!existsSync(root)) return;
+  const items: Array<{ key: string; name: string; path: string }> = [];
+  for await (const entry of walk(root)) {
+    if (entry.isDir) continue;
+    if (!entry.rel.endsWith(".json")) continue;
+    try {
+      const raw = await readFile(entry.abs, "utf8");
+      const json = JSON.parse(raw);
+      const key = entry.rel.replace(/\.json$/i, "");
+      const name = String(json.name ?? key);
+      items.push({ key, name, path: entry.rel });
+    } catch {}
+  }
+  items.sort((a, b) => a.name.localeCompare(b.name));
+  const outDir = path.join(outdir, "data");
+  if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
+  await writeFile(path.join(outDir, "languages.index.json"), JSON.stringify({ languages: items }, null, 2), "utf8");
+  console.log(`📄 Wrote data/languages.index.json (${items.length} languages)`);
+}
+
+async function generateExamplesIndex() {
+  const root = path.resolve(process.cwd(), "examples");
+  if (!existsSync(root)) return;
+  const items: Array<{ key: string; label: string }> = [];
+  for await (const entry of walk(root)) {
+    if (entry.isDir) continue;
+    if (!entry.rel.endsWith(".json")) continue;
+    const base = entry.rel.replace(/\.json$/i, "");
+    const key = base;
+    const label = base.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    items.push({ key, label });
+  }
+  const outDir = path.join(outdir, "examples");
+  if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
+  await writeFile(path.join(outDir, "index.json"), JSON.stringify({ examples: items }, null, 2), "utf8");
+  console.log(`📄 Wrote examples/index.json (${items.length} examples)`);
+}
+
+await Promise.all([generateNodesIndex(), generateLanguagesIndex(), generateExamplesIndex()]);
 
 console.log(`\n✅ Build completed in ${buildTime}ms\n`);

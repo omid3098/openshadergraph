@@ -872,17 +872,61 @@ export function App() {
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
     try {
-      const url = new URL("/api/example-graphs", location.origin);
-      url.searchParams.set("name", ex.key);
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      const graph = data.graph as CanonicalNode;
+      // Try API first
+      try {
+        const url = new URL("/api/example-graphs", location.origin);
+        url.searchParams.set("name", ex.key);
+        const res = await fetch(url.toString());
+        if (res.ok) {
+          const data = await res.json();
+          const graph = data.graph as CanonicalNode;
+          await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
+          return;
+        }
+      } catch {}
+      // Fallback to static example file
+      const res2 = await fetch(`/examples/${ex.key}.json`);
+      if (!res2.ok) throw new Error(String(res2.status));
+      const graph = (await res2.json()) as CanonicalNode;
       await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
     }
   }, [inflateAndLoadGraph]);
+
+  // Fetch example graphs and load the first by default (only if no recent graph was loaded)
+  useEffect(() => {
+    const abort = new AbortController();
+    (async () => {
+      try {
+        let list: Array<{ key: string; label: string }> | null = null;
+        try {
+          const res = await fetch("/api/example-graphs", { signal: abort.signal });
+          if (res.ok) {
+            const data = await res.json();
+            list = Array.isArray(data.examples) ? data.examples : [];
+          }
+        } catch {}
+        if (!list) {
+          const res2 = await fetch("/examples/index.json", { signal: abort.signal });
+          if (res2.ok) {
+            const data2 = await res2.json();
+            list = Array.isArray(data2.examples) ? data2.examples : [];
+          }
+        }
+        if (!list) list = [];
+        setExamples(list);
+        if (startupAttemptedRef.current && !initialLoadDoneRef.current && list.length) {
+          await loadExampleGraph(list[0]!);
+          initialLoadDoneRef.current = true;
+        }
+      } catch (err: any) {
+        if (isAbortError(err)) return;
+        console.warn("Failed to load example graphs", err);
+      }
+    })();
+    return () => abort.abort();
+  }, [loadExampleGraph, recentGraphs, recentGraphsInitialized]);
 
   // File save/open helpers (.osg JSON)
   const serializeGraph = useCallback(
@@ -1262,28 +1306,6 @@ export function App() {
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
     [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
   );
-
-  // Fetch example graphs and load the first by default (only if no recent graph was loaded)
-  useEffect(() => {
-    const abort = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch("/api/example-graphs", { signal: abort.signal });
-        if (!res.ok) throw new Error(String(res.status));
-        const data = await res.json();
-        const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
-        setExamples(list);
-        if (startupAttemptedRef.current && !initialLoadDoneRef.current && list.length) {
-          await loadExampleGraph(list[0]!);
-          initialLoadDoneRef.current = true;
-        }
-      } catch (err: any) {
-        if (isAbortError(err)) return;
-        console.warn("Failed to load example graphs", err);
-      }
-    })();
-    return () => abort.abort();
-  }, [loadExampleGraph, recentGraphs, recentGraphsInitialized]);
 
   const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;

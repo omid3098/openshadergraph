@@ -82,18 +82,29 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     const abort = new AbortController();
     (async () => {
       try {
-        const res = await fetch("/api/languages", { signal: abort.signal });
-        if (!res.ok) throw new Error(String(res.status));
-        const data = await res.json();
-        const list: LanguageItem[] = Array.isArray(data.languages) ? data.languages : [];
+        let list: LanguageItem[] | null = null;
+        try {
+          const res = await fetch("/api/languages", { signal: abort.signal });
+          if (res.ok) {
+            const data = await res.json();
+            list = Array.isArray(data.languages) ? data.languages : [];
+          }
+        } catch {}
+        if (!list) {
+          const res2 = await fetch("/data/languages.index.json", { signal: abort.signal });
+          if (res2.ok) {
+            const data2 = await res2.json();
+            list = Array.isArray(data2.languages) ? data2.languages : [];
+          }
+        }
+        if (!list) list = [];
         setLanguages(list);
         setLanguage((prev) => {
           if (prev && prev.length) return prev;
-          const preferred = list.find((l) => l.key === "ThreeJS_GLSL");
-          return preferred?.key ?? (list[0]?.key ?? prev);
+          const preferred = list!.find((l) => l.key === "ThreeJS_GLSL");
+          return preferred?.key ?? (list![0]?.key ?? prev);
         });
       } catch (err: any) {
-        // Ignore expected aborts during unmount/HMR to avoid noisy console
         if (isAbortError(err)) return;
         console.warn("Failed to fetch languages", err);
       }
@@ -135,19 +146,31 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
             setCode("");
             return;
           }
-          const res = await fetch("/api/compile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: abort.signal,
-            body: JSON.stringify({ graph: stableGraph, language, engine }),
-          });
-          if (!res.ok) {
-            const msg = await res.text().catch(() => String(res.status));
-            throw new Error(msg || String(res.status));
+          // Prefer API; fallback to client-side compile if available
+          let outCode: string | null = null;
+          try {
+            const res = await fetch("/api/compile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: abort.signal,
+              body: JSON.stringify({ graph: stableGraph, language, engine }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              outCode = String(data.code ?? "");
+            }
+          } catch {}
+          if (outCode == null) {
+            // Do a client-side compile using existing code if API not present
+            const { loadLanguage } = await import("@/core/schema/registry");
+            const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
+            const lang = await loadLanguage(language);
+            const compiler = new GraphCompiler(stableGraph as any, lang);
+            compiler.compile();
+            outCode = compiler.result_code;
           }
-          const data = await res.json();
           if (cancelled) return;
-          setCode(String(data.code ?? ""));
+          setCode(outCode);
         } catch (err: any) {
           if (cancelled) return;
           if (isAbortError(err)) return;
@@ -218,110 +241,18 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
               </SelectContent>
             </Select>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Copy compile code"
-            title="Copy"
-            onClick={() => copyToClipboard(code)}
-            disabled={!code || !!error || working}
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          </Button>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <CodeBlock
-            code={display}
-            language={lang}
-            className={cn("h-full", error && "text-red-500")}
-          />
+        <div className="flex-1 overflow-auto">
+          <CodeBlock language={lang} code={String(display ?? "")} className="h-full" />
         </div>
       </div>
     );
   }
 
-  if (variant === "docked") {
-    const display = working ? "Compiling…" : error || code;
-    const lang = error ? "text" : getPrismLang(language);
-    return (
-      <Card className={cn("relative h-full", className)}>
-        <CodeBlock
-          code={display}
-          language={lang}
-          className={cn("h-full pt-16", error && "text-red-500")}
-        />
-        <div className="absolute top-2 right-2 flex items-start gap-2">
-          <div className="min-w-[140px]">
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger aria-label="Language">
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((l) => (
-                  <SelectItem key={l.key} value={l.key}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[120px]">
-            <Select value={engine} onValueChange={setEngine}>
-              <SelectTrigger aria-label="Compiler">
-                <SelectValue placeholder="Compiler" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Copy compile code"
-            title="Copy"
-            onClick={() => copyToClipboard(code)}
-            disabled={!code || !!error || working}
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  if (collapsed) {
-    return (
-      <div className={cn("absolute right-2 bottom-2 z-40", className)}>
-        <Button size="sm" variant="outline" onClick={() => setCollapsed(false)} aria-label="Open compile output">
-          Compile Output
-        </Button>
-      </div>
-    );
-  }
-
-  const display = working ? "Compiling…" : error || code;
-  const lang = error ? "text" : getPrismLang(language);
   return (
-    <div
-      className={cn("fixed bottom-2 right-2 z-40 pointer-events-none", className)}
-      style={{ width: width + 4 /* account for handle thickness */ }}
-    >
-      {/* Resize Handle (left edge) */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        title="Drag to resize"
-        onMouseDown={onHandleMouseDown}
-        className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
-      />
-      <Card className="pointer-events-auto relative">
-        <CodeBlock
-          code={display}
-          language={lang}
-          className={cn("h-[50vh] pt-16", error && "text-red-500")}
-        />
-        <div className="absolute top-2 right-2 flex items-start gap-2">
+    <Card className={cn("h-full flex flex-col", className)}>
+      <div className="px-3 py-2 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <div className="min-w-[160px]">
             <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger aria-label="Language">
@@ -336,7 +267,7 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
               </SelectContent>
             </Select>
           </div>
-          <div className="min-w-[160px]">
+          <div className="min-w-[140px]">
             <Select value={engine} onValueChange={setEngine}>
               <SelectTrigger aria-label="Compiler">
                 <SelectValue placeholder="Compiler" />
@@ -346,22 +277,30 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
               </SelectContent>
             </Select>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Copy compile code"
-            title="Copy"
-            onClick={() => copyToClipboard(code)}
-            disabled={!code || !!error || working}
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => copyToClipboard(code)} disabled={!code}>
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} Copy
           </Button>
-          <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>
-            ▾
+          <Button variant="ghost" size="sm" onClick={() => setCollapsed((v) => !v)}>
+            {collapsed ? "Expand" : "Collapse"}
           </Button>
         </div>
-      </Card>
-    </div>
+      </div>
+      {!collapsed && (
+        <div className="flex-1 min-h-0 relative">
+          <div
+            role="separator"
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize z-10"
+            onMouseDown={onHandleMouseDown}
+            aria-orientation="vertical"
+          />
+          <div className="absolute left-0 top-0 right-0 bottom-0 overflow-auto">
+            <CodeBlock language={getPrismLang(language)} code={code} className="h-full" />
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
