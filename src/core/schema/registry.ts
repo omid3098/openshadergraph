@@ -13,6 +13,46 @@ const templateMap = new Map<string, NodeTemplate>();
 async function loadTemplatesBrowserOnce(): Promise<void> {
   if (templatesLoaded) return;
   if (typeof window === "undefined" || typeof fetch === "undefined") return;
+  // Try manifest + bundle first
+  try {
+    let bundleName: string | null = null;
+    let fastPath = false;
+    try {
+      const manRes = await fetch("/data/manifest.json");
+      if (manRes.ok) {
+        const manifest = await manRes.json();
+        const hashed = Object.keys(manifest as any).find((k) => k.startsWith("nodes.bundle.") && k.endsWith(".json"));
+        bundleName = hashed ?? "nodes.bundle.json";
+        // If manifest exists, we consider content prevalidated in build → skip heavy zod parse
+        fastPath = true;
+      }
+    } catch {}
+    const bundlePath = `/data/${bundleName ?? "nodes.bundle.json"}`;
+    const bRes = await fetch(bundlePath);
+    if (bRes.ok) {
+      const bJson: any = await bRes.json();
+      const dict = (bJson && typeof bJson === "object" ? (bJson.nodes ?? {}) : {}) as Record<string, unknown>;
+      for (const _rel in dict) {
+        try {
+          const raw = (dict as any)[_rel];
+          const tpl: any = fastPath ? raw : validateNodeTemplate(raw);
+          if (Array.isArray(tpl.properties)) {
+            tpl.properties = tpl.properties.map((prop: any) =>
+              prop && typeof prop === "object" && (prop as any).default !== undefined && (prop as any).value === undefined
+                ? { ...(prop as any), value: (prop as any).default }
+                : prop
+            );
+          } else {
+            tpl.properties = [] as any;
+          }
+          if (tpl && typeof tpl.type === "string" && tpl.type) templateMap.set(tpl.type, tpl as any);
+        } catch {}
+      }
+      templatesLoaded = true;
+      return;
+    }
+  } catch {}
+  // Fallback: index + per-file fetches
   try {
     const indexRes = await fetch("/data/nodes.index.json");
     if (!indexRes.ok) { templatesLoaded = true; return; }
@@ -35,9 +75,7 @@ async function loadTemplatesBrowserOnce(): Promise<void> {
         } else {
           valid.properties = [] as any;
         }
-        if (valid && typeof valid.type === "string" && valid.type) {
-          templateMap.set(valid.type, valid);
-        }
+        if (valid && typeof valid.type === "string" && valid.type) templateMap.set(valid.type, valid);
       } catch {}
     }
   } catch {}
@@ -116,4 +154,37 @@ export async function loadLanguage(nameOrPath: string): Promise<LanguagePack> {
   const raw = await fs.readFile(abs, "utf8");
   const parsed = JSON.parse(raw);
   return validateLanguagePack(parsed);
+}
+
+// Browser helper: load language pack via bundle when possible
+export async function loadLanguageForBrowser(key: string): Promise<LanguagePack> {
+  if (typeof window === "undefined" || typeof fetch === "undefined") {
+    return loadLanguage(key);
+  }
+  // Try manifest + languages bundle
+  try {
+    let bundleName: string | null = null;
+    try {
+      const manRes = await fetch("/data/manifest.json");
+      if (manRes.ok) {
+        const manifest = await manRes.json();
+        const hashed = Object.keys(manifest as any).find((k) => k.startsWith("languages.bundle.") && k.endsWith(".json"));
+        bundleName = hashed ?? "languages.bundle.json";
+      }
+    } catch {}
+    const bundlePath = `/data/${bundleName ?? "languages.bundle.json"}`;
+    const res = await fetch(bundlePath);
+    if (res.ok) {
+      const bJson: any = await res.json();
+      const dict = (bJson && typeof bJson === "object" ? (bJson.languages ?? {}) : {}) as Record<string, unknown>;
+      const pack = dict[key] as any;
+      if (pack) return validateLanguagePack(pack);
+    }
+  } catch {}
+  // Fallback: direct static file
+  try {
+    const res2 = await fetch(`/data/languages/${key}.json`);
+    if (res2.ok) return validateLanguagePack(await res2.json());
+  } catch {}
+  throw new Error(`Language '${key}' not found`);
 }

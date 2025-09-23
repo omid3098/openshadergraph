@@ -388,15 +388,11 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
           }
           if (code == null) {
             // Fallback: client-side compile with static language pack
-            const langPath = "/data/languages/ThreeJS_GLSL.json";
-            const res2 = await fetch(langPath, { signal: abort.signal } as any);
-            if (!res2.ok) throw new Error(`Failed to load language: ${res2.status}`);
-            const langJson = await res2.json();
-            const { validateLanguagePack } = await import("@/core/schema/validators");
+            const { loadLanguageForBrowser } = await import("@/core/schema/registry");
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
             const { applyPreviewEngineDefaults } = await import("@/core/compiler/graphCompiler");
             const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
-            const lang = validateLanguagePack(langJson);
+            const lang = await loadLanguageForBrowser("ThreeJS_GLSL"); // prefers manifest fast path
             await loadAllTemplatesForBrowser();
             const rootCandidate: any = stableGraph as any;
             const normalized: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
