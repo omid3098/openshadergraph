@@ -392,7 +392,13 @@ export class GraphCompiler {
   }
 
   private stripDefaultAssignments(node: GraphNode, code: string): string {
-    const template = getNodeTemplate(node.type);
+    // In browser fallback builds, templates may not be preloaded yet. Fail safe.
+    let template: any;
+    try {
+      template = getNodeTemplate(node.type);
+    } catch (_err) {
+      template = undefined;
+    }
     if (!template) return code;
     const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
     const isVertexOut = node.type === "vertex_output";

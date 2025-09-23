@@ -11,10 +11,10 @@ const templateMap = new Map<string, NodeTemplate>();
 
 async function loadTemplatesBrowserOnce(): Promise<void> {
   if (templatesLoaded) return;
-  if (typeof window === "undefined" || typeof fetch === "undefined") return; // not in browser
+  if (typeof window === "undefined" || typeof fetch === "undefined") return;
   try {
     const indexRes = await fetch("/data/nodes.index.json");
-    if (!indexRes.ok) return;
+    if (!indexRes.ok) { templatesLoaded = true; return; }
     const indexJson: any = await indexRes.json();
     const flat: Array<{ path: string }> = Array.isArray(indexJson?.flat) ? indexJson.flat : [];
     for (const item of flat) {
@@ -32,22 +32,17 @@ async function loadTemplatesBrowserOnce(): Promise<void> {
               : prop
           );
         } else {
-          valid.properties = [];
+          valid.properties = [] as any;
         }
         if (valid && typeof valid.type === "string" && valid.type) {
           templateMap.set(valid.type, valid);
         }
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
-    templatesLoaded = true;
-  } catch {
-    // ignore
-  }
+  } catch {}
+  templatesLoaded = true;
 }
 
-// Helper to load templates in browser before compiling
 export async function loadAllTemplatesForBrowser(): Promise<void> {
   if (templatesLoaded) return;
   await loadTemplatesBrowserOnce();
@@ -55,7 +50,11 @@ export async function loadAllTemplatesForBrowser(): Promise<void> {
 
 function loadTemplatesSyncOnce() {
   if (templatesLoaded) return;
-  // Walk directories under NODE_ROOT and collect .json files
+  if (typeof window !== "undefined") {
+    // In browser, caller must await loadAllTemplatesForBrowser(); do not throw here.
+    templatesLoaded = true;
+    return;
+  }
   function walk(dir: string, prefix = "") {
     const entries = require("fs").readdirSync(dir, { withFileTypes: true });
     for (const e of entries) {
@@ -66,7 +65,6 @@ function loadTemplatesSyncOnce() {
         try {
           const raw = readFileSync(abs, "utf8");
           const json = JSON.parse(raw);
-          // Ignore base/skeleton files that don't define a concrete node type
           if (!json || typeof json.type !== "string" || json.type.length === 0) continue;
           const valid = validateNodeTemplate(json);
           if (Array.isArray(valid.properties)) {
@@ -76,7 +74,7 @@ function loadTemplatesSyncOnce() {
                 : prop
             );
           } else {
-            valid.properties = [];
+            valid.properties = [] as any;
           }
           if (valid && typeof valid.type === "string" && valid.type) {
             templateMap.set(valid.type, valid);
@@ -87,14 +85,7 @@ function loadTemplatesSyncOnce() {
       }
     }
   }
-  // In browser, prefer async loader
-  if (typeof window !== "undefined") {
-    // Mark as loaded if browser preloading occurred; otherwise leave empty map and rely on caller to call loadAllTemplatesForBrowser()
-    templatesLoaded = true;
-    return;
-  }
   walk(NODE_ROOT);
-  // Synthetic 'surface' container if missing
   if (!templateMap.has("surface")) {
     templateMap.set("surface", {
       type: "surface",
@@ -104,13 +95,14 @@ function loadTemplatesSyncOnce() {
       nodes: [{ type: "vertex_pass" }, { type: "fragment_pass" }],
       inputs: [],
       outputs: [],
-    });
+    } as any);
   }
   templatesLoaded = true;
 }
 
 export function getNodeTemplate(type: string): NodeTemplate | undefined {
-  loadTemplatesSyncOnce();
+  // Do not force-load in browser; rely on preloader and return undefined if missing
+  if (!templatesLoaded) loadTemplatesSyncOnce();
   return templateMap.get(type);
 }
 
