@@ -396,6 +396,16 @@ export class GraphCompiler {
       if (!input) return "";
       this.ensure_input_prepared(node, input);
       const pinState = this.getPinState(input);
+      // If input has no value and a template default exists, materialize the default into the node
+      if ((input.value === undefined || input.value === null || (Array.isArray(input.value) && input.value.length === 0))) {
+        try {
+          const tpl = getNodeTemplate(node.type);
+          const defVal = tpl?.inputs?.[index] ? (tpl as any).inputs[index].value : undefined;
+          if (defVal !== undefined) {
+            (input as any).value = defVal;
+          }
+        } catch {}
+      }
       if (pinState.missingRef) {
         const fallback = this.getMissingInputLiteral(node, input, pinState);
         pinState.code = fallback;
@@ -435,8 +445,8 @@ export class GraphCompiler {
 
     const defaults = new Map<string, any>(
       (template.inputs ?? [])
-        .filter((i) => i && typeof (i as any).name === "string")
-        .map((i) => [normalizeKey(String((i as any).name)), (i as any).value]) as [string, any][]
+        .filter((inp: any) => inp && typeof (inp as any).name === "string")
+        .map((inp: any) => [normalizeKey(String((inp as any).name)), (inp as any).value]) as [string, any][]
     );
     const lines = code.split("\n");
     const out: string[] = [];
@@ -449,7 +459,7 @@ export class GraphCompiler {
       const prop = stripped.split("=")[0]?.trim();
       const propKey = String(prop);
       const propKeyNorm = normalizeKey(propKey);
-      const input_pin = node.inputs.find((i) => normalizeKey(String(i.name)) === propKeyNorm);
+      const input_pin = node.inputs.find((inp: any) => normalizeKey(String(inp.name)) === propKeyNorm);
       const defVal = defaults.get(propKeyNorm);
       if (!input_pin || defVal === undefined) {
         out.push(line);
