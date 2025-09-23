@@ -4,6 +4,8 @@ import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
 import { rm, cp, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import path from "path";
+import { gzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
+import { validateLanguagePack, validateNodeTemplate } from "./src/core/schema/validators";
 
 // Print help text if requested
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -37,7 +39,7 @@ Example:
 
 // Helper function to convert kebab-case to camelCase
 const toCamelCase = (str: string): string => {
-  return str.replace(/-([a-z])/g, g => g[1].toUpperCase());
+  return str.replace(/-([a-z])/g, (_match: string, p1: string) => p1.toUpperCase());
 };
 
 // Helper function to parse a value into appropriate type
@@ -63,43 +65,49 @@ function parseArgs(): Partial<BuildConfig> {
   const args = process.argv.slice(2);
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (!arg.startsWith("--")) continue;
+    const current = args[i];
+    if (!current || !current.startsWith("--")) continue;
 
     // Handle --no-* flags
-    if (arg.startsWith("--no-")) {
-      const key = toCamelCase(arg.slice(5));
+    if (current.startsWith("--no-")) {
+      const rawKey = current.slice(5);
+      const key = toCamelCase(rawKey);
       config[key] = false;
       continue;
     }
 
-    // Handle --flag (boolean true)
-    if (!arg.includes("=") && (i === args.length - 1 || args[i + 1].startsWith("--"))) {
-      const key = toCamelCase(arg.slice(2));
-      config[key] = true;
-      continue;
-    }
-
-    // Handle --key=value or --key value
-    let key: string;
-    let value: string;
-
-    if (arg.includes("=")) {
-      [key, value] = arg.slice(2).split("=", 2);
+    // Handle --key=value form
+    const eqIndex = current.indexOf("=");
+    let rawKey = "";
+    let rawValue: string | undefined;
+    if (eqIndex !== -1) {
+      rawKey = current.slice(2, eqIndex);
+      rawValue = current.slice(eqIndex + 1);
     } else {
-      key = arg.slice(2);
-      value = args[++i];
+      rawKey = current.slice(2);
+      const next = args[i + 1];
+      if (next && !next.startsWith("--")) {
+        rawValue = next;
+        i++;
+      } else {
+        // Bare flag implies true
+        rawValue = "true";
+      }
     }
 
-    // Convert kebab-case key to camelCase
-    key = toCamelCase(key);
+    let key = toCamelCase(rawKey);
+    const value = String(rawValue ?? "");
 
     // Handle nested properties (e.g. --minify.whitespace)
     if (key.includes(".")) {
-      const [parentKey, childKey] = key.split(".");
+      const parts = key.split(".", 2);
+      const parentKey = parts[0] ?? "";
+      const childKey = parts[1] ?? "";
+      if (!parentKey) continue;
       config[parentKey] = config[parentKey] || {};
-      config[parentKey][childKey] = parseValue(value);
+      if (childKey) config[parentKey][childKey] = parseValue(value);
     } else {
+      if (!key) continue;
       config[key] = parseValue(value);
     }
   }
@@ -205,7 +213,7 @@ async function generateNodesIndex() {
       if (!type) continue;
       const name = String(json.name ?? type);
       const rel = entry.rel;
-      const category = rel.includes(path.sep) ? rel.split(path.sep)[0] : "root";
+      const category = rel.includes(path.sep) ? (rel.split(path.sep)[0] ?? "root") : "root";
       items.push({ type, name, path: rel, category });
     } catch {}
   }
@@ -266,4 +274,127 @@ async function generateExamplesIndex() {
 
 await Promise.all([generateNodesIndex(), generateLanguagesIndex(), generateExamplesIndex()]);
 
+// Bundle helpers: create content-hashed bundles for nodes and languages
+function toHex(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i] ?? 0;
+    hex += b.toString(16).padStart(2, "0");
+  }
+  return hex;
+}
+
+async function bundleNodes() {
+  const srcRoot = path.resolve(process.cwd(), "data", "nodes");
+  if (!existsSync(srcRoot)) return;
+  const bundle: Record<string, unknown> = {};
+  let count = 0;
+  for await (const entry of walk(srcRoot)) {
+    if (entry.isDir) continue;
+    if (!entry.rel.endsWith(".json")) continue;
+    const raw = await readFile(entry.abs, "utf8");
+    try {
+      const json = validateNodeTemplate(JSON.parse(raw));
+      const key = entry.rel.split(path.sep).join("/");
+      bundle[key] = json;
+      count++;
+    } catch {}
+  }
+  const outDir = path.join(outdir, "data");
+  if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
+  const min = JSON.stringify({ nodes: bundle });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(min));
+  const hash = toHex(digest).slice(0, 16);
+  const unhashedPath = path.join(outDir, "nodes.bundle.json");
+  const hashedPath = path.join(outDir, `nodes.bundle.${hash}.json`);
+  await writeFile(unhashedPath, min, "utf8");
+  await writeFile(hashedPath, min, "utf8");
+  console.log(`🧩 Bundled nodes → data/nodes.bundle.json (${count} files)`);
+  await precompressArtifacts([unhashedPath, hashedPath]);
+}
+
+async function bundleLanguages() {
+  const srcRoot = path.resolve(process.cwd(), "data", "languages");
+  if (!existsSync(srcRoot)) return;
+  const bundle: Record<string, unknown> = {};
+  let count = 0;
+  for await (const entry of walk(srcRoot)) {
+    if (entry.isDir) continue;
+    if (!entry.rel.endsWith(".json")) continue;
+    const raw = await readFile(entry.abs, "utf8");
+    try {
+      const json = validateLanguagePack(JSON.parse(raw));
+      const key = entry.rel.replace(/\.json$/i, "").split(path.sep).join("/");
+      bundle[key] = json;
+      count++;
+    } catch {}
+  }
+  const outDir = path.join(outdir, "data");
+  if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
+  const min = JSON.stringify({ languages: bundle });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(min));
+  const hash = toHex(digest).slice(0, 16);
+  const unhashedPath = path.join(outDir, "languages.bundle.json");
+  const hashedPath = path.join(outDir, `languages.bundle.${hash}.json`);
+  await writeFile(unhashedPath, min, "utf8");
+  await writeFile(hashedPath, min, "utf8");
+  console.log(`🧩 Bundled languages → data/languages.bundle.json (${count} files)`);
+  await precompressArtifacts([unhashedPath, hashedPath]);
+}
+
+await Promise.all([bundleNodes(), bundleLanguages()]);
+
+// Emit a manifest with counts and content hashes for bundles
+async function emitManifest() {
+  const outDir = path.join(outdir, "data");
+  if (!existsSync(outDir)) return;
+  const manifest: Record<string, any> = { version: 1, generatedAt: new Date().toISOString() };
+  const files = [
+    "nodes.bundle.json",
+    ...[...new Bun.Glob("nodes.bundle.*.json").scanSync(outDir)].map((p) => path.basename(p)),
+    "languages.bundle.json",
+    ...[...new Bun.Glob("languages.bundle.*.json").scanSync(outDir)].map((p) => path.basename(p)),
+  ];
+  for (const fname of files) {
+    const abs = path.join(outDir, fname);
+    if (!existsSync(abs)) continue;
+    const buf = await readFile(abs);
+    const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(buf));
+    const hash = toHex(digest).slice(0, 16);
+    let counts: Record<string, number> | undefined;
+    try {
+      const json = JSON.parse(buf.toString("utf8"));
+      if (fname.startsWith("nodes.bundle")) counts = { nodes: Object.keys(json.nodes ?? {}).length };
+      if (fname.startsWith("languages.bundle")) counts = { languages: Object.keys(json.languages ?? {}).length };
+    } catch {}
+    manifest[fname] = { hash, size: buf.byteLength, ...(counts ?? {}) };
+  }
+  await writeFile(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+  console.log(`🧾 Wrote data/manifest.json`);
+}
+
+await emitManifest();
+
 console.log(`\n✅ Build completed in ${buildTime}ms\n`);
+
+// ---------- Helpers ----------
+async function precompressArtifacts(files: string[]) {
+  for (const file of files) {
+    try {
+      const buf = await readFile(file);
+      const gz = gzipSync(buf, { level: 9 });
+      const br = brotliCompressSync(buf, {
+        params: {
+          [zlibConstants.BROTLI_PARAM_QUALITY]: 11,
+          [zlibConstants.BROTLI_PARAM_SIZE_HINT]: buf.byteLength,
+        },
+      });
+      await writeFile(file + ".gz", gz);
+      await writeFile(file + ".br", br);
+      console.log(`🗜️  Compressed ${path.basename(file)} → .gz, .br`);
+    } catch (err) {
+      console.warn(`⚠️  Failed to precompress ${file}:`, err);
+    }
+  }
+}
