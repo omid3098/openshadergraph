@@ -135,6 +135,7 @@ export function App() {
   const startupAttemptedRef = useRef(false);
   const fitAfterLoadRef = useRef(false);
   const connectDragRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
+  const connectCompletedRef = useRef(false);
   const pendingConnectRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
   const pinIndexCacheRef = useRef<Map<string, { inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }>>(new Map());
 
@@ -170,6 +171,8 @@ export function App() {
   }, []);
 
   const onConnect = (params: Connection) => {
+    // Mark that this drag sequence actually produced a connection (including adapter insertions)
+    if (connectDragRef.current) connectCompletedRef.current = true;
     const nodesNow = nodesRef.current;
     const ok = isConnectionCompatible(nodesNow as any, params);
     if (!ok) {
@@ -1642,6 +1645,7 @@ export function App() {
           onConnect={onConnect}
           onConnectStart={(e: any, params: any) => {
             try {
+              connectCompletedRef.current = false;
               const side = String(params?.handleType) === "source" ? "source" : "target";
               const nodeId = String(params?.nodeId ?? "");
               const handleId = String(params?.handleId ?? "");
@@ -1653,6 +1657,8 @@ export function App() {
           }}
           onConnectEnd={(e: any) => {
             try {
+              // If ReactFlow accepted the connection (snapped), suppress the add-node menu
+              if (connectCompletedRef.current) return;
               const target = e?.target as Element | null;
               const droppedOnHandle = !!(target && target.closest && target.closest(".react-flow__handle"));
               if (!droppedOnHandle) {
@@ -1663,6 +1669,7 @@ export function App() {
             } catch (_err) {
               // ignore
             } finally {
+              connectCompletedRef.current = false;
               connectDragRef.current = null;
             }
           }}
