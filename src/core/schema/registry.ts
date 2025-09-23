@@ -3,8 +3,9 @@ import path from "path";
 import type { LanguagePack, NodeTemplate } from "./types";
 import { validateLanguagePack, validateNodeTemplate } from "./validators";
 
-const NODE_ROOT = path.resolve(process.cwd(), "data", "nodes");
-const LANG_ROOT = path.resolve(process.cwd(), "data", "languages");
+const IS_BROWSER = typeof window !== "undefined";
+const NODE_ROOT: string = IS_BROWSER ? "/data/nodes" : path.resolve(process.cwd(), "data", "nodes");
+const LANG_ROOT: string = IS_BROWSER ? "/data/languages" : path.resolve(process.cwd(), "data", "languages");
 
 let templatesLoaded = false;
 const templateMap = new Map<string, NodeTemplate>();

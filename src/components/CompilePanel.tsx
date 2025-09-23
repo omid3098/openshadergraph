@@ -148,18 +148,21 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
           }
           // Prefer API; fallback to client-side compile if available
           let outCode: string | null = null;
-          try {
-            const res = await fetch("/api/compile", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              signal: abort.signal,
-              body: JSON.stringify({ graph: stableGraph, language, engine }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              outCode = String(data.code ?? "");
-            }
-          } catch {}
+          const isPages = typeof window !== "undefined" && location.hostname.includes(".pages.dev");
+          if (!isPages) {
+            try {
+              const res = await fetch("/api/compile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: abort.signal,
+                body: JSON.stringify({ graph: stableGraph, language, engine }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                outCode = String(data.code ?? "");
+              }
+            } catch {}
+          }
           if (outCode == null) {
             // Client-side compile fallback using static language pack
             const langFile = language.endsWith(".json") ? language : `${language}.json`;

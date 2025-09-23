@@ -371,18 +371,21 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
           }
           // Try server compile first
           let code: string | null = null;
-          try {
-            const res = await fetch("/api/compile", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              signal: abort.signal,
-              body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              code = String(data.code ?? "");
-            }
-          } catch {}
+          const isPages = typeof window !== "undefined" && location.hostname.includes(".pages.dev");
+          if (!isPages) {
+            try {
+              const res = await fetch("/api/compile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: abort.signal,
+                body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                code = String(data.code ?? "");
+              }
+            } catch {}
+          }
           if (code == null) {
             // Fallback: client-side compile with static language pack
             const langPath = "/data/languages/ThreeJS_GLSL.json";
