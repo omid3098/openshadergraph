@@ -180,7 +180,10 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
         } catch (err: any) {
           if (cancelled) return;
           if (isAbortError(err)) return;
-          setError(typeof err?.message === "string" ? err.message : "Compile failed");
+          const rawMsg = typeof err?.stack === "string" ? err.stack : (typeof err?.message === "string" ? err.message : "Compile failed");
+          console.error("[compile-panel] compile error", err);
+          const firstLine = String(rawMsg).split("\n")[0] ?? String(rawMsg);
+          setError(firstLine);
           setCode("");
         } finally {
           if (!cancelled) setWorking(false);
