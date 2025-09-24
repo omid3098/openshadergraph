@@ -90,8 +90,7 @@ export async function loadAllTemplatesForBrowser(): Promise<void> {
 function loadTemplatesSyncOnce() {
   if (templatesLoaded) return;
   if (typeof window !== "undefined") {
-    // In browser, caller must await loadAllTemplatesForBrowser(); do not throw here.
-    templatesLoaded = true;
+    // In browser, caller must await loadAllTemplatesForBrowser(); do not mark as loaded here.
     return;
   }
   function walk(dir: string, prefix = "") {
@@ -141,7 +140,7 @@ function loadTemplatesSyncOnce() {
 
 export function getNodeTemplate(type: string): NodeTemplate | undefined {
   // Do not force-load in browser; rely on preloader and return undefined if missing
-  if (!templatesLoaded) loadTemplatesSyncOnce();
+  if (!templatesLoaded && typeof window === "undefined") loadTemplatesSyncOnce();
   return templateMap.get(type);
 }
 
