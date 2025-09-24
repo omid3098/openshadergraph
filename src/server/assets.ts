@@ -4,10 +4,16 @@ import { validateAssetLibrary } from "../core/schema/validators";
 
 export async function assetsHandler(): Promise<Response> {
   try {
-    const primary = path.resolve(process.cwd(), "data", "assets", "library.json");
-    const fallback = path.resolve(process.cwd(), "dist", "data", "assets", "library.json");
-    const root = await fs.stat(primary).then((s: any) => (s.isFile() ? primary : fallback)).catch(() => fallback);
-    const raw = await fs.readFile(root, "utf8");
+    const abs = path.resolve(process.cwd(), "data", "assets", "library.json");
+    try {
+      const st = await fs.stat(abs);
+      if (!st.isFile()) {
+        return Response.json({ error: "OSG data missing: 'data/assets/library.json' is not a file" }, { status: 500 });
+      }
+    } catch (err) {
+      return Response.json({ error: "OSG data missing: 'data/assets/library.json' not found" }, { status: 500 });
+    }
+    const raw = await fs.readFile(abs, "utf8");
     const parsed = JSON.parse(raw);
     const library = validateAssetLibrary(parsed);
     const withBuiltin = {

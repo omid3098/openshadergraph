@@ -6,9 +6,15 @@ export type LanguageItem = { key: string; name: string; path: string };
 
 export async function languagesHandler(): Promise<Response> {
   try {
-    const primary = path.resolve(process.cwd(), "data", "languages");
-    const fallback = path.resolve(process.cwd(), "dist", "data", "languages");
-    const root = (await fs.stat(primary).then((s) => (s.isDirectory() ? primary : fallback)).catch(() => fallback));
+    const root = path.resolve(process.cwd(), "data", "languages");
+    try {
+      const st = await fs.stat(root);
+      if (!st.isDirectory()) {
+        return Response.json({ error: "OSG data missing: 'data/languages' is not a directory" }, { status: 500 });
+      }
+    } catch (err) {
+      return Response.json({ error: "OSG data missing: 'data/languages' directory not found" }, { status: 500 });
+    }
     // Recursively list .json files without relying on Bun.Glob (for Node test env)
     const items: LanguageItem[] = [];
     async function walk(dir: string, prefix = ""): Promise<void> {

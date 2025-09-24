@@ -3,22 +3,8 @@ import path from "path";
 import type { LanguagePack, NodeTemplate } from "./types";
 import { validateLanguagePack, validateNodeTemplate } from "./validators";
 
-function resolveExistingPath(paths: string[]): string {
-  for (const p of paths) {
-    try {
-      const s = require("fs").statSync(p);
-      if (s && (s.isDirectory() || s.isFile())) return p;
-    } catch {}
-  }
-  return paths[0]!;
-}
-
-const DATA_ROOT: string = resolveExistingPath([
-  path.resolve(process.cwd(), "data"),
-  path.resolve(process.cwd(), "dist", "data"),
-]);
-const NODE_ROOT: string = path.join(DATA_ROOT, "nodes");
-const LANG_ROOT: string = path.join(DATA_ROOT, "languages");
+const NODE_ROOT: string = path.resolve(process.cwd(), "data", "nodes");
+const LANG_ROOT: string = path.resolve(process.cwd(), "data", "languages");
 
 let templatesLoaded = false;
 const templateMap = new Map<string, NodeTemplate>();

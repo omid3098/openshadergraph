@@ -3,9 +3,15 @@ import path from "path";
 
 export async function nodesListHandler(): Promise<Response> {
   try {
-    const primary = path.resolve(process.cwd(), "data", "nodes");
-    const fallback = path.resolve(process.cwd(), "dist", "data", "nodes");
-    const root = await fs.stat(primary).then((s: any) => (s.isDirectory() ? primary : fallback)).catch(() => fallback);
+    const root = path.resolve(process.cwd(), "data", "nodes");
+    try {
+      const st = await fs.stat(root);
+      if (!st.isDirectory()) {
+        return Response.json({ error: "OSG data missing: 'data/nodes' is not a directory" }, { status: 500 });
+      }
+    } catch (err) {
+      return Response.json({ error: "OSG data missing: 'data/nodes' directory not found" }, { status: 500 });
+    }
 
     const items: Array<{ type: string; name: string; path: string; category: string }> = [];
     async function walk(dir: string, prefix = ""): Promise<void> {
@@ -61,11 +67,14 @@ export async function nodeTemplateHandler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const rel = url.searchParams.get("path");
     if (!rel) return new Response("Missing path", { status: 400 });
-    const primary = path.resolve(process.cwd(), "data", "nodes");
-    const fallback = path.resolve(process.cwd(), "dist", "data", "nodes");
-    const root = await fs.stat(primary).then((s: any) => (s.isDirectory() ? primary : fallback)).catch(() => fallback);
+    const root = path.resolve(process.cwd(), "data", "nodes");
     const abs = path.resolve(root, rel);
     if (!abs.startsWith(root)) return new Response("Invalid path", { status: 400 });
+    try {
+      await fs.stat(abs);
+    } catch {
+      return Response.json({ error: `Node template not found: ${rel}` }, { status: 404 });
+    }
     const raw = await fs.readFile(abs, "utf8");
     const json = JSON.parse(raw);
     return Response.json(json);

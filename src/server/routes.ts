@@ -18,7 +18,7 @@ export function buildRoutes() {
         if (await file.exists()) {
           return new Response(file);
         }
-      } catch {}
+      } catch (_err) { /* ignore path parsing errors */ }
       return new Response(Bun.file("dist/index.html"));
     },
     "/api/health": async () => Response.json({ ok: true }),
