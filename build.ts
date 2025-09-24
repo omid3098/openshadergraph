@@ -206,6 +206,32 @@ async function computeAndWriteVersionModule(): Promise<void> {
 
 await computeAndWriteVersionModule();
 
+// In watch mode, monitor git HEAD and dirty state; bump version module on change
+function startGitVersionMonitor() {
+  let lastSig = "";
+  const refreshSig = (): string => {
+    const head = runGit(["rev-parse", "HEAD"]).stdout;
+    const dirty = runGit(["status", "--porcelain"]).stdout.length > 0 ? "*" : "";
+    return `${head}${dirty}`;
+  };
+  lastSig = refreshSig();
+  setInterval(async () => {
+    try {
+      const next = refreshSig();
+      if (next !== lastSig) {
+        lastSig = next;
+        await computeAndWriteVersionModule();
+      }
+    } catch (_err) {
+      // ignore transient git errors
+    }
+  }, 2000);
+}
+
+if (process.argv.includes("--watch")) {
+  startGitVersionMonitor();
+}
+
 // Parse CLI arguments with our magical parser
 const cliConfig = parseArgs();
 const outdir = cliConfig.outdir || path.join(process.cwd(), "dist");
