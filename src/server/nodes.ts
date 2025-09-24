@@ -41,7 +41,10 @@ export async function nodesListHandler(): Promise<Response> {
     await walk(root);
 
     const categories: Record<string, typeof items> = {};
-    for (const it of items) (categories[it.category] ??= []).push(it);
+    for (const it of items) {
+      const key = it.category ?? "root";
+      (categories[key] ??= []).push(it);
+    }
 
     const orderedCategories = Object.keys(categories)
       .sort((a, b) => a.localeCompare(b))
