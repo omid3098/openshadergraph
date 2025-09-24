@@ -131,6 +131,81 @@ const formatFileSize = (bytes: number): string => {
 
 console.log("\n🚀 Starting build process...\n");
 
+// --- Versioning: compute app version from git and write src/version.ts ---
+type Semver = { major: number; minor: number; patch: number };
+
+function parseSemverTag(tag: string): Semver | null {
+  const m = tag.trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+  if (!m) return null;
+  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
+}
+
+function semverToString(v: Semver): string {
+  return `${v.major}.${v.minor}.${v.patch}`;
+}
+
+function bump(v: Semver, kind: "major" | "minor" | "patch"): Semver {
+  if (kind === "major") return { major: v.major + 1, minor: 0, patch: 0 };
+  if (kind === "minor") return { major: v.major, minor: v.minor + 1, patch: 0 };
+  return { major: v.major, minor: v.minor, patch: v.patch + 1 };
+}
+
+function runGit(args: string[]): { ok: boolean; stdout: string } {
+  try {
+    const res = Bun.spawnSync({ cmd: ["git", ...args], stdout: "pipe", stderr: "pipe" });
+    if (res.exitCode !== 0) return { ok: false, stdout: "" };
+    return { ok: true, stdout: new TextDecoder().decode(res.stdout).trim() };
+  } catch (_err) {
+    return { ok: false, stdout: "" };
+  }
+}
+
+async function computeAndWriteVersionModule(): Promise<void> {
+  // Determine latest semver tag
+  const tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const latestTag = tags.find((t) => parseSemverTag(t));
+  const base = latestTag ? (parseSemverTag(latestTag) as Semver) : { major: 0, minor: 0, patch: 0 };
+
+  // Collect commit messages since latest tag (or all if none)
+  const range = latestTag ? `${latestTag}..HEAD` : "HEAD";
+  const logOut = runGit(["log", "--format=%B%x00", range]).stdout; // NUL-delimited bodies
+  const messages = logOut
+    ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean)
+    : [];
+
+  // Determine bump: major if any BREAKING or !, else minor if any feat, else patch if any commits
+  let bumpKind: "major" | "minor" | "patch" | null = null;
+  for (const msg of messages) {
+    if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) {
+      bumpKind = "major";
+      break;
+    }
+  }
+  if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
+  if (!bumpKind && messages.length > 0) bumpKind = "patch";
+
+  const next = bumpKind ? bump(base, bumpKind) : base;
+  const short = runGit(["rev-parse", "--short", "HEAD"]).stdout;
+  const dirty = runGit(["status", "--porcelain"]).stdout.length > 0;
+  const versionStr = semverToString(next);
+  const buildDate = new Date().toISOString();
+
+  const out = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = ${JSON.stringify(versionStr)};\nexport const APP_COMMIT = ${JSON.stringify(short)};\nexport const APP_BUILD_DATE = ${JSON.stringify(buildDate)};\nexport const APP_DIRTY = ${dirty ? "true" : "false"};\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n};\n`;
+
+  const target = path.resolve(process.cwd(), "src", "version.ts");
+  try {
+    await writeFile(target, out, "utf8");
+    console.log(`🔖 Wrote ${path.relative(process.cwd(), target)} → v${versionStr}${dirty ? " (dirty)" : ""}`);
+  } catch (err) {
+    console.warn("⚠️  Failed to write src/version.ts; using committed fallback.", err);
+  }
+}
+
+await computeAndWriteVersionModule();
+
 // Parse CLI arguments with our magical parser
 const cliConfig = parseArgs();
 const outdir = cliConfig.outdir || path.join(process.cwd(), "dist");

@@ -54,6 +54,7 @@ import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
 import { Check } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
+import { APP_VERSION_INFO } from "./version";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -1675,7 +1676,9 @@ export function App() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      <div className="w-[1px]" />
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <span title={`Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""} • ${APP_VERSION_INFO.buildDate}`}>v{APP_VERSION_INFO.version}</span>
+      </div>
     </div>
   );
 

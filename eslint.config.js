@@ -15,6 +15,8 @@ export default [
       ".vite/**",
       ".tmp-build/**",
       "python_backup/**",
+      // Generated at build time; committed fallback exists but build overwrites
+      "src/version.ts",
     ],
   },
   js.configs.recommended,
