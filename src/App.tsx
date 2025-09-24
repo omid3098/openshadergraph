@@ -872,22 +872,12 @@ export function App() {
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
     try {
-      // Try API first
-      try {
-        const url = new URL("/api/example-graphs", location.origin);
-        url.searchParams.set("name", ex.key);
-        const res = await fetch(url.toString());
-        if (res.ok) {
-          const data = await res.json();
-          const graph = data.graph as CanonicalNode;
-          await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
-          return;
-        }
-      } catch {}
-      // Fallback to static example file
-      const res2 = await fetch(`/examples/${ex.key}.json`);
-      if (!res2.ok) throw new Error(String(res2.status));
-      const graph = (await res2.json()) as CanonicalNode;
+      const url = new URL("/api/example-graphs", location.origin);
+      url.searchParams.set("name", ex.key);
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const graph = data.graph as CanonicalNode;
       await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
@@ -899,22 +889,9 @@ export function App() {
     const abort = new AbortController();
     (async () => {
       try {
-        let list: Array<{ key: string; label: string }> | null = null;
-        try {
-          const res = await fetch("/api/example-graphs", { signal: abort.signal });
-          if (res.ok) {
-            const data = await res.json();
-            list = Array.isArray(data.examples) ? data.examples : [];
-          }
-        } catch {}
-        if (!list) {
-          const res2 = await fetch("/examples/index.json", { signal: abort.signal });
-          if (res2.ok) {
-            const data2 = await res2.json();
-            list = Array.isArray(data2.examples) ? data2.examples : [];
-          }
-        }
-        if (!list) list = [];
+        const res = await fetch("/api/example-graphs", { signal: abort.signal });
+        const data = await res.json();
+        const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
         setExamples(list);
         if (startupAttemptedRef.current && !initialLoadDoneRef.current && list.length) {
           await loadExampleGraph(list[0]!);

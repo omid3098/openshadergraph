@@ -186,7 +186,7 @@ async function copyIfExists(srcRel: string, destRel: string) {
 await copyIfExists("data", "data");
 await copyIfExists("examples", "examples");
 
-// Generate static indices for Cloudflare Pages Functions (no directory listing at runtime)
+// Generate indices (optional for server builds; kept for convenience)
 async function* walk(dir: string, prefix = ""): AsyncGenerator<{ rel: string; abs: string; isDir: boolean }> {
   const entries = await readdir(dir, { withFileTypes: true } as any);
   for (const e of entries as any[]) {
@@ -215,7 +215,7 @@ async function generateNodesIndex() {
       const rel = entry.rel;
       const category = rel.includes(path.sep) ? (rel.split(path.sep)[0] ?? "root") : "root";
       items.push({ type, name, path: rel, category });
-    } catch {}
+    } catch (_err) { /* ignore invalid node template */ }
   }
   const categories: Record<string, typeof items> = {};
   for (const it of items) (categories[it.category] ??= []).push(it);
@@ -245,7 +245,7 @@ async function generateLanguagesIndex() {
       const key = entry.rel.replace(/\.json$/i, "");
       const name = String(json.name ?? key);
       items.push({ key, name, path: entry.rel });
-    } catch {}
+    } catch (_err) { /* ignore invalid language pack */ }
   }
   items.sort((a, b) => a.name.localeCompare(b.name));
   const outDir = path.join(outdir, "data");
@@ -274,7 +274,7 @@ async function generateExamplesIndex() {
 
 await Promise.all([generateNodesIndex(), generateLanguagesIndex(), generateExamplesIndex()]);
 
-// Bundle helpers: create content-hashed bundles for nodes and languages
+// Bundle helpers (previously used for static hosting). Kept optional for tooling but not required at runtime.
 function toHex(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let hex = "";
@@ -299,7 +299,7 @@ async function bundleNodes() {
       const key = entry.rel.split(path.sep).join("/");
       bundle[key] = json;
       count++;
-    } catch {}
+    } catch (_err) { /* skip invalid node template */ }
   }
   const outDir = path.join(outdir, "data");
   if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
@@ -328,7 +328,7 @@ async function bundleLanguages() {
       const key = entry.rel.replace(/\.json$/i, "").split(path.sep).join("/");
       bundle[key] = json;
       count++;
-    } catch {}
+    } catch (_err) { /* skip invalid language pack */ }
   }
   const outDir = path.join(outdir, "data");
   if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
@@ -367,7 +367,7 @@ async function emitManifest() {
       const json = JSON.parse(buf.toString("utf8"));
       if (fname.startsWith("nodes.bundle")) counts = { nodes: Object.keys(json.nodes ?? {}).length };
       if (fname.startsWith("languages.bundle")) counts = { languages: Object.keys(json.languages ?? {}).length };
-    } catch {}
+    } catch (_err) { /* ignore manifest parse errors */ }
     manifest[fname] = { hash, size: buf.byteLength, ...(counts ?? {}) };
   }
   await writeFile(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");

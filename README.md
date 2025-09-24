@@ -44,6 +44,5 @@ OSG_STATIC_BUNDLES=1 bun run dev
 ```
 
 - Notes:
-  - The app prefers `data/*.bundle*.json` when present and falls back to per-file fetches.
-  - On `.pages.dev` hosts, bundles are auto-detected.
-  - First compile is gated on templates + language readiness; preview should render under 1s on cold start.
+  - The app runs against server APIs only; static bundle fallbacks are not used.
+  - First compile is gated on language readiness; preview should render quickly on cold start.

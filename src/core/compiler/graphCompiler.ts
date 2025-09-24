@@ -401,7 +401,7 @@ export class GraphCompiler {
           if (def !== undefined) {
             return this.formatInputLiteral(def);
           }
-        } catch {}
+        } catch (_err) { /* ignore missing template */ }
         return "";
       }
       this.ensure_input_prepared(node, input);
@@ -414,7 +414,7 @@ export class GraphCompiler {
           if (defVal !== undefined) {
             (input as any).value = defVal;
           }
-        } catch {}
+        } catch (_err) { /* ignore missing template */ }
       }
       if (pinState.missingRef) {
         const fallback = this.getMissingInputLiteral(node, input, pinState);

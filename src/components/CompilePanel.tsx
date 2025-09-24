@@ -82,22 +82,9 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     const abort = new AbortController();
     (async () => {
       try {
-        let list: LanguageItem[] | null = null;
-        try {
-          const res = await fetch("/api/languages", { signal: abort.signal });
-          if (res.ok) {
-            const data = await res.json();
-            list = Array.isArray(data.languages) ? data.languages : [];
-          }
-        } catch {}
-        if (!list) {
-          const res2 = await fetch("/data/languages.index.json", { signal: abort.signal } as any);
-          if (res2.ok) {
-            const data2 = await res2.json();
-            list = Array.isArray(data2.languages) ? data2.languages : [];
-          }
-        }
-        if (!list) list = [];
+        const res = await fetch("/api/languages", { signal: abort.signal });
+        const data = await res.json();
+        const list: LanguageItem[] = Array.isArray(data.languages) ? data.languages : [];
         setLanguages(list);
         setLanguage((prev) => {
           if (prev && prev.length) return prev;
@@ -146,52 +133,15 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
             setCode("");
             return;
           }
-          // Prefer API; fallback to client-side compile if available
-          let outCode: string | null = null;
-          const isPages = typeof window !== "undefined" && location.hostname.includes(".pages.dev");
-          if (!isPages) {
-            try {
-              const res = await fetch("/api/compile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                signal: abort.signal,
-                body: JSON.stringify({ graph: stableGraph, language, engine }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                outCode = String(data.code ?? "");
-              }
-            } catch {}
-          }
-          if (outCode == null) {
-            // Client-side compile fallback using static language pack
-            const { loadLanguageForBrowser } = await import("@/core/schema/registry");
-            const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
-            const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
-            await loadAllTemplatesForBrowser();
-            const langPack = await loadLanguageForBrowser(language.replace(/\.json$/i, ""));
-            // Normalize root: if wrapper has empty type, use the first 'surface'
-            const rootCandidate: any = stableGraph as any;
-            const normalizedGraph: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
-              ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0] ?? rootCandidate)
-              : rootCandidate;
-            // Coerce numeric strings → numbers for default-stripping to work
-            const coerceNumbers = (n: any) => {
-              if (!n || typeof n !== "object") return;
-              if (Array.isArray(n.inputs)) {
-                for (const p of n.inputs) {
-                  if (!p || typeof p !== "object") continue;
-                  const v = (p as any).value;
-                  if (Array.isArray(v)) (p as any).value = v.map((x) => (typeof x === "string" && x.trim() !== "" ? Number(x) : x));
-                }
-              }
-              if (Array.isArray(n.nodes)) for (const c of n.nodes) coerceNumbers(c);
-            };
-            coerceNumbers(normalizedGraph);
-            const compiler = new GraphCompiler(normalizedGraph as any, langPack);
-            compiler.compile();
-            outCode = compiler.result_code;
-          }
+          const res = await fetch("/api/compile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abort.signal,
+            body: JSON.stringify({ graph: stableGraph, language, engine }),
+          });
+          if (!res.ok) throw new Error(`Compile failed: ${res.status}`);
+          const data = await res.json();
+          const outCode: string = String(data.code ?? "");
           if (cancelled) return;
           setCode(outCode);
         } catch (err: any) {

@@ -5,25 +5,10 @@ import { assetsHandler } from "./assets";
 import { examplesHandler } from "./examples";
 
 export function buildRoutes() {
-  const IMMUTABLE_MAX_AGE = 31536000; // 1 year
-  const immutable = (res: Response) => new Response(res.body, {
-    headers: {
-      ...Object.fromEntries(res.headers.entries()),
-      "Cache-Control": `public, max-age=${IMMUTABLE_MAX_AGE}, immutable`,
-    },
-    status: res.status,
-    statusText: res.statusText,
-  });
-
   return {
     "/*": index,
     "/api/health": async () => Response.json({ ok: true }),
-    // Serve precompressed bundles with immutable caching in dev server
-    "/data/nodes.bundle.json": async () => immutable(new Response(Bun.file("dist/data/nodes.bundle.json"))),
-    "/data/languages.bundle.json": async () => immutable(new Response(Bun.file("dist/data/languages.bundle.json"))),
-    // hashed variants
-    "/data/nodes.bundle.:hash.json": async (_req: any, params: any) => immutable(new Response(Bun.file(`dist/data/nodes.bundle.${params.hash}.json`))),
-    "/data/languages.bundle.:hash.json": async (_req: any, params: any) => immutable(new Response(Bun.file(`dist/data/languages.bundle.${params.hash}.json`))),
+    // Static bundle routes removed; app now relies on API endpoints exclusively
     "/api/hello": {
       async GET(_req: Request) {
         return Response.json({ message: "Hello, world!", method: "GET" });
