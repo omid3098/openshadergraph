@@ -5,8 +5,8 @@ import { examplesHandler } from "./examples";
 
 export function buildRoutes() {
   const development = (Bun.env.NODE_ENV ?? process.env.NODE_ENV) !== "production";
-  // Prefer serving the prebuilt app during dev to avoid ad-hoc bundling issues
-  const indexPath = development ? "dist/index.html" : "dist/index.html";
+  // Serve the prebuilt app (dist) in both dev and prod; dev runs a build watcher separately
+  const indexPath = "dist/index.html";
   const cdnBase = "https://esm.sh";
 
   function toCdn(spec: string): string {
@@ -58,9 +58,9 @@ export function buildRoutes() {
           if (await prodFile.exists()) return new Response(prodFile);
           return new Response(Bun.file(indexPath));
         }
-        // Dev mode: try dist (prebuilt), then project-root relative, then src-relative (for TS/TSX and assets)
+        // Dev mode: prefer dist (prebuilt), then project-root relative
         const rel = safePath.replace(/^\/+/, "");
-        const baseCandidates = [`dist/${rel}`, rel, `src/${rel}`];
+        const baseCandidates = [`dist/${rel}`, rel];
 
         // For bare/extensionless specifiers, attempt common script extensions
         const scriptExts = [".tsx", ".ts", ".jsx", ".js"] as const;
@@ -78,21 +78,7 @@ export function buildRoutes() {
         for (const p of candidates) {
           const f = Bun.file(p);
           if (!(await f.exists())) continue;
-          // Transpile TS/TSX/JSX to JS for the browser
-          if (/\.(tsx|ts|jsx)$/.test(p)) {
-            const source = await f.text();
-            const loader = p.endsWith(".tsx")
-              ? "tsx"
-              : p.endsWith(".ts")
-              ? "ts"
-              : "jsx";
-            const transpiler = new Bun.Transpiler({ loader });
-            let code = transpiler.transformSync(source);
-            if (development) code = rewriteBareImports(code);
-            return new Response(code, {
-              headers: { "Content-Type": "application/javascript; charset=utf-8" },
-            });
-          }
+          // For non-js assets or already-built files, return as-is
           return new Response(f);
         }
       } catch (_err) {

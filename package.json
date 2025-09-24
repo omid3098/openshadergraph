@@ -7,6 +7,8 @@
   "module": "src/index.tsx",
   "scripts": {
     "dev": "bun --hot src/index.tsx",
+    "dev:watch": "bun run build.ts --sourcemap=inline --minify=false --define.process.env.NODE_ENV=\"development\" --watch",
+    "dev:all": "bash -c 'bun run dev:watch & bun run dev'",
     "start": "NODE_ENV=production bun src/index.tsx",
     "build": "bun run build.ts",
     "test": "vitest run",

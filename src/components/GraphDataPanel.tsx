@@ -52,10 +52,7 @@ function GraphDataPanelDocked({ data, className, asNode = false }: { data: unkno
         onPointerDownCapture={(event) => event.stopPropagation()}
         onWheel={(event) => event.stopPropagation()}
       >
-        <div className="flex-1 overflow-hidden">
-          <CodeBlock code={pretty} language="json" className="h-full pt-6" />
-        </div>
-        <div className="px-3 py-2 border-t flex items-center justify-end gap-2">
+        <div className="px-3 py-2 border-b flex items-center justify-end gap-2">
           <Button
             size="icon"
             variant="ghost"
@@ -66,6 +63,9 @@ function GraphDataPanelDocked({ data, className, asNode = false }: { data: unkno
           >
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
           </Button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <CodeBlock code={pretty} language="json" className="h-full" />
         </div>
       </div>
     );
