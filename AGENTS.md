@@ -83,10 +83,10 @@ These are non-negotiable to ship green and stay maintainable.
   - Emits `APP_VERSION`, `APP_COMMIT` (short hash), `APP_BUILD_DATE` (ISO), and `APP_DIRTY` in `src/version.ts`.
 - UI: header shows `vX.Y.Z` with tooltip including short commit and build date. Informational only; does not affect shader output.
 - Dev vs Prod:
-  - Prod: `bun run build && bun run start` regenerates version and ships it in `dist/`.
-  - Dev: `bun run dev` runs the build watcher and hot server. If you commit while it runs and need a bumped version, restart `bun run dev`.
+  - Prod: `bun run build && bun run start` regenerates version and ships it in `dist/`. Production build also creates a local git tag `vX.Y.Z` (pushing tags remains manual/CI-controlled).
+  - Dev: `bun run dev` runs the build watcher and hot server. The watcher auto-regenerates `src/version.ts` on HEAD/dirty changes; no restart needed after a commit.
 - Lint: `src/version.ts` is ignored by ESLint.
-- CI tags: Not auto-tagging. Add a CI step to create and push `vX.Y.Z` tags if desired.
+- Tags: Production builds auto-create a local tag. Use `git push --tags` to publish tags (or let CI push them).
 
 ### Meta vs Properties Policy (Hard Rules)
 
@@ -111,6 +111,8 @@ These are non-negotiable to ship green and stay maintainable.
 - Run development (watch build + hot server): `bun run dev`
 
 - Run production server: `bun run start`
+
+- Publish tags created by the production build: `git push --tags`
 
 That’s it. If in doubt, follow the data in `data/**`, confirm APIs with Context7, and don’t submit unless tests and lint are clean.
 
