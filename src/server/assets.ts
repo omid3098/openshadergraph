@@ -4,7 +4,9 @@ import { validateAssetLibrary } from "../core/schema/validators";
 
 export async function assetsHandler(): Promise<Response> {
   try {
-    const root = path.resolve(process.cwd(), "data", "assets", "library.json");
+    const primary = path.resolve(process.cwd(), "data", "assets", "library.json");
+    const fallback = path.resolve(process.cwd(), "dist", "data", "assets", "library.json");
+    const root = await fs.stat(primary).then((s: any) => (s.isFile() ? primary : fallback)).catch(() => fallback);
     const raw = await fs.readFile(root, "utf8");
     const parsed = JSON.parse(raw);
     const library = validateAssetLibrary(parsed);

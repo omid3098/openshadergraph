@@ -3,7 +3,9 @@ import path from "path";
 
 export async function nodesListHandler(): Promise<Response> {
   try {
-    const root = path.resolve(process.cwd(), "data", "nodes");
+    const primary = path.resolve(process.cwd(), "data", "nodes");
+    const fallback = path.resolve(process.cwd(), "dist", "data", "nodes");
+    const root = await fs.stat(primary).then((s: any) => (s.isDirectory() ? primary : fallback)).catch(() => fallback);
 
     const items: Array<{ type: string; name: string; path: string; category: string }> = [];
     async function walk(dir: string, prefix = ""): Promise<void> {
@@ -59,7 +61,9 @@ export async function nodeTemplateHandler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const rel = url.searchParams.get("path");
     if (!rel) return new Response("Missing path", { status: 400 });
-    const root = path.resolve(process.cwd(), "data", "nodes");
+    const primary = path.resolve(process.cwd(), "data", "nodes");
+    const fallback = path.resolve(process.cwd(), "dist", "data", "nodes");
+    const root = await fs.stat(primary).then((s: any) => (s.isDirectory() ? primary : fallback)).catch(() => fallback);
     const abs = path.resolve(root, rel);
     if (!abs.startsWith(root)) return new Response("Invalid path", { status: 400 });
     const raw = await fs.readFile(abs, "utf8");

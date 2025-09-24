@@ -12,7 +12,9 @@ export async function examplesHandler(req: Request): Promise<Response> {
         key: "basic_color",
         label: "Basic Color",
         build: async () => {
-          const abs = path.resolve(process.cwd(), "examples", "basic_color.json");
+          const primary = path.resolve(process.cwd(), "examples", "basic_color.json");
+          const fallback = path.resolve(process.cwd(), "dist", "examples", "basic_color.json");
+          const abs = await fs.stat(primary).then((s) => (s.isFile() ? primary : fallback)).catch(() => fallback);
           const raw = await fs.readFile(abs, "utf8");
           const json = JSON.parse(raw);
           // The example file wraps the surface node in a root object with empty type
@@ -26,7 +28,9 @@ export async function examplesHandler(req: Request): Promise<Response> {
         key: "addition",
         label: "Addition (Color + Color)",
         build: async () => {
-          const abs = path.resolve(process.cwd(), "examples", "addition_color_color.json");
+          const primary = path.resolve(process.cwd(), "examples", "addition_color_color.json");
+          const fallback = path.resolve(process.cwd(), "dist", "examples", "addition_color_color.json");
+          const abs = await fs.stat(primary).then((s) => (s.isFile() ? primary : fallback)).catch(() => fallback);
           const raw = await fs.readFile(abs, "utf8");
           const json = JSON.parse(raw);
           const surface = Array.isArray(json.nodes)

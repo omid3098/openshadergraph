@@ -1,4 +1,3 @@
-import index from "../index.html";
 import { languagesHandler, languagePackHandler, compileHandler } from "./handlers";
 import { nodesListHandler, nodeTemplateHandler } from "./nodes";
 import { assetsHandler } from "./assets";
@@ -6,7 +5,22 @@ import { examplesHandler } from "./examples";
 
 export function buildRoutes() {
   return {
-    "/*": index,
+    // Static file server for production build
+    "/": async () => new Response(Bun.file("dist/index.html")),
+    "/*": async (req: Request) => {
+      try {
+        const url = new URL(req.url);
+        const pathname = url.pathname;
+        // Prevent path traversal; only allow within dist
+        const safePath = pathname.replace(/\.\.+/g, "/");
+        const filePath = `dist${safePath}`;
+        const file = Bun.file(filePath);
+        if (await file.exists()) {
+          return new Response(file);
+        }
+      } catch {}
+      return new Response(Bun.file("dist/index.html"));
+    },
     "/api/health": async () => Response.json({ ok: true }),
     // Static bundle routes removed; app now relies on API endpoints exclusively
     "/api/hello": {
