@@ -37,23 +37,31 @@ export function buildRoutes() {
     code = code.replace(/(import\(\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["']\s*\))/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
     return code;
   }
+  async function serveDocsIndexWithBase(): Promise<Response> {
+    const docsIndex = Bun.file("dist/docs/index.html");
+    if (!(await docsIndex.exists())) return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
+    try {
+      const raw = await docsIndex.text();
+      const hasBase = /<base\s+href=\"\/docs\/?\"/i.test(raw);
+      const html = hasBase ? raw : raw.replace(/<head(\s*[^>]*)>/i, '<head$1><base href="/docs/">');
+      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+    } catch (_err) {
+      return new Response(docsIndex);
+    }
+  }
   return {
     // Static file server handled by catch-all below; explicit / path removed to avoid overshadowing /docs
     "/docs/*": async (req: Request) => {
       // Serve static files from dist/docs for any /docs/* path
       const url = new URL(req.url);
       const rel = url.pathname.replace(/^\/docs\/?/, "");
-      if (rel === "") {
-        // Redirect bare /docs to /docs/ so relative asset paths resolve
-        return new Response(null, { status: 301, headers: { Location: "/docs/" } });
-      }
+      if (rel === "") return serveDocsIndexWithBase();
       const candidate = `dist/docs/${rel}`;
       const f = Bun.file(candidate);
       if (await f.exists()) return new Response(f);
       // Fallback to docs index for SPA-ish internal nav
-      const docsIndex = Bun.file("dist/docs/index.html");
-      if (await docsIndex.exists()) return new Response(docsIndex);
-      return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
+      return await serveDocsIndexWithBase();
+      
     },
     "/*": async (req: Request) => {
       try {
@@ -61,17 +69,14 @@ export function buildRoutes() {
         const pathname = url.pathname;
         // Explicitly handle /docs and /docs/* before generic resolution
         if (pathname === "/docs") {
-          // Redirect to trailing slash so relative assets resolve to /docs/assets/*
-          return new Response(null, { status: 301, headers: { Location: "/docs/" } });
+          return await serveDocsIndexWithBase();
         }
         if (pathname.startsWith("/docs/")) {
           const docsPath = pathname.replace(/^\/docs\/?/, "");
           const filePath = `dist/docs/${docsPath || "index.html"}`;
           const file = Bun.file(filePath);
           if (await file.exists()) return new Response(file);
-          const docsIndex = Bun.file("dist/docs/index.html");
-          if (await docsIndex.exists()) return new Response(docsIndex);
-          return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
+          return await serveDocsIndexWithBase();
         }
         if (pathname === "/") {
           return new Response(Bun.file(indexPath));
