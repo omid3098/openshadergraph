@@ -9,7 +9,7 @@ export async function nodesListHandler(): Promise<Response> {
       if (!st.isDirectory()) {
         return Response.json({ error: "OSG data missing: 'data/nodes' is not a directory" }, { status: 500 });
       }
-    } catch (err) {
+    } catch (_err) {
       return Response.json({ error: "OSG data missing: 'data/nodes' directory not found" }, { status: 500 });
     }
 

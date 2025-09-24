@@ -12,7 +12,7 @@ export async function languagesHandler(): Promise<Response> {
       if (!st.isDirectory()) {
         return Response.json({ error: "OSG data missing: 'data/languages' is not a directory" }, { status: 500 });
       }
-    } catch (err) {
+    } catch (_err) {
       return Response.json({ error: "OSG data missing: 'data/languages' directory not found" }, { status: 500 });
     }
     // Recursively list .json files without relying on Bun.Glob (for Node test env)
