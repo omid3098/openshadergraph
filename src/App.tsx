@@ -840,7 +840,39 @@ export function App() {
 
   const inflateAndLoadGraph = useCallback(
     async (graph: CanonicalNode, label: string) => {
-      const { graph: inflatedGraph, defaults } = await inflateGraph(graph, loadTemplateDefaults);
+      // Ensure we can resolve templates even if the palette hasn't finished loading yet (prod race on fast loads)
+      // Build a fallback loader that fetches a local palette snapshot if needed.
+      const loadTemplateForInflate = async (type: string) => {
+        try {
+          const fromState = paletteByType.get(type);
+          if (fromState) {
+            return await fetchNodeTemplate(fromState.path);
+          }
+          // Fallback: fetch a fresh palette snapshot and look up the path
+          const fresh = await fetchNodePalette().catch((err) => {
+            console.error("[inflate] Failed to load node palette on demand", err);
+            return null as any;
+          });
+          if (fresh && Array.isArray(fresh.flat)) {
+            const found = fresh.flat.find((it: any) => it && it.type === type);
+            if (found && found.path) {
+              try {
+                return await fetchNodeTemplate(found.path);
+              } catch (err) {
+                console.error("[inflate] Failed to fetch node template", type, err);
+                return undefined;
+              }
+            }
+          }
+          console.error("[inflate] Missing node template for type", type);
+          return undefined;
+        } catch (err) {
+          console.error("[inflate] Unexpected error resolving template", type, err);
+          return undefined;
+        }
+      };
+
+      const { graph: inflatedGraph, defaults } = await inflateGraph(graph, loadTemplateForInflate);
       const rootCandidate: any = inflatedGraph as any;
       const rootGraph: CanonicalNode = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
         ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0])
@@ -867,7 +899,7 @@ export function App() {
       fitAfterLoadRef.current = true;
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath]
+    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {

@@ -391,6 +391,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         } catch (err: any) {
           if (cancelled) return;
           if (isAbortError(err)) return;
+          console.error("[preview-panel] compile error", err);
           setCompileError(typeof err?.message === "string" ? err.message : "Compile failed");
           setFragCode("");
           setVertexChunk("");
