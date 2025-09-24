@@ -130,6 +130,7 @@ const formatFileSize = (bytes: number): string => {
 };
 
 console.log("\n🚀 Starting build process...\n");
+const AUTO_TAG = process.argv.includes("--auto-tag");
 
 // --- Versioning: compute app version from git and write src/version.ts ---
 type Semver = { major: number; minor: number; patch: number };
@@ -160,7 +161,7 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
   }
 }
 
-async function computeAndWriteVersionModule(): Promise<void> {
+async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
   // Determine latest semver tag
   const tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
     .split("\n")
@@ -202,6 +203,22 @@ async function computeAndWriteVersionModule(): Promise<void> {
   } catch (err) {
     console.warn("⚠️  Failed to write src/version.ts; using committed fallback.", err);
   }
+
+  // Optionally create a local git tag for this version (no push here)
+  if (AUTO_TAG) {
+    const tagName = `v${versionStr}`;
+    const existing = runGit(["tag", "--list", tagName]).stdout.trim();
+    if (!existing) {
+      const tagRes = runGit(["tag", "-a", tagName, "-m", `release: ${tagName}`]);
+      if (!tagRes.ok) {
+        console.warn(`⚠️  Failed to create git tag ${tagName}`);
+      } else {
+        console.log(`🏷️  Created git tag ${tagName}`);
+      }
+    }
+  }
+
+  return { version: versionStr, bumped: Boolean(bumpKind) };
 }
 
 await computeAndWriteVersionModule();

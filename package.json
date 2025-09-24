@@ -11,7 +11,7 @@
     "dev:all": "bash -c 'bun run dev:watch & bun run dev:server'",
     "dev": "bun run dev:all",
     "start": "NODE_ENV=production bun src/index.tsx",
-    "build": "bun run build.ts",
+    "build": "bun run build.ts --auto-tag",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0"
