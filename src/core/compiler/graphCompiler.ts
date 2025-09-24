@@ -416,6 +416,29 @@ export class GraphCompiler {
         pinState.expectedType = expected;
       }
       let code = this.formatInputLiteral(input.value);
+      // If code is still empty, synthesize a zero literal appropriate for the expected type
+      if (code === "" || code == null) {
+        const t = expected ?? pinState.declaredType;
+        const asCsv = (n: number) => Array.from({ length: n }, () => "0.0").join(", ");
+        switch (t) {
+          case "float":
+            code = "0.0";
+            break;
+          case "float2":
+            code = asCsv(2);
+            break;
+          case "float3":
+            code = asCsv(3);
+            break;
+          case "float4":
+            code = asCsv(4);
+            break;
+          default:
+            // Fallback to scalar zero to avoid empty constructors
+            code = "0.0";
+            break;
+        }
+      }
       const fromType = pinState.refType ?? pinState.declaredType;
       if (fromType || expected) {
         code = this.convert_type(code, fromType, expected);
