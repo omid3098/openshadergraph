@@ -52,7 +52,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
 import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
-import { Check } from "lucide-react";
+import { Check, Github } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { APP_VERSION_INFO } from "./version";
 
@@ -1676,8 +1676,22 @@ export function App() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-        <span title={`Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""} • ${APP_VERSION_INFO.buildDate}`}>v{APP_VERSION_INFO.version}</span>
+      <div className="flex items-center gap-2">
+        <a
+          href="https://github.com/omid3098/openshadergraph"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="OpenShaderGraph on GitHub"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Github className="h-4 w-4" />
+        </a>
+        <span
+          className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+          title={`Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""} • ${APP_VERSION_INFO.buildDate}`}
+        >
+          v{APP_VERSION_INFO.version}
+        </span>
       </div>
     </div>
   );

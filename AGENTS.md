@@ -70,6 +70,24 @@ Minimal graph rules:
 
 These are non-negotiable to ship green and stay maintainable.
 
+## Versioning & Build Metadata
+
+- The top bar displays the app version. Values come from a generated module: `src/version.ts`.
+- `build.ts` computes and writes `src/version.ts` at startup (prod builds and dev watcher) using git:
+  - Reads the latest semver tag (`vX.Y.Z`) if present; defaults to `0.0.0`.
+  - Scans commit messages since the tag and bumps semver automatically:
+    - major: message contains `BREAKING CHANGE` or a conventional-commit bang (e.g., `feat!:`, `refactor!:`).
+    - minor: message starts with `feat`.
+    - patch: any other commit messages.
+    - No commits since the tag → no bump.
+  - Emits `APP_VERSION`, `APP_COMMIT` (short hash), `APP_BUILD_DATE` (ISO), and `APP_DIRTY` in `src/version.ts`.
+- UI: header shows `vX.Y.Z` with tooltip including short commit and build date. Informational only; does not affect shader output.
+- Dev vs Prod:
+  - Prod: `bun run build && bun run start` regenerates version and ships it in `dist/`.
+  - Dev: `bun run dev` runs the build watcher and hot server. If you commit while it runs and need a bumped version, restart `bun run dev`.
+- Lint: `src/version.ts` is ignored by ESLint.
+- CI tags: Not auto-tagging. Add a CI step to create and push `vX.Y.Z` tags if desired.
+
 ### Meta vs Properties Policy (Hard Rules)
 
 - Properties-first: Any user-configurable option that affects generated shader code or runtime parameters MUST be a property, not meta.
@@ -89,6 +107,8 @@ These are non-negotiable to ship green and stay maintainable.
 - Run E2E tests: `bun run test:e2e`
 - Run linter: `bun run lint`
 - Typecheck (optional): `bun x tsc -p tsconfig.json --noEmit`
+
+- Run development (watch build + hot server): `bun run dev`
 
 - Run production server: `bun run start`
 
