@@ -38,12 +38,44 @@ export function buildRoutes() {
     return code;
   }
   return {
-    // Static file server (dist in prod, src in dev)
-    "/": async () => new Response(Bun.file(indexPath)),
+    // Static file server handled by catch-all below; explicit / path removed to avoid overshadowing /docs
+    "/docs/*": async (req: Request) => {
+      // Serve static files from dist/docs for any /docs/* path
+      const url = new URL(req.url);
+      const rel = url.pathname.replace(/^\/docs\/?/, "");
+      if (rel === "") {
+        // Redirect bare /docs to /docs/ so relative asset paths resolve
+        return new Response(null, { status: 301, headers: { Location: "/docs/" } });
+      }
+      const candidate = `dist/docs/${rel}`;
+      const f = Bun.file(candidate);
+      if (await f.exists()) return new Response(f);
+      // Fallback to docs index for SPA-ish internal nav
+      const docsIndex = Bun.file("dist/docs/index.html");
+      if (await docsIndex.exists()) return new Response(docsIndex);
+      return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
+    },
     "/*": async (req: Request) => {
       try {
         const url = new URL(req.url);
         const pathname = url.pathname;
+        // Explicitly handle /docs and /docs/* before generic resolution
+        if (pathname === "/docs") {
+          // Redirect to trailing slash so relative assets resolve to /docs/assets/*
+          return new Response(null, { status: 301, headers: { Location: "/docs/" } });
+        }
+        if (pathname.startsWith("/docs/")) {
+          const docsPath = pathname.replace(/^\/docs\/?/, "");
+          const filePath = `dist/docs/${docsPath || "index.html"}`;
+          const file = Bun.file(filePath);
+          if (await file.exists()) return new Response(file);
+          const docsIndex = Bun.file("dist/docs/index.html");
+          if (await docsIndex.exists()) return new Response(docsIndex);
+          return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
+        }
+        if (pathname === "/") {
+          return new Response(Bun.file(indexPath));
+        }
         // Prevent path traversal without corrupting filenames containing dots.
         // We strip empty segments and explicit current/parent directory navigations.
         // Example: "/../src/./frontend.tsx" -> "/src/frontend.tsx"

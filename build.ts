@@ -494,6 +494,29 @@ async function emitManifest() {
 
 await emitManifest();
 
+// Optionally build MkDocs docs into dist/docs if mkdocs is available
+async function buildDocsIfAvailable() {
+  try {
+    // Check if mkdocs exists on PATH
+    const check = Bun.spawnSync({ cmd: ["bash", "-lc", "command -v mkdocs >/dev/null 2>&1"], stdout: "ignore", stderr: "ignore" });
+    if (check.exitCode !== 0) {
+      console.log("ℹ️  Skipping docs build (mkdocs not found)");
+      return;
+    }
+    console.log("📚 Building documentation (mkdocs)...");
+    const res = Bun.spawnSync({ cmd: ["mkdocs", "build", "--clean"], stdout: "pipe", stderr: "pipe" });
+    if (res.exitCode === 0) {
+      console.log("📚 Docs built → dist/docs");
+    } else {
+      console.warn("⚠️  mkdocs build failed:", new TextDecoder().decode(res.stderr));
+    }
+  } catch (err) {
+    console.warn("⚠️  Error during docs build:", err);
+  }
+}
+
+await buildDocsIfAvailable();
+
 console.log(`\n✅ Build completed in ${buildTime}ms\n`);
 
 // ---------- Helpers ----------

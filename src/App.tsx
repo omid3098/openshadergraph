@@ -49,10 +49,11 @@ import { createTemplateCache, type TemplateCache } from "./core/ui/templateCache
 import { buildReactFlowGraph } from "./core/ui/reactFlowGraph";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
+import { Button } from "./components/ui/button";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
 import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
-import { Check, Github } from "lucide-react";
+import { Check, Github, BookOpen } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { APP_VERSION_INFO } from "./version";
 
@@ -1677,6 +1678,12 @@ export function App() {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-2">
+        <Button asChild size="sm" variant="secondary">
+          <a href="/docs/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>Docs</span>
+          </a>
+        </Button>
         <a
           href="https://github.com/omid3098/openshadergraph"
           target="_blank"

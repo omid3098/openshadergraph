@@ -27,6 +27,12 @@ Quick commands:
 - Start dev server: `bun run dev`
 - Build for production: `bun run build`
 
+## Documentation
+
+- Serve locally: `bun run docs:dev` (requires Python + `pip install -r requirements.txt`)
+- Build into `dist/docs`: `bun run docs:build`
+- At runtime, the Bun server serves docs at `/docs` when built.
+
 See `AGENTS.md` for the minimal working agreement and gates.
 
 ## Static Bundles Mode (parity with Pages)
