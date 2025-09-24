@@ -1,0 +1,48 @@
+site_name: OpenShaderGraph
+site_description: Documentation for the OpenShaderGraph project
+repo_url: https://github.com/omid3098/openshadergraph
+edit_uri: ""
+
+# Output docs alongside the Bun build so the server can serve /docs
+site_dir: dist/docs
+
+# Docs source directory
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+
+nav:
+  - Overview: index.md
+  - Contributing: contributing.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+# Ensure links are generated relative to /docs base path
+use_directory_urls: true

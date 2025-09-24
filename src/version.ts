@@ -1,7 +1,7 @@
 // Auto-generated at build time by build.ts
-export const APP_VERSION = "0.2.0";
-export const APP_COMMIT = "954ccb2d";
-export const APP_BUILD_DATE = "2025-09-24T19:36:00.877Z";
+export const APP_VERSION = "0.3.0";
+export const APP_COMMIT = "0e35a9b4";
+export const APP_BUILD_DATE = "2025-09-24T21:55:01.568Z";
 export const APP_DIRTY = true;
 
 export type AppVersionInfo = {
