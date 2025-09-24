@@ -4,22 +4,101 @@ import { assetsHandler } from "./assets";
 import { examplesHandler } from "./examples";
 
 export function buildRoutes() {
+  const development = (Bun.env.NODE_ENV ?? process.env.NODE_ENV) !== "production";
+  // Prefer serving the prebuilt app during dev to avoid ad-hoc bundling issues
+  const indexPath = development ? "dist/index.html" : "dist/index.html";
+  const cdnBase = "https://esm.sh";
+
+  function toCdn(spec: string): string {
+    // Leave relative/absolute or protocol specifiers untouched
+    if (/^(\.|\/|https?:|data:|bun:)/.test(spec)) return spec;
+    // Extract base and subpath (supports scoped packages)
+    let base = spec;
+    let subpath = "";
+    if (spec.startsWith("@")) {
+      const parts = spec.split("/");
+      base = parts.slice(0, 2).join("/");
+      subpath = "/" + parts.slice(2).join("/");
+      if (subpath === "/") subpath = "";
+    } else if (spec.includes("/")) {
+      const i = spec.indexOf("/");
+      base = spec.slice(0, i);
+      subpath = spec.slice(i);
+    }
+    return `${cdnBase}/${base}${subpath}?dev`;
+  }
+
+  function rewriteBareImports(code: string): string {
+    // from-specifiers (import/export)
+    code = code.replace(/(from\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["'])/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
+    // bare import 'pkg'
+    code = code.replace(/(import\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["'])/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
+    // dynamic import("pkg")
+    code = code.replace(/(import\(\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["']\s*\))/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
+    return code;
+  }
   return {
-    // Static file server for production build
-    "/": async () => new Response(Bun.file("dist/index.html")),
+    // Static file server (dist in prod, src in dev)
+    "/": async () => new Response(Bun.file(indexPath)),
     "/*": async (req: Request) => {
       try {
         const url = new URL(req.url);
         const pathname = url.pathname;
-        // Prevent path traversal; only allow within dist
-        const safePath = pathname.replace(/\.\.+/g, "/");
-        const filePath = `dist${safePath}`;
-        const file = Bun.file(filePath);
-        if (await file.exists()) {
-          return new Response(file);
+        // Prevent path traversal without corrupting filenames containing dots.
+        // We strip empty segments and explicit current/parent directory navigations.
+        // Example: "/../src/./frontend.tsx" -> "/src/frontend.tsx"
+        const safePath =
+          "/" +
+          pathname
+            .split("/")
+            .filter((segment) => segment !== "" && segment !== "." && segment !== "..")
+            .join("/");
+        if (!development) {
+          const prodFile = Bun.file(`dist${safePath}`);
+          if (await prodFile.exists()) return new Response(prodFile);
+          return new Response(Bun.file(indexPath));
         }
-      } catch (_err) { /* ignore path parsing errors */ }
-      return new Response(Bun.file("dist/index.html"));
+        // Dev mode: try dist (prebuilt), then project-root relative, then src-relative (for TS/TSX and assets)
+        const rel = safePath.replace(/^\/+/, "");
+        const baseCandidates = [`dist/${rel}`, rel, `src/${rel}`];
+
+        // For bare/extensionless specifiers, attempt common script extensions
+        const scriptExts = [".tsx", ".ts", ".jsx", ".js"] as const;
+        const candidates: string[] = [];
+        for (const b of baseCandidates) {
+          candidates.push(b);
+          // If path has no extension, try with common script extensions
+          if (!/\.[a-zA-Z0-9]+$/.test(b)) {
+            for (const ext of scriptExts) candidates.push(`${b}${ext}`);
+            // Also support directory index files
+            for (const ext of scriptExts) candidates.push(`${b}/index${ext}`);
+          }
+        }
+
+        for (const p of candidates) {
+          const f = Bun.file(p);
+          if (!(await f.exists())) continue;
+          // Transpile TS/TSX/JSX to JS for the browser
+          if (/\.(tsx|ts|jsx)$/.test(p)) {
+            const source = await f.text();
+            const loader = p.endsWith(".tsx")
+              ? "tsx"
+              : p.endsWith(".ts")
+              ? "ts"
+              : "jsx";
+            const transpiler = new Bun.Transpiler({ loader });
+            let code = transpiler.transformSync(source);
+            if (development) code = rewriteBareImports(code);
+            return new Response(code, {
+              headers: { "Content-Type": "application/javascript; charset=utf-8" },
+            });
+          }
+          return new Response(f);
+        }
+      } catch (_err) {
+        // ignore path parsing errors
+      }
+      return new Response(Bun.file(indexPath));
     },
     "/api/health": async () => Response.json({ ok: true }),
     // Static bundle routes removed; app now relies on API endpoints exclusively

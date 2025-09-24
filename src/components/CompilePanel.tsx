@@ -188,38 +188,29 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
   };
 
   if (variant === "node") {
-    const display = working ? "Compiling…" : error || code;
+    const display = working ? "Compiling…" : (error || code);
     const lang = error ? "text" : getPrismLang(language);
     return (
-      <div className={cn("h-full flex flex-col", className)}>
-        <div className="px-3 py-2 border-b flex items-center justify-end gap-2">
-          <div className="min-w-[140px]">
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger aria-label="Language">
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((l) => (
-                  <SelectItem key={l.key} value={l.key}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[120px]">
-            <Select value={engine} onValueChange={setEngine}>
-              <SelectTrigger aria-label="Compiler">
-                <SelectValue placeholder="Compiler" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div
+        className={cn("h-full flex flex-col nodrag nowheel", className)}
+        data-node-interactive
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
+        <div className="flex-1 overflow-hidden">
+          <CodeBlock language={lang} code={String(display ?? "")} className="h-full pt-6" />
         </div>
-        <div className="flex-1 overflow-auto">
-          <CodeBlock language={lang} code={String(display ?? "")} className="h-full" />
+        <div className="px-3 py-2 border-t flex items-center justify-end gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Copy compiled code"
+            title="Copy"
+            onClick={() => copyToClipboard(String(display ?? ""))}
+            disabled={!display}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          </Button>
         </div>
       </div>
     );
