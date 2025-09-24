@@ -17,6 +17,7 @@ export function buildRoutes() {
 
   return {
     "/*": index,
+    "/api/health": async () => Response.json({ ok: true }),
     // Serve precompressed bundles with immutable caching in dev server
     "/data/nodes.bundle.json": async () => immutable(new Response(Bun.file("dist/data/nodes.bundle.json"))),
     "/data/languages.bundle.json": async () => immutable(new Response(Bun.file("dist/data/languages.bundle.json"))),

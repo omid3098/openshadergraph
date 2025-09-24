@@ -5,8 +5,17 @@ import { validateLanguagePack, validateNodeTemplate } from "./validators";
 
 const IS_BROWSER = typeof window !== "undefined";
 const OSG_STATIC_BUNDLES = (globalThis as any)?.process?.env?.OSG_STATIC_BUNDLES === "1" ||
-  (typeof window !== "undefined" && (window as any).OSG_STATIC_BUNDLES === "1") ||
-  (typeof location !== "undefined" && location.hostname.endsWith(".pages.dev"));
+  (typeof window !== "undefined" && (window as any).OSG_STATIC_BUNDLES === "1");
+let OSG_SERVER_AVAILABLE: boolean | null = null;
+async function ensureServerProbe(): Promise<void> {
+  if (OSG_SERVER_AVAILABLE != null) return;
+  try {
+    const res = await fetch("/api/health", { method: "GET" });
+    OSG_SERVER_AVAILABLE = res.ok;
+  } catch {
+    OSG_SERVER_AVAILABLE = false;
+  }
+}
 const NODE_ROOT: string = IS_BROWSER ? "/data/nodes" : path.resolve(process.cwd(), "data", "nodes");
 const LANG_ROOT: string = IS_BROWSER ? "/data/languages" : path.resolve(process.cwd(), "data", "languages");
 
@@ -55,8 +64,8 @@ async function loadTemplatesBrowserOnce(): Promise<void> {
       return;
     }
   } catch {}
-  // Fallback: index + per-file fetches (skip when explicitly forcing bundles)
-  if (OSG_STATIC_BUNDLES) {
+  // Fallback: index + per-file fetches (skip when explicitly forcing bundles and no server)
+  if (OSG_STATIC_BUNDLES && OSG_SERVER_AVAILABLE === false) {
     templatesLoaded = true;
     return;
   }
@@ -167,6 +176,7 @@ export async function loadLanguageForBrowser(key: string): Promise<LanguagePack>
   if (typeof window === "undefined" || typeof fetch === "undefined") {
     return loadLanguage(key);
   }
+  await ensureServerProbe();
   // Try manifest + languages bundle (or force when static bundles flag is on)
   try {
     let bundleName: string | null = null;
@@ -187,8 +197,8 @@ export async function loadLanguageForBrowser(key: string): Promise<LanguagePack>
       if (pack) return validateLanguagePack(pack);
     }
   } catch {}
-  // Fallback: direct static file (skip when explicitly forcing bundles)
-  if (OSG_STATIC_BUNDLES) {
+  // Fallback: direct static file (skip only when explicitly forcing bundles and no server)
+  if (OSG_STATIC_BUNDLES && OSG_SERVER_AVAILABLE === false) {
     throw new Error(`Language '${key}' not found in bundle`);
   }
   try {
