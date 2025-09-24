@@ -392,8 +392,9 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
             const { applyPreviewEngineDefaults } = await import("@/core/compiler/graphCompiler");
             const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
-            const lang = await loadLanguageForBrowser("ThreeJS_GLSL"); // prefers manifest fast path
+            // Ensure minimal deps (templates + language) before first compile
             await loadAllTemplatesForBrowser();
+            const lang = await loadLanguageForBrowser("ThreeJS_GLSL");
             const rootCandidate: any = stableGraph as any;
             const normalized: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
               ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0] ?? rootCandidate)

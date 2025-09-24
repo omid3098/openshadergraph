@@ -4,6 +4,9 @@ import type { LanguagePack, NodeTemplate } from "./types";
 import { validateLanguagePack, validateNodeTemplate } from "./validators";
 
 const IS_BROWSER = typeof window !== "undefined";
+const OSG_STATIC_BUNDLES = (globalThis as any)?.process?.env?.OSG_STATIC_BUNDLES === "1" ||
+  (typeof window !== "undefined" && (window as any).OSG_STATIC_BUNDLES === "1") ||
+  (typeof location !== "undefined" && location.hostname.endsWith(".pages.dev"));
 const NODE_ROOT: string = IS_BROWSER ? "/data/nodes" : path.resolve(process.cwd(), "data", "nodes");
 const LANG_ROOT: string = IS_BROWSER ? "/data/languages" : path.resolve(process.cwd(), "data", "languages");
 
@@ -13,7 +16,7 @@ const templateMap = new Map<string, NodeTemplate>();
 async function loadTemplatesBrowserOnce(): Promise<void> {
   if (templatesLoaded) return;
   if (typeof window === "undefined" || typeof fetch === "undefined") return;
-  // Try manifest + bundle first
+  // Try manifest + bundle first (or force when static bundles flag is on)
   try {
     let bundleName: string | null = null;
     let fastPath = false;
@@ -52,7 +55,11 @@ async function loadTemplatesBrowserOnce(): Promise<void> {
       return;
     }
   } catch {}
-  // Fallback: index + per-file fetches
+  // Fallback: index + per-file fetches (skip when explicitly forcing bundles)
+  if (OSG_STATIC_BUNDLES) {
+    templatesLoaded = true;
+    return;
+  }
   try {
     const indexRes = await fetch("/data/nodes.index.json");
     if (!indexRes.ok) { templatesLoaded = true; return; }
@@ -160,7 +167,7 @@ export async function loadLanguageForBrowser(key: string): Promise<LanguagePack>
   if (typeof window === "undefined" || typeof fetch === "undefined") {
     return loadLanguage(key);
   }
-  // Try manifest + languages bundle
+  // Try manifest + languages bundle (or force when static bundles flag is on)
   try {
     let bundleName: string | null = null;
     try {
@@ -180,7 +187,10 @@ export async function loadLanguageForBrowser(key: string): Promise<LanguagePack>
       if (pack) return validateLanguagePack(pack);
     }
   } catch {}
-  // Fallback: direct static file
+  // Fallback: direct static file (skip when explicitly forcing bundles)
+  if (OSG_STATIC_BUNDLES) {
+    throw new Error(`Language '${key}' not found in bundle`);
+  }
   try {
     const res2 = await fetch(`/data/languages/${key}.json`);
     if (res2.ok) return validateLanguagePack(await res2.json());

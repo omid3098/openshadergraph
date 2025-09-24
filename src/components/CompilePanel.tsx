@@ -165,15 +165,11 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
           }
           if (outCode == null) {
             // Client-side compile fallback using static language pack
-            const langFile = language.endsWith(".json") ? language : `${language}.json`;
-            const res2 = await fetch(`/data/languages/${langFile}`, { signal: abort.signal } as any);
-            if (!res2.ok) throw new Error(`Failed to load language: ${res2.status}`);
-            const langJson = await res2.json();
-            const { validateLanguagePack } = await import("@/core/schema/validators");
+            const { loadLanguageForBrowser } = await import("@/core/schema/registry");
             const { GraphCompiler } = await import("@/core/compiler/graphCompiler");
             const { loadAllTemplatesForBrowser } = await import("@/core/schema/registry");
-            const langPack = validateLanguagePack(langJson);
             await loadAllTemplatesForBrowser();
+            const langPack = await loadLanguageForBrowser(language.replace(/\.json$/i, ""));
             // Normalize root: if wrapper has empty type, use the first 'surface'
             const rootCandidate: any = stableGraph as any;
             const normalizedGraph: any = (!rootCandidate?.type || rootCandidate.type === "") && Array.isArray(rootCandidate?.nodes)
