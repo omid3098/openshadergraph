@@ -392,8 +392,18 @@ export class GraphCompiler {
     const regex = /(\{\{inputs:(\d+)\}\})/g;
     return template.replace(regex, (_match, _full, indexStr: string) => {
       const index = Number(indexStr);
-      const input = node.inputs?.[index];
-      if (!input) return "";
+      let input = node.inputs?.[index];
+      if (!input) {
+        // If the input entry is missing entirely, fall back to the template's default
+        try {
+          const tpl = getNodeTemplate(node.type);
+          const def = tpl?.inputs?.[index] ? (tpl as any).inputs[index].value : undefined;
+          if (def !== undefined) {
+            return this.formatInputLiteral(def);
+          }
+        } catch {}
+        return "";
+      }
       this.ensure_input_prepared(node, input);
       const pinState = this.getPinState(input);
       // If input has no value and a template default exists, materialize the default into the node
