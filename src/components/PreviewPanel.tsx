@@ -359,6 +359,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     }
     const abort = new AbortController();
     let cancelled = false;
+    if (typeof performance !== "undefined" && performance.mark) performance.mark("preview-compile-start");
     compileDebounceRef.current = window.setTimeout(() => {
       (async () => {
         try {
@@ -421,6 +422,10 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             const { fragment, vertexChunk } = extractPreviewShaders(String(code ?? ""));
             setFragCode(fragment);
             setVertexChunk(vertexChunk);
+            if (typeof performance !== "undefined" && performance.mark && performance.measure) {
+              performance.mark("preview-compile-end");
+              performance.measure("preview-ready", "preview-compile-start", "preview-compile-end");
+            }
           }
         } catch (err: any) {
           if (cancelled) return;

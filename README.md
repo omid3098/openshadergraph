@@ -28,3 +28,22 @@ Quick commands:
 - Build for production: `bun run build`
 
 See `AGENTS.md` for the minimal working agreement and gates.
+
+## Static Bundles Mode (parity with Pages)
+
+- Build bundles and manifest:
+
+```bash
+bun run build
+```
+
+- Start dev server (serves bundles from dist with immutable cache):
+
+```bash
+OSG_STATIC_BUNDLES=1 bun run dev
+```
+
+- Notes:
+  - The app prefers `data/*.bundle*.json` when present and falls back to per-file fetches.
+  - On `.pages.dev` hosts, bundles are auto-detected.
+  - First compile is gated on templates + language readiness; preview should render under 1s on cold start.

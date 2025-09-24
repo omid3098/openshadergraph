@@ -7,9 +7,8 @@
 
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
-import { ReactFlowProvider } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
-import { App } from "./App";
+import React from "react";
+const AppLazy = React.lazy(() => import("./AppLazy"));
 
 if (typeof window !== "undefined") {
   window.addEventListener(
@@ -43,11 +42,10 @@ if (typeof window !== "undefined") {
 const elem = document.getElementById("root")!;
 const app = (
   <StrictMode>
-    {/* Ensure the ReactFlow parent has explicit size */}
     <div style={{ width: "100vw", height: "100vh" }}>
-      <ReactFlowProvider>
-        <App />
-      </ReactFlowProvider>
+      <React.Suspense fallback={<div className="p-3 text-xs text-muted-foreground">Loading…</div>}>
+        <AppLazy />
+      </React.Suspense>
     </div>
   </StrictMode>
 );
