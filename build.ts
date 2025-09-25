@@ -161,6 +161,17 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
   }
 }
 
+async function fetchJSON(url: string, headers?: Record<string, string>): Promise<any | null> {
+  try {
+    const init: RequestInit = headers ? { headers: headers as unknown as HeadersInit } : {};
+    const res = await fetch(url, init);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_err) {
+    return null;
+  }
+}
+
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
   // OPTION A: explicit env-provided version takes precedence
   const envVersion = (process.env.APP_VERSION || process.env.VERSION || "").trim();
@@ -179,7 +190,7 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
   }
 
   // Auto bump based on git commit messages (no tags required)
-  const inGitRepo = runGit(["rev-parse", "--is-inside-work-tree"]).ok;
+  const inGitRepo = !process.env.CI_NO_GIT && runGit(["rev-parse", "--is-inside-work-tree"]).ok;
   let bumpKind: "major" | "minor" | "patch" | null = null;
   if (inGitRepo) {
     // Find the last commit where package.json version field changed; use commits AFTER that as bump input
@@ -191,6 +202,50 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
     const range = anchor ? `${anchor}..HEAD` : "HEAD";
     const logOut = runGit(["log", "--format=%B%x00", range]).stdout;
     const messages = logOut ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean) : [];
+    for (const msg of messages) {
+      if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) { bumpKind = "major"; break; }
+    }
+    if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
+    if (!bumpKind && messages.length > 0) bumpKind = "patch";
+  } else {
+    // Remote fallback: use GitHub API to infer bump from commits between latest semver tag and HEAD commit
+    const ghToken = (process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim();
+    const headers: Record<string, string> = { "User-Agent": "openshadergraph-build" };
+    if (ghToken) headers["Authorization"] = `Bearer ${ghToken}`;
+
+    // Try to discover owner/repo. Prefer explicit env, fallback to hardcoded repo
+    const repoSlug = (process.env.REPO || process.env.REPOSITORY || process.env.GITHUB_REPOSITORY || "omid3098/openshadergraph").trim();
+    let headSha = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").trim();
+
+    // Determine default branch and HEAD sha when not provided
+    if (!headSha) {
+      const repoInfo = await fetchJSON(`https://api.github.com/repos/${repoSlug}`, headers);
+      const defaultBranch = String(repoInfo?.default_branch || "main");
+      const head = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits/${encodeURIComponent(defaultBranch)}`, headers);
+      headSha = String(head?.sha || "").trim();
+    }
+
+    // Anchor: last commit that touched package.json
+    let anchorSha = "";
+    const pkgCommits = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?path=package.json&per_page=1`, headers);
+    if (Array.isArray(pkgCommits) && pkgCommits.length > 0) {
+      anchorSha = String(pkgCommits[0]?.sha || "");
+    }
+
+    // Collect commit messages between anchor and head; if no anchor, take last ~20 commits on head
+    let messages: string[] = [];
+    if (anchorSha && headSha) {
+      const cmp = await fetchJSON(`https://api.github.com/repos/${repoSlug}/compare/${encodeURIComponent(anchorSha)}...${encodeURIComponent(headSha)}`, headers);
+      if (cmp && Array.isArray(cmp.commits)) {
+        messages = cmp.commits.map((c: any) => String(c?.commit?.message || "").trim()).filter(Boolean);
+      }
+    } else if (headSha) {
+      const recent = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?sha=${encodeURIComponent(headSha)}&per_page=20`, headers);
+      if (Array.isArray(recent)) {
+        messages = recent.map((c: any) => String(c?.commit?.message || "").trim()).filter(Boolean);
+      }
+    }
+
     for (const msg of messages) {
       if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) { bumpKind = "major"; break; }
     }
