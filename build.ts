@@ -217,17 +217,26 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
     const repoSlug = (process.env.REPO || process.env.REPOSITORY || process.env.GITHUB_REPOSITORY || "omid3098/openshadergraph").trim();
     let headSha = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").trim();
 
-    // Determine default branch and HEAD sha when not provided
+    // Resolve branch to inspect
+    let branch = (process.env.RENDER_GIT_BRANCH || process.env.GIT_BRANCH || process.env.BRANCH || "").trim();
+    const repoInfo = await fetchJSON(`https://api.github.com/repos/${repoSlug}`, headers);
+    const defaultBranch = String(repoInfo?.default_branch || "main");
+    if (!branch) {
+      // Prefer 'beta' if it exists, else default branch
+      const branches = await fetchJSON(`https://api.github.com/repos/${repoSlug}/branches?per_page=100`, headers);
+      const names = Array.isArray(branches) ? branches.map((b: any) => String(b?.name || "")) : [];
+      branch = names.includes("beta") ? "beta" : defaultBranch;
+    }
+
+    // Determine HEAD sha when not provided
     if (!headSha) {
-      const repoInfo = await fetchJSON(`https://api.github.com/repos/${repoSlug}`, headers);
-      const defaultBranch = String(repoInfo?.default_branch || "main");
-      const head = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits/${encodeURIComponent(defaultBranch)}`, headers);
+      const head = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits/${encodeURIComponent(branch)}`, headers);
       headSha = String(head?.sha || "").trim();
     }
 
     // Anchor: last commit that touched package.json
     let anchorSha = "";
-    const pkgCommits = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?path=package.json&per_page=1`, headers);
+    const pkgCommits = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?sha=${encodeURIComponent(branch)}&path=package.json&per_page=1`, headers);
     if (Array.isArray(pkgCommits) && pkgCommits.length > 0) {
       anchorSha = String(pkgCommits[0]?.sha || "");
     }
@@ -240,7 +249,7 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
         messages = cmp.commits.map((c: any) => String(c?.commit?.message || "").trim()).filter(Boolean);
       }
     } else if (headSha) {
-      const recent = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?sha=${encodeURIComponent(headSha)}&per_page=20`, headers);
+      const recent = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?sha=${encodeURIComponent(branch)}&per_page=20`, headers);
       if (Array.isArray(recent)) {
         messages = recent.map((c: any) => String(c?.commit?.message || "").trim()).filter(Boolean);
       }
@@ -251,6 +260,8 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
     }
     if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
     if (!bumpKind && messages.length > 0) bumpKind = "patch";
+    // If we have a valid head SHA but couldn't fetch messages (rate limit or API issue), assume patch bump
+    if (!bumpKind && headSha) bumpKind = "patch";
   }
 
   const base: Semver = envSemver ?? (pkgSemver ?? { major: 0, minor: 0, patch: 0 });
