@@ -12,5 +12,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Use jsdom automatically for TSX tests to reduce per-file pragmas
+    environmentMatchGlobs: [["**/*.spec.tsx", "jsdom"]],
   },
 });

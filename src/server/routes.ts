@@ -7,36 +7,13 @@ export function buildRoutes() {
   const development = (Bun.env.NODE_ENV ?? process.env.NODE_ENV) !== "production";
   // Serve the prebuilt app (dist) in both dev and prod; dev runs a build watcher separately
   const indexPath = "dist/index.html";
-  const cdnBase = "https://esm.sh";
-
-  function toCdn(spec: string): string {
-    // Leave relative/absolute or protocol specifiers untouched
-    if (/^(\.|\/|https?:|data:|bun:)/.test(spec)) return spec;
-    // Extract base and subpath (supports scoped packages)
-    let base = spec;
-    let subpath = "";
-    if (spec.startsWith("@")) {
-      const parts = spec.split("/");
-      base = parts.slice(0, 2).join("/");
-      subpath = "/" + parts.slice(2).join("/");
-      if (subpath === "/") subpath = "";
-    } else if (spec.includes("/")) {
-      const i = spec.indexOf("/");
-      base = spec.slice(0, i);
-      subpath = spec.slice(i);
-    }
-    return `${cdnBase}/${base}${subpath}?dev`;
-  }
-
-  function rewriteBareImports(code: string): string {
-    // from-specifiers (import/export)
-    code = code.replace(/(from\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["'])/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
-    // bare import 'pkg'
-    code = code.replace(/(import\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["'])/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
-    // dynamic import("pkg")
-    code = code.replace(/(import\(\s*["'])((?![\.|\/]|https?:|data:|bun:)[^"']+)(["']\s*\))/g, (_, a, s, b) => `${a}${toCdn(s)}${b}`);
-    return code;
-  }
+  /**
+   * Dev vs Prod path resolution
+   * - Production: only serves files from dist/** and falls back to index.html. Never touches project root files.
+   * - Development: prefers dist/**, then falls back to project-root candidates to aid local iteration.
+   */
+  // CDN rewrite helpers were previously used for dev experiments; removed to reduce noise.
+  // If needed in future, reintroduce behind a feature flag.
   async function serveDocsIndexWithBase(): Promise<Response> {
     const docsIndex = Bun.file("dist/docs/index.html");
     if (!(await docsIndex.exists())) return new Response("Docs not built. Run: bun run docs:build", { status: 404 });

@@ -71,7 +71,12 @@ function coercePropertyValue(value: unknown): string {
 }
 
 export class GraphCompiler {
-  constructor(private graph_data: Graph, private lang_def: LanguagePack) {}
+  private original_graph: Graph;
+  private parentMap: WeakMap<GraphNode, GraphNode | undefined> = new WeakMap();
+
+  constructor(private graph_data: Graph, private lang_def: LanguagePack) {
+    this.original_graph = graph_data;
+  }
 
   public result_code = "";
 
@@ -118,12 +123,14 @@ export class GraphCompiler {
     this.pinState = new WeakMap();
     this.nodeState = new WeakMap();
     this.nodeIndex.clear();
+    // Work on a deep clone to preserve caller graph immutability
+    this.graph_data = JSON.parse(JSON.stringify(this.original_graph));
+    this.parentMap = new WeakMap();
     this.indexNode(this.graph_data, undefined);
   }
 
   private indexNode(node: GraphNode, parent: GraphNode | undefined) {
-    if (parent !== undefined) (node as any).parent = parent;
-    else if ("parent" in node) delete (node as any).parent;
+    this.parentMap.set(node, parent);
     this.nodeIndex.set(node.id, node);
     for (const child of node.nodes ?? []) {
       this.indexNode(child, node);
@@ -135,6 +142,10 @@ export class GraphCompiler {
     const direct = parent.nodes?.find((x) => x.id === numericId);
     if (direct) return direct;
     return this.nodeIndex.get(numericId);
+  }
+
+  private getParent(node: GraphNode): GraphNode | undefined {
+    return this.parentMap.get(node);
   }
 
   private get_template(node: GraphNode): string {
@@ -248,7 +259,11 @@ export class GraphCompiler {
     if (path.length < 2) throw new Error(`Invalid input ref path: ${input.value}`);
     let ref_node: GraphNode = node;
     for (const p of path) {
-      if (p === "..") ref_node = ref_node.parent!;
+      if (p === "..") {
+        const parent = this.getParent(ref_node);
+        if (!parent) throw new Error("Invalid parent traversal in ref path");
+        ref_node = parent;
+      }
     }
     const nodeIdPart: string = path[path.length - 2] ?? "";
     let target = this.get_node(ref_node, nodeIdPart);
@@ -258,7 +273,6 @@ export class GraphCompiler {
       delete state.refNodeId;
       delete state.refExpression;
       state.missingRef = true;
-      input.value = this.cloneTemplateInputDefault(node, input);
       return;
     }
     let output_id = Number(path[path.length - 1]);
@@ -280,7 +294,7 @@ export class GraphCompiler {
         }
       }
     } else if (target.type === "group_input") {
-      const parent = target.parent;
+      const parent = this.getParent(target);
       if (parent && parent.type === "group") {
         const pin = parent.inputs?.find((p) => p.id === output_id);
         const v = pin?.value;
@@ -314,7 +328,6 @@ export class GraphCompiler {
     const expr = this.get_output_expression(target, output_pin);
     inputState.refNodeId = target.id;
     inputState.refExpression = expr;
-    input.value = expr;
   }
 
   private ensure_input_prepared(node: GraphNode, input: InputPin) {
@@ -406,16 +419,6 @@ export class GraphCompiler {
       }
       this.ensure_input_prepared(node, input);
       const pinState = this.getPinState(input);
-      // If input has no value and a template default exists, materialize the default into the node
-      if ((input.value === undefined || input.value === null || (Array.isArray(input.value) && input.value.length === 0))) {
-        try {
-          const tpl = getNodeTemplate(node.type);
-          const defVal = tpl?.inputs?.[index] ? (tpl as any).inputs[index].value : undefined;
-          if (defVal !== undefined) {
-            (input as any).value = defVal;
-          }
-        } catch (_err) { /* ignore missing template */ }
-      }
       if (pinState.missingRef) {
         const fallback = this.getMissingInputLiteral(node, input, pinState);
         pinState.code = fallback;
@@ -425,7 +428,18 @@ export class GraphCompiler {
       if (pinState.expectedType === undefined && expected) {
         pinState.expectedType = expected;
       }
-      let code = this.formatInputLiteral(input.value);
+      // Prefer resolved reference expression if available
+      let code = pinState.refExpression !== undefined ? String(pinState.refExpression) : this.formatInputLiteral(input.value);
+      // If still empty and template default exists, use it without mutating the graph
+      if ((code === "" || code == null) && (input.value === undefined || input.value === null || (Array.isArray(input.value) && input.value.length === 0))) {
+        try {
+          const tpl = getNodeTemplate(node.type);
+          const defVal = tpl?.inputs?.[index] ? (tpl as any).inputs[index].value : undefined;
+          if (defVal !== undefined) {
+            code = this.formatInputLiteral(defVal);
+          }
+        } catch (_err) { /* ignore missing template */ }
+      }
       // If code is still empty, synthesize a zero literal appropriate for the expected type
       if (code === "" || code == null) {
         const t = expected ?? pinState.declaredType;
@@ -705,17 +719,8 @@ export class GraphCompiler {
     const isPass = node.type === "fragment_pass" || node.type === "vertex_pass";
     const indent = isPass ? "\t" : "";
     const reachable = this.computeReachableChildIds(node);
-    const children = node.nodes ?? [];
-
-    const grouped: GraphNode[] = [];
-    const others: GraphNode[] = [];
-    if (isPass) {
-      for (const child of children) {
-        if (child.type === "group") grouped.push(child);
-        else others.push(child);
-      }
-    }
-    const ordered = isPass ? [...grouped, ...others] : children;
+    // Use a stable, local sorted view for emission order without mutating original children array
+    const ordered = this.sort_children_by_dependencies(node);
 
     const lines: string[] = [];
     for (const child of ordered) {
@@ -777,9 +782,7 @@ export class GraphCompiler {
       return;
     }
     const sorted = this.sort_children_by_dependencies(node);
-    node.nodes = sorted;
     for (const child of sorted) {
-      child.parent = node;
       this.process_node(child);
     }
     this.compile_node(node);
