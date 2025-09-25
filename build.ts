@@ -162,14 +162,11 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
 }
 
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
-  // Helper: check if we're inside a git repo
-  const inGitRepo = runGit(["rev-parse", "--is-inside-work-tree"]).ok;
-
-  // Optionally honor an explicit version override from the environment
+  // OPTION A: explicit env-provided version takes precedence
   const envVersion = (process.env.APP_VERSION || process.env.VERSION || "").trim();
   const envSemver = envVersion ? parseSemverTag(envVersion) : null;
 
-  // Try to read package.json version as a stable fallback when tags are unavailable
+  // OPTION B: use package.json version (no git required)
   let pkgSemver: Semver | null = null;
   try {
     const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
@@ -181,53 +178,15 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
     // ignore
   }
 
-  // Determine latest semver tag (fetch tags in CI if needed)
-  let tags: string[] = [];
-  if (inGitRepo) {
-    tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (tags.length === 0) {
-      // Attempt to fetch tags (common in CI shallow clones)
-      const hasOrigin = runGit(["remote", "get-url", "origin"]).ok;
-      if (hasOrigin) {
-        runGit(["fetch", "--tags", "--force", "--prune", "origin", "refs/tags/*:refs/tags/*"]);
-        tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
-    }
-  }
+  // Optional bump directive via env (major|minor|patch)
+  const bumpEnv = (process.env.APP_VERSION_BUMP || "").trim().toLowerCase();
+  const bumpKind = bumpEnv === "major" || bumpEnv === "minor" || bumpEnv === "patch" ? bumpEnv : null;
 
-  const latestTag = tags.find((t) => parseSemverTag(t)) || null;
-  const base: Semver = envSemver
-    ?? (latestTag ? (parseSemverTag(latestTag) as Semver) : (pkgSemver ?? { major: 0, minor: 0, patch: 0 }));
+  const base: Semver = envSemver ?? (pkgSemver ?? { major: 0, minor: 0, patch: 0 });
+  const next = bumpKind ? bump(base, bumpKind) : base;
 
-  // Collect commit messages since latest tag (or all if none); only if git is available
-  const range = latestTag ? `${latestTag}..HEAD` : "HEAD";
-  const logOut = inGitRepo ? runGit(["log", "--format=%B%x00", range]).stdout : ""; // NUL-delimited bodies
-  const messages = logOut
-    ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean)
-    : [];
-
-  // Determine bump: major if any BREAKING or !, else minor if any feat, else patch if any commits
-  let bumpKind: "major" | "minor" | "patch" | null = null;
-  for (const msg of messages) {
-    if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) {
-      bumpKind = "major";
-      break;
-    }
-  }
-  if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
-  if (!bumpKind && messages.length > 0) bumpKind = "patch";
-
-  const next = envSemver ? envSemver : (bumpKind ? bump(base, bumpKind) : base);
-  const short = inGitRepo
-    ? runGit(["rev-parse", "--short", "HEAD"]).stdout
-    : (String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").slice(0, 8));
-  const dirty = inGitRepo ? runGit(["status", "--porcelain"]).stdout.length > 0 : false;
+  const short = String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").slice(0, 8);
+  const dirty = false; // CI deployments produce clean artifacts; no working tree state
   const versionStr = semverToString(next);
   const buildDate = new Date().toISOString();
   const deploy = String(process.env.DEPLOY ?? (process.env.RENDER ? "Render" : "Local"));
@@ -242,8 +201,8 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
     console.warn("⚠️  Failed to write src/version.ts; using committed fallback.", err);
   }
 
-  // Optionally create a local git tag for this version (no push here)
-  if (AUTO_TAG && inGitRepo) {
+  // Skip creating git tags by default; opt-in via ENABLE_GIT_TAGS=true
+  if (AUTO_TAG && process.env.ENABLE_GIT_TAGS === "true") {
     const tagName = `v${versionStr}`;
     const existing = runGit(["tag", "--list", tagName]).stdout.trim();
     if (!existing) {
