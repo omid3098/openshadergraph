@@ -413,6 +413,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 if (!prop || typeof prop !== "object" || !prop.id) return null;
                 const label = String(prop.label ?? prop.id);
                 const value = prop?.value ?? prop?.default ?? (prop.type === "boolean" ? false : "");
+                if (prop.id === "expose_name") return null;
                 if (prop.type === "enum") {
                   const options: Array<{ value: string; label: string }> = Array.isArray(prop.options)
                     ? prop.options.map((opt: any) => ({ value: String(opt.value), label: String(opt.label ?? opt.value) }))
@@ -441,6 +442,32 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 if (prop.type === "boolean") {
                   const boolValue = Boolean(value);
                   const checkboxId = `prop-${String(prop.id)}`;
+                  if (prop.id === "expose") {
+                    const exposeNameProp = properties.find((p: any) => p && p.id === "expose_name");
+                    const exposeNameValueRaw = exposeNameProp?.value ?? exposeNameProp?.default ?? "";
+                    const exposeNameValue = typeof exposeNameValueRaw === "string" ? exposeNameValueRaw : String(exposeNameValueRaw ?? "");
+                    return (
+                      <div key={prop.id} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={checkboxId}
+                            type="checkbox"
+                            checked={boolValue}
+                            onChange={(e) => updatePropertyValue(prop.id, e.currentTarget.checked)}
+                          />
+                          <label htmlFor={checkboxId} className="text-[11px] text-muted-foreground select-none">{label}</label>
+                        </div>
+                        {boolValue && (
+                          <Input
+                            value={exposeNameValue}
+                            placeholder="Uniform name"
+                            onChange={(event) => updatePropertyValue("expose_name", event.target.value)}
+                            className="h-7 px-2 text-xs"
+                          />
+                        )}
+                      </div>
+                    );
+                  }
                   return (
                     <div key={prop.id} className="flex items-center gap-2">
                       <input

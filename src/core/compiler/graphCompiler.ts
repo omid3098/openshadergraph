@@ -38,7 +38,31 @@ function fmtNum(n: number): string {
   return s;
 }
 
+function sanitizeExposeIdentifier(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed.length) return undefined;
+  let sanitized = trimmed.replace(/[^0-9A-Za-z_]/g, "_");
+  sanitized = sanitized.replace(/_{2,}/g, "_");
+  if (!sanitized.length) return undefined;
+  if (!/[A-Za-z_]/.test(sanitized.charAt(0))) sanitized = `_${sanitized}`;
+  return sanitized;
+}
+
+function getExposeOverrideName(node: GraphNode): string | undefined {
+  const props = Array.isArray(node.properties) ? node.properties : [];
+  const exposedViaMeta = Array.isArray(node.meta) && node.meta.includes("exposed");
+  const exposeProp = props.find((p: any) => p && p.id === "expose");
+  const isExposeActive = exposeProp ? Boolean((exposeProp as any).value ?? (exposeProp as any).default) : false;
+  if (!isExposeActive && !exposedViaMeta) return undefined;
+  const exposeNameProp = props.find((p: any) => p && p.id === "expose_name");
+  const custom = sanitizeExposeIdentifier((exposeNameProp as any)?.value ?? (exposeNameProp as any)?.default);
+  return custom;
+}
+
 function getUniqueNodeName(node: GraphNode): string {
+  const custom = getExposeOverrideName(node);
+  if (custom) return custom;
   return node.type ? `${node.type}_${node.id}` : `NO_TYPE_${node.id}`;
 }
 
