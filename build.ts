@@ -193,8 +193,9 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
   const dirty = runGit(["status", "--porcelain"]).stdout.length > 0;
   const versionStr = semverToString(next);
   const buildDate = new Date().toISOString();
+  const deploy = String(process.env.DEPLOY ?? "Local");
 
-  const out = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = ${JSON.stringify(versionStr)};\nexport const APP_COMMIT = ${JSON.stringify(short)};\nexport const APP_BUILD_DATE = ${JSON.stringify(buildDate)};\nexport const APP_DIRTY = ${dirty ? "true" : "false"};\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n};\n`;
+  const out = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = ${JSON.stringify(versionStr)};\nexport const APP_COMMIT = ${JSON.stringify(short)};\nexport const APP_BUILD_DATE = ${JSON.stringify(buildDate)};\nexport const APP_DIRTY = ${dirty ? "true" : "false"};\nexport const APP_DEPLOY = ${JSON.stringify(deploy)};\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
 
   const target = path.resolve(process.cwd(), "src", "version.ts");
   try {

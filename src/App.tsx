@@ -1697,7 +1697,7 @@ export function App() {
           className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
           title={`Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""} • ${APP_VERSION_INFO.buildDate}`}
         >
-          v{APP_VERSION_INFO.version}
+          {APP_VERSION_INFO.deploy}-v{APP_VERSION_INFO.version}
         </span>
       </div>
     </div>

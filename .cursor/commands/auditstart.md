@@ -1,0 +1,1 @@
+Act as a tecnical director who wants to audit this project and you need to prepare a feedback report for the development team to show them what they did right and what is wrong and have suggestions to make this better.
