@@ -57,6 +57,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   // Handle (pin) visual size. Doubling from default.
   const HANDLE_SIZE = 8; // px
   const HANDLE_OFFSET = -Math.ceil(HANDLE_SIZE / 2 + 8);
+  // Spacing for the inline default-value widgets shown near input pins
+  // Increase the gap slightly so the widget does not cover the pin shape
+  const INPUT_WIDGET_GAP_PX = 20; // was ~15px, give a little breathing room
+  // Approx half width of the mini widget (for drawing the decorative line from its center)
+  const INPUT_WIDGET_HALF_PX = 0;
   const name = data?.label ?? data?.type ?? "Node";
   const inputs: Pin[] = useMemo(() => {
     return Array.isArray(data?.template?.inputs) ? (data!.template!.inputs! as Pin[]) : [];
@@ -344,7 +349,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                     <>
                       <div
                         className="absolute z-[2] flex items-center gap-1 px-1 py-[2px] rounded-md border bg-background/90 backdrop-blur nodrag nowheel"
-                        style={{ right: "calc(100% + 15px)", transform: "scale(0.8)", transformOrigin: "right center" }}
+                        style={{ right: `calc(100% + ${INPUT_WIDGET_GAP_PX}px)`, transform: "scale(0.8)", transformOrigin: "right center" }}
                         onMouseDown={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                         onWheel={(e) => e.stopPropagation()}
@@ -357,8 +362,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{builtinLabel}</span>
                         ) : null}
                       </div>
-                      {/* Visual connector from editor → pin (purely decorative) across the 10px gap */}
-                      <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-[-10px] w-[10px] h-px bg-border/60" />
+                      {/* Decorative connector: start at widget center and extend left, under widget & pin */}
+                      <div
+                        className="pointer-events-none absolute top-1/2 -translate-y-1/2 z-[-1] h-px bg-border"
+                        style={{ left: `${-(INPUT_WIDGET_GAP_PX + INPUT_WIDGET_HALF_PX)}px`, width: `${INPUT_WIDGET_GAP_PX + INPUT_WIDGET_HALF_PX}px` }}
+                      />
                     </>
                   )}
                   <Handle
