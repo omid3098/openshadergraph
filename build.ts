@@ -173,133 +173,23 @@ async function fetchJSON(url: string, headers?: Record<string, string>): Promise
 }
 
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
-  // OPTION A: explicit env-provided version takes precedence
-  const envVersion = (process.env.APP_VERSION || process.env.VERSION || "").trim();
-  const envSemver = envVersion ? parseSemverTag(envVersion) : null;
-
-  // OPTION B: use package.json version (no git required)
-  let pkgSemver: Semver | null = null;
-  try {
-    const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
-    const pkg = JSON.parse(pkgRaw);
-    if (pkg?.version && typeof pkg.version === "string") {
-      pkgSemver = parseSemverTag(String(pkg.version));
-    }
-  } catch (_err) {
-    // ignore
-  }
-
-  // Auto bump based on git commit messages (no tags required)
-  const inGitRepo = !process.env.CI_NO_GIT && runGit(["rev-parse", "--is-inside-work-tree"]).ok;
-  let bumpKind: "major" | "minor" | "patch" | null = null;
-  if (inGitRepo) {
-    // Find the last commit where package.json version field changed; use commits AFTER that as bump input
-    // If not found, use all commits
-    let anchor = "";
-    // Try regex search for version field changes
-    const anchorSearch = runGit(["log", "-G", "\\\"version\\\"\\s*:\\s*\\\"", "-n", "1", "--format=%H", "--", "package.json"]).stdout;
-    if (anchorSearch) anchor = anchorSearch.split("\n")[0] ?? "";
-    const range = anchor ? `${anchor}..HEAD` : "HEAD";
-    const logOut = runGit(["log", "--format=%B%x00", range]).stdout;
-    const messages = logOut ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean) : [];
-    for (const msg of messages) {
-      if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) { bumpKind = "major"; break; }
-    }
-    if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
-    if (!bumpKind && messages.length > 0) bumpKind = "patch";
-  } else {
-    // Remote fallback: use GitHub API to infer bump from commits between latest semver tag and HEAD commit
-    const ghToken = (process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim();
-    const headers: Record<string, string> = { "User-Agent": "openshadergraph-build" };
-    if (ghToken) headers["Authorization"] = `Bearer ${ghToken}`;
-
-    // Try to discover owner/repo. Prefer explicit env, fallback to hardcoded repo
-    const repoSlug = (process.env.REPO || process.env.REPOSITORY || process.env.GITHUB_REPOSITORY || "omid3098/openshadergraph").trim();
-    let headSha = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").trim();
-
-    // Resolve branch to inspect
-    let branch = (process.env.RENDER_GIT_BRANCH || process.env.GIT_BRANCH || process.env.BRANCH || "").trim();
-    const repoInfo = await fetchJSON(`https://api.github.com/repos/${repoSlug}`, headers);
-    const defaultBranch = String(repoInfo?.default_branch || "main");
-    if (!branch) {
-      // Prefer 'beta' if it exists, else default branch
-      const branches = await fetchJSON(`https://api.github.com/repos/${repoSlug}/branches?per_page=100`, headers);
-      const names = Array.isArray(branches) ? branches.map((b: any) => String(b?.name || "")) : [];
-      branch = names.includes("beta") ? "beta" : defaultBranch;
-    }
-
-    // Determine HEAD sha when not provided
-    if (!headSha) {
-      const head = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits/${encodeURIComponent(branch)}`, headers);
-      headSha = String(head?.sha || "").trim();
-    }
-
-    // Anchor: last commit that touched package.json
-    let anchorSha = "";
-    const pkgCommits = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?sha=${encodeURIComponent(branch)}&path=package.json&per_page=1`, headers);
-    if (Array.isArray(pkgCommits) && pkgCommits.length > 0) {
-      anchorSha = String(pkgCommits[0]?.sha || "");
-    }
-
-    // Collect commit messages between anchor and head; if no anchor, take last ~20 commits on head
-    let messages: string[] = [];
-    if (anchorSha && headSha) {
-      const cmp = await fetchJSON(`https://api.github.com/repos/${repoSlug}/compare/${encodeURIComponent(anchorSha)}...${encodeURIComponent(headSha)}`, headers);
-      if (cmp && Array.isArray(cmp.commits)) {
-        messages = cmp.commits.map((c: any) => String(c?.commit?.message || "").trim()).filter(Boolean);
-      }
-    } else if (headSha) {
-      const recent = await fetchJSON(`https://api.github.com/repos/${repoSlug}/commits?sha=${encodeURIComponent(branch)}&per_page=20`, headers);
-      if (Array.isArray(recent)) {
-        messages = recent.map((c: any) => String(c?.commit?.message || "").trim()).filter(Boolean);
-      }
-    }
-
-    for (const msg of messages) {
-      if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) { bumpKind = "major"; break; }
-    }
-    if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
-    if (!bumpKind && messages.length > 0) bumpKind = "patch";
-    // If we have a valid head SHA but couldn't fetch messages (rate limit or API issue), assume patch bump
-    if (!bumpKind && headSha) bumpKind = "patch";
-  }
-
-  const base: Semver = envSemver ?? (pkgSemver ?? { major: 0, minor: 0, patch: 0 });
-  const next = bumpKind ? bump(base, bumpKind) : base;
-
-  const short = inGitRepo
-    ? runGit(["rev-parse", "--short", "HEAD"]).stdout
-    : String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").slice(0, 8);
-  const dirty = inGitRepo ? runGit(["status", "--porcelain"]).stdout.length > 0 : false;
-  const versionStr = semverToString(next);
-  const buildDate = new Date().toISOString();
-  const deploy = String(process.env.DEPLOY ?? (process.env.RENDER ? "Render" : "Local"));
-
-  const out = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = ${JSON.stringify(versionStr)};\nexport const APP_COMMIT = ${JSON.stringify(short)};\nexport const APP_BUILD_DATE = ${JSON.stringify(buildDate)};\nexport const APP_DIRTY = ${dirty ? "true" : "false"};\nexport const APP_DEPLOY = ${JSON.stringify(deploy)};\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
-
+  // Ignore git and tags. Use committed src/version.ts as the single source of truth.
   const target = path.resolve(process.cwd(), "src", "version.ts");
+  let versionStr = "0.0.0";
   try {
-    await writeFile(target, out, "utf8");
-    console.log(`🔖 Wrote ${path.relative(process.cwd(), target)} → v${versionStr}${dirty ? " (dirty)" : ""}`);
-  } catch (err) {
-    console.warn("⚠️  Failed to write src/version.ts; using committed fallback.", err);
+    const raw = await readFile(target, "utf8");
+    const m = raw.match(/APP_VERSION\s*=\s*\"([^\"]+)\"/);
+    if (m && m[1]) versionStr = m[1];
+  } catch (_err) {
+    // As a last resort, fall back to package.json version
+    try {
+      const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
+      const pkg = JSON.parse(pkgRaw);
+      if (pkg?.version && typeof pkg.version === "string") versionStr = pkg.version;
+    } catch (_err2) { /* ignore */ }
   }
-
-  // Skip creating git tags by default; opt-in via ENABLE_GIT_TAGS=true
-  if (AUTO_TAG && process.env.ENABLE_GIT_TAGS === "true") {
-    const tagName = `v${versionStr}`;
-    const existing = runGit(["tag", "--list", tagName]).stdout.trim();
-    if (!existing) {
-      const tagRes = runGit(["tag", "-a", tagName, "-m", `release: ${tagName}`]);
-      if (!tagRes.ok) {
-        console.warn(`⚠️  Failed to create git tag ${tagName}`);
-      } else {
-        console.log(`🏷️  Created git tag ${tagName}`);
-      }
-    }
-  }
-
-  return { version: versionStr, bumped: Boolean(bumpKind) };
+  console.log(`🔖 Using committed src/version.ts → v${versionStr}`);
+  return { version: versionStr, bumped: false };
 }
 
 await computeAndWriteVersionModule();
