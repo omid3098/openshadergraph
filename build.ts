@@ -162,17 +162,52 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
 }
 
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
-  // Determine latest semver tag
-  const tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const latestTag = tags.find((t) => parseSemverTag(t));
-  const base = latestTag ? (parseSemverTag(latestTag) as Semver) : { major: 0, minor: 0, patch: 0 };
+  // Helper: check if we're inside a git repo
+  const inGitRepo = runGit(["rev-parse", "--is-inside-work-tree"]).ok;
 
-  // Collect commit messages since latest tag (or all if none)
+  // Optionally honor an explicit version override from the environment
+  const envVersion = (process.env.APP_VERSION || process.env.VERSION || "").trim();
+  const envSemver = envVersion ? parseSemverTag(envVersion) : null;
+
+  // Try to read package.json version as a stable fallback when tags are unavailable
+  let pkgSemver: Semver | null = null;
+  try {
+    const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
+    const pkg = JSON.parse(pkgRaw);
+    if (pkg?.version && typeof pkg.version === "string") {
+      pkgSemver = parseSemverTag(String(pkg.version));
+    }
+  } catch (_err) {
+    // ignore
+  }
+
+  // Determine latest semver tag (fetch tags in CI if needed)
+  let tags: string[] = [];
+  if (inGitRepo) {
+    tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (tags.length === 0) {
+      // Attempt to fetch tags (common in CI shallow clones)
+      const hasOrigin = runGit(["remote", "get-url", "origin"]).ok;
+      if (hasOrigin) {
+        runGit(["fetch", "--tags", "--force", "--prune", "origin", "refs/tags/*:refs/tags/*"]);
+        tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    }
+  }
+
+  const latestTag = tags.find((t) => parseSemverTag(t)) || null;
+  const base: Semver = envSemver
+    ?? (latestTag ? (parseSemverTag(latestTag) as Semver) : (pkgSemver ?? { major: 0, minor: 0, patch: 0 }));
+
+  // Collect commit messages since latest tag (or all if none); only if git is available
   const range = latestTag ? `${latestTag}..HEAD` : "HEAD";
-  const logOut = runGit(["log", "--format=%B%x00", range]).stdout; // NUL-delimited bodies
+  const logOut = inGitRepo ? runGit(["log", "--format=%B%x00", range]).stdout : ""; // NUL-delimited bodies
   const messages = logOut
     ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean)
     : [];
@@ -188,12 +223,14 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
   if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
   if (!bumpKind && messages.length > 0) bumpKind = "patch";
 
-  const next = bumpKind ? bump(base, bumpKind) : base;
-  const short = runGit(["rev-parse", "--short", "HEAD"]).stdout;
-  const dirty = runGit(["status", "--porcelain"]).stdout.length > 0;
+  const next = envSemver ? envSemver : (bumpKind ? bump(base, bumpKind) : base);
+  const short = inGitRepo
+    ? runGit(["rev-parse", "--short", "HEAD"]).stdout
+    : (String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").slice(0, 8));
+  const dirty = inGitRepo ? runGit(["status", "--porcelain"]).stdout.length > 0 : false;
   const versionStr = semverToString(next);
   const buildDate = new Date().toISOString();
-  const deploy = String(process.env.DEPLOY ?? "Local");
+  const deploy = String(process.env.DEPLOY ?? (process.env.RENDER ? "Render" : "Local"));
 
   const out = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = ${JSON.stringify(versionStr)};\nexport const APP_COMMIT = ${JSON.stringify(short)};\nexport const APP_BUILD_DATE = ${JSON.stringify(buildDate)};\nexport const APP_DIRTY = ${dirty ? "true" : "false"};\nexport const APP_DEPLOY = ${JSON.stringify(deploy)};\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
 
@@ -206,7 +243,7 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
   }
 
   // Optionally create a local git tag for this version (no push here)
-  if (AUTO_TAG) {
+  if (AUTO_TAG && inGitRepo) {
     const tagName = `v${versionStr}`;
     const existing = runGit(["tag", "--list", tagName]).stdout.trim();
     if (!existing) {
