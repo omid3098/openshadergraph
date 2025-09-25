@@ -178,15 +178,33 @@ async function computeAndWriteVersionModule(): Promise<{ version: string; bumped
     // ignore
   }
 
-  // Optional bump directive via env (major|minor|patch)
-  const bumpEnv = (process.env.APP_VERSION_BUMP || "").trim().toLowerCase();
-  const bumpKind = bumpEnv === "major" || bumpEnv === "minor" || bumpEnv === "patch" ? bumpEnv : null;
+  // Auto bump based on git commit messages (no tags required)
+  const inGitRepo = runGit(["rev-parse", "--is-inside-work-tree"]).ok;
+  let bumpKind: "major" | "minor" | "patch" | null = null;
+  if (inGitRepo) {
+    // Find the last commit where package.json version field changed; use commits AFTER that as bump input
+    // If not found, use all commits
+    let anchor = "";
+    // Try regex search for version field changes
+    const anchorSearch = runGit(["log", "-G", "\\\"version\\\"\\s*:\\s*\\\"", "-n", "1", "--format=%H", "--", "package.json"]).stdout;
+    if (anchorSearch) anchor = anchorSearch.split("\n")[0] ?? "";
+    const range = anchor ? `${anchor}..HEAD` : "HEAD";
+    const logOut = runGit(["log", "--format=%B%x00", range]).stdout;
+    const messages = logOut ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean) : [];
+    for (const msg of messages) {
+      if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) { bumpKind = "major"; break; }
+    }
+    if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
+    if (!bumpKind && messages.length > 0) bumpKind = "patch";
+  }
 
   const base: Semver = envSemver ?? (pkgSemver ?? { major: 0, minor: 0, patch: 0 });
   const next = bumpKind ? bump(base, bumpKind) : base;
 
-  const short = String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").slice(0, 8);
-  const dirty = false; // CI deployments produce clean artifacts; no working tree state
+  const short = inGitRepo
+    ? runGit(["rev-parse", "--short", "HEAD"]).stdout
+    : String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT || "").slice(0, 8);
+  const dirty = inGitRepo ? runGit(["status", "--porcelain"]).stdout.length > 0 : false;
   const versionStr = semverToString(next);
   const buildDate = new Date().toISOString();
   const deploy = String(process.env.DEPLOY ?? (process.env.RENDER ? "Render" : "Local"));
