@@ -56,6 +56,8 @@ import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, typ
 import { Check, Github, BookOpen } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { APP_VERSION_INFO } from "./version";
+import { VIEW_MENU_ITEMS } from "./core/ui/hotkeys";
+import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -65,8 +67,6 @@ const nodeDefaults = {
 const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
-
-type ViewMenuItem = { key: EditorPanelKey; label: string; digit: "1" | "2" | "3" | "4" | "5"; hotkey: string };
 
 type CanonicalNode = {
   id: number;
@@ -91,22 +91,6 @@ function triggerDownload(name: string, contents: string) {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-
-const VIEW_MENU_ITEMS: ViewMenuItem[] = [
-  { key: "properties", label: "Properties", digit: "1", hotkey: "⌘1" },
-  { key: "compile", label: "Compile", digit: "2", hotkey: "⌘2" },
-  { key: "graphdata", label: "Graph Data", digit: "3", hotkey: "⌘3" },
-  { key: "assets", label: "Assets", digit: "4", hotkey: "⌘4" },
-  { key: "preview", label: "Preview", digit: "5", hotkey: "⌘5" },
-];
-
-const VIEW_HOTKEY_MAP: Record<string, EditorPanelKey> = VIEW_MENU_ITEMS.reduce<Record<string, EditorPanelKey>>(
-  (acc, item) => {
-    acc[item.digit] = item.key;
-    return acc;
-  },
-  {}
-);
 
 export function App() {
   const rf = useReactFlow();
@@ -425,6 +409,8 @@ export function App() {
     }
     return { x: 0, y: 0 };
   }, []);
+
+  const getHotkeyPointer = useCallback(() => lastPointerRef.current ?? getFlowCenterClient(), [getFlowCenterClient]);
 
   const [graphData, setGraphData] = useState<Graph>(() => buildGraphData(nodes as any, edges as any, graphName) as any);
 
@@ -810,35 +796,6 @@ export function App() {
     },
     [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi, rf, getFlowCenterClient]
   );
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.altKey || event.shiftKey || event.ctrlKey) return;
-      if (event.repeat) return;
-
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (target.isContentEditable) return;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      }
-
-      let digit = event.key;
-      if (!VIEW_HOTKEY_MAP[digit] && typeof event.code === "string" && event.code.startsWith("Digit")) {
-        digit = event.code.slice(-1);
-      }
-
-      const panel = VIEW_HOTKEY_MAP[digit];
-      if (!panel) return;
-
-      event.preventDefault();
-      const pointer = lastPointerRef.current ?? getFlowCenterClient();
-      void toggleEditorNode(panel, { kind: "hotkey", client: pointer });
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [toggleEditorNode, getFlowCenterClient]);
 
   const inflateAndLoadGraph = useCallback(
     async (graph: CanonicalNode, label: string) => {
@@ -1318,7 +1275,7 @@ export function App() {
     [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
   );
 
-  const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
+  const addNodeAt = useCallback(async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
     const nextId = String(++idCounter.current);
     const pos = rf.screenToFlowPosition({ x, y });
@@ -1400,7 +1357,14 @@ export function App() {
     } catch (_err) {
       // ignore auto-connect failures
     }
-  };
+  }, [currentParentId, nodeUpdaterApi, rf, setEdges, setNodes]);
+
+  useGraphHotkeys({
+    getPointerClient: getHotkeyPointer,
+    toggleEditorNode,
+    addNodeAt,
+    paletteByType,
+  });
 
   const openAddNodeMenuAt = useCallback((x: number, y: number, override: NodePalette | null) => {
     setMenuPaletteOverride(override);
@@ -1740,6 +1704,7 @@ export function App() {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           defaultEdgeOptions={{ type: "colored" as any }}
+          deleteKeyCode={["Backspace", "Delete"]}
           isValidConnection={isValidConnectionCb}
           onNodesChange={handleNodesChange}
           onEdgesChange={onEdgesChange}
@@ -1845,6 +1810,17 @@ export function App() {
               nodeColor={mmColors.node}
               nodeStrokeColor={mmColors.stroke}
               maskColor={mmColors.mask}
+              pannable
+              zoomable
+              onClick={(_event, position) => {
+                if (!position) return;
+                try {
+                  const currentZoom = rf.getZoom();
+                  rf.setCenter(position.x, position.y, { zoom: currentZoom, duration: 200 });
+                } catch (_err) {
+                  // ignore viewport sync failures
+                }
+              }}
             />
           </ReactFlow>
           <GraphContextMenu
