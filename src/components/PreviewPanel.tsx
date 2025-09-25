@@ -273,6 +273,28 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const textureAssignments = useMemo(() => collectTextureUniforms(stableGraph), [stableGraph]);
   const samplerSettings = useMemo(() => collectSamplerSettings(stableGraph), [stableGraph]);
 
+  // Compute stable content hash of the serialized graph to avoid redundant compiles
+  const graphHash = useMemo(() => {
+    try {
+      // Stable stringify by sorting object keys; arrays keep order
+      const stableStringify = (value: any): string => {
+        if (value === null || typeof value !== "object") return JSON.stringify(value);
+        if (Array.isArray(value)) return `[${value.map((v) => stableStringify(v)).join(",")}]`;
+        const keys = Object.keys(value).sort();
+        return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify((value as any)[k])}`).join(",")}}`;
+      };
+      const s = stableStringify(stableGraph);
+      let h = 2166136261 >>> 0; // FNV-1a 32-bit
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(16);
+    } catch {
+      return String(Date.now());
+    }
+  }, [stableGraph]);
+
   const [fragCode, setFragCode] = useState<string>("");
   const [vertexChunk, setVertexChunk] = useState<string>("");
   const [compileError, setCompileError] = useState<string>("");
@@ -372,7 +394,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
           }
           const res = await fetch("/api/compile", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-graph-hash": graphHash },
             signal: abort.signal,
             body: JSON.stringify({ graph: stableGraph, language: "ThreeJS_GLSL", engine: "preview" }),
           });
@@ -406,7 +428,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       if (compileDebounceRef.current) clearTimeout(compileDebounceRef.current);
       compileDebounceRef.current = null;
     };
-  }, [stableGraph]);
+  }, [stableGraph, graphHash]);
 
   // Keep auto-rotate flag in a ref to avoid re-initializing renderer
   useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);

@@ -616,7 +616,7 @@ export function App() {
   }, [nodes, currentParentId]);
 
   // Centralized updater to modify node template inputs while preserving parentId
-  const updateNodeInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
+  const updateInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -699,14 +699,14 @@ export function App() {
 
   const nodeUpdaterApi = useMemo<NodeUpdaterApi>(
     () => ({
-      updateInputValue: updateNodeInputValue,
+      updateInputValue,
       updatePropertyValue: updateNodePropertyValue,
       updateNodeLabel,
       addNodeMeta,
       removeNodeMeta,
       updateNodeAsset,
     }),
-    [updateNodeInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta, updateNodeAsset]
+    [updateInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta, updateNodeAsset]
   );
 
   const nodesById = useMemo(() => {
@@ -901,7 +901,7 @@ export function App() {
       fitAfterLoadRef.current = true;
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [loadTemplateDefaults, nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
+    [nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {

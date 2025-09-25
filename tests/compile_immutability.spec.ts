@@ -7,7 +7,7 @@ function deepClone<T>(v: T): T { return JSON.parse(JSON.stringify(v)); }
 
 describe("Compiler does not mutate input graph and preserves order", () => {
   it("compiles without mutating inputs, children order, or IDs", async () => {
-    const { surface, fragment_pass } = addition_graph();
+    const { surface } = addition_graph();
     const original = surface.to_dict();
     // Capture a deep copy for comparison
     const snapshot = deepClone(original);

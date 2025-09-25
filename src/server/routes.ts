@@ -19,7 +19,7 @@ export function buildRoutes() {
     if (!(await docsIndex.exists())) return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
     try {
       const raw = await docsIndex.text();
-      const hasBase = /<base\s+href=\"\/docs\/?\"/i.test(raw);
+      const hasBase = /<base\s+href="\/docs\/?"/i.test(raw);
       const html = hasBase ? raw : raw.replace(/<head(\s*[^>]*)>/i, '<head$1><base href="/docs/">');
       return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
     } catch (_err) {

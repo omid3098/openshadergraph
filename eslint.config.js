@@ -12,6 +12,7 @@ export default [
     ignores: [
       "dist/**",
       "node_modules/**",
+      ".venv/**",
       ".vite/**",
       ".tmp-build/**",
       "python_backup/**",
