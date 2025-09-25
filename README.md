@@ -1,4 +1,4 @@
-# OpenShaderGraph (Bun + ReactFlow)
+# OpenShaderGraph
 
 To install dependencies:
 
