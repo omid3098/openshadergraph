@@ -52,3 +52,7 @@ OSG_STATIC_BUNDLES=1 bun run dev
 - Notes:
   - The app runs against server APIs only; static bundle fallbacks are not used.
   - First compile is gated on language readiness; preview should render quickly on cold start.
+
+---
+
+Note: Minor README edit to validate versioning bump workflow.
