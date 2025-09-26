@@ -31,6 +31,7 @@ type HistoryHarness = {
   ungroupNodes: () => void;
   primeConnection: () => void;
   primeGroup: () => void;
+  deleteNodeViaHandlers: () => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -354,6 +355,13 @@ function useHistoryHarness(): HistoryHarness {
     });
   }, []);
 
+  const deleteNodeViaHandlers = useCallback(() => {
+    beginHistoryAction({ type: "delete-node", summary: "Node 2 • Delete" });
+    setNodes((prev) => prev.filter((node) => node.id !== "2"));
+    beginHistoryAction({ type: "disconnect", summary: "Node 1 → Node 2" }, { skipIfPending: true });
+    setEdges([]);
+  }, [beginHistoryAction, setNodes, setEdges]);
+
   return {
     nodes,
     edges,
@@ -374,6 +382,7 @@ function useHistoryHarness(): HistoryHarness {
     ungroupNodes,
     primeConnection,
     primeGroup,
+    deleteNodeViaHandlers,
     undo,
     redo,
     canUndo,
@@ -536,5 +545,19 @@ describe("useGraphHistory integration", () => {
     expect(result.current.peekUndo?.type).toBe("ungroup-node");
     act(() => result.current.undo());
     expect(result.current.nodes.some((node) => node.type === "group")).toBe(true);
+  });
+
+  it("preserves delete-node history meta when edges are removed as part of the deletion", () => {
+    const { result } = renderHook(() => useHistoryHarness());
+    act(() => result.current.primeConnection());
+    expect(result.current.edges.length).toBe(1);
+    act(() => result.current.deleteNodeViaHandlers());
+    expect(result.current.nodes.some((node) => node.id === "2")).toBe(false);
+    expect(result.current.edges.length).toBe(0);
+    expect(result.current.peekUndo?.type).toBe("delete-node");
+    act(() => result.current.undo());
+    expect(result.current.nodes.some((node) => node.id === "2")).toBe(true);
+    expect(result.current.edges.length).toBe(1);
+    expect(result.current.peekRedo?.type).toBe("delete-node");
   });
 });

@@ -59,7 +59,7 @@ import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } 
 import { APP_VERSION_INFO } from "./version";
 import { VIEW_MENU_ITEMS, isEditableHotkeyTarget } from "./core/ui/hotkeys";
 import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
-import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi } from "./core/ui/useGraphHistory";
+import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi, type GraphSnapshot } from "./core/ui/useGraphHistory";
 import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
 
 const nodeDefaults = {
@@ -82,6 +82,8 @@ type CanonicalNode = {
   outputs?: Array<{ id: number; name: string; type: any }>;
   properties?: any[];
 };
+
+type CommitGraphMutation = (meta: GraphActionMeta, mutator: () => void) => void;
 
 function triggerDownload(name: string, contents: string) {
   const blob = new Blob([contents], { type: "application/json" });
@@ -129,6 +131,9 @@ export function App() {
   const connectCompletedRef = useRef(false);
   const pendingConnectRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
   const pinIndexCacheRef = useRef<Map<string, { inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }>>(new Map());
+  const dragSnapshotRef = useRef<GraphSnapshot | null>(null);
+  const resizeSnapshotRef = useRef<GraphSnapshot | null>(null);
+  const captureSnapshotFnRef = useRef<(() => GraphSnapshot) | null>(null);
 
   // MiniMap theme colors sourced from CSS variables and updated when theme changes
   const [mmColors, setMmColors] = useState<{ node: string; stroke: string; mask: string }>(() => {
@@ -178,12 +183,14 @@ export function App() {
       const paletteGet = (t: string) => paletteByType.get(t);
 
       const insertAndConnect = async (item: NodePaletteItem, position: { x: number; y: number }, template?: NodeTemplate, hookups?: (id: string) => void) => {
-        const nextId = String(++idCounter.current);
+        const nextIdNum = idCounter.current + 1;
+        const nextId = String(nextIdNum);
         const rfArgs: any = { id: nextId, item, position, nodeDefaults };
         if (template) rfArgs.template = template;
         const rfNode = buildRFNodeFromTemplate(rfArgs);
         const displayName = ((rfNode.data as any)?.label ?? (rfNode.data as any)?.type ?? item.name ?? item.type ?? `Node ${nextId}`) as string;
         beginHistoryActionRef.current({ type: "insert-adapter", summary: `${displayName} • Insert` });
+        idCounter.current = nextIdNum;
         const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
         setNodes((prev) => [...prev, decoratedNode as any]);
         if (hookups) hookups(nextId);
@@ -438,6 +445,7 @@ export function App() {
     draggingNodeIdsRef.current.clear();
     pendingGraphUpdateRef.current = false;
   }, []);
+  const pendingHistoryQueueRef = useRef<Array<{ meta: GraphActionMeta; before: GraphSnapshot }>>([]);
 
   const recomputeGraphData = useCallback(() => {
     const next = buildGraphData(nodesRef.current as any, edgesRef.current as any, graphNameRef.current);
@@ -495,6 +503,10 @@ export function App() {
         }
 
         if (isDragStart(change)) {
+          if (!dragSnapshotRef.current) {
+            const snapshotter = captureSnapshotFnRef.current;
+            if (snapshotter) dragSnapshotRef.current = snapshotter();
+          }
           draggingNodeIdsRef.current.add(change.id);
           pendingGraphUpdateRef.current = true;
           continue;
@@ -524,6 +536,10 @@ export function App() {
         if (!meta.includes("editor_node")) continue;
 
         if (isResizeStart(change)) {
+          if (!resizeSnapshotRef.current) {
+            const snapshotter = captureSnapshotFnRef.current;
+            if (snapshotter) resizeSnapshotRef.current = snapshotter();
+          }
           resizingEditorIdsRef.current.add(change.id);
           pendingGraphUpdateRef.current = true;
           continue;
@@ -571,6 +587,7 @@ export function App() {
         pendingSizeUpdates.push(next);
       }
 
+      let resizeSummary: string | null = null;
       if (pendingSizeUpdates.length) {
         const updates = new Map<string, { width?: number; height?: number }>();
         pendingSizeUpdates.forEach((entry) => {
@@ -581,7 +598,7 @@ export function App() {
         });
         const resizeLabels = Array.from(new Set(pendingSizeUpdates.map((entry) => labelForId(entry.id))));
         const resizeSummaryBase = formatList(resizeLabels);
-        beginHistoryActionRef.current({ type: "resize-node", summary: `${resizeSummaryBase} • Resize` });
+        resizeSummary = `${resizeSummaryBase} • Resize`;
         setNodes((prev) =>
           prev.map((n) => {
             const entry = updates.get(n.id);
@@ -630,6 +647,7 @@ export function App() {
       }
 
       const removedList = Array.from(removedIds);
+      let moveSummary: string | null = null;
       if (removedList.length) {
         const labels = removedList.map(labelForId);
         beginHistoryActionRef.current({ type: "delete-node", summary: `${formatList(labels)} • Delete` });
@@ -637,8 +655,21 @@ export function App() {
         const movedList = Array.from(movedIds).filter((id) => !removedIds.has(id));
         if (movedList.length) {
           const labels = movedList.map(labelForId);
-          beginHistoryActionRef.current({ type: "move-node", summary: `${formatList(labels)} • Move` });
+          moveSummary = `${formatList(labels)} • Move`;
         }
+      }
+
+      if (resizeSummary && resizeSnapshotRef.current) {
+        pendingHistoryQueueRef.current.push({ meta: { type: "resize-node", summary: resizeSummary }, before: resizeSnapshotRef.current });
+        resizeSnapshotRef.current = null;
+      } else if (!resizeSummary && resizeSnapshotRef.current && pendingSizeUpdates.length === 0) {
+        resizeSnapshotRef.current = null;
+      }
+      if (moveSummary && dragSnapshotRef.current) {
+        pendingHistoryQueueRef.current.push({ meta: { type: "move-node", summary: moveSummary }, before: dragSnapshotRef.current });
+        dragSnapshotRef.current = null;
+      } else if (!moveSummary && dragSnapshotRef.current && movedIds.size === 0) {
+        dragSnapshotRef.current = null;
       }
 
       onNodesChange(changes);
@@ -661,7 +692,7 @@ export function App() {
         return `${srcLabel} → ${dstLabel}`;
       });
       const summaryBase = connectionLabels.length === 1 ? connectionLabels[0]! : `${connectionLabels.length} connections`;
-      beginHistoryActionRef.current({ type: "disconnect", summary: summaryBase });
+      beginHistoryActionRef.current({ type: "disconnect", summary: summaryBase }, { skipIfPending: true });
     }
     onEdgesChange(changes);
   }, [onEdgesChange]);
@@ -698,6 +729,7 @@ export function App() {
   }, [nodes, currentParentId]);
 
   const beginHistoryActionRef = useRef<GraphHistoryApi["beginAction"]>(() => ({ cancel: () => {}, updateMeta: () => {} }));
+  const commitGraphMutationRef = useRef<CommitGraphMutation>(() => {});
 
   // Centralized updater to modify node template inputs while preserving parentId
   const updateInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
@@ -709,19 +741,20 @@ export function App() {
     const pin = tpl.inputs[idx];
     const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
     const pinName = pin && typeof pin.name === "string" && pin.name.length ? pin.name : `Input ${pinId}`;
-    beginHistoryActionRef.current({ type: "update-input", summary: `${nodeLabel} • ${pinName}` });
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== id) return n;
-        const tplNow = (n.data as any)?.template;
-        if (!tplNow || !Array.isArray(tplNow.inputs)) return n;
-        const idxNow = tplNow.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
-        if (idxNow < 0) return n;
-        const normalized = Array.isArray(next) ? next : typeof next === "number" ? [next] : next;
-        const nextTpl = { ...tplNow, inputs: tplNow.inputs.map((p: any, i: number) => (i === idxNow ? { ...p, value: normalized } : p)) };
-        return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
-      })
-    );
+    commitGraphMutationRef.current({ type: "update-input", summary: `${nodeLabel} • ${pinName}` }, () => {
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const tplNow = (n.data as any)?.template;
+          if (!tplNow || !Array.isArray(tplNow.inputs)) return n;
+          const idxNow = tplNow.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
+          if (idxNow < 0) return n;
+          const normalized = Array.isArray(next) ? next : typeof next === "number" ? [next] : next;
+          const nextTpl = { ...tplNow, inputs: tplNow.inputs.map((p: any, i: number) => (i === idxNow ? { ...p, value: normalized } : p)) };
+          return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
+        })
+      );
+    });
   }, [setNodes]);
 
   const updateNodePropertyValue = useCallback((id: string, propId: string, next: unknown) => {
@@ -734,18 +767,19 @@ export function App() {
     if (!prop) return;
     const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
     const propLabel = typeof prop.label === "string" && prop.label.length ? prop.label : propId;
-    beginHistoryActionRef.current({ type: "update-property", summary: `${nodeLabel} • ${propLabel}` });
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== id) return n;
-        const tplNow = (n.data as any)?.template ?? {};
-        const propsNow: any[] = Array.isArray((tplNow as any).properties) ? ([...(tplNow as any).properties] as any[]) : [];
-        const nextProps = propsNow.map((propEntry) =>
-          propEntry && typeof propEntry === "object" && propEntry.id === propId ? { ...propEntry, value: next } : propEntry
-        );
-        return { ...n, data: { ...(n.data as any), template: { ...tplNow, properties: nextProps } } } as any;
-      })
-    );
+    commitGraphMutationRef.current({ type: "update-property", summary: `${nodeLabel} • ${propLabel}` }, () => {
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const tplNow = (n.data as any)?.template ?? {};
+          const propsNow: any[] = Array.isArray((tplNow as any).properties) ? ([...(tplNow as any).properties] as any[]) : [];
+          const nextProps = propsNow.map((propEntry) =>
+            propEntry && typeof propEntry === "object" && propEntry.id === propId ? { ...propEntry, value: next } : propEntry
+          );
+          return { ...n, data: { ...(n.data as any), template: { ...tplNow, properties: nextProps } } } as any;
+        })
+      );
+    });
   }, [setNodes]);
 
   const updateNodeAsset = useCallback((id: string, asset: NodeAssetPayload | null) => {
@@ -837,6 +871,8 @@ export function App() {
     peekUndo,
     peekRedo,
     reset: resetHistory,
+    captureSnapshot: captureHistorySnapshot,
+    pushEntryWithSnapshots: pushHistorySnapshots,
   } = useGraphHistory({
     nodes,
     edges,
@@ -855,7 +891,23 @@ export function App() {
     resetInteractionState,
   });
 
+  const commitGraphMutation = useCallback((meta: GraphActionMeta, mutator: () => void) => {
+    const before = captureHistorySnapshot();
+    mutator();
+    pendingHistoryQueueRef.current.push({ meta, before });
+  }, [captureHistorySnapshot]);
+  commitGraphMutationRef.current = commitGraphMutation;
   beginHistoryActionRef.current = beginHistoryAction;
+  captureSnapshotFnRef.current = captureHistorySnapshot;
+
+  useEffect(() => {
+    if (!pendingHistoryQueueRef.current.length) return;
+    const queued = pendingHistoryQueueRef.current.splice(0);
+    for (const entry of queued) {
+      pushHistorySnapshots(entry.meta, entry.before);
+    }
+  }, [nodes, edges, pushHistorySnapshots]);
+
 
   const formatHistoryPreview = useCallback((meta: GraphActionMeta | null) => {
     if (!meta) return "No Action";
@@ -928,7 +980,8 @@ export function App() {
 
       if (template) templateCacheRef.current?.prime(type, template);
 
-      const nextId = String(++idCounter.current);
+      const nextIdNum = idCounter.current + 1;
+      const nextId = String(nextIdNum);
       const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
       const parentPosition = (() => {
         const rel = parentNode?.position;
@@ -975,6 +1028,7 @@ export function App() {
       const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
       const displayName = ((decoratedNode.data as any)?.label ?? (decoratedNode.data as any)?.type ?? item.name ?? type) as string;
       beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
+      idCounter.current = nextIdNum;
       setNodes((prev) => [...prev, decoratedNode as any]);
     },
     [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi, rf, getFlowCenterClient]
@@ -1031,6 +1085,9 @@ export function App() {
 
       idCounter.current = buildResult.maxId;
       resizingEditorIdsRef.current.clear();
+      dragSnapshotRef.current = null;
+      resizeSnapshotRef.current = null;
+      pendingHistoryQueueRef.current.splice(0);
       pendingGraphUpdateRef.current = false;
 
       setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
@@ -1462,7 +1519,8 @@ export function App() {
 
   const addNodeAt = useCallback(async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
-    const nextId = String(++idCounter.current);
+    const nextIdNum = idCounter.current + 1;
+    const nextId = String(nextIdNum);
     const pos = rf.screenToFlowPosition({ x, y });
     let template: NodeTemplate | undefined;
     try {
@@ -1482,6 +1540,7 @@ export function App() {
     const rfNode = buildRFNodeFromTemplate(rfArgs);
     const label = ((rfNode.data as any)?.label ?? (rfNode.data as any)?.type ?? item.name ?? item.type ?? `Node ${nextId}`) as string;
     beginHistoryActionRef.current({ type: "add-node", summary: `${label} • Add` });
+    idCounter.current = nextIdNum;
     // Inject updater on the new node
     const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode as any]);
@@ -1702,7 +1761,8 @@ export function App() {
       : projected;
     const defaults = await loadTemplateDefaults("texture");
     const template = defaults ? JSON.parse(JSON.stringify(defaults)) : undefined;
-    const nextId = String(++idCounter.current);
+    const nextIdNum = idCounter.current + 1;
+    const nextId = String(nextIdNum);
     const baseArgs: any = {
       id: nextId,
       item,
@@ -1735,6 +1795,7 @@ export function App() {
     } as any;
     const displayName = (node.data as any)?.label || item.name || payload.label || "Texture";
     beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
+    idCounter.current = nextIdNum;
     const decoratedNode = attachNodeUpdateApi(node as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode]);
     setMenu((m) => (m.open ? { ...m, open: false } : m));
@@ -1996,19 +2057,19 @@ export function App() {
           }}
           onNodeDragStart={(_e, node) => {
             try {
+              if (!dragSnapshotRef.current) {
+                const snapshotter = captureSnapshotFnRef.current;
+                if (snapshotter) dragSnapshotRef.current = snapshotter();
+              }
               draggingNodeIdsRef.current.add(node.id);
               pendingGraphUpdateRef.current = true;
             } catch (_err) {
               // ignore
             }
           }}
-          onNodeDragStop={(_e, node) => {
+          onNodeDragStop={() => {
             try {
-              draggingNodeIdsRef.current.delete(node.id);
-            if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-              pendingGraphUpdateRef.current = false;
-              scheduleGraphRender();
-            }
+              pendingGraphUpdateRef.current = true;
             } catch (_err) {
               // ignore
             }

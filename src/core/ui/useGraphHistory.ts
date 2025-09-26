@@ -5,7 +5,7 @@ import { attachNodesUpdateApi, type NodeUpdaterApi } from "./nodeUpdaters";
 type NodeSnapshot = Node<any>;
 type EdgeSnapshot = Edge<any>;
 
-type GraphSnapshot = {
+export type GraphSnapshot = {
   nodes: NodeSnapshot[];
   edges: EdgeSnapshot[];
   viewPath: string[];
@@ -92,6 +92,8 @@ export type GraphHistoryApi = {
   peekRedo: GraphActionMeta | null;
   reset: () => void;
   hasPending: () => boolean;
+  captureSnapshot: () => GraphSnapshot;
+  pushEntryWithSnapshots: (meta: GraphActionMeta, before: GraphSnapshot, afterOverride?: GraphSnapshot) => void;
 };
 
 const DEFAULT_MAX_HISTORY = 100;
@@ -234,6 +236,33 @@ export function useGraphHistory(params: UseGraphHistoryParams): GraphHistoryApi 
     setGraphName(snap.graphName ?? "");
   }, [idCounterRef, nodeUpdaterApi, resetInteractionState, setEdges, setGraphName, setNodes, setViewPath]);
 
+  const pushEntryWithSnapshots = useCallback((meta: GraphActionMeta, before: GraphSnapshot, afterOverride?: GraphSnapshot) => {
+    const history = historyRef.current;
+    const beforeSnap: GraphSnapshot = {
+      nodes: cloneNodes(before.nodes ?? []),
+      edges: cloneEdges(before.edges ?? []),
+      viewPath: [...(before.viewPath ?? [])],
+      graphName: before.graphName ?? "",
+      idCounter: before.idCounter ?? 0,
+    };
+    const afterBase = afterOverride ?? captureSnapshot();
+    const afterSnap: GraphSnapshot = {
+      nodes: cloneNodes(afterBase.nodes ?? []),
+      edges: cloneEdges(afterBase.edges ?? []),
+      viewPath: [...(afterBase.viewPath ?? [])],
+      graphName: afterBase.graphName ?? "",
+      idCounter: afterBase.idCounter ?? 0,
+    };
+    if (snapshotsEqual(beforeSnap, afterSnap)) return;
+    history.past.push({ meta, before: beforeSnap, after: afterSnap });
+    if (history.past.length > maxHistory) {
+      history.past.splice(0, history.past.length - maxHistory);
+    }
+    history.future = [];
+    history.pending = null;
+    bumpVersion((v) => v + 1);
+  }, [captureSnapshot, maxHistory]);
+
   const commitPending = useCallback(() => {
     const history = historyRef.current;
     const pending = history.pending;
@@ -336,5 +365,7 @@ export function useGraphHistory(params: UseGraphHistoryParams): GraphHistoryApi 
     peekRedo,
     reset,
     hasPending,
+    captureSnapshot,
+    pushEntryWithSnapshots,
   };
 }
