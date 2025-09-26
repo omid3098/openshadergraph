@@ -130,27 +130,6 @@ const formatFileSize = (bytes: number): string => {
 };
 
 console.log("\n🚀 Starting build process...\n");
-const AUTO_TAG = process.argv.includes("--auto-tag");
-
-// --- Versioning: compute app version from git and write src/version.ts ---
-type Semver = { major: number; minor: number; patch: number };
-
-function parseSemverTag(tag: string): Semver | null {
-  const m = tag.trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
-  if (!m) return null;
-  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
-}
-
-function semverToString(v: Semver): string {
-  return `${v.major}.${v.minor}.${v.patch}`;
-}
-
-function bump(v: Semver, kind: "major" | "minor" | "patch"): Semver {
-  if (kind === "major") return { major: v.major + 1, minor: 0, patch: 0 };
-  if (kind === "minor") return { major: v.major, minor: v.minor + 1, patch: 0 };
-  return { major: v.major, minor: v.minor, patch: v.patch + 1 };
-}
-
 function runGit(args: string[]): { ok: boolean; stdout: string } {
   try {
     const res = Bun.spawnSync({ cmd: ["git", ...args], stdout: "pipe", stderr: "pipe" });
@@ -161,24 +140,13 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
   }
 }
 
-async function fetchJSON(url: string, headers?: Record<string, string>): Promise<any | null> {
-  try {
-    const init: RequestInit = headers ? { headers: headers as unknown as HeadersInit } : {};
-    const res = await fetch(url, init);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (_err) {
-    return null;
-  }
-}
-
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
   // Ignore git and tags. Use committed src/version.ts as the single source of truth.
   const target = path.resolve(process.cwd(), "src", "version.ts");
   let versionStr = "0.0.0";
   try {
     const raw = await readFile(target, "utf8");
-    const m = raw.match(/APP_VERSION\s*=\s*\"([^\"]+)\"/);
+    const m = raw.match(/APP_VERSION\s*=\s*"([^"]+)"/);
     if (m && m[1]) versionStr = m[1];
   } catch (_err) {
     // As a last resort, fall back to package.json version

@@ -11,6 +11,7 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
   type NodeChange,
 } from "@xyflow/react";
@@ -56,7 +57,9 @@ import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, typ
 import { Check, Github, BookOpen } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { APP_VERSION_INFO } from "./version";
-import { VIEW_MENU_ITEMS } from "./core/ui/hotkeys";
+import { VIEW_MENU_ITEMS, isEditableHotkeyTarget } from "./core/ui/hotkeys";
+import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
+import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi } from "./core/ui/useGraphHistory";
 import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
 
 const nodeDefaults = {
@@ -99,6 +102,8 @@ export function App() {
   const [palette, setPalette] = useState<NodePalette | null>(null);
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
+  const viewPathRef = useRef(viewPath);
+  useLayoutEffect(() => { viewPathRef.current = viewPath; }, [viewPath]);
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
   const fileHandleRef = useRef<any | null>(null);
@@ -160,6 +165,11 @@ export function App() {
     // Mark that this drag sequence actually produced a connection (including adapter insertions)
     if (connectDragRef.current) connectCompletedRef.current = true;
     const nodesNow = nodesRef.current;
+    const nodeLabel = (nodeId: string | null | undefined): string => {
+      if (!nodeId) return "Unknown";
+      const node = nodesRef.current.find((n) => n.id === String(nodeId));
+      return ((node?.data as any)?.label ?? (node?.data as any)?.type ?? String(nodeId)) as string;
+    };
     const ok = isConnectionCompatible(nodesNow as any, params);
     if (!ok) {
       // Attempt adapter insertion for known cases (sampler2D->float/vecN, float->vecN, vec4->vec3, vec3->vec4)
@@ -172,6 +182,8 @@ export function App() {
         const rfArgs: any = { id: nextId, item, position, nodeDefaults };
         if (template) rfArgs.template = template;
         const rfNode = buildRFNodeFromTemplate(rfArgs);
+        const displayName = ((rfNode.data as any)?.label ?? (rfNode.data as any)?.type ?? item.name ?? item.type ?? `Node ${nextId}`) as string;
+        beginHistoryActionRef.current({ type: "insert-adapter", summary: `${displayName} • Insert` });
         const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
         setNodes((prev) => [...prev, decoratedNode as any]);
         if (hookups) hookups(nextId);
@@ -251,6 +263,9 @@ export function App() {
       console.warn("Type mismatch: blocking connection", params);
       return;
     }
+    const srcLabel = nodeLabel(params.source as any);
+    const dstLabel = nodeLabel(params.target as any);
+    beginHistoryActionRef.current({ type: "connect", summary: `${srcLabel} → ${dstLabel}` });
     setEdges((eds) => {
       const next = connectSingleInputEdge(eds, params);
       // annotate dashed edges when either endpoint is an editor node
@@ -418,6 +433,11 @@ export function App() {
   const pendingGraphUpdateRef = useRef(false);
   const draggingNodeIdsRef = useRef(new Set<string>());
   const autosaveTimeoutRef = useRef<number | null>(null);
+  const resetInteractionState = useCallback(() => {
+    resizingEditorIdsRef.current.clear();
+    draggingNodeIdsRef.current.clear();
+    pendingGraphUpdateRef.current = false;
+  }, []);
 
   const recomputeGraphData = useCallback(() => {
     const next = buildGraphData(nodesRef.current as any, edgesRef.current as any, graphNameRef.current);
@@ -457,12 +477,44 @@ export function App() {
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const pendingSizeUpdates: Array<{ id: string; width?: number; height?: number }> = [];
+      const removedIds = new Set<string>();
+      const movedIds = new Set<string>();
+
+      const labelForId = (nodeId: string): string => {
+        const node = nodesRef.current.find((n) => n.id === nodeId);
+        return ((node?.data as any)?.label ?? (node?.data as any)?.type ?? nodeId) as string;
+      };
+      const formatList = (labels: string[]) => (labels.length === 1 ? labels[0] : `${labels.length} nodes`);
+
       for (const change of changes) {
         if (change.type === "remove") {
           resizingEditorIdsRef.current.delete(change.id);
+          draggingNodeIdsRef.current.delete(change.id);
+          removedIds.add(change.id);
           continue;
         }
-        if (change.type !== "dimensions" || change.resizing === undefined) continue;
+
+        if (isDragStart(change)) {
+          draggingNodeIdsRef.current.add(change.id);
+          pendingGraphUpdateRef.current = true;
+          continue;
+        }
+
+        if (isDragEnd(change)) {
+          const wasDragging = draggingNodeIdsRef.current.delete(change.id);
+          if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+            pendingGraphUpdateRef.current = false;
+            scheduleGraphRender();
+          }
+          const nextPos = (change as any)?.position ?? (change as any)?.positionAbsolute ?? null;
+          const currentNode = nodesRef.current.find((n) => n.id === change.id);
+          const prevPos = currentNode?.position ?? null;
+          const moved = Boolean(wasDragging && nextPos && prevPos && (prevPos.x !== nextPos.x || prevPos.y !== nextPos.y));
+          if (moved) movedIds.add(change.id);
+          continue;
+        }
+
+        if (change.type !== "dimensions") continue;
         const node = nodesRef.current.find((n) => n.id === change.id);
         const meta = (() => {
           if (!node) return [] as string[];
@@ -470,44 +522,55 @@ export function App() {
           return Array.isArray(template?.meta) ? (template.meta as string[]) : [];
         })();
         if (!meta.includes("editor_node")) continue;
-        if (change.resizing) {
+
+        if (isResizeStart(change)) {
           resizingEditorIdsRef.current.add(change.id);
           pendingGraphUpdateRef.current = true;
-        } else {
-          resizingEditorIdsRef.current.delete(change.id);
-          if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-            pendingGraphUpdateRef.current = false;
-            scheduleGraphRender();
-          }
-          const readDimension = (key: "width" | "height"): number | undefined => {
-            const dims = change.dimensions;
-            const dimVal = dims ? (dims as any)[key] : undefined;
-            if (typeof dimVal === "number" && Number.isFinite(dimVal)) return Math.round(dimVal);
-            if (!node) return undefined;
-            const styleVal = (node as any)?.style?.[key];
-            if (typeof styleVal === "number" && Number.isFinite(styleVal)) return Math.round(styleVal);
-            if (typeof styleVal === "string") {
-              const parsed = Number.parseFloat(styleVal);
-              if (Number.isFinite(parsed)) return Math.round(parsed);
-            }
-            const direct = (node as any)?.[key];
-            if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
-            const dimensionVal = (node as any)?.dimensions?.[key];
-            if (typeof dimensionVal === "number" && Number.isFinite(dimensionVal)) return Math.round(dimensionVal);
-            const measured = (node as any)?.measured?.[key];
-            if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
-            return undefined;
-          };
-          const width = readDimension("width");
-          const height = readDimension("height");
-          if (Number.isFinite(width) || Number.isFinite(height)) {
-            const next: { id: string; width?: number; height?: number } = { id: change.id };
-            if (typeof width === "number" && Number.isFinite(width)) next.width = width;
-            if (typeof height === "number" && Number.isFinite(height)) next.height = height;
-            pendingSizeUpdates.push(next);
-          }
+          continue;
         }
+
+        if (!isResizeEnd(change)) continue;
+        const wasResizing = resizingEditorIdsRef.current.delete(change.id);
+        if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+          pendingGraphUpdateRef.current = false;
+          scheduleGraphRender();
+        }
+        if (!wasResizing) continue;
+
+        const currentSize = (() => {
+          const parsed = parseEditorSize(meta as string[]);
+          return { width: parsed.width, height: parsed.height };
+        })();
+        const readDimension = (key: "width" | "height"): number | undefined => {
+          const dims = change.dimensions;
+          const dimVal = dims ? (dims as any)[key] : undefined;
+          if (typeof dimVal === "number" && Number.isFinite(dimVal)) return Math.round(dimVal);
+          if (!node) return undefined;
+          const styleVal = (node as any)?.style?.[key];
+          if (typeof styleVal === "number" && Number.isFinite(styleVal)) return Math.round(styleVal);
+          if (typeof styleVal === "string") {
+            const parsed = Number.parseFloat(styleVal);
+            if (Number.isFinite(parsed)) return Math.round(parsed);
+          }
+          const direct = (node as any)?.[key];
+          if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
+          const dimensionVal = (node as any)?.dimensions?.[key];
+          if (typeof dimensionVal === "number" && Number.isFinite(dimensionVal)) return Math.round(dimensionVal);
+          const measured = (node as any)?.measured?.[key];
+          if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
+          return undefined;
+        };
+        const width = readDimension("width");
+        const height = readDimension("height");
+        const widthChanged = Number.isFinite(width) && (width as number) !== currentSize.width;
+        const heightChanged = Number.isFinite(height) && (height as number) !== currentSize.height;
+        if (!widthChanged && !heightChanged) continue;
+        const next: { id: string; width?: number; height?: number } = { id: change.id };
+        if (widthChanged) next.width = width as number;
+        if (heightChanged) next.height = height as number;
+        pendingSizeUpdates.push(next);
       }
+
       if (pendingSizeUpdates.length) {
         const updates = new Map<string, { width?: number; height?: number }>();
         pendingSizeUpdates.forEach((entry) => {
@@ -516,6 +579,9 @@ export function App() {
           if (typeof entry.height === "number" && Number.isFinite(entry.height)) next.height = entry.height;
           updates.set(entry.id, next);
         });
+        const resizeLabels = Array.from(new Set(pendingSizeUpdates.map((entry) => labelForId(entry.id))));
+        const resizeSummaryBase = formatList(resizeLabels);
+        beginHistoryActionRef.current({ type: "resize-node", summary: `${resizeSummaryBase} • Resize` });
         setNodes((prev) =>
           prev.map((n) => {
             const entry = updates.get(n.id);
@@ -562,14 +628,44 @@ export function App() {
           })
         );
       }
+
+      const removedList = Array.from(removedIds);
+      if (removedList.length) {
+        const labels = removedList.map(labelForId);
+        beginHistoryActionRef.current({ type: "delete-node", summary: `${formatList(labels)} • Delete` });
+      } else {
+        const movedList = Array.from(movedIds).filter((id) => !removedIds.has(id));
+        if (movedList.length) {
+          const labels = movedList.map(labelForId);
+          beginHistoryActionRef.current({ type: "move-node", summary: `${formatList(labels)} • Move` });
+        }
+      }
+
       onNodesChange(changes);
     },
-    // scheduleGraphRender is stable; include to satisfy exhaustive-deps and avoid warning
-    [onNodesChange, setNodes, scheduleGraphRender]
+    [onNodesChange, scheduleGraphRender, setNodes]
   );
 
   // Visible graph based on current viewPath (root vs. inside a group)
   const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    const removed = changes.filter((change) => change.type === "remove");
+    if (removed.length) {
+      const connectionLabels = removed.map((change) => {
+        const edge = edgesRef.current.find((e) => e.id === change.id);
+        if (!edge) return change.id;
+        const src = nodesRef.current.find((n) => n.id === edge.source);
+        const dst = nodesRef.current.find((n) => n.id === edge.target);
+        const srcLabel = (src?.data as any)?.label ?? (src?.data as any)?.type ?? edge.source;
+        const dstLabel = (dst?.data as any)?.label ?? (dst?.data as any)?.type ?? edge.target;
+        return `${srcLabel} → ${dstLabel}`;
+      });
+      const summaryBase = connectionLabels.length === 1 ? connectionLabels[0]! : `${connectionLabels.length} connections`;
+      beginHistoryActionRef.current({ type: "disconnect", summary: summaryBase });
+    }
+    onEdgesChange(changes);
+  }, [onEdgesChange]);
+
   const visibleNodes = useMemo(() => {
     const base = prepareVisibleNodes(nodes as any, currentParentId) as any;
     if (!showCompileOnly) return base;
@@ -601,17 +697,28 @@ export function App() {
     return set;
   }, [nodes, currentParentId]);
 
+  const beginHistoryActionRef = useRef<GraphHistoryApi["beginAction"]>(() => ({ cancel: () => {}, updateMeta: () => {} }));
+
   // Centralized updater to modify node template inputs while preserving parentId
   const updateInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    const tpl = (target?.data as any)?.template;
+    if (!target || !tpl || !Array.isArray(tpl.inputs)) return;
+    const idx = tpl.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
+    if (idx < 0) return;
+    const pin = tpl.inputs[idx];
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    const pinName = pin && typeof pin.name === "string" && pin.name.length ? pin.name : `Input ${pinId}`;
+    beginHistoryActionRef.current({ type: "update-input", summary: `${nodeLabel} • ${pinName}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
-        const tpl = (n.data as any)?.template;
-        if (!tpl || !Array.isArray(tpl.inputs)) return n;
-        const idx = tpl.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
-        if (idx < 0) return n;
+        const tplNow = (n.data as any)?.template;
+        if (!tplNow || !Array.isArray(tplNow.inputs)) return n;
+        const idxNow = tplNow.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
+        if (idxNow < 0) return n;
         const normalized = Array.isArray(next) ? next : typeof next === "number" ? [next] : next;
-        const nextTpl = { ...tpl, inputs: tpl.inputs.map((p: any, i: number) => (i === idx ? { ...p, value: normalized } : p)) };
+        const nextTpl = { ...tplNow, inputs: tplNow.inputs.map((p: any, i: number) => (i === idxNow ? { ...p, value: normalized } : p)) };
         return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
       })
     );
@@ -619,20 +726,34 @@ export function App() {
 
   const updateNodePropertyValue = useCallback((id: string, propId: string, next: unknown) => {
     if (!propId) return;
+    const target = nodesRef.current.find((node) => node.id === id);
+    const tpl = (target?.data as any)?.template ?? {};
+    const propsList: any[] = Array.isArray((tpl as any)?.properties) ? ([...(tpl as any).properties] as any[]) : [];
+    if (!target || propsList.length === 0) return;
+    const prop = propsList.find((entry) => entry && typeof entry === "object" && entry.id === propId);
+    if (!prop) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    const propLabel = typeof prop.label === "string" && prop.label.length ? prop.label : propId;
+    beginHistoryActionRef.current({ type: "update-property", summary: `${nodeLabel} • ${propLabel}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
-        const tpl = (n.data as any)?.template ?? {};
-        const props: any[] = Array.isArray((tpl as any).properties) ? ([...(tpl as any).properties] as any[]) : [];
-        const nextProps = props.map((prop) =>
-          prop && typeof prop === "object" && prop.id === propId ? { ...prop, value: next } : prop
+        const tplNow = (n.data as any)?.template ?? {};
+        const propsNow: any[] = Array.isArray((tplNow as any).properties) ? ([...(tplNow as any).properties] as any[]) : [];
+        const nextProps = propsNow.map((propEntry) =>
+          propEntry && typeof propEntry === "object" && propEntry.id === propId ? { ...propEntry, value: next } : propEntry
         );
-        return { ...n, data: { ...(n.data as any), template: { ...tpl, properties: nextProps } } } as any;
+        return { ...n, data: { ...(n.data as any), template: { ...tplNow, properties: nextProps } } } as any;
       })
     );
   }, [setNodes]);
 
   const updateNodeAsset = useCallback((id: string, asset: NodeAssetPayload | null) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    const assetLabel = asset ? asset.label ?? asset.id ?? asset.source ?? "Assign Asset" : "Remove Asset";
+    beginHistoryActionRef.current({ type: "update-asset", summary: `${nodeLabel} • ${assetLabel}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -649,6 +770,10 @@ export function App() {
 
   // Centralized updaters for node label and metas to preserve parentId
   const updateNodeLabel = useCallback((id: string, label: string) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const currentLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    beginHistoryActionRef.current({ type: "rename-node", summary: `${currentLabel} → ${label}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -661,6 +786,10 @@ export function App() {
 
   const addNodeMeta = useCallback((id: string, metaKey: string) => {
     if (!metaKey) return;
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    beginHistoryActionRef.current({ type: "add-meta", summary: `${nodeLabel} • ${metaKey}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -673,6 +802,10 @@ export function App() {
   }, [setNodes]);
 
   const removeNodeMeta = useCallback((id: string, metaKey: string) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    beginHistoryActionRef.current({ type: "remove-meta", summary: `${nodeLabel} • ${metaKey}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -695,6 +828,41 @@ export function App() {
     [updateInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta, updateNodeAsset]
   );
 
+  const {
+    beginAction: beginHistoryAction,
+    undo: undoHistory,
+    redo: redoHistory,
+    canUndo,
+    canRedo,
+    peekUndo,
+    peekRedo,
+    reset: resetHistory,
+  } = useGraphHistory({
+    nodes,
+    edges,
+    viewPath,
+    graphName,
+    nodesRef,
+    edgesRef,
+    viewPathRef,
+    graphNameRef,
+    idCounterRef: idCounter,
+    nodeUpdaterApi,
+    setNodes,
+    setEdges,
+    setViewPath,
+    setGraphName,
+    resetInteractionState,
+  });
+
+  beginHistoryActionRef.current = beginHistoryAction;
+
+  const formatHistoryPreview = useCallback((meta: GraphActionMeta | null) => {
+    if (!meta) return "No Action";
+    const summary = typeof meta.summary === "string" ? meta.summary.trim() : "";
+    return summary ? `${meta.type} • ${summary}` : meta.type;
+  }, []);
+
   const nodesById = useMemo(() => {
     const map = new Map<string, Node>();
     for (const node of nodes) map.set(node.id, node);
@@ -704,8 +872,18 @@ export function App() {
   const selectedCount = useMemo(() => nodes.filter((node) => node.selected).length, [nodes]);
 
   const graphStateValue = useMemo(
-    () => ({ nodesById, nodeUpdaterApi, graph: graphData as any }),
-    [nodesById, nodeUpdaterApi, graphData]
+    () => ({
+      nodesById,
+      nodeUpdaterApi,
+      graph: graphData as any,
+      undo: undoHistory,
+      redo: redoHistory,
+      canUndo,
+      canRedo,
+      peekUndo,
+      peekRedo,
+    }),
+    [nodesById, nodeUpdaterApi, graphData, undoHistory, redoHistory, canUndo, canRedo, peekUndo, peekRedo]
   );
 
   // Stabilize ReactFlow config to reduce unnecessary re-renders
@@ -724,6 +902,9 @@ export function App() {
       const existing = collectEditorNodes(nodesRef.current, type, parent);
       if (existing.length) {
         const removeIds = new Set(existing.map((node) => node.id));
+        const labels = existing.map((node) => ((node.data as any)?.label ?? (node.data as any)?.type ?? node.id) as string);
+        const summaryBase = labels.length === 1 ? labels[0] : `${labels.length} nodes`;
+        beginHistoryActionRef.current({ type: "delete-node", summary: `${summaryBase} • Remove` });
         for (const id of removeIds) {
           resizingEditorIdsRef.current.delete(id);
         }
@@ -792,6 +973,8 @@ export function App() {
       if (parent) rfArgs.parentId = parent;
       const rfNode = buildRFNodeFromTemplate(rfArgs);
       const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
+      const displayName = ((decoratedNode.data as any)?.label ?? (decoratedNode.data as any)?.type ?? item.name ?? type) as string;
+      beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
       setNodes((prev) => [...prev, decoratedNode as any]);
     },
     [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi, rf, getFlowCenterClient]
@@ -854,11 +1037,12 @@ export function App() {
       setEdges(buildResult.edges);
       setGraphName(label ?? "UntitledGraph");
       setViewPath(buildResult.defaultViewPath);
+      resetHistory();
       // Request a one-time fitView after nodes render for this load
       fitAfterLoadRef.current = true;
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
+    [nodeUpdaterApi, resetHistory, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
@@ -1265,6 +1449,7 @@ export function App() {
         setEdges(buildResult.edges);
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setViewPath(buildResult.defaultViewPath);
+        resetHistory();
         // Request a one-time fitView after nodes render for this new graph
         fitAfterLoadRef.current = true;
       } catch (err) {
@@ -1272,7 +1457,7 @@ export function App() {
       }
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
+    [paletteByType, loadTemplateDefaults, resetHistory, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
   );
 
   const addNodeAt = useCallback(async (opts: { item: NodePaletteItem; x: number; y: number }) => {
@@ -1295,6 +1480,8 @@ export function App() {
     if (template) rfArgs.template = template;
     if (currentParentId) rfArgs.parentId = currentParentId;
     const rfNode = buildRFNodeFromTemplate(rfArgs);
+    const label = ((rfNode.data as any)?.label ?? (rfNode.data as any)?.type ?? item.name ?? item.type ?? `Node ${nextId}`) as string;
+    beginHistoryActionRef.current({ type: "add-node", summary: `${label} • Add` });
     // Inject updater on the new node
     const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode as any]);
@@ -1366,6 +1553,27 @@ export function App() {
     paletteByType,
   });
 
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      if (isEditableHotkeyTarget(event.target)) return;
+      const isMod = event.metaKey || event.ctrlKey;
+      if (!isMod || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if ((key === "z" && event.shiftKey) || key === "y") {
+        event.preventDefault();
+        redoHistory();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [redoHistory, undoHistory]);
+
   const openAddNodeMenuAt = useCallback((x: number, y: number, override: NodePalette | null) => {
     setMenuPaletteOverride(override);
     setMenu({ open: true, kind: "background", x, y });
@@ -1404,7 +1612,9 @@ export function App() {
   const deleteNodeById = useCallback(
     async (id: string) => {
       const node = nodesById.get(id);
-      if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
+      if (!node) return;
+      if ((node as any).deletable === false) return; // protect mandatory IO nodes
+      const nodeLabel = ((node.data as any)?.label ?? (node.data as any)?.type ?? id) as string;
       const removed = new Set<string>([id]);
       const dependents = nodesRef.current
         .filter((n) => n.id !== id)
@@ -1426,6 +1636,7 @@ export function App() {
         if (tpl) defaultsByNodeId.set(dep.id, tpl);
       }
 
+      beginHistoryActionRef.current({ type: "delete-node", summary: `${nodeLabel} • Delete` });
       setNodes((ns) =>
         attachNodesUpdateApi(
           ns
@@ -1454,6 +1665,10 @@ export function App() {
     if (!selected.length) return;
     const selectedIds = new Set(selected.map((n) => n.id));
     const idGen = () => String(++idCounter.current);
+    const label = selected.length === 1
+      ? (((selected[0]?.data as any)?.label ?? (selected[0]?.data as any)?.type ?? selected[0]?.id) as string)
+      : `${selected.length} nodes`;
+    beginHistoryActionRef.current({ type: "group-nodes", summary: `${label} • Group` });
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
     setEdges(res.edges as any);
@@ -1461,6 +1676,9 @@ export function App() {
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
+    const groupNode = nodesById.get(groupId);
+    const label = ((groupNode?.data as any)?.label ?? (groupNode?.data as any)?.type ?? groupId) as string;
+    beginHistoryActionRef.current({ type: "ungroup-node", summary: `${label} • Ungroup` });
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
     setEdges(res.edges as any);
@@ -1515,6 +1733,8 @@ export function App() {
         template: { ...tpl, name: payload.label || tpl.name, properties: nextProps },
       },
     } as any;
+    const displayName = (node.data as any)?.label || item.name || payload.label || "Texture";
+    beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
     const decoratedNode = attachNodeUpdateApi(node as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode]);
     setMenu((m) => (m.open ? { ...m, open: false } : m));
@@ -1553,6 +1773,41 @@ export function App() {
               <MenubarSeparator />
               <MenubarItem onClick={() => void handleSave()}>Save</MenubarItem>
               <MenubarItem onClick={() => void handleSaveAs()}>Save As…</MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>Edit</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                disabled={!canUndo}
+                onClick={() => {
+                  if (!canUndo) return;
+                  undoHistory();
+                }}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span>Undo</span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-xs">{formatHistoryPreview(peekUndo)}</span>
+                    <span className="text-[10px] uppercase">⌘Z</span>
+                  </div>
+                </div>
+              </MenubarItem>
+              <MenubarItem
+                disabled={!canRedo}
+                onClick={() => {
+                  if (!canRedo) return;
+                  redoHistory();
+                }}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span>Redo</span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-xs">{formatHistoryPreview(peekRedo)}</span>
+                    <span className="text-[10px] uppercase">⇧⌘Z</span>
+                  </div>
+                </div>
+              </MenubarItem>
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
@@ -1707,7 +1962,7 @@ export function App() {
           deleteKeyCode={["Backspace", "Delete"]}
           isValidConnection={isValidConnectionCb}
           onNodesChange={handleNodesChange}
-          onEdgesChange={onEdgesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           onConnectStart={(e: any, params: any) => {
             try {

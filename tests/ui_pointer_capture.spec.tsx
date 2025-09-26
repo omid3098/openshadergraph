@@ -11,6 +11,13 @@ vi.mock("@/core/ui/GraphStateContext", () => ({
   useGraphState: () => ({
     nodeUpdaterApi: { updateInputValue: vi.fn() },
     graph: {},
+    nodesById: new Map(),
+    undo: vi.fn(),
+    redo: vi.fn(),
+    canUndo: false,
+    canRedo: false,
+    peekUndo: null,
+    peekRedo: null,
   }),
 }), { virtual: true });
 vi.mock("@/lib/errors", () => ({
