@@ -72,6 +72,8 @@ export default function ColoredEdge(props: EdgeProps) {
     return next;
   })();
 
+  const interactionWidth = 24;
+
   return (
     <g>
       <defs>
@@ -85,6 +87,15 @@ export default function ColoredEdge(props: EdgeProps) {
           </filter>
         ) : null}
       </defs>
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={interactionWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="stroke"
+      />
       <g filter={selected ? `url(#${dropShadowId})` : undefined}>
         {selected ? (
           <path
@@ -112,4 +123,3 @@ export default function ColoredEdge(props: EdgeProps) {
     </g>
   );
 }
-
