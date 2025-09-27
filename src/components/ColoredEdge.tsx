@@ -52,8 +52,16 @@ export default function ColoredEdge(props: EdgeProps) {
   const colorStart = THEME.pinColors[sourceKey] ?? THEME.selectionColor;
   const colorEnd = THEME.pinColors[targetKey] ?? THEME.selectionColor;
   const gradientId = `edge-gradient-${id}`;
+  const dropShadowId = `edge-shadow-${id}`;
 
   const strokeWidth = selected ? 3.5 : 3;
+  const outlineWidth = strokeWidth + 3;
+
+  const shadowPadding = 18;
+  const minX = Math.min(sourceX, targetX) - shadowPadding;
+  const minY = Math.min(sourceY, targetY) - shadowPadding;
+  const width = Math.max(Math.abs(targetX - sourceX) + shadowPadding * 2, shadowPadding * 2);
+  const height = Math.max(Math.abs(targetY - sourceY) + shadowPadding * 2, shadowPadding * 2);
 
   // Avoid any external style "stroke" overriding our gradient
   const cleanedStyle = (() => {
@@ -71,18 +79,37 @@ export default function ColoredEdge(props: EdgeProps) {
           <stop offset="0%" stopColor={colorStart} />
           <stop offset="100%" stopColor={colorEnd} />
         </linearGradient>
+        {selected ? (
+          <filter id={dropShadowId} x={minX} y={minY} width={width} height={height} filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#000" floodOpacity="0.35" />
+          </filter>
+        ) : null}
       </defs>
-      <path
-        id={id}
-        d={edgePath}
-        fill="none"
-        stroke={`url(#${gradientId})`}
-        strokeWidth={strokeWidth}
-        style={cleanedStyle}
-        markerEnd={markerEnd}
-      />
+      <g filter={selected ? `url(#${dropShadowId})` : undefined}>
+        {selected ? (
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={outlineWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={cleanedStyle}
+          />
+        ) : null}
+        <path
+          id={id}
+          d={edgePath}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={cleanedStyle}
+          markerEnd={markerEnd}
+        />
+      </g>
     </g>
   );
 }
-
 
