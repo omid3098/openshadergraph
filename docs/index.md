@@ -12,4 +12,4 @@ Some artists or tech artists prefer to use node-based solutions to create shader
 - Educational resources and community examples are fragmented by engine.
 - Some engines are not even supported by any node-based editor.
 
-OpenShaderGraph is a solution to all of these problems.
+OpenShaderGraph is an engine‑agnostic node graph for authoring shaders. It focuses on canonical data and template‑driven compilation rather than editor‑specific logic, so you can build once and export to multiple targets.

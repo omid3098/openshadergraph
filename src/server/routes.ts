@@ -33,12 +33,21 @@ export function buildRoutes() {
       const url = new URL(req.url);
       const rel = url.pathname.replace(/^\/docs\/?/, "");
       if (rel === "") return serveDocsIndexWithBase();
-      const candidate = `dist/docs/${rel}`;
-      const f = Bun.file(candidate);
-      if (await f.exists()) return new Response(f);
+      // Try exact file
+      const exact = `dist/docs/${rel}`;
+      const exactFile = Bun.file(exact);
+      if (await exactFile.exists()) return new Response(exactFile);
+      // Try directory index (e.g. /foo/ -> /foo/index.html)
+      const withoutTrailing = rel.replace(/\/$/, "");
+      const dirIndex = `dist/docs/${withoutTrailing}/index.html`;
+      const dirIndexFile = Bun.file(dirIndex);
+      if (await dirIndexFile.exists()) return new Response(dirIndexFile);
+      // Try .html variant (e.g. /foo -> /foo.html)
+      const htmlVariant = `dist/docs/${withoutTrailing}.html`;
+      const htmlFile = Bun.file(htmlVariant);
+      if (await htmlFile.exists()) return new Response(htmlFile);
       // Fallback to docs index for SPA-ish internal nav
       return await serveDocsIndexWithBase();
-      
     },
     "/*": async (req: Request) => {
       try {
@@ -50,8 +59,18 @@ export function buildRoutes() {
         }
         if (pathname.startsWith("/docs/")) {
           const docsPath = pathname.replace(/^\/docs\/?/, "");
-          const filePath = `dist/docs/${docsPath || "index.html"}`;
-          const file = Bun.file(filePath);
+          // Try exact file
+          const exact = `dist/docs/${docsPath || "index.html"}`;
+          let file = Bun.file(exact);
+          if (await file.exists()) return new Response(file);
+          // Try directory index
+          const withoutTrailing = docsPath.replace(/\/$/, "");
+          const dirIndex = `dist/docs/${withoutTrailing}/index.html`;
+          file = Bun.file(dirIndex);
+          if (await file.exists()) return new Response(file);
+          // Try .html variant
+          const htmlVariant = `dist/docs/${withoutTrailing}.html`;
+          file = Bun.file(htmlVariant);
           if (await file.exists()) return new Response(file);
           return await serveDocsIndexWithBase();
         }
