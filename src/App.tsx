@@ -61,6 +61,7 @@ import { VIEW_MENU_ITEMS, isEditableHotkeyTarget } from "./core/ui/hotkeys";
 import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
 import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi, type GraphSnapshot } from "./core/ui/useGraphHistory";
 import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
+import { useAutoFitOnViewPathChange } from "./core/ui/useAutoFitView";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -705,15 +706,39 @@ export function App() {
       return !meta.includes("editor_node");
     });
   }, [nodes, currentParentId, showCompileOnly]);
-  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
+  const visibleNodeIdSet = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
+  const visibleNodeIds = useMemo(() => visibleNodes.map((n: any) => n.id), [visibleNodes]);
   const visibleEdges = useMemo(() => {
-    const filtered = edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+    const filtered = edges.filter((e) => visibleNodeIdSet.has(e.source) && visibleNodeIdSet.has(e.target));
     // Avoid expensive edge recoloring while dragging/resizing; edge component can infer on the fly
     if (resizingEditorIdsRef.current.size > 0 || draggingNodeIdsRef.current.size > 0) {
       return filtered;
     }
     return ensureColoredEdges(filtered, nodesRef.current);
-  }, [edges, visibleNodeIds, ensureColoredEdges]);
+  }, [edges, visibleNodeIdSet, ensureColoredEdges]);
+
+  const fitViewToNodeIds = useCallback(
+    (nodeIds: string[]) => {
+      if (!nodeIds.length) return;
+      try {
+        rf.fitView({
+          padding: 0.12,
+          includeHiddenNodes: false,
+          nodes: nodeIds.map((id) => ({ id })),
+        } as any);
+      } catch (_err) {
+        // ignore viewport fit failures
+      }
+    },
+    [rf]
+  );
+
+  useAutoFitOnViewPathChange({
+    viewPath,
+    visibleNodeIds,
+    disabled: fitAfterLoadRef.current,
+    fitView: fitViewToNodeIds,
+  });
 
   const activeEditorPanels = useMemo(() => {
     const set = new Set<EditorPanelKey>();
@@ -1988,27 +2013,44 @@ export function App() {
   // After a graph is loaded/created and the view path is applied, fit the viewport to visible nodes once
   useEffect(() => {
     if (!fitAfterLoadRef.current) return;
-    if (!visibleNodes.length) return;
+    if (!visibleNodeIds.length) return;
     // Defer to ensure nodes are mounted and measured
+    let frame: number | null = null;
+    let frame2: number | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let timeout2: ReturnType<typeof setTimeout> | null = null;
+
     const run = () => {
       try {
-        fitAfterLoadRef.current = false;
-        rf.fitView({
-          padding: 0.12,
-          includeHiddenNodes: false,
-          nodes: visibleNodes.map((n: any) => ({ id: n.id })),
-        } as any);
-      } catch (_err) {
-        // ignore
+        fitViewToNodeIds(visibleNodeIds);
+      } finally {
         fitAfterLoadRef.current = false;
       }
     };
+
     if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(run);
+      frame = window.requestAnimationFrame(() => {
+        frame2 = window.requestAnimationFrame(run);
+      });
     } else {
-      setTimeout(run, 0);
+      timeout = setTimeout(() => {
+        timeout2 = setTimeout(run, 0);
+      }, 0);
     }
-  }, [rf, visibleNodes, currentParentId]);
+
+    return () => {
+      if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+        if (frame !== null) window.cancelAnimationFrame(frame);
+        if (frame2 !== null) window.cancelAnimationFrame(frame2);
+      }
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+      if (timeout2 !== null) {
+        clearTimeout(timeout2);
+      }
+    };
+  }, [fitViewToNodeIds, visibleNodeIds, currentParentId]);
 
   return (
     <GraphStateProvider value={graphStateValue}>
