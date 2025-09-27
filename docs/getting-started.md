@@ -2,71 +2,47 @@
 title: Getting Started
 ---
 
-# Getting Started
+# Getting Started (Artists)
 
-This guide helps you run the app, explore nodes, and create your first graph.
+This guide focuses on creating your first material in the graph editor. Technical setup is covered separately in [Developers](developers.md).
 
-## Prerequisites
+## Create Your First Material
 
-- Bun runtime installed (`bun --version`)
-- Node-compatible toolchain for dev (TypeScript, ESLint are included)
-- Optional for docs: Python + `mkdocs` per `requirements.txt`
+1- From main menu, click on 'File' -> 'New' -> 'PBR'.
+This will create a new PBR graph and show the fragment pass by default.
 
-## Install and Run
+<figure markdown="span">
+  ![New Graph](./assets/01_newgraph.png){ width="700" }
+  <figcaption>New Graph</figcaption>
+</figure>
 
-```bash
-bun install
+Notice that in the top bar, you see **`Untitled Pbr > Surface > FragmentPass`**.
+A new PBR graph (Unlit and Toon are also the same) is structured like this:
 
-# Start dev server (hot):
-bun run dev
-
-# Or run production build and server:
-bun run build && bun run start
+```mermaid
+graph TD
+    A[Untitled Pbr] --> B[Surface]
+    B --> C[FragmentPass]
+    B --> D[VertexPass]
+    C --> E[FragmentOutput]
+    D --> F[VertexOutput]
 ```
-
-When the server starts, you’ll see a URL like:
-
-```text
-🚀 Server running at http://localhost:3000
-```
-
-Open the URL to access the editor. The preview compiles ThreeJS GLSL under the hood regardless of the selected export language.
-
-## Explore Nodes
-
-Canonical node definitions live in `data/nodes/**.json`. The editor loads these at runtime via `/api/nodes`. Language packs live in `data/languages/*.json` and define how nodes compile per backend.
-
-Key nodes to try:
-
-- `constants/color` → RGBA color input
-- `math/add`, `math/multiply` → arithmetic
-- `fragment_output` → connects material channels like Albedo, Roughness, Metallic
-
-## Create Your First Graph
 
 1. Add a `Color` node and pick a color.
-2. Add `FragmentOutput` and connect `Color.out` to `Albedo`.
-3. Adjust `Roughness` and `Metallic` as needed.
+2. Add `FragmentOutput` and connect `Color.out` → `Albedo`.
+3. Adjust `Roughness` and `Metallic` for the look you want.
 
-You should see the preview update instantly. Use the inspector to tweak inputs and properties. IDs, pin order, and hierarchy are preserved on save.
+Tip: You can connect any node that outputs a color (float3/float4) to `Albedo`.
 
-## Examples
+## Build Variations Quickly
 
-Two ready-made examples are included under `examples/` and in the UI examples panel:
+- Try `Add` or `Multiply` to combine colors.
+- Use `UV` and `Texture` nodes to sample images.
+- Drive `Emission` with bright colors for glow.
 
-- Basic Color (`examples/basic_color.json`)
-- Addition (Color + Color) (`examples/addition_color_color.json`)
+## Examples to Load
 
-## Running the Docs Locally
+- Basic Color
+- Addition (Color + Color)
 
-```bash
-# Serve docs at http://localhost:8000 by default
-bun run docs:dev
-
-# Build docs into dist/docs (served by the app in production)
-bun run docs:build
-```
-
-If `mkdocs` is missing, follow the hint printed by the scripts to create a virtualenv and install from `requirements.txt`.
-
-Continue with Features to understand the core concepts and guardrails.
+Open Tutorials next for step‑by‑step walkthroughs.
