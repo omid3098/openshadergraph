@@ -2,6 +2,7 @@ import type { Edge, Node, XYPosition } from "@xyflow/react";
 import type { GraphNode } from "@/core/graph/types";
 import type { NodeProperty, NodeTemplate } from "@/core/schema/types";
 import { parseEditorSize } from "./nodeFactory";
+import { RF_LAYOUT_DEFAULTS } from "./layoutDefaults";
 
 export type AssetEntry = {
   id: string;
@@ -131,10 +132,10 @@ function collectAssetCandidates(properties: NodeProperty[] | undefined, assetPro
 
 export function buildReactFlowGraph({ root, defaults, assets, options }: BuildReactFlowGraphContext): BuildReactFlowGraphResult {
   const layout = {
-    depthX: options?.layout?.depthX ?? 240,
-    rowY: options?.layout?.rowY ?? 120,
-    baseX: options?.layout?.baseX ?? 80,
-    baseY: options?.layout?.baseY ?? 40,
+    depthX: options?.layout?.depthX ?? RF_LAYOUT_DEFAULTS.depthX,
+    rowY: options?.layout?.rowY ?? RF_LAYOUT_DEFAULTS.rowY,
+    baseX: options?.layout?.baseX ?? RF_LAYOUT_DEFAULTS.baseX,
+    baseY: options?.layout?.baseY ?? RF_LAYOUT_DEFAULTS.baseY,
   };
 
   const createdNodes: Node[] = [];

@@ -48,6 +48,7 @@ import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { loadAssetRegistry } from "./core/assets/registry";
 import { createTemplateCache, type TemplateCache } from "./core/ui/templateCache";
 import { buildReactFlowGraph } from "./core/ui/reactFlowGraph";
+import { computeDefaultPassLayout } from "./core/ui/layoutDefaults";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 import { Button } from "./components/ui/button";
@@ -1473,17 +1474,19 @@ export function App() {
         const fragmentOutput = deepClone(foutTpl);
         const previewNode = previewTpl ? deepClone(previewTpl) : undefined;
 
+        const passLayout = computeDefaultPassLayout();
+        vertexPass.position = passLayout.vertexPass;
+        fragmentPass.position = passLayout.fragmentPass;
+        vertexOutput.position = passLayout.vertexOutput;
+        fragmentOutput.position = passLayout.fragmentOutput;
+        if (previewNode) previewNode.position = passLayout.preview;
+
         vertexPass.nodes = [vertexOutput];
         fragmentPass.nodes = [fragmentOutput];
 
-        // Position preview panel next to fragment output if available
-        // Use the same row (y) and push it to the right (x) so they appear side-by-side
-        // Layout defaults come from buildReactFlowGraph: baseX=80, baseY=40, depthX=240
-        // Children of fragment_pass are at depth=2 -> fallback x would be 80 + 2*240 = 560
         if (previewNode) {
           // Ensure meta array exists (editor node sizing comes from template meta)
           if (!Array.isArray(previewNode.meta)) previewNode.meta = [];
-          previewNode.position = [560 + 170, 40];
           fragmentPass.nodes.push(previewNode as any);
         }
 
