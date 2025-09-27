@@ -43,6 +43,7 @@ nav:
 
 plugins:
   - search
+  - glightbox
 
 markdown_extensions:
   - admonition

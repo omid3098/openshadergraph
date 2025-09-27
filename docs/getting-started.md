@@ -11,10 +11,9 @@ This guide focuses on creating your first material in the graph editor. Technica
 1- From main menu, click on 'File' -> 'New' -> 'PBR'.
 This will create a new PBR graph and show the fragment pass by default.
 
-<figure markdown="span">
-  ![New Graph](./assets/01_newgraph.png){ width="700" }
-  <figcaption>New Graph</figcaption>
-</figure>
+[![New Graph](./assets/01_newgraph.png){ width="700" loading=lazy }](./assets/01_newgraph.png){ .glightbox }
+
+New Graph
 
 Notice that in the top bar, you see **`Untitled Pbr > Surface > FragmentPass`**.
 A new PBR graph (Unlit and Toon are also the same) is structured like this:
@@ -27,6 +26,8 @@ graph TD
     C --> E[FragmentOutput]
     D --> F[VertexOutput]
 ```
+
+You can click on the breadcrumb to navigate to the parent nodes or double click on the node to navigate to the node details.
 
 1. Add a `Color` node and pick a color.
 2. Add `FragmentOutput` and connect `Color.out` → `Albedo`.
