@@ -54,8 +54,8 @@ function shouldBlockNodePointer(target: EventTarget | null): boolean {
 }
 
 export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) {
-  // Handle (pin) visual size. Doubling from default.
-  const HANDLE_SIZE = 8; // px
+  // Handle (pin) visual size. Slightly larger for easier targeting.
+  const HANDLE_SIZE = 10; // px
   const HANDLE_OFFSET = -Math.ceil(HANDLE_SIZE / 2 + 8);
   // Spacing for the inline default-value widgets shown near input pins
   // Increase the gap slightly so the widget does not cover the pin shape
@@ -252,6 +252,21 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
   }, [editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
 
+  const cardRingVars = useMemo(
+    () =>
+      ({
+        borderRadius: "inherit",
+        "--tw-ring-color": selected ? THEME.selectionColor : "var(--border)",
+        "--tw-ring-offset-color": "var(--card)",
+      }) as React.CSSProperties & {
+        "--tw-ring-color"?: string;
+        "--tw-ring-offset-color"?: string;
+      },
+    [selected]
+  );
+  const ringClass = selected ? "ring-2" : "ring-1";
+  const ringBaseClass = "border-0 ring-offset-0";
+
   if (isEditor) {
     return (
       <div className="relative w-full h-full">
@@ -262,18 +277,22 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           minHeight={200}
         />
         <Card
-          className="h-full flex flex-col overflow-hidden"
-          style={{
-            borderRadius: "inherit",
-            ...(selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : {}),
-          }}
+          className={cn("h-full flex flex-col", ringBaseClass, ringClass)}
+          style={cardRingVars}
           onPointerDownCapture={(event) => {
             if (shouldBlockNodePointer(event.target)) {
               event.stopPropagation();
             }
           }}
         >
-          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center" style={headerStyle}>
+          <CardHeader
+            className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center"
+            style={{
+              ...headerStyle,
+              borderTopLeftRadius: "inherit",
+              borderTopRightRadius: "inherit",
+            }}
+          >
             <div className="flex items-center gap-2">
               <PanelsTopLeft className="h-3.5 w-3.5 text-white/90" />
               <CardTitle className="text-sm text-white">{name}</CardTitle>
@@ -289,18 +308,22 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
 
   return (
     <Card
-      className={cn("min-w-[130px] w-[160px] overflow-hidden", selected && "border-2")}
-      style={{
-        borderRadius: "inherit",
-        ...(selected ? { borderColor: THEME.selectionColor } : {}),
-      }}
+      className={cn("min-w-[130px] w-[160px]", ringBaseClass, ringClass)}
+      style={cardRingVars}
       onPointerDownCapture={(event) => {
         if (shouldBlockNodePointer(event.target)) {
           event.stopPropagation();
         }
       }}
     >
-      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center" style={headerStyle}>
+      <CardHeader
+        className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center"
+        style={{
+          ...headerStyle,
+          borderTopLeftRadius: "inherit",
+          borderTopRightRadius: "inherit",
+        }}
+      >
         <div className="flex items-center gap-2">
           {(() => {
             if (category === "asset") return <Paperclip className="h-3.5 w-3.5 text-white/90" />;
@@ -346,6 +369,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 height: HANDLE_SIZE,
                 backgroundColor: inColor,
                 borderRadius: inShape === "circle" ? 9999 : 2,
+                zIndex: 5,
                 transform: inShape === "diamond" ? "rotate(45deg)" : undefined,
               };
               return (
@@ -396,6 +420,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 height: HANDLE_SIZE,
                 backgroundColor: outColor,
                 borderRadius: outShape === "circle" ? 9999 : 2,
+                zIndex: 5,
                 transform: outShape === "diamond" ? "rotate(45deg)" : undefined,
               };
               return (

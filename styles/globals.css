@@ -182,6 +182,7 @@
 .react-flow__node-graphNode {
   --xy-node-border-radius: var(--radius-xl);
   border-radius: var(--radius-xl);
+  overflow: visible;
 }
 
 .react-flow__node-graphNode > [data-slot="card"] {
