@@ -179,6 +179,15 @@
   overflow: hidden;
 }
 
+.react-flow__node-graphNode {
+  --xy-node-border-radius: var(--radius-xl);
+  border-radius: var(--radius-xl);
+}
+
+.react-flow__node-graphNode > [data-slot="card"] {
+  border-radius: inherit;
+}
+
 /* Hide number input spinners for float editors */
 input.no-spinner[type="number"]::-webkit-outer-spin-button,
 input.no-spinner[type="number"]::-webkit-inner-spin-button {

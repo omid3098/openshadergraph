@@ -262,15 +262,18 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           minHeight={200}
         />
         <Card
-          className="h-full flex flex-col"
-          style={selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : undefined}
+          className="h-full flex flex-col overflow-hidden"
+          style={{
+            borderRadius: "inherit",
+            ...(selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : {}),
+          }}
           onPointerDownCapture={(event) => {
             if (shouldBlockNodePointer(event.target)) {
               event.stopPropagation();
             }
           }}
         >
-          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center rounded-t-xl" style={headerStyle}>
+          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center" style={headerStyle}>
             <div className="flex items-center gap-2">
               <PanelsTopLeft className="h-3.5 w-3.5 text-white/90" />
               <CardTitle className="text-sm text-white">{name}</CardTitle>
@@ -286,15 +289,18 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
 
   return (
     <Card
-      className={cn("min-w-[130px] w-[160px]", selected && "border-2")}
-      style={{ borderColor: selected ? THEME.selectionColor : undefined }}
+      className={cn("min-w-[130px] w-[160px] overflow-hidden", selected && "border-2")}
+      style={{
+        borderRadius: "inherit",
+        ...(selected ? { borderColor: THEME.selectionColor } : {}),
+      }}
       onPointerDownCapture={(event) => {
         if (shouldBlockNodePointer(event.target)) {
           event.stopPropagation();
         }
       }}
     >
-      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center rounded-t-xl" style={headerStyle}>
+      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center" style={headerStyle}>
         <div className="flex items-center gap-2">
           {(() => {
             if (category === "asset") return <Paperclip className="h-3.5 w-3.5 text-white/90" />;
