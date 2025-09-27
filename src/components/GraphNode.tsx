@@ -256,16 +256,16 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     () =>
       ({
         borderRadius: "inherit",
-        "--tw-ring-color": selected ? THEME.selectionColor : "var(--border)",
-        "--tw-ring-offset-color": "var(--card)",
+        "--tw-ring-color": selected ? "#ffffff" : "var(--border)",
+        "--tw-ring-offset-color": selected ? "#000000" : "var(--card)",
       }) as React.CSSProperties & {
         "--tw-ring-color"?: string;
         "--tw-ring-offset-color"?: string;
       },
     [selected]
   );
-  const ringClass = selected ? "ring-2" : "ring-1";
-  const ringBaseClass = "border-0 ring-offset-0";
+  const ringClass = selected ? "ring-2 ring-offset-2" : "ring-1 ring-offset-0";
+  const ringBaseClass = "border-0";
 
   if (isEditor) {
     return (
