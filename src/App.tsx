@@ -50,6 +50,7 @@ import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { loadAssetRegistry } from "./core/assets/registry";
 import { createTemplateCache, type TemplateCache } from "./core/ui/templateCache";
 import { buildReactFlowGraph } from "./core/ui/reactFlowGraph";
+import { alignSelectedNodes, distributeSelectedNodes, type AlignmentKind, type DistributionKind } from "@/core/ui/arrange";
 import { computeDefaultPassLayout } from "./core/ui/layoutDefaults";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
@@ -77,6 +78,20 @@ const nodeDefaults = {
 const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
+
+const ALIGNMENT_LABELS: Record<AlignmentKind, string> = {
+  left: "Align Left",
+  center: "Align Center",
+  right: "Align Right",
+  top: "Align Top",
+  middle: "Align Middle",
+  bottom: "Align Bottom",
+};
+
+const DISTRIBUTION_LABELS: Record<DistributionKind, string> = {
+  horizontal: "Distribute Horizontally",
+  vertical: "Distribute Vertically",
+};
 
 type CanonicalNode = {
   id: number;
@@ -1933,6 +1948,42 @@ export function App() {
     [loadTemplateDefaults, nodeUpdaterApi, nodesById, setEdges, setNodes]
   );
 
+  const alignSelection = useCallback(
+    (alignment: AlignmentKind) => {
+      setNodes((prev) => {
+        const selected = prev.filter((n) => n.selected);
+        if (selected.length <= 1) return prev;
+        const selectedIds = new Set(selected.map((n) => n.id));
+        const { nodes: alignedNodes, changed } = alignSelectedNodes(prev, selectedIds, alignment);
+        if (!changed) return prev;
+        const label = selected.length === 1
+          ? (((selected[0]?.data as any)?.label ?? (selected[0]?.data as any)?.type ?? selected[0]?.id) as string)
+          : `${selected.length} nodes`;
+        beginHistoryActionRef.current({ type: `align-${alignment}`, summary: `${label} • ${ALIGNMENT_LABELS[alignment]}` });
+        pendingGraphUpdateRef.current = true;
+        return attachNodesUpdateApi(alignedNodes as any, nodeUpdaterApi) as any;
+      });
+    },
+    [nodeUpdaterApi, setNodes]
+  );
+
+  const distributeSelection = useCallback(
+    (distribution: DistributionKind) => {
+      setNodes((prev) => {
+        const selected = prev.filter((n) => n.selected);
+        if (selected.length <= 2) return prev;
+        const selectedIds = new Set(selected.map((n) => n.id));
+        const { nodes: distributedNodes, changed } = distributeSelectedNodes(prev, selectedIds, distribution);
+        if (!changed) return prev;
+        const label = `${selected.length} nodes`;
+        beginHistoryActionRef.current({ type: `distribute-${distribution}`, summary: `${label} • ${DISTRIBUTION_LABELS[distribution]}` });
+        pendingGraphUpdateRef.current = true;
+        return attachNodesUpdateApi(distributedNodes as any, nodeUpdaterApi) as any;
+      });
+    },
+    [nodeUpdaterApi, setNodes]
+  );
+
   // Group selected nodes into a new container node with dynamic I/O
   const groupSelected = () => {
     const selected = nodesRef.current.filter((n) => n.selected);
@@ -2406,6 +2457,16 @@ export function App() {
                 })()}
                 onUngroupNode={(id) => {
                   ungroupGroup(id);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onAlignSelected={(alignment) => {
+                  alignSelection(alignment);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onDistributeSelected={(distribution) => {
+                  distributeSelection(distribution);
                   setMenu((m) => ({ ...m, open: false }));
                   setMenuPaletteOverride(null);
                 }}
