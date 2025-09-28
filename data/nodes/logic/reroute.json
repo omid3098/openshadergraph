@@ -1,0 +1,50 @@
+{
+  "id": -1,
+  "type": "reroute",
+  "name": "Reroute",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "in",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4",
+        "int",
+        "bool",
+        "mat3",
+        "mat4",
+        "sampler",
+        "sampler2d",
+        "sampler3d",
+        "samplercube"
+      ],
+      "value": ""
+    }
+  ],
+  "outputs": [
+    {
+      "id": 0,
+      "name": "out",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4",
+        "int",
+        "bool",
+        "mat3",
+        "mat4",
+        "sampler",
+        "sampler2d",
+        "sampler3d",
+        "samplercube"
+      ]
+    }
+  ],
+  "properties": []
+}

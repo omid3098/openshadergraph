@@ -62,7 +62,8 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const INPUT_WIDGET_GAP_PX = 20; // was ~15px, give a little breathing room
   // Approx half width of the mini widget (for drawing the decorative line from its center)
   const INPUT_WIDGET_HALF_PX = 0;
-  const name = data?.label ?? data?.type ?? "Node";
+  const nodeType = data?.template?.type ?? data?.type ?? "";
+  const name = data?.label ?? nodeType ?? data?.type ?? "Node";
   const inputs: Pin[] = useMemo(() => {
     return Array.isArray(data?.template?.inputs) ? (data!.template!.inputs! as Pin[]) : [];
   }, [data]);
@@ -92,14 +93,16 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   type NodeCategory = "editor" | "asset" | "input" | "transform" | "output";
   const category: NodeCategory = useMemo(() => {
     if (isEditor) return "editor";
-    const t = (data?.template?.type ?? data?.type ?? "").toLowerCase();
+    const t = nodeType.toLowerCase();
     if (t.endsWith("_output") || t === "vertex_output" || t === "fragment_output") return "output";
     if (currentAsset || hasAssetProperty) return "asset";
     const hasNoInputs = (Array.isArray(inputs) ? inputs.length : 0) === 0;
     const hasOutputs = (Array.isArray(outputs) ? outputs.length : 0) > 0;
     if (hasNoInputs && hasOutputs) return "input";
     return "transform";
-  }, [isEditor, data, currentAsset, hasAssetProperty, inputs, outputs]);
+  }, [isEditor, currentAsset, hasAssetProperty, inputs, outputs, nodeType]);
+
+  const isReroute = nodeType === "reroute";
 
   const headerStyle = useMemo(() => {
     const defaultCategoryColors = {
@@ -267,6 +270,91 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const ringClass = selected ? "ring-2 ring-offset-2" : "ring-1 ring-offset-0";
   const ringBaseClass = "border-0";
 
+  if (isReroute) {
+    const maxPins = Math.max(inputs.length, outputs.length, 1);
+    const totalInputs = inputs.length || 1;
+    const totalOutputs = outputs.length || 1;
+    const baseSize = 28;
+    const verticalSpacing = 18;
+    const rerouteHeight = Math.max(baseSize, maxPins * verticalSpacing);
+    const handleSize = 10;
+
+    const getHandleStyle = (
+      type: Pin["type"],
+      index: number,
+      total: number,
+      side: "left" | "right"
+    ): React.CSSProperties => {
+      const { color, shape } = getPinTypeColor(type);
+      const top = ((index + 0.5) / total) * 100;
+      const transform = shape === "diamond" ? "translateY(-50%) rotate(45deg)" : "translateY(-50%)";
+      const style: React.CSSProperties = {
+        top: `${top}%`,
+        width: handleSize,
+        height: handleSize,
+        backgroundColor: color,
+        borderRadius: shape === "circle" ? 9999 : 2,
+        transform,
+        zIndex: 5,
+      };
+      if (side === "left") {
+        style.left = -(handleSize / 2 + 3);
+      } else {
+        style.right = -(handleSize / 2 + 3);
+      }
+      return style;
+    };
+
+    return (
+      <div
+        data-reroute-node
+        className={cn(
+          "relative flex items-center justify-center rounded-md border border-border bg-card/80 node-drag-handle cursor-grab active:cursor-grabbing",
+          ringClass
+        )}
+        style={{
+          ...cardRingVars,
+          width: baseSize,
+          minWidth: baseSize,
+          height: rerouteHeight,
+          minHeight: baseSize,
+          padding: 4,
+        }}
+        onPointerDownCapture={(event) => {
+          if (shouldBlockNodePointer(event.target)) {
+            event.stopPropagation();
+          }
+        }}
+      >
+        <div className="w-2.5 h-2.5 rounded-sm border border-border/70 bg-background/70" />
+        {inputs.map((pin, idx) => {
+          const pid = typeof pin.id === "number" ? pin.id : idx;
+          return (
+            <Handle
+              key={`in-${pid}`}
+              id={`in-${pid}`}
+              type="target"
+              position={Position.Left}
+              style={getHandleStyle(pin.type, idx, totalInputs, "left")}
+            />
+          );
+        })}
+        {outputs.map((pin, idx) => {
+          const pid = typeof pin.id === "number" ? pin.id : idx;
+          return (
+            <Handle
+              key={`out-${pid}`}
+              id={`out-${pid}`}
+              type="source"
+              position={Position.Right}
+              style={getHandleStyle(pin.type, idx, totalOutputs, "right")}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
   if (isEditor) {
     return (
       <div className="relative w-full h-full">
@@ -359,7 +447,6 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
               const connected = isConnected(pid);
               const val = Array.isArray(pin.value) ? (pin.value as number[]) : undefined;
               const builtinLabel = isBuiltinToken(pin.value) ? getBuiltinDisplayLabel(pin.value) : undefined;
-              const nodeType = data?.template?.type ?? data?.type ?? "";
               const showColor = !connected && nodeType === "color" && pin.name === "in" && Array.isArray(val) && val.length >= 3;
               const showDefaultWidget = !connected && (Array.isArray(val) || typeof builtinLabel === "string");
               const { color: inColor, shape: inShape } = getPinTypeColor(pin.type);

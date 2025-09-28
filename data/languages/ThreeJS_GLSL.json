@@ -101,6 +101,9 @@
     "equal": {
       "template": "float {{name}} = abs({{inputs:0}} - {{inputs:1}}) <= {{inputs:2}} ? 1.0 : 0.0;"
     },
+    "reroute": {
+      "template": "{{type}} {{name}} = {{inputs:0}};"
+    },
     "select": {
       "template": "{{type}} {{name}} = mix({{inputs:2}}, {{inputs:1}}, step(0.5, {{inputs:0}}));"
     },

@@ -16,7 +16,7 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType, getPinTypeFor, arePinTypesCompatible, getPinTypeOptionsFor } from "@/core/ui/compat";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
@@ -35,6 +35,7 @@ import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { serializeGraph as serializeGraphForSave, inflateGraph } from "./core/ui/graphSerde";
 import { connectSingleInputEdge } from "./core/ui/edges";
+import { createRerouteInsertion, inferSharedParentId } from "./core/ui/reroute";
 import {
   clearRecentGraphs,
   loadRecentGraphs,
@@ -963,6 +964,67 @@ export function App() {
     }),
     [nodesById, nodeUpdaterApi, graphData, undoHistory, redoHistory, canUndo, canRedo, peekUndo, peekRedo]
   );
+
+  const handleEdgeDoubleClick = useCallback((event: MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!edge) return;
+    const item = paletteByType.get("reroute");
+    if (!item) return;
+    const cache = templateCacheRef.current;
+    if (!cache) return;
+
+    const client = { x: event.clientX, y: event.clientY };
+    let position;
+    try {
+      position = rf.screenToFlowPosition(client);
+    } catch (_err) {
+      position = { x: client.x, y: client.y };
+    }
+
+    const run = async () => {
+      let template: NodeTemplate | undefined;
+      try {
+        template = await cache.load(item.type, item.path);
+      } catch (err) {
+        console.warn("Failed to load reroute node template", err);
+        return;
+      }
+      if (!template) return;
+      cache.prime(item.type, template);
+
+      const edgesNow = edgesRef.current as Edge[];
+      const nodesNow = nodesRef.current as Node[];
+      if (!edgesNow.some((e) => e.id === edge.id)) return;
+      const nextIdNum = idCounter.current + 1;
+      const nextId = String(nextIdNum);
+
+      try {
+        const insertion = createRerouteInsertion({
+          edge,
+          edges: edgesNow,
+          nodes: nodesNow,
+          template,
+          item,
+          position,
+          nextId,
+          nodeDefaults,
+        });
+
+        const decoratedNode = attachNodeUpdateApi(insertion.node as any, nodeUpdaterApi);
+        beginHistoryActionRef.current({ type: "add-node", summary: `${item.name ?? item.type} • Add` });
+        idCounter.current = nextIdNum;
+        pendingGraphUpdateRef.current = true;
+        setNodes((prev) => [...prev, decoratedNode as any]);
+        const nodesForColor = [...nodesNow, decoratedNode as any];
+        setEdges(() => ensureColoredEdges(insertion.edges, nodesForColor as any));
+      } catch (err) {
+        console.warn("Failed to insert reroute node", err);
+      }
+    };
+
+    void run();
+  }, [ensureColoredEdges, nodeUpdaterApi, paletteByType, rf, setEdges, setNodes]);
 
   // Stabilize ReactFlow config to reduce unnecessary re-renders
   const nodeTypes = useMemo(() => ({ graphNode: GraphNode }), []);
@@ -2156,6 +2218,7 @@ export function App() {
             setMenuPaletteOverride(null);
             setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
           }}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
           onEdgeContextMenu={(e, edge) => {
             e.preventDefault();
             setMenuPaletteOverride(null);

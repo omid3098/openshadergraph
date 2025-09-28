@@ -317,6 +317,51 @@ export class GraphCompiler {
       }
     }
 
+    const visitedReroutes = new Set<number>();
+    const lookupNode = (current: GraphNode, id: number) => {
+      const parent = this.getParent(current);
+      const scope = parent ?? this.graph_data;
+      return this.get_node(scope, id);
+    };
+
+    while (target && target.type === "reroute") {
+      if (visitedReroutes.has(target.id)) {
+        target = undefined;
+        break;
+      }
+      visitedReroutes.add(target.id);
+      const pins = Array.isArray(target.inputs) ? target.inputs : [];
+      let rerouteInput = pins.find((p) => typeof p?.id === "number" ? p.id === output_id : false);
+      if (!rerouteInput && pins.length) rerouteInput = pins[0];
+      if (!rerouteInput || typeof rerouteInput.value !== "string") {
+        target = undefined;
+        break;
+      }
+      const match = rerouteInput.value.match(/^\.\.\/(\d+)\/(\d+)$/);
+      if (!match) {
+        target = undefined;
+        break;
+      }
+      const nextId = Number(match[1]);
+      const nextOutputId = Number(match[2]);
+      const nextTarget = lookupNode(target, nextId);
+      if (!nextTarget) {
+        target = undefined;
+        break;
+      }
+      target = nextTarget;
+      output_id = nextOutputId;
+    }
+
+    if (!target) {
+      const state = this.getPinState(input);
+      delete state.refType;
+      delete state.refNodeId;
+      delete state.refExpression;
+      state.missingRef = true;
+      return;
+    }
+
     this.process_node(target);
     const output_pin = target.outputs.find((o) => o.id === output_id)!;
     const targetState = this.getNodeState(target);
@@ -764,6 +809,10 @@ export class GraphCompiler {
 
   private compile_node(node: GraphNode) {
     if (this.has_code(node)) return;
+    if (node.type === "reroute") {
+      this.setNodeCode(node, "");
+      return;
+    }
     const props = Array.isArray(node.properties) ? node.properties : [];
     const isExposedProperty = !!props.find((p: any) => p && p.id === "expose" && !!(p as any).value);
     if (
