@@ -16,7 +16,7 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType, getPinTypeFor, arePinTypesCompatible, getPinTypeOptionsFor } from "@/core/ui/compat";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
@@ -30,6 +30,7 @@ import {
   type NodeUpdaterApi,
 } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
+import { SettingsProvider, type CurveMode, type ThemeName } from "./ui/state/SettingsContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
@@ -54,9 +55,10 @@ import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 import { Button } from "./components/ui/button";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
+import { SettingsPage } from "./ui/settings/SettingsPage";
 import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
-import { Check, Github, BookOpen } from "lucide-react";
+import { Check, Github, BookOpen, Layers, Settings as SettingsIcon } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { APP_VERSION_INFO } from "./version";
 import { VIEW_MENU_ITEMS, isEditableHotkeyTarget } from "./core/ui/hotkeys";
@@ -64,6 +66,8 @@ import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/hi
 import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi, type GraphSnapshot } from "./core/ui/useGraphHistory";
 import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
 import { useAutoFitOnViewPathChange } from "./core/ui/useAutoFitView";
+import { persistGet, persistSet } from "./lib/storage";
+import { cn } from "@/lib/utils";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -100,8 +104,51 @@ function triggerDownload(name: string, contents: string) {
   URL.revokeObjectURL(url);
 }
 
+function getInitialTheme(): ThemeName {
+  if (typeof document !== "undefined") {
+    if (document.documentElement.classList.contains("dark")) return "dark";
+  }
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return "light";
+}
+
+function isCurveModeValue(value: unknown): value is CurveMode {
+  return value === "default" || value === "smoothstep" || value === "step" || value === "straight" || value === "simplebezier";
+}
+
+type SidebarNavButtonProps = {
+  icon: ReactNode;
+  label: string;
+  collapsed: boolean;
+  active: boolean;
+  onClick: () => void;
+};
+
+function SidebarNavButton({ icon, label, collapsed, active, onClick }: SidebarNavButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+        collapsed ? "justify-center" : "justify-start",
+        active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {icon}
+      {!collapsed && <span>{label}</span>}
+    </button>
+  );
+}
+
 export function App() {
   const rf = useReactFlow();
+  const [activeView, setActiveView] = useState<"graph" | "settings">("graph");
+  const [theme, setThemeState] = useState<ThemeName>(() => getInitialTheme());
+  const [curveMode, setCurveModeState] = useState<CurveMode>("default");
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [palette, setPalette] = useState<NodePalette | null>(null);
@@ -137,6 +184,84 @@ export function App() {
   const dragSnapshotRef = useRef<GraphSnapshot | null>(null);
   const resizeSnapshotRef = useRef<GraphSnapshot | null>(null);
   const captureSnapshotFnRef = useRef<(() => GraphSnapshot) | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await persistGet<string>("ui.theme");
+      if (cancelled) return;
+      if (saved === "dark" || saved === "light") {
+        setThemeState(saved);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    void persistSet("ui.theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<string>("ui.curveMode");
+      if (cancelled) return;
+      if (isCurveModeValue(stored)) {
+        setCurveModeState(stored);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    void persistSet("ui.curveMode", curveMode);
+  }, [curveMode]);
+
+  const setTheme = useCallback((next: ThemeName) => {
+    setThemeState(next);
+  }, [setThemeState]);
+  const toggleTheme = useCallback(() => {
+    setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
+  }, [setThemeState]);
+  const setCurveMode = useCallback((next: CurveMode) => {
+    setCurveModeState(next);
+  }, [setCurveModeState]);
+
+  const settingsValue = useMemo(() => ({ theme, setTheme, curveMode, setCurveMode }), [theme, setTheme, curveMode, setCurveMode]);
+
+  const renderSidebar = useCallback(
+    ({ collapsed }: { collapsed: boolean }) => (
+      <nav className="flex-1 p-2 space-y-1">
+        <SidebarNavButton
+          icon={<Layers className="h-4 w-4" />}
+          label="Graph"
+          collapsed={collapsed}
+          active={activeView === "graph"}
+          onClick={() => setActiveView("graph")}
+        />
+        <SidebarNavButton
+          icon={<SettingsIcon className="h-4 w-4" />}
+          label="Settings"
+          collapsed={collapsed}
+          active={activeView === "settings"}
+          onClick={() => setActiveView("settings")}
+        />
+      </nav>
+    ),
+    [activeView, setActiveView]
+  );
+
+  useEffect(() => {
+    if (activeView !== "settings") return;
+    setMenu((m) => (m.open ? { ...m, open: false } : m));
+    setMenuPaletteOverride(null);
+  }, [activeView]);
 
   // MiniMap theme colors sourced from CSS variables and updated when theme changes
   const [mmColors, setMmColors] = useState<{ node: string; stroke: string; mask: string }>(() => {
@@ -2118,178 +2243,192 @@ export function App() {
   }, [fitViewToNodeIds, visibleNodeIds, currentParentId]);
 
   return (
-    <GraphStateProvider value={graphStateValue}>
-      <AppShell header={Header}>
-        <div ref={flowContainerRef} className="w-full h-full relative">
-          <ReactFlow
-          nodes={visibleNodes}
-          edges={visibleEdges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          defaultEdgeOptions={{ type: "colored" as any }}
-          deleteKeyCode={["Backspace", "Delete"]}
-          isValidConnection={isValidConnectionCb}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          onConnect={onConnect}
-          onConnectStart={(e: any, params: any) => {
-            try {
-              connectCompletedRef.current = false;
-              const side = String(params?.handleType) === "source" ? "source" : "target";
-              const nodeId = String(params?.nodeId ?? "");
-              const handleId = String(params?.handleId ?? "");
-              const t = getPinTypeFor(nodesRef.current as any, nodeId, handleId);
-              connectDragRef.current = { side, nodeId, handleId, type: t } as any;
-            } catch (_err) {
-              connectDragRef.current = null;
-            }
-          }}
-          onConnectEnd={(e: any) => {
-            try {
-              // If ReactFlow accepted the connection (snapped), suppress the add-node menu
-              if (connectCompletedRef.current) return;
-              const target = e?.target as Element | null;
-              const droppedOnHandle = !!(target && target.closest && target.closest(".react-flow__handle"));
-              if (!droppedOnHandle) {
-                const client = { x: e?.clientX ?? lastPointerRef.current?.x ?? 0, y: e?.clientY ?? lastPointerRef.current?.y ?? 0 };
-                void openFilteredAddMenuForDrag(client);
-                return;
-              }
-            } catch (_err) {
-              // ignore
-            } finally {
-              connectCompletedRef.current = false;
-              connectDragRef.current = null;
-            }
-          }}
-          onNodeDragStart={(_e, node) => {
-            try {
-              if (!dragSnapshotRef.current) {
-                const snapshotter = captureSnapshotFnRef.current;
-                if (snapshotter) dragSnapshotRef.current = snapshotter();
-              }
-              draggingNodeIdsRef.current.add(node.id);
-              pendingGraphUpdateRef.current = true;
-            } catch (_err) {
-              // ignore
-            }
-          }}
-          onNodeDragStop={() => {
-            try {
-              pendingGraphUpdateRef.current = true;
-            } catch (_err) {
-              // ignore
-            }
-          }}
-          panOnDrag={[1]}
-          selectionOnDrag
-          selectionMode={SelectionMode.Partial}
-          onNodeDoubleClick={(e, node) => {
-            // Drill into container nodes via double click
-            const t = (node.data as any)?.type;
-            if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
-              setViewPath((p) => [...p, node.id]);
-            }
-          }}
-          onPaneClick={() => {
-            // Close context menu when clicking the background pane
-            setMenu((m) => (m.open ? { ...m, open: false } : m));
-            setMenuPaletteOverride(null);
-          }}
-          onPaneContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
-          }}
-          onSelectionContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
-          }}
-          onDragOver={(event) => {
-            if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "copy";
-            }
-          }}
-          onDrop={handleAssetDrop}
-          onNodeContextMenu={(e, node) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
-          }}
-          onEdgeDoubleClick={handleEdgeDoubleClick}
-          onEdgeContextMenu={(e, edge) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
-          }}
-          fitView
+    <SettingsProvider value={settingsValue}>
+      <GraphStateProvider value={graphStateValue}>
+        <AppShell
+          header={Header}
+          sidebarContent={renderSidebar}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         >
-            <Background />
-            <Controls className="rf-controls" position="bottom-left" />
-            <MiniMap
-              className="rf-minimap"
-              position="bottom-right"
-              nodeColor={mmColors.node}
-              nodeStrokeColor={mmColors.stroke}
-              maskColor={mmColors.mask}
-              pannable
-              zoomable
-              onClick={(_event, position) => {
-                if (!position) return;
-                try {
-                  const currentZoom = rf.getZoom();
-                  rf.setCenter(position.x, position.y, { zoom: currentZoom, duration: 200 });
-                } catch (_err) {
-                  // ignore viewport sync failures
-                }
-              }}
+          {activeView === "settings" ? (
+            <SettingsPage
+              curveMode={curveMode}
+              onCurveModeChange={setCurveMode}
+              theme={theme}
+              onThemeChange={setTheme}
             />
-          </ReactFlow>
-          <GraphContextMenu
-          open={menu.open}
-          kind={menu.kind}
-          x={menu.x}
-          y={menu.y}
-          {...(menu.targetId ? { targetId: menu.targetId } : {})}
-          {...((menuPaletteOverride ?? palette) ? { palette: (menuPaletteOverride ?? palette)! } : {})}
-          expandAllCategories={Boolean(menuPaletteOverride)}
-          selectedCount={selectedCount}
-          onGroupSelected={() => {
-            groupSelected();
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-          }}
-          canUngroup={(() => {
-            if (!menu.targetId) return false;
-            const target = nodesById.get(menu.targetId);
-            const type = (target?.data as any)?.template?.type ?? (target?.data as any)?.type;
-            return type === "group";
-          })()}
-          onUngroupNode={(id) => {
-            ungroupGroup(id);
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-          }}
-          onAddNode={async (item) => {
-            if (!item) return;
-            await addNodeAt({ item, x: menu.x, y: menu.y });
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-            pendingConnectRef.current = null;
-          }}
-          onDeleteNode={async (id) => {
-            if (!id) return;
-            await deleteNodeById(id);
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-          }}
-          onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); pendingConnectRef.current = null; }}
-        />
-        </div>
-      </AppShell>
-    </GraphStateProvider>
+          ) : (
+            <div ref={flowContainerRef} className="w-full h-full relative">
+              <ReactFlow
+                nodes={visibleNodes}
+                edges={visibleEdges}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                defaultEdgeOptions={{ type: "colored" as any }}
+                deleteKeyCode={["Backspace", "Delete"]}
+                isValidConnection={isValidConnectionCb}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={onConnect}
+                onConnectStart={(e: any, params: any) => {
+                  try {
+                    connectCompletedRef.current = false;
+                    const side = String(params?.handleType) === "source" ? "source" : "target";
+                    const nodeId = String(params?.nodeId ?? "");
+                    const handleId = String(params?.handleId ?? "");
+                    const t = getPinTypeFor(nodesRef.current as any, nodeId, handleId);
+                    connectDragRef.current = { side, nodeId, handleId, type: t } as any;
+                  } catch (_err) {
+                    connectDragRef.current = null;
+                  }
+                }}
+                onConnectEnd={(e: any) => {
+                  try {
+                    if (connectCompletedRef.current) return;
+                    const target = e?.target as Element | null;
+                    const droppedOnHandle = !!(target && target.closest && target.closest(".react-flow__handle"));
+                    if (!droppedOnHandle) {
+                      const client = { x: e?.clientX ?? lastPointerRef.current?.x ?? 0, y: e?.clientY ?? lastPointerRef.current?.y ?? 0 };
+                      void openFilteredAddMenuForDrag(client);
+                      return;
+                    }
+                  } catch (_err) {
+                    // ignore
+                  } finally {
+                    connectCompletedRef.current = false;
+                    connectDragRef.current = null;
+                  }
+                }}
+                onNodeDragStart={(_e, node) => {
+                  try {
+                    if (!dragSnapshotRef.current) {
+                      const snapshotter = captureSnapshotFnRef.current;
+                      if (snapshotter) dragSnapshotRef.current = snapshotter();
+                    }
+                    draggingNodeIdsRef.current.add(node.id);
+                    pendingGraphUpdateRef.current = true;
+                  } catch (_err) {
+                    // ignore
+                  }
+                }}
+                onNodeDragStop={() => {
+                  try {
+                    pendingGraphUpdateRef.current = true;
+                  } catch (_err) {
+                    // ignore
+                  }
+                }}
+                panOnDrag={[1]}
+                selectionOnDrag
+                selectionMode={SelectionMode.Partial}
+                onNodeDoubleClick={(e, node) => {
+                  const t = (node.data as any)?.type;
+                  if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
+                    setViewPath((p) => [...p, node.id]);
+                  }
+                }}
+                onPaneClick={() => {
+                  setMenu((m) => (m.open ? { ...m, open: false } : m));
+                  setMenuPaletteOverride(null);
+                }}
+                onPaneContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
+                }}
+                onSelectionContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
+                }}
+                onDragOver={(event) => {
+                  if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                  }
+                }}
+                onDrop={handleAssetDrop}
+                onNodeContextMenu={(e, node) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
+                }}
+                onEdgeDoubleClick={handleEdgeDoubleClick}
+                onEdgeContextMenu={(e, edge) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
+                }}
+                connectionLineType={curveMode}
+                fitView
+              >
+                <Background />
+                <Controls className="rf-controls" position="bottom-left" />
+                <MiniMap
+                  className="rf-minimap"
+                  position="bottom-right"
+                  nodeColor={mmColors.node}
+                  nodeStrokeColor={mmColors.stroke}
+                  maskColor={mmColors.mask}
+                  pannable
+                  zoomable
+                  onClick={(_event, position) => {
+                    if (!position) return;
+                    try {
+                      const currentZoom = rf.getZoom();
+                      rf.setCenter(position.x, position.y, { zoom: currentZoom, duration: 200 });
+                    } catch (_err) {
+                      // ignore viewport sync failures
+                    }
+                  }}
+                />
+              </ReactFlow>
+              <GraphContextMenu
+                open={menu.open}
+                kind={menu.kind}
+                x={menu.x}
+                y={menu.y}
+                {...(menu.targetId ? { targetId: menu.targetId } : {})}
+                {...((menuPaletteOverride ?? palette) ? { palette: (menuPaletteOverride ?? palette)! } : {})}
+                expandAllCategories={Boolean(menuPaletteOverride)}
+                selectedCount={selectedCount}
+                onGroupSelected={() => {
+                  groupSelected();
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                canUngroup={(() => {
+                  if (!menu.targetId) return false;
+                  const target = nodesById.get(menu.targetId);
+                  const type = (target?.data as any)?.template?.type ?? (target?.data as any)?.type;
+                  return type === "group";
+                })()}
+                onUngroupNode={(id) => {
+                  ungroupGroup(id);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onAddNode={async (item) => {
+                  if (!item) return;
+                  await addNodeAt({ item, x: menu.x, y: menu.y });
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                  pendingConnectRef.current = null;
+                }}
+                onDeleteNode={async (id) => {
+                  if (!id) return;
+                  await deleteNodeById(id);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); pendingConnectRef.current = null; }}
+              />
+            </div>
+          )}
+        </AppShell>
+      </GraphStateProvider>
+    </SettingsProvider>
   );
 }
 export default App;

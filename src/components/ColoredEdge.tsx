@@ -1,8 +1,9 @@
 import * as React from "react";
 import type { EdgeProps } from "@xyflow/react";
-import { getBezierPath, useReactFlow } from "@xyflow/react";
+import { getBezierPath, getSimpleBezierPath, getSmoothStepPath, getStraightPath, useReactFlow } from "@xyflow/react";
 import { normalizePinType, type NormalizedPinType } from "@/core/ui/compat";
 import { THEME } from "@/styles/theme";
+import { useSettings } from "@/ui/state/SettingsContext";
 
 function mapNormalizedToThemeKey(t: NormalizedPinType): keyof typeof THEME.pinColors {
   if (t === "float") return "scalar";
@@ -41,9 +42,35 @@ function getPinTypeFromNode(node: any, handleId: string | null | undefined, dir:
 export default function ColoredEdge(props: EdgeProps) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style, source, target, sourceHandle, targetHandle, selected, data } = props as any;
   const rf = useReactFlow();
+  const { curveMode } = useSettings();
   const sourceNode = source ? rf.getNode(source) : undefined;
   const targetNode = target ? rf.getNode(target) : undefined;
-  const [edgePath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const pathParams = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
+  const edgePath = (() => {
+    switch (curveMode) {
+      case "smoothstep": {
+        const [path] = getSmoothStepPath(pathParams);
+        return path;
+      }
+      case "step": {
+        const [path] = getSmoothStepPath({ ...pathParams, borderRadius: 0 });
+        return path;
+      }
+      case "straight": {
+        const [path] = getStraightPath(pathParams);
+        return path;
+      }
+      case "simplebezier": {
+        const [path] = getSimpleBezierPath(pathParams);
+        return path;
+      }
+      case "default":
+      default: {
+        const [path] = getBezierPath(pathParams);
+        return path;
+      }
+    }
+  })();
 
   const sourceType = normalizePinType(data?.sourceType) ?? getPinTypeFromNode(sourceNode, sourceHandle, "out");
   const targetType = normalizePinType(data?.targetType) ?? getPinTypeFromNode(targetNode, targetHandle, "in");
