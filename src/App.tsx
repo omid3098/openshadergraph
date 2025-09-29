@@ -36,7 +36,7 @@ import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { serializeGraph as serializeGraphForSave, inflateGraph } from "./core/ui/graphSerde";
 import { connectSingleInputEdge } from "./core/ui/edges";
-import { createRerouteInsertion, inferSharedParentId } from "./core/ui/reroute";
+import { createRerouteInsertion } from "./core/ui/reroute";
 import {
   clearRecentGraphs,
   loadRecentGraphs,
@@ -61,6 +61,7 @@ import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
 import { Check, Github, BookOpen, Layers, Settings as SettingsIcon } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
+import { duplicateNodes, type DuplicateNodesResult } from "./core/graph/duplicate";
 import { APP_VERSION_INFO } from "./version";
 import { VIEW_MENU_ITEMS, isEditableHotkeyTarget } from "./core/ui/hotkeys";
 import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
@@ -69,6 +70,9 @@ import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
 import { useAutoFitOnViewPathChange } from "./core/ui/useAutoFitView";
 import { persistGet, persistSet } from "./lib/storage";
 import { cn } from "@/lib/utils";
+import { applyDuplicateSelection } from "./core/ui/duplicateSelection";
+import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes, type ClipboardPayload } from "./core/ui/clipboard";
+import { makeInHandle, makeOutHandle } from "./core/ui/handles";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -92,6 +96,9 @@ const DISTRIBUTION_LABELS: Record<DistributionKind, string> = {
   horizontal: "Distribute Horizontally",
   vertical: "Distribute Vertically",
 };
+
+const DUPLICATE_OFFSET = { x: 32, y: 32 };
+const PASTE_OFFSET = { x: 48, y: 48 };
 
 type CanonicalNode = {
   id: number;
@@ -187,6 +194,9 @@ export function App() {
   }>({ open: false, kind: "background", x: 0, y: 0 });
   const [menuPaletteOverride, setMenuPaletteOverride] = useState<NodePalette | null>(null);
   const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
+  const [clipboardStatus, setClipboardStatus] = useState<{ kind: "success" | "error"; message: string; key: number } | null>(null);
+  const clipboardStatusTimerRef = useRef<number | null>(null);
+  const canPasteViaButton = typeof navigator !== "undefined";
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -560,6 +570,29 @@ export function App() {
   useEffect(() => {
     setRecentGraphs(loadRecentGraphs());
     setRecentGraphsInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!clipboardStatus) return undefined;
+    if (clipboardStatusTimerRef.current !== null) {
+      window.clearTimeout(clipboardStatusTimerRef.current);
+    }
+    const timeout = window.setTimeout(() => {
+      setClipboardStatus(null);
+      clipboardStatusTimerRef.current = null;
+    }, 2400);
+    clipboardStatusTimerRef.current = timeout;
+    return () => {
+      if (clipboardStatusTimerRef.current !== null) {
+        window.clearTimeout(clipboardStatusTimerRef.current);
+        clipboardStatusTimerRef.current = null;
+      }
+    };
+  }, [clipboardStatus]);
+
+  const showClipboardStatus = useCallback((kind: "success" | "error", message: string) => {
+    setClipboardStatus({ kind, message, key: Date.now() });
   }, []);
 
   
@@ -1948,6 +1981,317 @@ export function App() {
     [loadTemplateDefaults, nodeUpdaterApi, nodesById, setEdges, setNodes]
   );
 
+  const duplicateSelection = useCallback(
+    (options?: { targetId?: string }) => {
+      const currentNodes = nodesRef.current;
+      const currentEdges = edgesRef.current;
+      let selectedNodes = currentNodes.filter((node) => node.selected);
+      if (options?.targetId && !selectedNodes.some((n) => n.id === options.targetId)) {
+        const targetNode = currentNodes.find((n) => n.id === options.targetId);
+        if (targetNode) selectedNodes = [...selectedNodes, targetNode];
+      }
+      if (!selectedNodes.length) return;
+
+      const selectedIds = new Set(selectedNodes.map((n) => n.id));
+      const duplicate = duplicateNodes({
+        nodes: currentNodes,
+        edges: currentEdges,
+        selectedIds,
+        allocateId: () => ++idCounter.current,
+        offset: DUPLICATE_OFFSET,
+      });
+      if (!duplicate.nodesToAdd.length) return;
+
+      const label = selectedNodes.length === 1
+        ? (((selectedNodes[0]?.data as any)?.label ?? (selectedNodes[0]?.data as any)?.type ?? selectedNodes[0]?.id) as string)
+        : `${selectedNodes.length} nodes`;
+
+      const merged = applyDuplicateSelection({
+        nodes: currentNodes,
+        edges: currentEdges,
+        selectedIds,
+        duplicate,
+      });
+
+      beginHistoryActionRef.current({ type: "duplicate-node", summary: `${label} • Duplicate` });
+      pendingGraphUpdateRef.current = true;
+
+      const decoratedNodes = attachNodesUpdateApi(merged.nodes as any, nodeUpdaterApi) as any;
+      setNodes(decoratedNodes);
+      const coloredEdges = ensureColoredEdges(merged.edges as any, decoratedNodes as any);
+      setEdges(coloredEdges);
+    },
+    [ensureColoredEdges, nodeUpdaterApi, setEdges, setNodes]
+  );
+
+  type ClipboardBounds = ClipboardPayload["bounds"];
+
+  const computeSelectionBounds = useCallback((nodesList: Node[]): ClipboardBounds => {
+    if (!nodesList.length) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    }
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const node of nodesList) {
+      const pos = node.position ?? { x: 0, y: 0 };
+      const x = Number.isFinite(pos.x) ? pos.x : 0;
+      const y = Number.isFinite(pos.y) ? pos.y : 0;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    return { minX, minY, maxX, maxY };
+  }, []);
+
+  const serializeClipboardSnapshot = useCallback((options?: { includeId?: string }) => {
+    const includeId = options?.includeId;
+    const selectionMap = new Map<string, Node>();
+    for (const node of nodesRef.current) {
+      if (node.selected) selectionMap.set(node.id, node);
+    }
+    if (includeId && !selectionMap.has(includeId)) {
+      const target = nodesRef.current.find((node) => node.id === includeId);
+      if (target) selectionMap.set(target.id, target);
+    }
+    const selected = Array.from(selectionMap.values());
+    if (!selected.length) return null;
+    const selectedIds = new Set<number>();
+    for (const node of selected) {
+      const idNum = Number(node.id);
+      if (Number.isFinite(idNum)) selectedIds.add(idNum);
+    }
+    if (!selectedIds.size) return null;
+    const bounds = computeSelectionBounds(selected);
+    const payload = createClipboardPayload({
+      graph: graphData,
+      selectedIds,
+      parentLookup: (id) => {
+        const found = nodesRef.current.find((node) => Number(node.id) === id);
+        if (!found) return null;
+        const raw = (found as any)?.parentId;
+        if (raw === undefined || raw === null) return null;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      },
+      bounds,
+    });
+    if (!payload) return null;
+    return { text: JSON.stringify(payload), count: selected.length };
+  }, [computeSelectionBounds, graphData]);
+
+  const writeClipboardText = useCallback(async (text: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_err) {
+      // fall through to fallback
+    }
+    if (typeof document === "undefined") return false;
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "absolute";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return true;
+    } catch (_err) {
+      return false;
+    }
+  }, []);
+
+  const copySelectionManual = useCallback(async (targetId?: string) => {
+    const snapshot = serializeClipboardSnapshot(targetId ? { includeId: targetId } : undefined);
+    if (!snapshot) {
+      showClipboardStatus("error", "Select node(s) to copy");
+      return;
+    }
+    const ok = await writeClipboardText(snapshot.text);
+    if (ok) {
+      showClipboardStatus("success", `Copied ${snapshot.count} node${snapshot.count === 1 ? "" : "s"}`);
+    } else {
+      showClipboardStatus("error", "Unable to access clipboard");
+    }
+  }, [serializeClipboardSnapshot, showClipboardStatus, writeClipboardText]);
+
+  const performPasteFromText = useCallback(async (text: string) => {
+    let payload: ClipboardPayload;
+    try {
+      payload = parseClipboardPayload(text);
+    } catch (err) {
+      console.warn("Invalid clipboard payload", err);
+      showClipboardStatus("error", "Clipboard data is not valid");
+      return;
+    }
+    const allocateId = () => ++idCounter.current;
+    const remapped = remapClipboardNodes({ payload, allocateId, offset: PASTE_OFFSET });
+    if (!remapped.nodes.length) {
+      showClipboardStatus("error", "Clipboard payload is empty");
+      return;
+    }
+    try {
+      const newNodes: Node[] = [];
+      const edgeRegex = /^\.\.\/(\d+)\/(\d+)$/;
+      const idMapStrings = new Map<string, string>();
+      remapped.idMap.forEach((newId, oldId) => {
+        idMapStrings.set(String(oldId), String(newId));
+      });
+      for (const graphNode of remapped.nodes) {
+        const defaults = await loadTemplateDefaults(graphNode.type);
+        const paletteItem = paletteByType.get(graphNode.type) ?? ({
+          type: graphNode.type,
+          name: graphNode.name ?? graphNode.type,
+          path: graphNode.type,
+          category: "Clipboard",
+        } as NodePaletteItem);
+        const positionArray = Array.isArray(graphNode.position) && graphNode.position.length >= 2 ? graphNode.position : [0, 0];
+        const rfNode = buildRFNodeFromTemplate({
+          id: String(graphNode.id),
+          item: paletteItem,
+          template: graphNode,
+          templateDefaults: defaults ?? undefined,
+          position: { x: Math.round(positionArray[0]), y: Math.round(positionArray[1]) },
+          parentId: undefined,
+          nodeDefaults,
+        });
+        rfNode.selected = true;
+        const assignment = remapped.parentAssignments.get(graphNode.id) ?? null;
+        if (assignment !== null) {
+          (rfNode as any).parentId = String(assignment);
+        } else {
+          delete (rfNode as any).parentId;
+        }
+        newNodes.push(rfNode as any);
+      }
+
+      const edgesToAdd: Edge[] = [];
+      let edgeSeq = 0;
+      for (const graphNode of remapped.nodes) {
+        const inputs = Array.isArray(graphNode.inputs) ? graphNode.inputs : [];
+        for (let i = 0; i < inputs.length; i += 1) {
+          const pin = inputs[i];
+          const value = (pin as any)?.value;
+          if (typeof value !== "string") continue;
+          const match = value.match(edgeRegex);
+          if (!match) continue;
+          const sourceId = match[1];
+          const pinId = Number(match[2]);
+          const targetPinId = typeof pin.id === "number" ? pin.id : i;
+          edgesToAdd.push({
+            id: `clip-edge-${edgeSeq++}`,
+            source: sourceId,
+            target: String(graphNode.id),
+            sourceHandle: makeOutHandle(pinId),
+            targetHandle: makeInHandle(targetPinId),
+            type: "colored" as any,
+          } as Edge);
+        }
+      }
+
+      const selectedIds = new Set(nodesRef.current.filter((node) => node.selected).map((node) => node.id));
+      const duplicateResult: DuplicateNodesResult = {
+        nodesToAdd: newNodes,
+        edgesToAdd,
+        selection: newNodes.map((node) => node.id),
+        idMap: idMapStrings,
+      };
+
+      const merged = applyDuplicateSelection({
+        nodes: nodesRef.current,
+        edges: edgesRef.current,
+        selectedIds,
+        duplicate: duplicateResult,
+      });
+
+      pendingGraphUpdateRef.current = true;
+
+      const decoratedNodes = attachNodesUpdateApi(merged.nodes as any, nodeUpdaterApi) as any;
+      setNodes(decoratedNodes);
+      const coloredEdges = ensureColoredEdges(merged.edges as any, decoratedNodes as any);
+      setEdges(coloredEdges);
+      beginHistoryActionRef.current({ type: "paste-node", summary: `${newNodes.length} node${newNodes.length === 1 ? "" : "s"} • Paste` });
+      showClipboardStatus("success", `Pasted ${newNodes.length} node${newNodes.length === 1 ? "" : "s"}`);
+    } catch (err) {
+      console.warn("Failed to paste clipboard payload", err);
+      showClipboardStatus("error", "Failed to paste nodes");
+    }
+  }, [ensureColoredEdges, loadTemplateDefaults, nodeUpdaterApi, paletteByType, setEdges, setNodes, showClipboardStatus]);
+
+  const pasteFromClipboard = useCallback(async () => {
+    if (typeof navigator === "undefined" || typeof navigator.clipboard?.readText !== "function") {
+      showClipboardStatus("error", "Clipboard API unavailable. Use Cmd/Ctrl+V instead.");
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        showClipboardStatus("error", "Clipboard is empty");
+        return;
+      }
+      await performPasteFromText(text);
+    } catch (err) {
+      console.warn("Clipboard read failed", err);
+      showClipboardStatus("error", "Unable to read clipboard contents");
+    }
+  }, [performPasteFromText, showClipboardStatus]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const isMod = event.metaKey || event.ctrlKey;
+      if (!isMod || event.altKey || event.shiftKey) return;
+      if (event.repeat) return;
+      if (isEditableHotkeyTarget(event.target)) return;
+      if (event.key.toLowerCase() !== "d") return;
+      event.preventDefault();
+      duplicateSelection();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [duplicateSelection]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleCopy = (event: ClipboardEvent) => {
+      if (isEditableHotkeyTarget(event.target)) return;
+      const snapshot = serializeClipboardSnapshot();
+      if (!snapshot) return;
+      event.preventDefault();
+      try {
+        event.clipboardData?.setData("application/json", snapshot.text);
+        event.clipboardData?.setData("text/plain", snapshot.text);
+      } catch (_err) {
+        // ignore clipboardData failures
+      }
+      void writeClipboardText(snapshot.text);
+      showClipboardStatus("success", `Copied ${snapshot.count} node${snapshot.count === 1 ? "" : "s"}`);
+    };
+    window.addEventListener("copy", handleCopy);
+    return () => window.removeEventListener("copy", handleCopy);
+  }, [serializeClipboardSnapshot, showClipboardStatus, writeClipboardText]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handlePaste = (event: ClipboardEvent) => {
+      if (isEditableHotkeyTarget(event.target)) return;
+      const text =
+        event.clipboardData?.getData("application/json") ||
+        event.clipboardData?.getData("text/plain");
+      if (!text) return;
+      event.preventDefault();
+      void performPasteFromText(text);
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [performPasteFromText]);
+
   const alignSelection = useCallback(
     (alignment: AlignmentKind) => {
       setNodes((prev) => {
@@ -2444,6 +2788,16 @@ export function App() {
                 {...((menuPaletteOverride ?? palette) ? { palette: (menuPaletteOverride ?? palette)! } : {})}
                 expandAllCategories={Boolean(menuPaletteOverride)}
                 selectedCount={selectedCount}
+                onCopySelection={(targetId) => {
+                  void copySelectionManual(targetId);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onDuplicateSelection={(targetId) => {
+                  duplicateSelection(targetId ? { targetId } : undefined);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
                 onGroupSelected={() => {
                   groupSelected();
                   setMenu((m) => ({ ...m, open: false }));
@@ -2470,6 +2824,12 @@ export function App() {
                   setMenu((m) => ({ ...m, open: false }));
                   setMenuPaletteOverride(null);
                 }}
+                onPasteFromClipboard={() => {
+                  void pasteFromClipboard();
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                canPaste={canPasteViaButton}
                 onAddNode={async (item) => {
                   if (!item) return;
                   await addNodeAt({ item, x: menu.x, y: menu.y });
@@ -2485,6 +2845,16 @@ export function App() {
                 }}
                 onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); pendingConnectRef.current = null; }}
               />
+              {clipboardStatus && (
+                <div
+                  className={cn(
+                    "fixed bottom-4 right-4 z-[100] rounded-md border bg-popover px-3 py-2 text-sm shadow-lg",
+                    clipboardStatus.kind === "error" ? "border-destructive text-destructive" : "border-border text-foreground"
+                  )}
+                >
+                  {clipboardStatus.message}
+                </div>
+              )}
             </div>
           )}
         </AppShell>

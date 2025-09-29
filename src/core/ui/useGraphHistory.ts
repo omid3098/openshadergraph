@@ -28,7 +28,9 @@ export type GraphActionType =
   | "ungroup-node"
   | "connect"
   | "disconnect"
-  | "insert-adapter";
+  | "insert-adapter"
+  | "duplicate-node"
+  | "paste-node";
 
 export type GraphActionMeta = {
   type: GraphActionType;

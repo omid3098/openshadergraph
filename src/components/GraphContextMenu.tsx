@@ -19,6 +19,10 @@ export type GraphContextMenuProps = {
   onAddNode?: (item: NodePaletteItem) => void;
   onDeleteNode?: (id: string) => void;
   onGroupSelected?: () => void;
+  onDuplicateSelection?: (targetId?: string) => void;
+  onCopySelection?: (targetId?: string) => void;
+  onPasteFromClipboard?: () => void;
+  canPaste?: boolean;
   selectedCount?: number;
   canUngroup?: boolean;
   onUngroupNode?: (id: string) => void;
@@ -43,7 +47,28 @@ const DISTRIBUTION_OPTIONS: Array<{ kind: DistributionKind; label: string }> = [
 ];
 
 export function GraphContextMenu(props: GraphContextMenuProps) {
-  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode, onGroupSelected, selectedCount, canUngroup, onUngroupNode, expandAllCategories, onAlignSelected, onDistributeSelected } = props;
+  const {
+    open,
+    kind,
+    x,
+    y,
+    palette,
+    targetId,
+    onClose,
+    onAddNode,
+    onDeleteNode,
+    onGroupSelected,
+    onDuplicateSelection,
+    onCopySelection,
+    onPasteFromClipboard,
+    canPaste = false,
+    selectedCount,
+    canUngroup,
+    onUngroupNode,
+    expandAllCategories,
+    onAlignSelected,
+    onDistributeSelected,
+  } = props;
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -542,6 +567,54 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (selectedCount && selectedCount > 0 && onCopySelection) onCopySelection();
+                  }}
+                >
+                  Copy Selection{selectedCount ? ` (${selectedCount})` : ""}
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    canPaste
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!canPaste}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (canPaste && onPasteFromClipboard) onPasteFromClipboard();
+                  }}
+                >
+                  Paste
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    selectedCount && selectedCount > 0
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!selectedCount || selectedCount <= 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (selectedCount && selectedCount > 0 && onDuplicateSelection) onDuplicateSelection();
+                  }}
+                >
+                  Duplicate Selection{selectedCount ? ` (${selectedCount})` : ""}
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    selectedCount && selectedCount > 0
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!selectedCount || selectedCount <= 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
                   }}
                 >
@@ -551,6 +624,34 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
               </div>
             ) : kind === "node" ? (
               <div className="flex flex-col gap-2">
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    onCopySelection ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!onCopySelection}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onCopySelection) onCopySelection(targetId);
+                  }}
+                >
+                  Copy Node
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    onDuplicateSelection ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!onDuplicateSelection}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onDuplicateSelection && targetId) onDuplicateSelection(targetId);
+                  }}
+                >
+                  Duplicate Node
+                </button>
                 <button
                   className={cn(
                     "px-2 py-1.5 rounded-md text-sm",
@@ -585,6 +686,20 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 </button>
                 {renderArrangementSection()}
                 <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    canPaste ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!canPaste}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (canPaste && onPasteFromClipboard) onPasteFromClipboard();
+                  }}
+                >
+                  Paste
+                </button>
+                <button
                   className="px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20"
                   onClick={(e) => {
                     e.preventDefault();
@@ -596,7 +711,25 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">Actions coming soon…</div>
+              <div className="flex flex-col gap-2">
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    onPasteFromClipboard && canPaste
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!onPasteFromClipboard || !canPaste}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onPasteFromClipboard) onPasteFromClipboard();
+                  }}
+                >
+                  Paste
+                </button>
+                <div className="text-sm text-muted-foreground">Select nodes to enable more actions</div>
+              </div>
             )}
           </CardContent>
         </Card>
