@@ -6,6 +6,7 @@ import { rm, cp, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import path from "path";
 import { gzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { validateLanguagePack, validateNodeTemplate } from "./src/core/schema/validators";
+import { getDeployLabel } from "./src/core/env/getDeployLabel";
 
 // Print help text if requested
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -141,21 +142,52 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
 }
 
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
-  // Ignore git and tags. Use committed src/version.ts as the single source of truth.
   const target = path.resolve(process.cwd(), "src", "version.ts");
+  let raw = "";
   let versionStr = "0.0.0";
+
   try {
-    const raw = await readFile(target, "utf8");
-    const m = raw.match(/APP_VERSION\s*=\s*"([^"]+)"/);
-    if (m && m[1]) versionStr = m[1];
+    raw = await readFile(target, "utf8");
+    const versionMatch = raw.match(/export const APP_VERSION\s*=\s*"([^"]+)"/);
+    if (versionMatch && versionMatch[1]) versionStr = versionMatch[1];
   } catch (_err) {
     // As a last resort, fall back to package.json version
     try {
       const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
       const pkg = JSON.parse(pkgRaw);
       if (pkg?.version && typeof pkg.version === "string") versionStr = pkg.version;
-    } catch (_err2) { /* ignore */ }
+    } catch (_err2) {
+      /* ignore */
+    }
   }
+
+  const deployLabel = getDeployLabel({ DEPLOY: Bun.env?.DEPLOY ?? process.env?.DEPLOY });
+  const deployPattern = /export const APP_DEPLOY\s*=\s*"([^"]*)";/;
+  let nextRaw = raw;
+
+  if (raw.length) {
+    if (deployPattern.test(raw)) {
+      nextRaw = raw.replace(deployPattern, `export const APP_DEPLOY = "${deployLabel}";`);
+    } else {
+      const insertToken = "export type AppVersionInfo";
+      const insertIndex = raw.indexOf(insertToken);
+      if (insertIndex !== -1) {
+        nextRaw = `${raw.slice(0, insertIndex)}export const APP_DEPLOY = "${deployLabel}";\n\n${raw.slice(insertIndex)}`;
+      } else {
+        nextRaw = `${raw.trimEnd()}\nexport const APP_DEPLOY = "${deployLabel}";\n`;
+      }
+    }
+  } else {
+    nextRaw = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = "${versionStr}";\nexport const APP_COMMIT = "";\nexport const APP_BUILD_DATE = "";\nexport const APP_DIRTY = false;\nexport const APP_DEPLOY = "${deployLabel}";\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
+  }
+
+  if (nextRaw !== raw) {
+    await writeFile(target, nextRaw, "utf8");
+    console.log(`🌐 Set deploy label to ${deployLabel} in src/version.ts`);
+  } else {
+    console.log(`🌐 Deploy label already ${deployLabel}`);
+  }
+
   console.log(`🔖 Using committed src/version.ts → v${versionStr}`);
   return { version: versionStr, bumped: false };
 }
