@@ -2,65 +2,184 @@
 title: Getting Started
 ---
 
-# Getting Started (Artists)
+# Getting Started
 
-This guide focuses on creating your first material in the graph editor. Technical setup is covered separately in [Developers](developers.md).
+Welcome to OpenShaderGraph! This guide will help you create your first shader material using the graph editor. For technical setup and development information, see [Developers](developers.md).
 
-## Create Your First Material
+## Your First Material
 
-1- From main menu, click on 'File' -> 'New' -> 'PBR'.
-This will create a new PBR graph and show the fragment pass by default.
+### 1. Create a New Graph
+
+From the menu bar, select **File → New → PBR** to create a new PBR material graph.
 
 [![New Graph](./assets/01_newgraph.png){ width="700" loading=lazy }](./assets/01_newgraph.png){ .glightbox }
 
-## Graph Structure
+!!! note "Graph Types"
+You can choose between **PBR**, **Unlit**, or **Toon** shading. All three follow the same graph structure.
 
-Notice that in the top bar, you see **`Untitled Pbr > Surface > FragmentPass`**.
-A new PBR graph (Unlit and Toon are also the same) is structured like this:
+### 2. Understanding Graph Structure
+
+The breadcrumb at the top shows your current location: **`Untitled Pbr > Surface > FragmentPass`**
+
+A new material graph is organized hierarchically:
 
 ```mermaid
 graph TD
-    A[Untitled Pbr] --> B[Surface]
+    A[Root Graph] --> B[Surface]
     B --> C[FragmentPass]
     B --> D[VertexPass]
     C --> E[FragmentOutput]
     D --> F[VertexOutput]
 ```
 
-## Navigation
+- **Surface**: Container for vertex and fragment rendering passes
+- **FragmentPass**: Where you build your material's appearance (color, roughness, etc.)
+- **VertexPass**: Where you control vertex positions and attributes
+- **Output nodes**: Final connection points that feed into the engine
 
-You can click on the breadcrumb to navigate to the parent nodes or double click on a group node like `Surface` or `FragmentPass` to navigate to the node details.
-Lets navigate to the `FragmentPass` node to start creating our first shader.
+!!! tip "Navigation" - Click breadcrumb items to navigate up the hierarchy - Double-click a group node (like `Surface`) to drill down into its contents - Most shader work happens inside `FragmentPass`
 
-## Adding nodes
+## Core Workflows
 
-### Right click context menu
+### Adding Nodes
 
-You can right click on the graph to open the context menu.
+**Method 1: Context Menu** (Recommended)
+
+Right-click anywhere on the canvas to open the node menu. Search by name or browse categories.
+
 [![Right click context menu](./assets/02_addnode_context_menu.png){ width="700" loading=lazy }](./assets/02_addnode_context_menu.png){ .glightbox }
 
-Here tou can search for a node by name or type and add it to the graph.
+**Method 2: Quick Hotkeys**
 
-### Using hotkeys
+Use keyboard shortcuts to spawn commonly-used nodes instantly. Configure shortcuts in **Settings → Quick Node Hotkeys** (sidebar).
 
-You can use the hotkeys to add nodes to the graph.
-Open **Settings → Quick Node Hotkeys** in the sidebar to review or customize the shortcuts used for spawning nodes (⌘⇧ on macOS, Ctrl+⇧ on Windows/Linux).
+- Default: **Cmd+Shift** (macOS) or **Ctrl+Shift** (Windows/Linux) + key
 
-1. Add a `Color` node and pick a color.
-2. Add `FragmentOutput` and connect `Color.out` → `Albedo`.
-3. Adjust `Roughness` and `Metallic` for the look you want.
+### Making Connections
 
-Tip: You can connect any node that outputs a color (float3/float4) to `Albedo`.
+Drag from an **output pin** (right side) to an **input pin** (left side) to create a connection.
 
-## Build Variations Quickly
+[![Connect pins](./assets/03_connect_nodes.png){ width="700" loading=lazy }](./assets/03_connect_nodes.png){ .glightbox }
 
-- Try `Add` or `Multiply` to combine colors.
-- Use `UV` and `Texture` nodes to sample images.
-- Drive `Emission` with bright colors for glow.
+!!! tip "Connection Tips" - Compatible pins highlight when hovering - Delete a connection by selecting it and pressing **Delete** - Right-click a connection for more options
 
-## Examples to Load
+### Editing Values
 
-- Basic Color
-- Addition (Color + Color)
+Click input fields directly on nodes to edit values:
 
-Open Tutorials next for step‑by‑step walkthroughs.
+- **Numbers**: Type directly or drag to scrub
+- **Colors**: Click the swatch to open a color picker
+- **Vectors**: Edit individual components
+
+[![Edit inputs](./assets/05_set_color.png){ width="700" loading=lazy }](./assets/05_set_color.png){ .glightbox }
+
+## Working with Textures
+
+To use a texture in your shader:
+
+1. **Add the Assets panel**: Right-click → add `Assets` editor node
+2. **Drag & drop**: Drag a texture from the Assets panel onto the canvas to create a `Texture` node
+3. **Add a sampler**: Create a `TextureSampler` node
+4. **Connect**: `Texture.texture` → `TextureSampler.texture`
+5. **Use the output**: Connect `TextureSampler.rgb` to your material inputs
+
+[![Texture node](./assets/06_texture_node.png){ width="700" loading=lazy }](./assets/06_texture_node.png){ .glightbox }
+
+!!! info "UV Coordinates"
+The sampler's `uv` input uses built-in UVs by default. Connect a `UV` node to override or transform coordinates.
+
+## Editor Nodes
+
+Editor Nodes provide tools and information but **don't affect generated shader code**. Add them via the context menu:
+
+- **3D Preview**: Real-time material preview with lighting
+- **Assets**: Manage textures and models
+- **Compile Output**: View generated shader code
+- **Graph Data**: Inspect graph structure (JSON)
+- **Properties**: Quick access to selected node properties
+- **Value Probe**: Debug pin values in real-time
+
+## Previewing Your Work
+
+The **3D Preview** panel renders your material in real-time using a three-point lighting setup.
+
+[![Preview panel](./assets/04_preview_panel.png){ width="700" loading=lazy }](./assets/04_preview_panel.png){ .glightbox }
+
+- Switch between **Sphere**, **Cube**, **Cylinder**, or **Model** (requires model asset)
+- Preview always uses `ThreeJS_GLSL` internally, regardless of export language
+- Lighting is preview-only—generated shader code remains environment-agnostic
+
+## Exporting Shader Code
+
+Open the **Compile Output** panel to see your shader as code.
+
+[![Compile output](./assets/07_compile_output.png){ width="700" loading=lazy }](./assets/07_compile_output.png){ .glightbox }
+
+- Default output: **Godot** shading language
+- Switch languages from the dropdown
+- Click **Copy** to export code to your clipboard
+- Your graph is the source of truth—code is generated on the fly
+
+## Saving Your Work
+
+**File → Save** or **File → Save As** to store your graph.
+
+[![Save graph](./assets/08_save_graph.png){ width="700" loading=lazy }](./assets/08_save_graph.png){ .glightbox }
+
+- Graphs are saved as `.json` files
+- Recent files appear in **File → Open Recent**
+- Load example graphs from the **Examples** menu
+
+## Hands-On Tutorial: Color + Texture Blend
+
+Let's build a simple material that blends a solid color with a texture.
+
+**Step 1**: Load the starting point
+
+- **Examples → Basic Color** to load a simple colored material
+
+[![Open Basic Color example](./assets/09_open_example_basic_color.png){ width="700" loading=lazy }](./assets/09_open_example_basic_color.png){ .glightbox }
+
+**Step 2**: Add editor tools
+
+- Right-click → add **3D Preview**, **Assets**, and **Compile Output** panels
+
+[![Editor panels](./assets/10_editor_nodes_panels.png){ width="700" loading=lazy }](./assets/10_editor_nodes_panels.png){ .glightbox }
+
+**Step 3**: Create a texture node
+
+- Drag a texture from the **Assets** panel onto the canvas
+
+[![Create Texture node](./assets/11_assets_drag_texture.png){ width="700" loading=lazy }](./assets/11_assets_drag_texture.png){ .glightbox }
+
+**Step 4**: Add a texture sampler
+
+- Right-click → add **TextureSampler**
+- Connect `Texture.texture` → `TextureSampler.texture`
+
+[![Wire TextureSampler](./assets/12_texture_sampler_wiring.png){ width="700" loading=lazy }](./assets/12_texture_sampler_wiring.png){ .glightbox }
+
+**Step 5**: Blend with Lerp
+
+- Add a **Lerp** node and a **Float** node
+- Connect `Color.out` → `Lerp.a`
+- Connect `TextureSampler.rgb` → `Lerp.b`
+- Connect `Float.out` → `Lerp.t` (set to `0.5` for 50/50 blend)
+
+[![Lerp setup](./assets/13_lerp_setup.png){ width="700" loading=lazy }](./assets/13_lerp_setup.png){ .glightbox }
+
+**Step 6**: Output the result
+
+- Connect `Lerp.out` → `FragmentOutput.Albedo`
+
+[![Result](./assets/14_lerp_result_preview.png){ width="700" loading=lazy }](./assets/14_lerp_result_preview.png){ .glightbox }
+
+Try adjusting the Float value to change the blend ratio!
+
+## What's Next?
+
+- **Tutorials**: Step-by-step guides for common tasks
+  - [Basic Color Setup](tutorials/basic-color.md)
+  - [Adding Two Colors](tutorials/add-color-color.md)
+- **[Features Overview](features.md)**: Explore advanced capabilities
+- **[Developers Guide](developers.md)**: Setup for contributors and developers
