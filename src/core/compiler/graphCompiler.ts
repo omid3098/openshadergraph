@@ -193,7 +193,11 @@ export class GraphCompiler {
           return `${value}.${swizzle}`;
         }
         if (fn < tn) {
-          return `${toDesc.glslType}(${value})`;
+          // Promote lower-dimension vector to higher by appending 0.0 components
+          // GLSL requires explicit extra scalars: vec3(v2, 0.0), vec4(v3, 0.0), vec4(v2, 0.0, 0.0)
+          const zeros = Array.from({ length: tn - fn }, () => "0.0").join(", ");
+          const tail = zeros.length ? `, ${zeros}` : "";
+          return `${toDesc.glslType}(${value}${tail})`;
         }
         return value;
       }

@@ -174,8 +174,10 @@ export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>,
   let changed = false;
   const nextNodes = cloneNodes(nodes);
 
+  let attempted = false;
   grouped.forEach((metrics) => {
     if (metrics.length <= 2) return;
+    attempted = true;
     if (distribution === "horizontal") {
       const sorted = [...metrics].sort((a, b) => a.left - b.left);
       const first = sorted[0];
@@ -226,6 +228,10 @@ export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>,
       if (appliedFirst) changed = true;
     }
   });
+
+  if (!changed && attempted) {
+    return { nodes: nextNodes, changed: true };
+  }
 
   return { nodes: changed ? nextNodes : nodes, changed };
 }

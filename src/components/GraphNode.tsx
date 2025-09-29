@@ -19,8 +19,10 @@ import { GraphDataPanel } from "./GraphDataPanel";
 import React from "react";
 const PreviewPanel = React.lazy(() => import("./PreviewPanel").then(m => ({ default: m.PreviewPanel })));
 import { AssetsPanel } from "./AssetsPanel";
+import { ProbePreview } from "./ProbePreview";
 import { getBuiltinDisplayLabel, isBuiltinToken } from "@/core/types/builtinInputs";
 import { Paperclip, ArrowDownLeft, ArrowUpRight, SlidersHorizontal, PanelsTopLeft } from "lucide-react";
+import { parseEditorSize } from "@/core/ui/nodeFactory";
 
 type Pin = {
   id?: number;
@@ -80,9 +82,15 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const edges = useStore((s) => s.edges);
   const { nodeUpdaterApi, graph } = useGraphState();
   const meta: string[] = Array.isArray((data as any)?.template?.meta) ? (((data as any).template.meta as unknown) as string[]) : [];
-  const isEditor = meta.includes("editor_node");
   const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
   const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
+  const editorWidget = meta.find((m) => typeof m === "string" && m.startsWith("editor_widget:"));
+  const editorWidgetKey = editorWidget ? editorWidget.split(":")[1] ?? "" : "";
+  const isProbeWidget = editorWidgetKey.toLowerCase() === "probe";
+  const isEditor = !isProbeWidget && meta.includes("editor_node");
+  const preferredSize = isProbeWidget ? parseEditorSize(meta) : {};
+  const preferredWidth = preferredSize.width;
+  const preferredHeight = preferredSize.height;
   const currentAsset = (data as any)?.asset as NodeAssetPayload | undefined;
 
   const hasAssetProperty = useMemo(() => {
@@ -103,6 +111,12 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   }, [isEditor, currentAsset, hasAssetProperty, inputs, outputs, nodeType]);
 
   const isReroute = nodeType === "reroute";
+  const cardWidthClass = useMemo(() => {
+    if (isProbeWidget) {
+      return preferredWidth ? "" : "min-w-[220px] w-[260px]";
+    }
+    return "min-w-[130px] w-[160px]";
+  }, [isProbeWidget, preferredWidth]);
 
   const headerStyle = useMemo(() => {
     const defaultCategoryColors = {
@@ -215,6 +229,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   // no-op helper removed; rely on inline stopPropagation handlers
 
   const renderEditorContent = useCallback(() => {
+    const widgetKey = editorWidgetKey.toLowerCase();
+    if (widgetKey === "probe") {
+      if (!nodeId) return <div className="p-3 text-xs text-muted-foreground">Probe unavailable.</div>;
+      return <ProbePreview nodeId={nodeId} graph={graph} className="h-full" />;
+    }
     const key = editorPanelKey.toLowerCase();
     if (key === "properties") {
       return <PropertiesPanel variant="node" className="h-full overflow-auto" />;
@@ -253,7 +272,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <AssetsPanel variant="node" className="h-full" />;
     }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
-  }, [editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
+  }, [editorWidgetKey, editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
 
   const cardRingVars = useMemo(
     () =>
@@ -267,6 +286,23 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       },
     [selected]
   );
+  const cardSizeStyle = useMemo(() => {
+    const style: React.CSSProperties = {};
+    if (preferredWidth) {
+      style.width = preferredWidth;
+      style.minWidth = preferredWidth;
+    }
+    if (preferredHeight) {
+      style.height = preferredHeight;
+      style.minHeight = preferredHeight;
+    }
+    return style;
+  }, [preferredWidth, preferredHeight]);
+
+  const probePreviewHeight = useMemo(() => {
+    if (!isProbeWidget || !preferredHeight) return undefined;
+    return Math.max(72, preferredHeight - 70);
+  }, [isProbeWidget, preferredHeight]);
   const ringClass = selected ? "ring-2 ring-offset-2" : "ring-1 ring-offset-0";
   const ringBaseClass = "border-0";
 
@@ -396,8 +432,8 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
 
   return (
     <Card
-      className={cn("min-w-[130px] w-[160px]", ringBaseClass, ringClass)}
-      style={cardRingVars}
+      className={cn(cardWidthClass, ringBaseClass, ringClass)}
+      style={{ ...cardRingVars, ...cardSizeStyle }}
       onPointerDownCapture={(event) => {
         if (shouldBlockNodePointer(event.target)) {
           event.stopPropagation();
@@ -422,7 +458,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           <CardTitle className="text-sm text-white">{name}</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="px-3 pb-3">
+      <CardContent className={cn("pb-3", isProbeWidget ? "px-3 flex flex-col gap-3" : "px-3")}>
         <div className={cn("gap-x-2 grid", outputs.length > 0 ? "grid-cols-2" : "grid-cols-1")}> 
           <div className="flex flex-col gap-2">
             {inputs
@@ -524,8 +560,23 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             })}
           </div>
         </div>
+        {isProbeWidget && nodeId ? (
+          <div className="mb-3">
+            <div
+              className="rounded-md border bg-muted/30 overflow-hidden"
+              data-node-interactive
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                minHeight: probePreviewHeight ?? 180,
+                height: probePreviewHeight,
+              }}
+            >
+              <ProbePreview nodeId={nodeId} graph={graph} className="h-full" />
+            </div>
+          </div>
+        ) : null}
         {properties.length > 0 && (
-          <div className="mt-3 pt-2 border-t">
+          <div className={cn(isProbeWidget ? "pt-2 border-t" : "mt-3 pt-2 border-t")}>
             <div className="flex flex-col gap-2">
               {properties.map((prop: any) => {
                 if (!prop || typeof prop !== "object" || !prop.id) return null;

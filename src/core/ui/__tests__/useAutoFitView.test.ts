@@ -1,7 +1,12 @@
+/* @vitest-environment jsdom */
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type AutoFitOnViewPathChangeOptions, useAutoFitOnViewPathChange } from "../useAutoFitView";
+
+if (typeof (globalThis as any).window === "undefined") {
+  (globalThis as any).window = globalThis as any;
+}
 
 const runAllTimers = () => {
   act(() => {

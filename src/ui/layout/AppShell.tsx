@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { persistGet, persistSet } from "@/lib/storage";
@@ -19,6 +19,7 @@ type AppShellProps = {
 
 export function AppShell({ header, children, sidebarContent, theme, onToggleTheme }: AppShellProps) {
   const [collapsed, setCollapsed] = useState<boolean>(true);
+  const [localTheme, setLocalTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     let mounted = true;
@@ -33,12 +34,44 @@ export function AppShell({ header, children, sidebarContent, theme, onToggleThem
   }, []);
 
   useEffect(() => {
+    if (theme !== undefined) return;
+    let mounted = true;
+    (async () => {
+      const saved = await persistGet<string>("ui.theme");
+      if (!mounted) return;
+      if (saved === "dark" || saved === "light") setLocalTheme(saved);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [theme]);
+
+  useEffect(() => {
     void persistSet("ui.sidebar.collapsed", collapsed);
   }, [collapsed]);
 
-  const themeMode = theme ?? "light";
+  useEffect(() => {
+    if (theme !== undefined) return;
+    void persistSet("ui.theme", localTheme);
+  }, [localTheme, theme]);
+
+  const themeMode = theme ?? localTheme;
   const isDark = themeMode === "dark";
   const canToggleTheme = typeof onToggleTheme === "function";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.classList.toggle("dark", isDark);
+  }, [isDark]);
+
+  const handleThemeToggle = useCallback(() => {
+    if (canToggleTheme) {
+      onToggleTheme?.();
+      return;
+    }
+    setLocalTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, [canToggleTheme, onToggleTheme]);
 
   const sidebarWidth = collapsed ? 56 : 224; // px
 
@@ -68,9 +101,9 @@ export function AppShell({ header, children, sidebarContent, theme, onToggleThem
               size="icon"
               className="h-8 w-8"
               aria-label="Toggle theme"
-              onClick={canToggleTheme ? onToggleTheme : undefined}
+              onClick={handleThemeToggle}
               title={isDark ? "Switch to light" : "Switch to dark"}
-              disabled={!canToggleTheme}
+              disabled={!canToggleTheme && typeof document === "undefined"}
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -107,4 +140,3 @@ function SidebarItem({ icon, label, collapsed }: { icon: React.ReactNode; label:
 }
 
 export default AppShell;
-

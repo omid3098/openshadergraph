@@ -76,7 +76,10 @@ export function useAutoFitOnViewPathChange({
     const pending = pendingPathRef.current;
     if (!pending) return;
     if (!pathsEqual(pending, viewPath)) return;
-    if (disabledRef.current) return;
+    if (disabledRef.current) {
+      pendingPathRef.current = null;
+      return;
+    }
     if (!latestNodeIdsRef.current.length) return;
 
     const pathSnapshot = clonePath(pending);
