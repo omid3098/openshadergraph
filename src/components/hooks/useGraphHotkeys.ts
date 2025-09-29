@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { QUICK_NODE_HOTKEYS, VIEW_HOTKEY_MAP, isEditableHotkeyTarget } from "@/core/ui/hotkeys";
+import { VIEW_HOTKEY_MAP, isEditableHotkeyTarget, type QuickNodeHotkey } from "@/core/ui/hotkeys";
 import type { EditorPanelKey } from "@/core/ui/editorNodes";
 import type { NodePaletteItem } from "@/core/schema/types";
 
@@ -11,9 +11,10 @@ type GraphHotkeyContext = {
   ) => void | Promise<void>;
   addNodeAt: (opts: { item: NodePaletteItem; x: number; y: number }) => void | Promise<void>;
   paletteByType: Map<string, NodePaletteItem>;
+  quickHotkeys: Record<string, QuickNodeHotkey>;
 };
 
-export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt, paletteByType }: GraphHotkeyContext) {
+export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt, paletteByType, quickHotkeys }: GraphHotkeyContext) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!event.metaKey || event.altKey || event.shiftKey || event.ctrlKey) return;
@@ -44,7 +45,7 @@ export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt,
       if (event.repeat) return;
       if (isEditableHotkeyTarget(event.target)) return;
 
-      const quick = QUICK_NODE_HOTKEYS[event.code];
+      const quick = quickHotkeys[event.code];
       if (!quick) return;
 
       const item = paletteByType.get(quick.type);
@@ -57,5 +58,5 @@ export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt,
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [addNodeAt, getPointerClient, paletteByType]);
+  }, [addNodeAt, getPointerClient, paletteByType, quickHotkeys]);
 }

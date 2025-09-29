@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import type { QuickNodeHotkey } from "@/core/ui/hotkeys";
 
 export type ThemeName = "dark" | "light";
 
@@ -9,6 +10,8 @@ type SettingsContextValue = {
   setTheme: (next: ThemeName) => void;
   curveMode: CurveMode;
   setCurveMode: (next: CurveMode) => void;
+  quickHotkeys: QuickNodeHotkey[];
+  setQuickHotkeys: (next: QuickNodeHotkey[]) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);

@@ -63,7 +63,14 @@ import { Check, Github, BookOpen, Layers, Settings as SettingsIcon } from "lucid
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { duplicateNodes, type DuplicateNodesResult } from "./core/graph/duplicate";
 import { APP_VERSION_INFO } from "./version";
-import { VIEW_MENU_ITEMS, isEditableHotkeyTarget } from "./core/ui/hotkeys";
+import {
+  VIEW_MENU_ITEMS,
+  isEditableHotkeyTarget,
+  DEFAULT_QUICK_NODE_HOTKEYS,
+  buildQuickHotkeyMap,
+  normalizeQuickHotkeyList,
+  type QuickNodeHotkey,
+} from "./core/ui/hotkeys";
 import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
 import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi, type GraphSnapshot } from "./core/ui/useGraphHistory";
 import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
@@ -174,6 +181,7 @@ export function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [palette, setPalette] = useState<NodePalette | null>(null);
+  const [quickNodeHotkeys, setQuickNodeHotkeysState] = useState<QuickNodeHotkey[]>(DEFAULT_QUICK_NODE_HOTKEYS);
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
   const viewPathRef = useRef(viewPath);
@@ -196,6 +204,7 @@ export function App() {
   const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
   const [clipboardStatus, setClipboardStatus] = useState<{ kind: "success" | "error"; message: string; key: number } | null>(null);
   const clipboardStatusTimerRef = useRef<number | null>(null);
+  const quickHotkeysPersistReadyRef = useRef(false);
   const canPasteViaButton = typeof navigator !== "undefined";
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
@@ -248,6 +257,49 @@ export function App() {
     void persistSet("ui.curveMode", curveMode);
   }, [curveMode]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<QuickNodeHotkey[]>("ui.quickNodeHotkeys");
+      if (cancelled) return;
+      if (Array.isArray(stored)) {
+        setQuickNodeHotkeysState(normalizeQuickHotkeyList(stored as QuickNodeHotkey[]));
+      }
+      quickHotkeysPersistReadyRef.current = true;
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!quickHotkeysPersistReadyRef.current) return;
+    void persistSet("ui.quickNodeHotkeys", quickNodeHotkeys);
+  }, [quickNodeHotkeys]);
+
+  const setQuickNodeHotkeys = useCallback(
+    (next: QuickNodeHotkey[] | ((prev: QuickNodeHotkey[]) => QuickNodeHotkey[])) => {
+      setQuickNodeHotkeysState((prev) => {
+        const updated = typeof next === "function" ? (next as (prev: QuickNodeHotkey[]) => QuickNodeHotkey[])(prev) : next;
+        const normalized = normalizeQuickHotkeyList(Array.isArray(updated) ? updated : []);
+        if (
+          normalized.length === prev.length &&
+          normalized.every((entry, index) => {
+            const current = prev[index];
+            return (
+              current &&
+              current.code === entry.code &&
+              current.type === entry.type &&
+              (current.label ?? "") === (entry.label ?? "")
+            );
+          })
+        ) {
+          return prev;
+        }
+        return normalized;
+      });
+    },
+    []
+  );
+
   const setTheme = useCallback((next: ThemeName) => {
     setThemeState(next);
   }, [setThemeState]);
@@ -258,7 +310,6 @@ export function App() {
     setCurveModeState(next);
   }, [setCurveModeState]);
 
-  const settingsValue = useMemo(() => ({ theme, setTheme, curveMode, setCurveMode }), [theme, setTheme, curveMode, setCurveMode]);
 
   const renderSidebar = useCallback(
     ({ collapsed }: { collapsed: boolean }) => (
@@ -451,6 +502,36 @@ export function App() {
     }
     return map;
   }, [palette]);
+
+  const quickHotkeysForSettings = useMemo(() => {
+    return quickNodeHotkeys.map((entry) => {
+      const item = paletteByType.get(entry.type);
+      const label = item?.name ?? entry.label ?? entry.type;
+      if (entry.label === label) return entry;
+      return { ...entry, label };
+    });
+  }, [paletteByType, quickNodeHotkeys]);
+
+  const quickHotkeyMap = useMemo(() => buildQuickHotkeyMap(quickNodeHotkeys), [quickNodeHotkeys]);
+
+  const handleQuickHotkeysChange = useCallback(
+    (next: QuickNodeHotkey[]) => {
+      setQuickNodeHotkeys(next);
+    },
+    [setQuickNodeHotkeys]
+  );
+
+  const settingsValue = useMemo(
+    () => ({
+      theme,
+      setTheme,
+      curveMode,
+      setCurveMode,
+      quickHotkeys: quickHotkeysForSettings,
+      setQuickHotkeys: setQuickNodeHotkeys,
+    }),
+    [curveMode, quickHotkeysForSettings, setCurveMode, setQuickNodeHotkeys, setTheme, theme]
+  );
 
   const templateCacheRef = useRef<TemplateCache | null>(null);
   if (!templateCacheRef.current) {
@@ -1873,6 +1954,7 @@ export function App() {
     toggleEditorNode,
     addNodeAt,
     paletteByType,
+    quickHotkeys: quickHotkeyMap,
   });
 
   useEffect(() => {
@@ -2652,6 +2734,9 @@ export function App() {
               onCurveModeChange={setCurveMode}
               theme={theme}
               onThemeChange={setTheme}
+              quickHotkeys={quickHotkeysForSettings}
+              onQuickHotkeysChange={handleQuickHotkeysChange}
+              palette={palette}
             />
           ) : (
             <div ref={flowContainerRef} className="w-full h-full relative">

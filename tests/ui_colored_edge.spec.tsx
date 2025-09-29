@@ -39,6 +39,17 @@ vi.mock("@/styles/theme", () => ({
   },
 }));
 
+vi.mock("@/ui/state/SettingsContext", () => ({
+  useSettings: () => ({
+    theme: "dark",
+    setTheme: () => {},
+    curveMode: "default",
+    setCurveMode: () => {},
+    quickHotkeys: [],
+    setQuickHotkeys: () => {},
+  }),
+}), { virtual: true });
+
 import ColoredEdge from "@/components/ColoredEdge";
 
 function renderIntoSvg(element: React.ReactElement) {
@@ -91,4 +102,3 @@ describe("ColoredEdge hit area", () => {
     cleanup();
   });
 });
-

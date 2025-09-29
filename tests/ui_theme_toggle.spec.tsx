@@ -3,6 +3,8 @@ import React, { act } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { createRoot } from "react-dom/client";
 
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
 vi.mock("@/lib/utils", () => ({ cn: (...c: any[]) => c.filter(Boolean).join(" ") }), { virtual: true });
 vi.mock("@/components/ui/button", () => ({ Button: (props: any) => <button {...props} /> }), { virtual: true });
 
@@ -80,5 +82,4 @@ describe("Sidebar theme toggle", () => {
     cleanup();
   });
 });
-
 

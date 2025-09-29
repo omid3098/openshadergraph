@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Position, ReactFlow, ReactFlowProvider, type Edge, type Node, type ReactFlowInstance } from "@xyflow/react";
 import ColoredEdge from "@/components/ColoredEdge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { formatQuickHotkeyDisplay, type QuickNodeHotkey } from "@/core/ui/hotkeys";
+import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
 import type { CurveMode, ThemeName } from "@/ui/state/SettingsContext";
 
 type SettingsPageProps = {
@@ -11,6 +14,9 @@ type SettingsPageProps = {
   onCurveModeChange: (value: CurveMode) => void;
   theme: ThemeName;
   onThemeChange: (value: ThemeName) => void;
+  quickHotkeys: QuickNodeHotkey[];
+  onQuickHotkeysChange: (next: QuickNodeHotkey[]) => void;
+  palette: NodePalette | null;
 };
 
 const curveModeOptions: Array<{ value: CurveMode; label: string }> = [
@@ -26,7 +32,15 @@ const themeOptions: Array<{ value: ThemeName; label: string }> = [
   { value: "light", label: "Light" },
 ];
 
-export function SettingsPage({ curveMode, onCurveModeChange, theme, onThemeChange }: SettingsPageProps) {
+export function SettingsPage({
+  curveMode,
+  onCurveModeChange,
+  theme,
+  onThemeChange,
+  quickHotkeys,
+  onQuickHotkeysChange,
+  palette,
+}: SettingsPageProps) {
   return (
     <div className="w-full h-full overflow-auto p-6">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -78,9 +92,201 @@ export function SettingsPage({ curveMode, onCurveModeChange, theme, onThemeChang
             </Select>
           </CardContent>
         </Card>
+
+        <HotkeySettingsCard hotkeys={quickHotkeys} onChange={onQuickHotkeysChange} palette={palette} />
       </div>
     </div>
   );
+}
+
+type HotkeySettingsCardProps = {
+  hotkeys: QuickNodeHotkey[];
+  onChange: (next: QuickNodeHotkey[]) => void;
+  palette: NodePalette | null;
+};
+
+function HotkeySettingsCard({ hotkeys, onChange, palette }: HotkeySettingsCardProps) {
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [capturedCode, setCapturedCode] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+
+  const paletteOptions = useMemo(() => {
+    if (!palette) return [] as NodePaletteItem[];
+    const flat = Array.isArray(palette.flat) ? palette.flat : [];
+    return [...flat].sort((a, b) => a.name.localeCompare(b.name) || a.type.localeCompare(b.type));
+  }, [palette]);
+
+  const sortedHotkeys = useMemo(() => {
+    return [...hotkeys].sort((a, b) => {
+      const aLabel = (a.label ?? a.type).toLowerCase();
+      const bLabel = (b.label ?? b.type).toLowerCase();
+      if (aLabel === bLabel) return a.type.localeCompare(b.type);
+      return aLabel.localeCompare(bLabel);
+    });
+  }, [hotkeys]);
+
+  useEffect(() => {
+    if (!selectedType) return;
+    if (!paletteOptions.some((option) => option.type === selectedType)) {
+      setSelectedType("");
+    }
+  }, [paletteOptions, selectedType]);
+
+  useEffect(() => {
+    if (!isCapturing) return;
+    const handler = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat) return;
+      if (event.key === "Escape") {
+        setIsCapturing(false);
+        setCaptureError(null);
+        return;
+      }
+      const code = event.code;
+      if (!isSupportedQuickHotkeyCode(code)) {
+        setCaptureError("Use letter, digit, numpad, arrow, Space, or Enter keys.");
+        return;
+      }
+      setCapturedCode(code);
+      setIsCapturing(false);
+      setCaptureError(null);
+    };
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
+  }, [isCapturing]);
+
+  const existingWithCode = useMemo(
+    () => (capturedCode ? hotkeys.find((entry) => entry.code === capturedCode) ?? null : null),
+    [capturedCode, hotkeys]
+  );
+
+  const startCapture = useCallback(() => {
+    if (isCapturing) {
+      setIsCapturing(false);
+      return;
+    }
+    setCapturedCode(null);
+    setCaptureError(null);
+    setIsCapturing(true);
+  }, [isCapturing]);
+
+  const handleRemove = useCallback(
+    (code: string) => {
+      onChange(hotkeys.filter((entry) => entry.code !== code));
+    },
+    [hotkeys, onChange]
+  );
+
+  const handleAdd = useCallback(() => {
+    if (!selectedType || !capturedCode) return;
+    const paletteItem = paletteOptions.find((item) => item.type === selectedType);
+    const label = paletteItem?.name ?? selectedType;
+    const next = hotkeys.filter((entry) => entry.code !== capturedCode);
+    next.push({ code: capturedCode, type: selectedType, label });
+    onChange(next);
+    setCapturedCode(null);
+  }, [capturedCode, hotkeys, onChange, paletteOptions, selectedType]);
+
+  const canAdd = Boolean(!isCapturing && selectedType && capturedCode);
+  const selectDisabled = paletteOptions.length === 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Quick Node Hotkeys</CardTitle>
+        <CardDescription>
+          Manage shortcuts for spawning nodes with ⌘⇧ (or Ctrl+⇧ on Windows/Linux).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          {sortedHotkeys.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No quick hotkeys configured yet.</p>
+          ) : (
+            sortedHotkeys.map((entry) => (
+              <div
+                key={entry.code}
+                className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 px-3 py-2"
+              >
+                <div className="space-y-1">
+                  <div className="text-sm font-medium leading-none">{entry.label ?? entry.type}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatQuickHotkeyDisplay(entry.code)} · {entry.type}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => handleRemove(entry.code)}>
+                  Remove
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="space-y-4 border-t pt-4">
+          <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
+            <div className="space-y-2">
+              <Label htmlFor="quick-node-type">Node</Label>
+              <Select
+                value={selectedType}
+                onValueChange={setSelectedType}
+                disabled={selectDisabled}
+              >
+                <SelectTrigger id="quick-node-type" className="w-full">
+                  <SelectValue placeholder={selectDisabled ? "Loading nodes..." : "Select node"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {paletteOptions.map((item) => (
+                    <SelectItem key={item.type} value={item.type}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick-hotkey-code">Key</Label>
+              <Button
+                id="quick-hotkey-code"
+                type="button"
+                variant="outline"
+                onClick={startCapture}
+                aria-pressed={isCapturing}
+                className="w-full justify-between"
+              >
+                <span>{capturedCode ? formatQuickHotkeyDisplay(capturedCode) : isCapturing ? "Press a key" : "Record key"}</span>
+                {isCapturing && <span className="text-xs text-muted-foreground">Esc to cancel</span>}
+              </Button>
+            </div>
+            <div className="flex items-end">
+              <Button type="button" onClick={handleAdd} disabled={!canAdd}>
+                {existingWithCode ? "Replace" : "Add"}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Shortcuts trigger while holding ⌘⇧ or Ctrl+⇧. Existing assignments are replaced when reusing a key.
+          </p>
+          {captureError && <p className="text-xs text-destructive">{captureError}</p>}
+          {existingWithCode && !captureError && (
+            <p className="text-xs text-muted-foreground">
+              {formatQuickHotkeyDisplay(existingWithCode.code)} currently spawns {existingWithCode.label ?? existingWithCode.type}.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function isSupportedQuickHotkeyCode(code: string): boolean {
+  if (!code) return false;
+  if (/^Key[A-Z]$/i.test(code)) return true;
+  if (/^Digit[0-9]$/.test(code)) return true;
+  if (/^Numpad[0-9]$/.test(code)) return true;
+  if (/^Arrow(Up|Down|Left|Right)$/.test(code)) return true;
+  return code === "Space" || code === "Enter";
 }
 
 function CurveModePreview({ curveMode }: { curveMode: CurveMode }) {

@@ -44,6 +44,7 @@ Here tou can search for a node by name or type and add it to the graph.
 ### Using hotkeys
 
 You can use the hotkeys to add nodes to the graph.
+Open **Settings → Quick Node Hotkeys** in the sidebar to review or customize the shortcuts used for spawning nodes (⌘⇧ on macOS, Ctrl+⇧ on Windows/Linux).
 
 1. Add a `Color` node and pick a color.
 2. Add `FragmentOutput` and connect `Color.out` → `Albedo`.
