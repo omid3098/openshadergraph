@@ -465,21 +465,102 @@ async function emitManifest() {
 
 await emitManifest();
 
+function decodeBuffer(buf?: Uint8Array | null): string {
+  if (!buf || buf.byteLength === 0) return "";
+  return new TextDecoder().decode(buf).trim();
+}
+
+async function resolvePythonForMkdocs(mkdocsPath: string): Promise<string | null> {
+  const candidates = new Set<string>();
+  try {
+    const firstLine = (await readFile(mkdocsPath, "utf8")).split("\n")[0] ?? "";
+    if (firstLine.startsWith("#!")) {
+      const shebangCmd = firstLine.slice(2).trim().split(/\s+/)[0] ?? "";
+      if (shebangCmd) candidates.add(shebangCmd);
+    }
+  } catch (_err) {
+    /* ignore */
+  }
+  const env = Bun.env ?? process.env ?? {};
+  const envCandidates = [env.PYTHON, env.PYTHON3];
+  for (const candidate of envCandidates) {
+    if (candidate) candidates.add(candidate);
+  }
+  candidates.add("python3");
+  candidates.add("python");
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const probe = Bun.spawnSync({ cmd: [candidate, "--version"], stdout: "ignore", stderr: "ignore" });
+    if (probe.exitCode === 0) return candidate;
+  }
+  return null;
+}
+
+async function ensureMkdocsDependencies(mkdocsPath: string): Promise<boolean> {
+  const pythonCmd = await resolvePythonForMkdocs(mkdocsPath);
+  if (!pythonCmd) {
+    console.log("ℹ️  Skipping docs build (no Python interpreter available for mkdocs)");
+    return false;
+  }
+
+  const checkScript = "import importlib, sys\ntry:\n    importlib.import_module('mkdocs_glightbox')\nexcept ModuleNotFoundError:\n    sys.exit(1)\n";
+  const check = Bun.spawnSync({ cmd: [pythonCmd, "-c", checkScript], stdout: "ignore", stderr: "ignore" });
+  if (check.exitCode === 0) return true;
+
+  const requirementsPath = path.resolve(process.cwd(), "requirements.txt");
+  if (!existsSync(requirementsPath)) {
+    console.warn("⚠️  Missing requirements.txt; unable to install MkDocs plugins");
+    return false;
+  }
+
+  console.log("📦 Installing MkDocs docs dependencies (requirements.txt)...");
+  const install = Bun.spawnSync({
+    cmd: [pythonCmd, "-m", "pip", "install", "--disable-pip-version-check", "--user", "-r", requirementsPath],
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const installOut = decodeBuffer(install.stdout);
+  if (installOut) console.log(installOut);
+  if (install.exitCode !== 0) {
+    console.warn("⚠️  Failed to install MkDocs dependencies:", decodeBuffer(install.stderr));
+    return false;
+  }
+  const installErr = decodeBuffer(install.stderr);
+  if (installErr) console.log(installErr);
+
+  const recheck = Bun.spawnSync({ cmd: [pythonCmd, "-c", checkScript], stdout: "ignore", stderr: "ignore" });
+  if (recheck.exitCode !== 0) {
+    console.warn("⚠️  mkdocs_glightbox still unavailable after installation; skipping docs build");
+    return false;
+  }
+  return true;
+}
+
 // Optionally build MkDocs docs into dist/docs if mkdocs is available
 async function buildDocsIfAvailable() {
   try {
-    // Check if mkdocs exists on PATH
-    const check = Bun.spawnSync({ cmd: ["bash", "-lc", "command -v mkdocs >/dev/null 2>&1"], stdout: "ignore", stderr: "ignore" });
-    if (check.exitCode !== 0) {
+    const which = Bun.spawnSync({
+      cmd: ["bash", "-lc", "command -v mkdocs"],
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    const mkdocsPath = decodeBuffer(which.stdout);
+    if (which.exitCode !== 0 || !mkdocsPath) {
       console.log("ℹ️  Skipping docs build (mkdocs not found)");
       return;
     }
+
+    if (!(await ensureMkdocsDependencies(mkdocsPath))) return;
+
     console.log("📚 Building documentation (mkdocs)...");
-    const res = Bun.spawnSync({ cmd: ["mkdocs", "build", "--clean"], stdout: "pipe", stderr: "pipe" });
+    const res = Bun.spawnSync({ cmd: [mkdocsPath, "build", "--clean"], stdout: "pipe", stderr: "pipe" });
     if (res.exitCode === 0) {
       console.log("📚 Docs built → dist/docs");
     } else {
-      console.warn("⚠️  mkdocs build failed:", new TextDecoder().decode(res.stderr));
+      const errText = decodeBuffer(res.stderr) || decodeBuffer(res.stdout);
+      console.warn("⚠️  mkdocs build failed:", errText);
     }
   } catch (err) {
     console.warn("⚠️  Error during docs build:", err);
