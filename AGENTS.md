@@ -22,12 +22,14 @@ Minimal graph rules:
 - Connections encode as relative refs: `../<nodeId>/<pinId>` on both ends (input and output).
 - Never reorder pins, children, or IDs during load/save round-trips.
 
-## Required Gates (must pass locally before submitting)
+## Required Gates (run locally before confirming a solution, adding a feature, or pushing)
 
-- `bun run test` → all unit tests green (vitest)
+- `bun install --frozen-lockfile`
 - `bun run lint` → 0 errors, 0 warnings (ESLint)
-- `bun run test:e2e` → all E2E tests green (Playwright - Chromium only, matches CI)
-- Optional: `bun x tsc -p tsconfig.json --noEmit` → clean typecheck
+- `bun x tsc -p tsconfig.json --noEmit` → typecheck clean
+- `bun run test` → all unit tests green (vitest)
+- First time only: `bun run test:e2e:install`
+- `bun run test:e2e` → all E2E tests green (Playwright - Chromium only; matches CI)
 
 ### E2E Testing Setup
 

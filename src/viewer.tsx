@@ -1,4 +1,4 @@
-import React, { StrictMode, useEffect, useMemo, useRef, useState } from "react";
+import React, { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ReactFlow, ReactFlowProvider, useEdgesState, useNodesState, useReactFlow, Background, BackgroundVariant, type Node as RFNode, type Edge as RFEdge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -45,7 +45,11 @@ function ViewerInner() {
     setQuickHotkeys: () => {},
   }), [theme, curveMode]);
 
-  const nodesById = useMemo(() => new Map<string, any>(), [nodes]);
+  const nodesById = useMemo(() => {
+    const map = new Map<string, VNode>();
+    for (const n of nodes) map.set(n.id, n);
+    return map;
+  }, [nodes]);
   const graphStateValue = useMemo(() => ({
     nodesById,
     nodeUpdaterApi,
@@ -85,7 +89,7 @@ function ViewerInner() {
         try {
           try {
             return await cache.load(type, item.path);
-          } catch (err) {
+          } catch (_err) {
             if (abort.signal.aborted) return undefined;
             return undefined;
           }
