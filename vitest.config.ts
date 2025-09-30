@@ -14,6 +14,8 @@ export default defineConfig({
     environment: "node",
     // Use jsdom automatically for TSX tests to reduce per-file pragmas
     environmentMatchGlobs: [["**/*.spec.tsx", "jsdom"]],
+    // Exclude Playwright e2e tests (they run via `bun run test:e2e`)
+    exclude: ["e2e/**", "node_modules/**"],
     setupFiles: ["./tests/setup.ts"],
     coverage: {
       provider: "v8",
