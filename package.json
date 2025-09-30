@@ -43,8 +43,11 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
+    "test:e2e:all": "PLAYWRIGHT_ALL_BROWSERS=true playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
+    "test:e2e:install": "bunx playwright install --with-deps chromium",
+    "test:e2e:install:all": "bunx playwright install --with-deps",
     "bench": "vitest bench",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0"

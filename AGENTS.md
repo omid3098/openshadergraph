@@ -26,8 +26,28 @@ Minimal graph rules:
 
 - `bun run test` → all unit tests green (vitest)
 - `bun run lint` → 0 errors, 0 warnings (ESLint)
-- If Playwright is configured: `bun run test:e2e` → all E2E tests green
+- `bun run test:e2e` → all E2E tests green (Playwright - Chromium only, matches CI)
 - Optional: `bun x tsc -p tsconfig.json --noEmit` → clean typecheck
+
+### E2E Testing Setup
+
+First time only - install Chromium browser:
+
+```bash
+bun run test:e2e:install
+```
+
+Run E2E tests (Chromium - matches CI):
+
+```bash
+bun run test:e2e
+```
+
+For local development with VSCode Playwright extension:
+
+- Use Testing sidebar to run/debug individual tests
+- Tests run against production server (`bun run start`)
+- See `e2e/README.md` for detailed guide
 
 ## MCP Docs (Context7) Usage
 

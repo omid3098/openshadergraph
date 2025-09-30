@@ -7,8 +7,8 @@ test.describe("Graph Creation Flow", () => {
     // Wait for the app to be ready
     await page.waitForSelector('[data-testid="graph-canvas"], .react-flow', { timeout: 10000 });
     
-    // Check that the main UI elements are present
-    await expect(page.locator("text=OpenShaderGraph").or(page.locator("nav"))).toBeVisible();
+    // Check that the main UI elements are present - use the ReactFlow canvas as the main indicator
+    await expect(page.locator(".react-flow")).toBeVisible();
   });
 
   test("should create a new graph and add nodes", async ({ page }) => {

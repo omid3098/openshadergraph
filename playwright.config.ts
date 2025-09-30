@@ -41,32 +41,35 @@ export default defineConfig({
   },
 
   /* Configure projects for major browsers */
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-
-    {
-      name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-    },
-
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
-    },
-
-    /* Test against mobile viewports */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-  ],
+  // On CI, only run chromium. Locally, run all browsers if PLAYWRIGHT_ALL_BROWSERS is set, otherwise chromium only
+  projects: process.env.CI 
+    ? [
+        {
+          name: "chromium",
+          use: { ...devices["Desktop Chrome"] },
+        },
+      ]
+    : process.env.PLAYWRIGHT_ALL_BROWSERS === "true"
+    ? [
+        {
+          name: "chromium",
+          use: { ...devices["Desktop Chrome"] },
+        },
+        {
+          name: "firefox",
+          use: { ...devices["Desktop Firefox"] },
+        },
+        {
+          name: "webkit",
+          use: { ...devices["Desktop Safari"] },
+        },
+      ]
+    : [
+        {
+          name: "chromium",
+          use: { ...devices["Desktop Chrome"] },
+        },
+      ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
