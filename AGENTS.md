@@ -169,3 +169,51 @@ Deployment checklist (Server):
 3. Verify in Network tab (Disable cache):
    - 200 for `/api/languages`, `/api/nodes`, `/api/assets`, `/api/example-graphs`.
    - POST `/api/compile` returns code.
+
+## Viewer Embedding Parameters
+
+The documentation viewer at `viewer.html` accepts parameters via query string or iframe `data-*` attributes. Current parameters:
+
+- `graph64`: base64url-encoded DocGraph JSON (preferred; see `src/viewer/DocGraph.ts`).
+- `graph`: raw DocGraph JSON string.
+- `demo`: optional built-in demo key (e.g., `float-sin`).
+- `theme`: `light` or `dark` (default: `dark`).
+- `fit`: `true` or `false` (default: `true`) – auto-fit after load.
+- `interactive`: `true` or `false` (default: `true`) – enable drag/select/connect and add-node menu.
+- `menubar`: `true` or `false` (default: `false`) – show header chrome.
+- `sidebar`: `true` or `false` (default: `false`) – show left sidebar chrome.
+
+Notes:
+
+- Compilation and right-side dock panels are disabled in the viewer to preserve performance; `compile`, `preview`, and `graphdata` flags are currently ignored.
+
+Examples
+
+Embed with query parameters (use URL-encoded JSON for `graph`):
+
+```html
+<iframe
+  src="/viewer.html?graph=%7B%22v%22%3A1%2C%22nodes%22%3A%5B%7B%22id%22%3A1%2C%22t%22%3A%22float%22%2C%22x%22%3A60%2C%22y%22%3A100%2C%22props%22%3A%7B%22value%22%3A0.5%7D%7D%2C%7B%22id%22%3A2%2C%22t%22%3A%22sin%22%2C%22x%22%3A280%2C%22y%22%3A100%7D%5D%2C%22edges%22%3A%5B%7B%22from%22%3A%5B1%2C0%5D%2C%22to%22%3A%5B2%2C0%5D%7D%5D%7D&interactive=true&theme=light&menubar=true"
+  width="100%"
+  height="420"
+  style="border:0"
+></iframe>
+```
+
+Embed with `data-*` attributes (same keys as query) using raw JSON via `data-graph`:
+
+```html
+<iframe
+  src="/viewer.html"
+  data-graph='{"v":1,"nodes":[{"id":1,"t":"float","x":60,"y":100,"props":{"value":0.5}},{"id":2,"t":"sin","x":280,"y":100}],"edges":[{"from":[1,0],"to":[2,0]}]}'
+  data-interactive="true"
+  data-theme="dark"
+  data-menubar="false"
+  data-sidebar="false"
+  width="100%"
+  height="420"
+  style="border:0"
+></iframe>
+```
+
+Reference implementation lives in `src/viewer.tsx` (flag parsing) and `src/viewer/DocGraph.ts` (graph payload parsing).

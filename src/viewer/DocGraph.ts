@@ -46,10 +46,14 @@ export function decodeBase64Url(input: string): string {
 }
 
 export function parseDocGraphFromParams(params: URLSearchParams): DocGraph | null {
+  return parseDocGraphFromSource({ get: (k: string) => params.get(k) });
+}
+
+export function parseDocGraphFromSource(source: { get: (key: string) => string | null }): DocGraph | null {
   // Prefer graph64, fallback to graph, then demo
-  const graph64 = params.get("graph64");
-  const rawGraph = params.get("graph");
-  const demo = params.get("demo");
+  const graph64 = source.get("graph64");
+  const rawGraph = source.get("graph");
+  const demo = source.get("demo");
 
   try {
     if (graph64) {

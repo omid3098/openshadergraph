@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Textarea } from "./ui/textarea";
 import { cn } from "@/lib/utils";
 // inputs are provided by extracted components
 import ColorInput from "./inputs/ColorInput";
@@ -235,6 +236,22 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <ProbePreview nodeId={nodeId} graph={graph} className="h-full" />;
     }
     const key = editorPanelKey.toLowerCase();
+    if (key === "note") {
+      const textProp = Array.isArray((data as any)?.template?.properties)
+        ? ((data as any).template.properties as any[]).find((p) => p && p.id === "text")
+        : undefined;
+      const value = typeof textProp?.value === "string" ? textProp!.value : typeof textProp?.default === "string" ? textProp!.default : "";
+      return (
+        <div className="h-full p-3">
+          <Textarea
+            value={value}
+            placeholder="Write notes here..."
+            className="h-full min-h-[120px] resize-none"
+            onChange={(e) => updatePropertyValue("text", e.currentTarget.value)}
+          />
+        </div>
+      );
+    }
     if (key === "properties") {
       return <PropertiesPanel variant="node" className="h-full overflow-auto" />;
     }

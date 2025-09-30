@@ -13,22 +13,14 @@ Welcome to OpenShaderGraph! This guide will help you create your first shader ma
 From the menu bar, select **File → New → PBR** to create a new PBR material graph.
 
 <iframe
-    id="osg-viewer-newgraph"
+    src="/viewer.html"
     width="100%"
     height="360"
     style="border: 1px solid #2a2a2a; border-radius: 8px;"
     loading="lazy"
     referrerpolicy="no-referrer"
+    data-graph='{"v":1,"nodes":[{"id":101,"t":"fragment_output","x":260,"y":140}],"edges":[]}'
 ></iframe>
-<script>
-  // Minimal default PBR view: show the FragmentOutput node in FragmentPass
-  const pbrGraphData = {"v":1,"nodes":[
-    {"id":101,"t":"fragment_output","x":260,"y":140}
-  ],"edges":[]};
-  const pbrUrl = '/viewer.html?fit=true&theme=dark&graph=' + encodeURIComponent(JSON.stringify(pbrGraphData));
-  const pbrFrame = document.getElementById('osg-viewer-newgraph');
-  if (pbrFrame) pbrFrame.src = pbrUrl;
-</script>
 
 !!! note "Graph Types"
 
@@ -78,10 +70,6 @@ Use keyboard shortcuts to spawn commonly-used nodes instantly. Configure shortcu
 
 - Default: **Cmd+Shift** (macOS) or **Ctrl+Shift** (Windows/Linux) + key
 
-### Making Connections
-
-Drag from an **output pin** (right side) to an **input pin** (left side) to create a connection.
-
 !!! tip "Connection Tips"
 
     - Compatible pins snap when hovering
@@ -101,12 +89,21 @@ Click input fields directly on nodes to edit values:
 To use a texture in your shader:
 
 1. **Add the Assets panel**: Right-click → add `Assets` editor node
+
+<iframe
+    src="/viewer.html"
+    width="100%"
+    height="360"
+    style="border: 1px solid #2a2a2a; border-radius: 8px;"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    data-graph='{"v":1,"nodes":[{"id":101,"t":"editor_assets","x":260,"y":140}],"edges":[]}'
+></iframe>
+
 2. **Drag & drop**: Drag a texture from the Assets panel onto the canvas to create a `Texture` node
 3. **Add a sampler**: Create a `TextureSampler` node
 4. **Connect**: `Texture.texture` → `TextureSampler.texture`
 5. **Use the output**: Connect `TextureSampler.rgb` to your material inputs
-
-[![Texture node](./assets/06_texture_node.png){ width="700" loading=lazy }](./assets/06_texture_node.png){ .glightbox }
 
 !!! info "UV Coordinates"
 
