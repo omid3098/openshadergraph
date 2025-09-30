@@ -39,3 +39,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Generated test outputs
 tests/shaders/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/

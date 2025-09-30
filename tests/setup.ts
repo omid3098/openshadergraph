@@ -1,4 +1,4 @@
-import { beforeAll, vi } from "vitest";
+import { beforeAll } from "vitest";
 
 // Mock window.location for tests
 beforeAll(() => {
