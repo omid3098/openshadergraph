@@ -294,7 +294,6 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const cardRingVars = useMemo(
     () =>
       ({
-        borderRadius: "inherit",
         "--tw-ring-color": selected ? "#ffffff" : "var(--border)",
         "--tw-ring-offset-color": selected ? "#000000" : "var(--card)",
       }) as React.CSSProperties & {
