@@ -15,7 +15,8 @@ From the menu bar, select **File → New → PBR** to create a new PBR material 
 [![New Graph](./assets/01_newgraph.png){ width="700" loading=lazy }](./assets/01_newgraph.png){ .glightbox }
 
 !!! note "Graph Types"
-You can choose between **PBR**, **Unlit**, or **Toon** shading. All three follow the same graph structure.
+
+    You also can choose between **PBR**, **Unlit**, or **Toon** shading. All three follow the same graph structure.
 
 ### 2. Understanding Graph Structure
 
@@ -37,13 +38,21 @@ graph TD
 - **VertexPass**: Where you control vertex positions and attributes
 - **Output nodes**: Final connection points that feed into the engine
 
-!!! tip "Navigation" - Click breadcrumb items to navigate up the hierarchy - Double-click a group node (like `Surface`) to drill down into its contents - Most shader work happens inside `FragmentPass`
+In OpenShaderGraph, every layer is a node. it is either a composition node or a primitive node. (Yes, inspired by OpenUSD!)
+
+- Composition nodes are nodes that contain other nodes.
+- Primitive nodes are nodes that do **not** contain other nodes.
+
+!!! tip "Navigation"
+
+    - Click breadcrumb items to navigate up the hierarchy
+    - Double-click a group node (like `Surface`) to drill down into its contents
 
 ## Core Workflows
 
 ### Adding Nodes
 
-**Method 1: Context Menu** (Recommended)
+**Method 1: Context Menu**
 
 Right-click anywhere on the canvas to open the node menu. Search by name or browse categories.
 
@@ -61,7 +70,11 @@ Drag from an **output pin** (right side) to an **input pin** (left side) to crea
 
 [![Connect pins](./assets/03_connect_nodes.png){ width="700" loading=lazy }](./assets/03_connect_nodes.png){ .glightbox }
 
-!!! tip "Connection Tips" - Compatible pins highlight when hovering - Delete a connection by selecting it and pressing **Delete** - Right-click a connection for more options
+!!! tip "Connection Tips"
+
+    - Compatible pins highlight when hovering
+    - Delete a connection by selecting it and pressing **Delete**
+    - Right-click a connection for more options
 
 ### Editing Values
 
@@ -86,7 +99,8 @@ To use a texture in your shader:
 [![Texture node](./assets/06_texture_node.png){ width="700" loading=lazy }](./assets/06_texture_node.png){ .glightbox }
 
 !!! info "UV Coordinates"
-The sampler's `uv` input uses built-in UVs by default. Connect a `UV` node to override or transform coordinates.
+
+    The sampler's `uv` input uses built-in UVs by default. Connect a `UV` node to override or transform coordinates.
 
 ## Editor Nodes
 
