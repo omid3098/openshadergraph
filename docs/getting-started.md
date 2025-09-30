@@ -12,7 +12,23 @@ Welcome to OpenShaderGraph! This guide will help you create your first shader ma
 
 From the menu bar, select **File → New → PBR** to create a new PBR material graph.
 
-[![New Graph](./assets/01_newgraph.png){ width="700" loading=lazy }](./assets/01_newgraph.png){ .glightbox }
+<iframe
+    id="osg-viewer-newgraph"
+    width="100%"
+    height="360"
+    style="border: 1px solid #2a2a2a; border-radius: 8px;"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+></iframe>
+<script>
+  // Minimal default PBR view: show the FragmentOutput node in FragmentPass
+  const pbrGraphData = {"v":1,"nodes":[
+    {"id":101,"t":"fragment_output","x":260,"y":140}
+  ],"edges":[]};
+  const pbrUrl = '/viewer.html?fit=true&theme=dark&graph=' + encodeURIComponent(JSON.stringify(pbrGraphData));
+  const pbrFrame = document.getElementById('osg-viewer-newgraph');
+  if (pbrFrame) pbrFrame.src = pbrUrl;
+</script>
 
 !!! note "Graph Types"
 
@@ -56,8 +72,6 @@ In OpenShaderGraph, every layer is a node. it is either a composition node or a 
 
 Right-click anywhere on the canvas to open the node menu. Search by name or browse categories.
 
-[![Right click context menu](./assets/02_addnode_context_menu.png){ width="700" loading=lazy }](./assets/02_addnode_context_menu.png){ .glightbox }
-
 **Method 2: Quick Hotkeys**
 
 Use keyboard shortcuts to spawn commonly-used nodes instantly. Configure shortcuts in **Settings → Quick Node Hotkeys** (sidebar).
@@ -68,23 +82,19 @@ Use keyboard shortcuts to spawn commonly-used nodes instantly. Configure shortcu
 
 Drag from an **output pin** (right side) to an **input pin** (left side) to create a connection.
 
-[![Connect pins](./assets/03_connect_nodes.png){ width="700" loading=lazy }](./assets/03_connect_nodes.png){ .glightbox }
-
 !!! tip "Connection Tips"
 
-    - Compatible pins highlight when hovering
-    - Delete a connection by selecting it and pressing **Delete**
+    - Compatible pins snap when hovering
+    - Delete a connection by clicking on the connction line and pressing **Delete** or **Backspace**
     - Right-click a connection for more options
 
 ### Editing Values
 
 Click input fields directly on nodes to edit values:
 
-- **Numbers**: Type directly or drag to scrub
+- **Numbers**: Type directly `or drag to scrub or shift + drag to scrub faster (TODO)`
 - **Colors**: Click the swatch to open a color picker
 - **Vectors**: Edit individual components
-
-[![Edit inputs](./assets/05_set_color.png){ width="700" loading=lazy }](./assets/05_set_color.png){ .glightbox }
 
 ## Working with Textures
 

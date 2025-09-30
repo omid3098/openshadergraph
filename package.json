@@ -34,6 +34,8 @@
     "dev:server": "bun --hot src/index.tsx",
     "dev:watch": "bun run build.ts --sourcemap=inline --minify=false --define.process.env.NODE_ENV=\"development\" --watch",
     "dev:all": "bash -c 'bun run dev:watch & bun run dev:server'",
+    "dev:server:docs": "DOCS_DEV_PROXY=http://127.0.0.1:${DOCS_PORT:-8000} bun --hot src/index.tsx",
+    "dev:docs": "bash -c 'bun run docs:dev & bun run dev:watch & bun run dev:server:docs'",
     "dev": "bun run dev:all",
     "start": "NODE_ENV=production bun src/index.tsx",
     "build": "bun run build.ts --auto-tag",

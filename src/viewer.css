@@ -1,0 +1,6 @@
+@import "./index.css";
+
+/* Ensure a unique CSS content hash for the viewer bundle to avoid output collisions */
+:root { --osg-viewer-marker: 1 }
+
+
