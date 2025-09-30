@@ -303,13 +303,24 @@ export function buildReactFlowGraph({ root, defaults, assets, options }: BuildRe
 
   const maxId = Math.max(...Array.from(allNodes.keys())) || Number(root.id) || 0;
 
-  const fragmentPass = (root.nodes ?? []).find((child) => child.type === "fragment_pass");
-  const vertexPass = (root.nodes ?? []).find((child) => child.type === "vertex_pass");
-  const defaultViewPath = fragmentPass
-    ? [rootId, String(fragmentPass.id)]
-    : vertexPass
-      ? [rootId, String(vertexPass.id)]
-      : [rootId];
+  // Compute default view path preferring FragmentPass under Surface if present
+  const surfaceNode = (root.nodes ?? []).find((child) => child.type === "surface");
+  let defaultViewPath: string[] = [rootId];
+  if (surfaceNode && Array.isArray(surfaceNode.nodes)) {
+    const fragmentPass = surfaceNode.nodes.find((child: any) => child && child.type === "fragment_pass");
+    const vertexPass = surfaceNode.nodes.find((child: any) => child && child.type === "vertex_pass");
+    if (fragmentPass) defaultViewPath = [rootId, String((surfaceNode as any).id), String((fragmentPass as any).id)];
+    else if (vertexPass) defaultViewPath = [rootId, String((surfaceNode as any).id), String((vertexPass as any).id)];
+    else defaultViewPath = [rootId, String((surfaceNode as any).id)];
+  } else {
+    const fragmentPass = (root.nodes ?? []).find((child) => child.type === "fragment_pass");
+    const vertexPass = (root.nodes ?? []).find((child) => child.type === "vertex_pass");
+    defaultViewPath = fragmentPass
+      ? [rootId, String((fragmentPass as any).id)]
+      : vertexPass
+        ? [rootId, String((vertexPass as any).id)]
+        : [rootId];
+  }
 
   return {
     nodes: createdNodes,

@@ -12,16 +12,6 @@ Welcome to OpenShaderGraph! This guide will help you create your first shader ma
 
 From the menu bar, select **File → New → PBR** to create a new PBR material graph.
 
-<iframe
-    src="/viewer.html"
-    width="100%"
-    height="360"
-    style="border: 1px solid #2a2a2a; border-radius: 8px;"
-    loading="lazy"
-    referrerpolicy="no-referrer"
-    data-graph='{"v":1,"nodes":[{"id":101,"t":"fragment_output","x":260,"y":140}],"edges":[]}'
-></iframe>
-
 !!! note "Graph Types"
 
     You also can choose between **PBR**, **Unlit**, or **Toon** shading. All three follow the same graph structure.
@@ -29,6 +19,17 @@ From the menu bar, select **File → New → PBR** to create a new PBR material 
 ### 2. Understanding Graph Structure
 
 The breadcrumb at the top shows your current location: **`Untitled Pbr > Surface > FragmentPass`**
+
+<iframe
+    src="/viewer.html"
+    width="100%"
+    height="360"
+    style="border: 1px solid #2a2a2a; border-radius: 8px;"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    data-menubar="true"
+    data-graph='{"v":1,"nodes":[{"id":101,"t":"fragment_output","x":260,"y":140}],"edges":[]}'
+></iframe>
 
 A new material graph is organized hierarchically:
 

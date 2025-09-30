@@ -16,7 +16,7 @@ function cloneFromTemplate(base: NodeTemplate): GraphNode {
 }
 
 export async function inflateDocGraph(doc: DocGraph, getTemplate: (type: string) => Promise<NodeTemplate | undefined>): Promise<GraphNode> {
-  // Root surface → { vertex_pass, fragment_pass }
+  // Build a root wrapper → surface → { vertex_pass, fragment_pass }
   const surfaceTpl = await getTemplate("surface");
   if (!surfaceTpl) throw new Error("Missing template: surface");
   const surface = cloneFromTemplate(surfaceTpl);
@@ -25,14 +25,25 @@ export async function inflateDocGraph(doc: DocGraph, getTemplate: (type: string)
   const vertexPass = (surface.nodes ?? []).find((n) => n.type === "vertex_pass");
   if (!fragmentPass || !vertexPass) throw new Error("Surface template missing passes");
 
-  // Assign stable ids; reserve 0 for surface, 1 for vertex_pass, 2 for fragment_pass
-  surface.id = 0 as any;
-  vertexPass.id = 1 as any;
-  fragmentPass.id = 2 as any;
+  // Assign stable ids; reserve 0 for root, 1 for surface, 2 for vertex_pass, 3 for fragment_pass
+  const root: GraphNode = {
+    id: 0 as any,
+    type: "root" as any,
+    name: "Root" as any,
+    meta: [] as any,
+    nodes: [] as any,
+    inputs: [] as any,
+    outputs: [] as any,
+    properties: [] as any,
+  };
+  surface.id = 1 as any;
+  vertexPass.id = 2 as any;
+  fragmentPass.id = 3 as any;
 
   // Reset children of fragment/vertex passes (keep outputs)
   vertexPass.nodes = Array.isArray(vertexPass.nodes) ? vertexPass.nodes : [];
   fragmentPass.nodes = Array.isArray(fragmentPass.nodes) ? fragmentPass.nodes : [];
+  root.nodes!.push(surface);
 
   // Map of provided id → actual node object under fragment_pass
   const byId = new Map<number, GraphNode>();
@@ -75,7 +86,7 @@ export async function inflateDocGraph(doc: DocGraph, getTemplate: (type: string)
     if (output) (output as any).value = fromRef;
   }
 
-  return surface as GraphNode;
+  return root as GraphNode;
 }
 
 
