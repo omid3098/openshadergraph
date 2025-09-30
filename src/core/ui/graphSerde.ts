@@ -239,7 +239,7 @@ export function serializeGraph(nodes: Node[], edges: Edge[], graphName: string):
   const serialized: SerializedGraph = {
     type: root.type,
     name: root.name,
-    nodes: Array.isArray(root.nodes) ? root.nodes.map((node) => diffNode(node, defaults, assets)) : [],
+    nodes: Array.isArray(root.nodes) ? root.nodes.map((node: GraphNode) => diffNode(node, defaults, assets)) : [],
   };
   if (!serialized.nodes || serialized.nodes.length === 0) delete serialized.nodes;
   if (!serialized.type) delete serialized.type;

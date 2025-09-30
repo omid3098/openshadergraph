@@ -35,7 +35,8 @@ function cloneEdgeVisualProps(edge: Edge): Partial<Edge> {
   const result: Partial<Edge> = {};
   for (const key of EDGE_STYLE_KEYS) {
     if (edge[key] !== undefined) {
-      result[key] = edge[key];
+      const value = edge[key];
+      (result as any)[key] = value === null ? undefined : value;
     }
   }
   if (edge.data) {

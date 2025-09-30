@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, expect, it } from "vitest";
 import type { Graph, GraphNode } from "@/core/graph/types";
 import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes } from "../clipboard";

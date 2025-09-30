@@ -81,10 +81,10 @@ function replaceNode(nodes: Node[], indexMap: Map<string, number>, metric: NodeM
     position: nextPosition,
   };
   if (metric.absoluteOffset) {
-    next.positionAbsolute = {
+    (next as any).positionAbsolute = {
       x: nextPosition.x + metric.absoluteOffset.x,
       y: nextPosition.y + metric.absoluteOffset.y,
-    } as any;
+    };
   }
   nodes[idx] = next;
   return true;

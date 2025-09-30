@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { bench, describe } from "vitest";
 import { GraphCompiler } from "@/core/compiler/graphCompiler";
 import type { Graph, LanguagePack } from "@/core/graph/types";

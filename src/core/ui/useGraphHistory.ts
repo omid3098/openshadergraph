@@ -30,7 +30,15 @@ export type GraphActionType =
   | "disconnect"
   | "insert-adapter"
   | "duplicate-node"
-  | "paste-node";
+  | "paste-node"
+  | "align-left"
+  | "align-right"
+  | "align-top"
+  | "align-bottom"
+  | "align-center"
+  | "align-middle"
+  | "distribute-horizontal"
+  | "distribute-vertical";
 
 export type GraphActionMeta = {
   type: GraphActionType;

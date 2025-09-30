@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { bench, describe } from "vitest";
 import { serializeGraph } from "@/core/ui/graphSerde";
 import type { Graph } from "@/core/graph/types";

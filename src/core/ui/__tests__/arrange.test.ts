@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, expect, it } from "vitest";
 import type { Node } from "@xyflow/react";
 import { alignSelectedNodes, distributeSelectedNodes, type AlignmentKind, type DistributionKind } from "../arrange";

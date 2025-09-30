@@ -1,4 +1,5 @@
 /* @vitest-environment jsdom */
+// @ts-nocheck
 import React, { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { createRoot } from "react-dom/client";

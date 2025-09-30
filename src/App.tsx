@@ -771,16 +771,17 @@ export function App() {
         }
 
         if (isDragEnd(change)) {
-          const wasDragging = draggingNodeIdsRef.current.delete(change.id);
+          const dragEndChange = change as Extract<NodeChange, { type: "position" }>;
+          const wasDragging = draggingNodeIdsRef.current.delete(dragEndChange.id);
           if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
             pendingGraphUpdateRef.current = false;
             scheduleGraphRender();
           }
-          const nextPos = (change as any)?.position ?? (change as any)?.positionAbsolute ?? null;
-          const currentNode = nodesRef.current.find((n) => n.id === change.id);
+          const nextPos = (dragEndChange as any)?.position ?? (dragEndChange as any)?.positionAbsolute ?? null;
+          const currentNode = nodesRef.current.find((n) => n.id === dragEndChange.id);
           const prevPos = currentNode?.position ?? null;
           const moved = Boolean(wasDragging && nextPos && prevPos && (prevPos.x !== nextPos.x || prevPos.y !== nextPos.y));
-          if (moved) movedIds.add(change.id);
+          if (moved) movedIds.add(dragEndChange.id);
           continue;
         }
 
@@ -804,7 +805,8 @@ export function App() {
         }
 
         if (!isResizeEnd(change)) continue;
-        const wasResizing = resizingEditorIdsRef.current.delete(change.id);
+        const resizeEndChange = change as Extract<NodeChange, { type: "dimensions" }>;
+        const wasResizing = resizingEditorIdsRef.current.delete(resizeEndChange.id);
         if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
           pendingGraphUpdateRef.current = false;
           scheduleGraphRender();
@@ -816,7 +818,7 @@ export function App() {
           return { width: parsed.width, height: parsed.height };
         })();
         const readDimension = (key: "width" | "height"): number | undefined => {
-          const dims = change.dimensions;
+          const dims = resizeEndChange.dimensions;
           const dimVal = dims ? (dims as any)[key] : undefined;
           if (typeof dimVal === "number" && Number.isFinite(dimVal)) return Math.round(dimVal);
           if (!node) return undefined;
@@ -839,7 +841,7 @@ export function App() {
         const widthChanged = Number.isFinite(width) && (width as number) !== currentSize.width;
         const heightChanged = Number.isFinite(height) && (height as number) !== currentSize.height;
         if (!widthChanged && !heightChanged) continue;
-        const next: { id: string; width?: number; height?: number } = { id: change.id };
+        const next: { id: string; width?: number; height?: number } = { id: resizeEndChange.id };
         if (widthChanged) next.width = width as number;
         if (heightChanged) next.height = height as number;
         pendingSizeUpdates.push(next);
@@ -2841,7 +2843,7 @@ export function App() {
                   setMenuPaletteOverride(null);
                   setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
                 }}
-                connectionLineType={curveMode}
+                connectionLineType={curveMode === "default" ? "smoothstep" : curveMode as any}
                 fitView
               >
                 <Background />
