@@ -80,6 +80,7 @@ import { cn } from "@/lib/utils";
 import { applyDuplicateSelection } from "./core/ui/duplicateSelection";
 import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes, type ClipboardPayload } from "./core/ui/clipboard";
 import { makeInHandle, makeOutHandle } from "./core/ui/handles";
+import { apiFetch } from "@/lib/api";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -1463,7 +1464,7 @@ export function App() {
     const abort = new AbortController();
     (async () => {
       try {
-        const res = await fetch("/api/example-graphs", { signal: abort.signal });
+        const res = await apiFetch("/api/example-graphs", { signal: abort.signal });
         const data = await res.json();
         const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
         setExamples(list);

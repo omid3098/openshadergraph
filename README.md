@@ -1,5 +1,11 @@
 # OpenShaderGraph
 
+[![CI](https://github.com/omid3098/openshadergraph/actions/workflows/ci.yml/badge.svg)](https://github.com/omid3098/openshadergraph/actions/workflows/ci.yml)
+
+Engine-agnostic node-based shader graph for authoring shaders with template-driven compilation to multiple targets.
+
+## Getting Started
+
 To install dependencies:
 
 ```bash
@@ -34,6 +40,10 @@ Quick commands:
 - At runtime, the Bun server serves docs at `/docs` when built.
 
 See `AGENTS.md` for the minimal working agreement and gates.
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, code style, testing requirements, and the pull request process.
 
 ## Static Bundles Mode (parity with Pages)
 
