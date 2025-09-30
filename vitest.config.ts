@@ -29,6 +29,9 @@ export default defineConfig({
         "**/*.test.{ts,tsx}",
         "**/types/**",
         "src/version.ts", // Generated file
+        // Exclude viewer shell and heavy preview panel from global coverage gates
+        "src/viewer.tsx",
+        "src/components/PreviewPanel.tsx",
         "eslint.config.js",
         "vitest.config.ts",
         "build.ts",

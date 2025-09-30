@@ -28,6 +28,7 @@ Minimal graph rules:
 - `bun run lint` → 0 errors, 0 warnings (ESLint)
 - `bun x tsc -p tsconfig.json --noEmit` → typecheck clean
 - `bun run test` → all unit tests green (vitest)
+- `bun run test:coverage` → meets global thresholds (lines/statements ≥ 43%); CI enforces this
 - First time only: `bun run test:e2e:install`
 - `bun run test:e2e` → all E2E tests green (Playwright - Chromium only; matches CI)
 
