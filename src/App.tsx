@@ -2811,6 +2811,7 @@ export function App() {
                 style={{ width: showDocsPanel ? `calc(100% - ${docsWidth}px)` : "100%" }}
               >
               <ReactFlow
+                style={{ width: "100%", height: "100%" }}
                 nodes={visibleNodes}
                 edges={visibleEdges}
                 nodeTypes={nodeTypes}

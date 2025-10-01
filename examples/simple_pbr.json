@@ -1,0 +1,135 @@
+{
+  "name": "simple_pbr",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                1090,
+                40
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ],
+              "properties": [
+                {
+                  "id": "primitive",
+                  "value": "sphere"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

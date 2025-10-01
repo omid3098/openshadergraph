@@ -6,7 +6,7 @@ title: Getting Started
 
 Welcome to OpenShaderGraph! This guide will help you create your first shader material using the graph editor. For technical setup and development information, see [Developers](developers.md).
 
-## Your First Material
+## Your First Material -------
 
 ### 1. Create a New Graph
 
@@ -20,7 +20,7 @@ From the menu bar, select **File → New → PBR** to create a new PBR material 
 
 The breadcrumb at the top shows your current location: **`Untitled Pbr > Surface > FragmentPass`**
 
-<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'basic_color' }, window.location.origin)" class="md-button md-button--primary">Show Basic Color Example</button>
+<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'simple_pbr' }, window.location.origin)" class="md-button md-button--primary">Show Example</button>
 
 A new material graph is organized hierarchically:
 
@@ -82,7 +82,7 @@ To use a texture in your shader:
 
 1. **Add the Assets panel**: Right-click → add `Assets` editor node
 
-<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'basic_color' }, window.location.origin)" class="md-button md-button--primary">Show Assets Panel Example</button>
+<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'simple_pbr' }, window.location.origin)" class="md-button md-button--primary">Load Example Graph</button>
 
 2. **Drag & drop**: Drag a texture from the Assets panel onto the canvas to create a `Texture` node
 3. **Add a sampler**: Create a `TextureSampler` node
