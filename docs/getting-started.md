@@ -20,16 +20,7 @@ From the menu bar, select **File → New → PBR** to create a new PBR material 
 
 The breadcrumb at the top shows your current location: **`Untitled Pbr > Surface > FragmentPass`**
 
-<iframe
-    src="/viewer.html"
-    width="100%"
-    height="360"
-    style="border: 1px solid #2a2a2a; border-radius: 8px;"
-    loading="lazy"
-    referrerpolicy="no-referrer"
-    data-menubar="true"
-    data-graph='{"v":1,"nodes":[{"id":101,"t":"fragment_output","x":260,"y":140}],"edges":[]}'
-></iframe>
+<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'basic_color' }, window.location.origin)" class="md-button md-button--primary">Show Basic Color Example</button>
 
 A new material graph is organized hierarchically:
 
@@ -91,15 +82,7 @@ To use a texture in your shader:
 
 1. **Add the Assets panel**: Right-click → add `Assets` editor node
 
-<iframe
-    src="/viewer.html"
-    width="100%"
-    height="360"
-    style="border: 1px solid #2a2a2a; border-radius: 8px;"
-    loading="lazy"
-    referrerpolicy="no-referrer"
-    data-graph='{"v":1,"nodes":[{"id":101,"t":"editor_assets","x":260,"y":140}],"edges":[]}'
-></iframe>
+<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'basic_color' }, window.location.origin)" class="md-button md-button--primary">Show Assets Panel Example</button>
 
 2. **Drag & drop**: Drag a texture from the Assets panel onto the canvas to create a `Texture` node
 3. **Add a sampler**: Create a `TextureSampler` node

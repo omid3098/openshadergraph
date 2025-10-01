@@ -22,6 +22,8 @@ import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
 import { GraphNode } from "./components/GraphNode";
 import ColoredEdge from "./components/ColoredEdge";
+import { DocumentationPanel } from "./components/DocumentationPanel";
+import { persistGet, persistSet } from "./lib/storage";
 import { buildRFNodeFromTemplate, parseEditorSize } from "./core/ui/nodeFactory";
 import {
   attachNodeUpdateApi,
@@ -75,7 +77,6 @@ import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/hi
 import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi, type GraphSnapshot } from "./core/ui/useGraphHistory";
 import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
 import { useAutoFitOnViewPathChange } from "./core/ui/useAutoFitView";
-import { persistGet, persistSet } from "./lib/storage";
 import { cn } from "@/lib/utils";
 import { applyDuplicateSelection } from "./core/ui/duplicateSelection";
 import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes, type ClipboardPayload } from "./core/ui/clipboard";
@@ -204,6 +205,12 @@ export function App() {
   const [menuPaletteOverride, setMenuPaletteOverride] = useState<NodePalette | null>(null);
   const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
   const [clipboardStatus, setClipboardStatus] = useState<{ kind: "success" | "error"; message: string; key: number } | null>(null);
+  const [showDocsPanel, setShowDocsPanel] = useState<boolean>(false);
+  const [docsWidth, setDocsWidth] = useState<number>(768);
+  const docsResizing = useRef(false);
+  const docsStartX = useRef(0);
+  const docsStartW = useRef(0);
+  const [isDocsResizing, setIsDocsResizing] = useState(false);
   const clipboardStatusTimerRef = useRef<number | null>(null);
   const quickHotkeysPersistReadyRef = useRef(false);
   const canPasteViaButton = typeof navigator !== "undefined";
@@ -1461,6 +1468,15 @@ export function App() {
     }
   }, [inflateAndLoadGraph]);
 
+  const handleLoadExampleGraph = useCallback((key: string) => {
+    const example = examples.find(e => e.key === key);
+    if (example) {
+      void loadExampleGraph(example);
+    } else {
+      console.warn("Example graph not found for key:", key);
+    }
+  }, [examples, loadExampleGraph]);
+
   // Fetch example graphs and load the first by default (only if no recent graph was loaded)
   useEffect(() => {
     const abort = new AbortController();
@@ -2653,11 +2669,14 @@ export function App() {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-2">
-        <Button asChild size="sm" variant="secondary">
-          <a href="/docs/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Docs</span>
-          </a>
+        <Button
+          size="sm"
+          variant={showDocsPanel ? "default" : "secondary"}
+          onClick={() => setShowDocsPanel((v) => !v)}
+          className="inline-flex items-center gap-1"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span>Docs</span>
         </Button>
         <a
           href="https://github.com/omid3098/openshadergraph"
@@ -2722,6 +2741,49 @@ export function App() {
     };
   }, [fitViewToNodeIds, visibleNodeIds, currentParentId]);
 
+  // Load and persist documentation panel width
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const w = await persistGet<number>("docs.width");
+      if (cancelled) return;
+      if (typeof w === "number" && Number.isFinite(w) && w >= 320) setDocsWidth(w);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    void persistSet("docs.width", docsWidth);
+  }, [docsWidth]);
+
+  const onDocsResizeMove = useCallback((e: globalThis.MouseEvent) => {
+    if (!docsResizing.current) return;
+    const dx = docsStartX.current - e.clientX; // dragging left handle; increasing dx widens panel
+    const minW = 320;
+    const maxW = Math.max(window.innerWidth - 160, minW);
+    const next = Math.min(Math.max(docsStartW.current + dx, minW), maxW);
+    setDocsWidth(next);
+  }, []);
+
+  const onDocsResizeStop = useCallback(() => {
+    docsResizing.current = false;
+    window.removeEventListener("mousemove", onDocsResizeMove as EventListener);
+    window.removeEventListener("mouseup", onDocsResizeStop as EventListener);
+    setIsDocsResizing(false);
+  }, [onDocsResizeMove]);
+
+  const onDocsResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    docsResizing.current = true;
+    docsStartX.current = e.clientX;
+    docsStartW.current = docsWidth;
+    window.addEventListener("mousemove", onDocsResizeMove as EventListener);
+    window.addEventListener("mouseup", onDocsResizeStop as EventListener);
+    setIsDocsResizing(true);
+  };
+
+  // Note: listeners are only attached during active resize and removed on mouseup
+
   return (
     <SettingsProvider value={settingsValue}>
       <GraphStateProvider value={graphStateValue}>
@@ -2742,7 +2804,12 @@ export function App() {
               palette={palette}
             />
           ) : (
-            <div ref={flowContainerRef} className="w-full h-full relative">
+            <div className="w-full h-full flex relative">
+              <div
+                ref={flowContainerRef}
+                className="h-full relative transition-[width] duration-200 ease-linear"
+                style={{ width: showDocsPanel ? `calc(100% - ${docsWidth}px)` : "100%" }}
+              >
               <ReactFlow
                 nodes={visibleNodes}
                 edges={visibleEdges}
@@ -2943,6 +3010,41 @@ export function App() {
                   {clipboardStatus.message}
                 </div>
               )}
+              </div>
+              {/* Documentation Panel resize handle */}
+              {showDocsPanel ? (
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  title="Drag to resize"
+                  onMouseDown={onDocsResizeStart}
+                  className="absolute top-0 h-full w-2 cursor-col-resize bg-transparent"
+                  style={{ left: `calc(100% - ${docsWidth}px - 2px)` }}
+                />
+              ) : null}
+
+              {/* Resize overlay to capture mouse events over iframe */}
+              {isDocsResizing ? (
+                <div
+                  className="fixed inset-0 z-[999] cursor-col-resize"
+                  style={{ pointerEvents: "auto", background: "transparent" }}
+                  onMouseMove={(e) => onDocsResizeMove(e.nativeEvent as unknown as globalThis.MouseEvent)}
+                  onMouseUp={onDocsResizeStop}
+                />
+              ) : null}
+
+              {/* Documentation Panel */}
+              <div
+                className="h-full flex-shrink-0 border-l bg-card transition-[width] duration-200 ease-linear"
+                style={{ width: showDocsPanel ? `${docsWidth}px` : "0px" }}
+              >
+                {showDocsPanel && (
+                  <DocumentationPanel
+                    onLoadExample={handleLoadExampleGraph}
+                    className="w-full"
+                  />
+                )}
+              </div>
             </div>
           )}
         </AppShell>

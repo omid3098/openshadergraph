@@ -139,6 +139,26 @@ These are non-negotiable to ship green and stay maintainable.
 
 That’s it. If in doubt, follow the data in `data/**`, confirm APIs with Context7, and don’t submit unless tests and lint are clean.
 
+## Build/Test Commands
+
+- **Build**: `bun run build`
+- **Lint**: `bun run lint` (warnings = errors)
+- **Typecheck**: `bun x tsc -p tsconfig.json --noEmit`
+- **All tests**: `bun run test`
+- **Single test**: `vitest run path/to/file.spec.ts`
+- **E2E tests**: `bun run test:e2e` (first run: `bun run test:e2e:install`)
+- **Dev server**: `bun run dev`
+
+## Code Style Guidelines
+
+- **TypeScript**: Strict mode enabled. Avoid `any`; use precise types.
+- **Imports**: Prefer absolute paths with `@/*` alias. Relative imports only within the same folder when reasonable.
+- **Naming**: PascalCase for React components; camelCase for variables/functions; UPPER_SNAKE_CASE for true constants.
+- **Components**: React JSX runtime; follow Hooks rules; keep UI thin and declarative.
+- **Error handling**: Fail safe with clear, actionable errors (especially for data/language JSON validation).
+- **Formatting**: Use ESLint/Prettier defaults; keep code auto-fixable; no unused imports/exports.
+- **Architecture**: Core logic in `src/core/**`; UI as a thin consumer. Reuse centralized callbacks and helpers.
+
 ## Deployment – Server (API) Playbook
 
 Background: The app is deployed behind a Bun server with full `/api/*` endpoints. Static-only hosts are not targeted. The preview still compiles ThreeJS GLSL via the server compiler for consistency.
