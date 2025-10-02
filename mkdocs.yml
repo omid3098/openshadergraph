@@ -24,6 +24,7 @@ theme:
   name: material
   features:
     - navigation.instant
+    - navigation.footer
     - navigation.tracking
     - search.highlight
     - search.suggest
