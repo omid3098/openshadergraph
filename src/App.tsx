@@ -2512,6 +2512,69 @@ export function App() {
     setMenu((m) => (m.open ? { ...m, open: false } : m));
   }, [paletteByType, rf, currentParentId, loadTemplateDefaults, nodeUpdaterApi, setNodes]);
 
+  // Build a nested tree from example keys (path segments) so the menu can render hierarchical folders
+  const renderExamplesMenu = (examplesList: Array<{ key: string; label: string }>) => {
+    type Node = { children: Record<string, Node>; items: Array<{ key: string; label: string }> };
+    const root: Node = { children: {}, items: [] };
+
+    for (const ex of examplesList) {
+      const parts = ex.key.split("/").filter(Boolean);
+      let cur = root;
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+        if (!cur.children[part]) cur.children[part] = { children: {}, items: [] };
+        if (isLast) {
+          cur.children[part].items.push({ key: ex.key, label: ex.label });
+        }
+        cur = cur.children[part];
+      }
+    }
+
+    const prettify = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const renderNode = (name: string, node: Node, pathPrefix = "") => {
+      const fullPath = pathPrefix ? `${pathPrefix}/${name}` : name;
+      const hasChildren = Object.keys(node.children).length > 0;
+      const hasItems = node.items.length > 0;
+
+      // If this node represents a directory (has children) render a submenu. If it only contains items, render items directly.
+      if (hasChildren) {
+        return (
+          <MenubarSub key={fullPath}>
+            <MenubarSubTrigger>{prettify(name)}</MenubarSubTrigger>
+            <MenubarSubContent>
+              {node.items.map((it) => (
+                <MenubarItem key={it.key} onClick={() => void loadExampleGraph({ key: it.key, label: it.label })}>
+                  {it.label}
+                </MenubarItem>
+              ))}
+              {Object.keys(node.children)
+                .sort()
+                .map((childName) => renderNode(childName, node.children[childName], fullPath))}
+            </MenubarSubContent>
+          </MenubarSub>
+        );
+      }
+
+      // Leaf (no nested directories) but may contain one or more items (rare: files sharing basename)
+      return (
+        <Fragment key={fullPath}>
+          {node.items.map((it) => (
+            <MenubarItem key={it.key} onClick={() => void loadExampleGraph({ key: it.key, label: it.label })}>
+              {it.label}
+            </MenubarItem>
+          ))}
+        </Fragment>
+      );
+    };
+
+    // Render top-level directories/files
+    return Object.keys(root.children)
+      .sort()
+      .map((top) => renderNode(top, root.children[top], ""));
+  };
+
   const Header = (
     <div className="w-full flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs">
@@ -2628,11 +2691,7 @@ export function App() {
           <MenubarMenu>
             <MenubarTrigger>Examples</MenubarTrigger>
             <MenubarContent>
-              {examples.map((e) => (
-                <MenubarItem key={e.key} onClick={() => void loadExampleGraph(e)}>
-                  {e.label}
-                </MenubarItem>
-              ))}
+              {renderExamplesMenu(examples)}
             </MenubarContent>
           </MenubarMenu>
         </Menubar>
