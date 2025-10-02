@@ -32,6 +32,38 @@ Minimal graph rules:
 - First time only: `bun run test:e2e:install`
 - `bun run test:e2e` → all E2E tests green (Playwright - Chromium only; matches CI)
 
+## Agent Validation & Automation Requirements
+
+Any AI agent, bot, or automation that proposes, implements, or approves changes MUST perform the full validation below in a clean environment before opening or approving a PR. These checks are mandatory and must be attached to the PR as logs/artifacts.
+
+- Run the dependency installation in a reproducible way:
+  - `bun install --frozen-lockfile`
+- Run linting (must exit 0 and show 0 errors, 0 warnings):
+  - `bun run lint`
+- Run the TypeScript checks (must exit 0):
+  - `bun x tsc -p tsconfig.json --noEmit`
+- Run unit tests (must exit 0):
+  - `bun run test`
+- If changes include or affect E2E tests or browser behavior, run (first time only):
+  - `bun run test:e2e:install`
+  - `bun run test:e2e`
+
+Agent behavior requirements:
+
+- Attach the full stdout/stderr for each command to the PR (as artifacts or a comment). Logs should include the exact Bun version and the commands run.
+- If any command exits non-zero, the agent MUST abort the change, mark the PR as failing, and include a remediation plan.
+- Agents MUST call `todo_write` (merge=true) to record each gate's status (pending → in_progress → completed/failed) before approving or merging. The todo entries should be one-line, verb-led items matching the repo `todo_spec` style.
+- Agents MUST not merge or approve PRs on behalf of humans. They may propose changes and create PRs, but approval/merge requires a human reviewer after gates pass in CI.
+- Agents SHOULD pin/declare the Bun runtime version used for validation and prefer reproducing the CI Bun version (from `bun.lock` or workflow) to avoid environment drift.
+
+Enforcement & recommended infra:
+
+- CI MUST include a fast-fail job that runs `bun run lint` and `bun x tsc` and be marked as a required status check in branch protection rules.
+- PR templates should include an "Agent Validation" checklist and require attached logs/artifacts for lint/tsc/tests when an agent created the PR.
+- Consider adding `husky` + `lint-staged` to enforce local pre-push checks for contributors (human or agent-run workflows).
+
+These requirements are mandatory for any automation labeled as an "agent" in PR metadata. Failure to follow these rules will cause automated validations to mark the PR as non-compliant and block merges.
+
 ### E2E Testing Setup
 
 First time only - install Chromium browser:

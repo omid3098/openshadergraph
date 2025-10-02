@@ -2558,6 +2558,7 @@ export function App() {
       }
 
       // Leaf (no nested directories) but may contain one or more items (rare: files sharing basename)
+      if (!hasItems) return null;
       return (
         <Fragment key={fullPath}>
           {node.items.map((it) => (

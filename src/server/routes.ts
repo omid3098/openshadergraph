@@ -76,13 +76,12 @@ export function buildRoutes() {
       // app can still load docs via an iframe at /_internal/docs/ while external
       // requests to /docs are discouraged.
       const internalPath = `/_internal/docs/${rel}`;
-      return new Response(null, { status: 302, headers: { Location: internalPath } });
       if (development && docsProxyOrigin) {
         try {
           if (String(Bun.env.DOCS_PROXY_DEBUG ?? process.env.DOCS_PROXY_DEBUG ?? "").toLowerCase() === "1") {
             try {
               console.log(`[docs-proxy-request] ${req.method} ${url.pathname}${url.search} -> ${new URL(`/${rel}`, docsProxyOrigin).toString()}`);
-            } catch (e) {
+            } catch (_e) {
               /* ignore logging errors */
             }
           }
@@ -110,7 +109,7 @@ export function buildRoutes() {
               try {
                 const snippet = body.slice(0, 200).replace(/\s+/g, " ");
                 console.log(`[docs-proxy-debug] proxied ${target.toString()} cleaned snippet: ${snippet}`);
-              } catch (e) {
+              } catch (_e) {
                 /* ignore logging errors */
               }
             }
