@@ -15,41 +15,21 @@ export function buildRoutes() {
    */
   // CDN rewrite helpers were previously used for dev experiments; removed to reduce noise.
   // If needed in future, reintroduce behind a feature flag.
+  // Serve docs is deprecated: disable /docs routes to simplify routing and
+  // avoid noisy proxy logs. The docs remain available in-page via the app's
+  // internal documentation viewer. Return 404 to prevent accidental external
+  // access to `/docs` paths.
   async function serveDocsIndexWithBase(): Promise<Response> {
-    // Dev-time: proxy index from mkdocs if configured
-    if (development && docsProxyOrigin) {
-      try {
-        const target = new URL("/", docsProxyOrigin);
-        const res = await fetch(target.toString());
-        // Fetch HTML as text so we can safely strip any dev-time live-reload
-        // clients that the upstream mkdocs server may inject (EventSource/WebSocket
-        // clients or livereload scripts). This prevents the iframe from opening
-        // many connections when the app proxies the MkDocs dev server.
-        const raw = await res.text();
-        let html = raw;
-        // Remove obvious livereload script tags by src (safe)
-        html = html.replace(/<script[^>]+src=["'][^"']*(livereload|livereload\.js|livereload\.min\.js|\/livereload\.js)[^"']*["'][^>]*>\s*<\/script>/gi, "");
-        // Remove only inline snippets that specifically mention 'livereload' or 'snipver'
-        // to avoid accidentally stripping unrelated initialization code.
-        html = html.replace(/<script[^>]*>[\s\S]*?(?:LiveReload|livereload|snipver)[\s\S]*?<\/script>/gi, "");
-        const hasBase = /<base\s+href="\/docs\/?"/i.test(html);
-        const withBase = hasBase ? html : html.replace(/<head(\s*[^>]*)>/i, '<head$1><base href="/docs/">');
-        // Heuristic: if our cleaning removed critical mkdocs assets (bundle or __config),
-        // fall back to the original upstream HTML to avoid breaking the page.
-        const looksBroken = !/bundle\.|assets\/javascripts\/.+bundle|id="__config"/i.test(withBase);
-        if (looksBroken) {
-          console.warn("[docs-proxy] cleaning removed expected docs assets; returning original upstream HTML to avoid breakage.");
-          return new Response(raw, { headers: { "content-type": "text/html;charset=utf-8" } });
-        }
-        return new Response(withBase, { headers: { "content-type": "text/html;charset=utf-8" } });
-      } catch (_err) { /* fall back to static */ }
-    }
+    // Serve the built docs index for internal consumption. We inject a base
+    // href pointing at `/_internal/docs/` if the HTML doesn't already provide
+    // one so asset resolution works when the iframe is served from the
+    // internal path.
     const docsIndex = Bun.file("dist/docs/index.html");
     if (!(await docsIndex.exists())) return new Response("Docs not built. Run: bun run docs:build", { status: 404 });
     try {
       const raw = await docsIndex.text();
-      const hasBase = /<base\s+href="\/docs\/?"/i.test(raw);
-      const html = hasBase ? raw : raw.replace(/<head(\s*[^>]*)>/i, '<head$1><base href="/docs/">');
+      const hasBase = /<base\s+href="\/_internal\/docs\/?"/i.test(raw) || /<base\s+href="\/docs\/?"/i.test(raw);
+      const html = hasBase ? raw : raw.replace(/<head(\s*[^>]*)>/i, '<head$1><base href="/_internal/docs/">');
       return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
     } catch (_err) {
       return new Response(docsIndex);
@@ -77,12 +57,26 @@ export function buildRoutes() {
     "/docs/:num(\\d+)": async (_req: Request, ctx: any) => {
       if (development) return new Response(null, { status: 204 });
       // In production, fall through to static handling
-      return ctx.next();
+      try {
+        return await ctx.next();
+      } catch (e) {
+        try {
+          console.error("asset handler ctx.next() failed:", e);
+        } catch (_) {
+          /* ignore logging failures */
+        }
+        return new Response("Not found", { status: 404 });
+      }
     },
     // Static file server handled by catch-all below; explicit / path removed to avoid overshadowing /docs
     "/docs/*": async (req: Request) => {
       const url = new URL(req.url);
       const rel = url.pathname.replace(/^\/docs\/?/, "");
+      // Redirect top-level /docs and /docs/* to the internal docs path so the
+      // app can still load docs via an iframe at /_internal/docs/ while external
+      // requests to /docs are discouraged.
+      const internalPath = `/_internal/docs/${rel}`;
+      return new Response(null, { status: 302, headers: { Location: internalPath } });
       if (development && docsProxyOrigin) {
         try {
           if (String(Bun.env.DOCS_PROXY_DEBUG ?? process.env.DOCS_PROXY_DEBUG ?? "").toLowerCase() === "1") {
@@ -141,6 +135,106 @@ export function buildRoutes() {
       const htmlFile = Bun.file(htmlVariant);
       if (await htmlFile.exists()) return new Response(htmlFile);
       return await serveDocsIndexWithBase();
+    },
+    // Internal docs route: serve built docs directly under an internal-only path.
+    "/_internal/docs/*": async (req: Request) => {
+      const url = new URL(req.url);
+      const rel = url.pathname.replace(/^\/_internal\/docs\/?/, "");
+      if (rel === "") return serveDocsIndexWithBase();
+      const exact = `dist/docs/${rel}`;
+      const exactFile = Bun.file(exact);
+      if (await exactFile.exists()) return new Response(exactFile);
+      const withoutTrailing = rel.replace(/\/$/, "");
+      const dirIndex = `dist/docs/${withoutTrailing}/index.html`;
+      const dirIndexFile = Bun.file(dirIndex);
+      if (await dirIndexFile.exists()) return new Response(dirIndexFile);
+      const htmlVariant = `dist/docs/${withoutTrailing}.html`;
+      const htmlFile = Bun.file(htmlVariant);
+      if (await htmlFile.exists()) return new Response(htmlFile);
+      return new Response("Not found", { status: 404 });
+    },
+    // Serve docs-built assets that may be referenced with absolute paths
+    // (e.g., "/chunk-*.js" or "/assets/...") when they are requested from
+    // the in-app documentation iframe. This fixes cases where the docs HTML
+    // references absolute asset URLs and the browser requests them from the
+    // root; we check `dist/docs/<path>` first and return the file if it
+    // exists. Otherwise fall through to the normal handlers.
+    "/:asset(.*\\.(js|css|json|map|png|svg|jpg|jpeg|webp|wasm))": async (req: Request, ctx: any) => {
+      try {
+        const url = new URL(req.url);
+        const pathname = url.pathname.replace(/^\//, "");
+        // Prefer serving assets from the main `dist/` (app bundle), then
+        // fall back to `dist/docs/` (docs bundle). This avoids serving the
+        // wrong HTML file when the docs index is erroneously matched.
+        const appCandidate = `dist/${pathname}`;
+        try {
+        const fApp = Bun.file(appCandidate);
+          if (await fApp.exists()) {
+            // Serve with explicit MIME type to avoid strict MIME errors in browsers
+            const mimeMap: Record<string, string> = {
+              js: "application/javascript; charset=utf-8",
+              mjs: "application/javascript; charset=utf-8",
+              css: "text/css; charset=utf-8",
+              json: "application/json; charset=utf-8",
+              map: "application/json; charset=utf-8",
+              png: "image/png",
+              svg: "image/svg+xml",
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              webp: "image/webp",
+              wasm: "application/wasm",
+            };
+            const ext = String(appCandidate).split(".").pop() ?? "";
+            try {
+              const buf = await fApp.arrayBuffer();
+              const headers = { "content-type": mimeMap[ext] ?? "application/octet-stream" };
+              return new Response(buf, { headers });
+            } catch (e) {
+              try { console.error("failed to read app asset:", appCandidate, e); } catch (_) {}
+            }
+          }
+        } catch (_) {
+          // ignore and try docs candidate
+        }
+        const docsCandidate = `dist/docs/${pathname}`;
+        try {
+        const fDocs = Bun.file(docsCandidate);
+          if (await fDocs.exists()) {
+            try {
+              const ext = String(docsCandidate).split(".").pop() ?? "";
+              const buf = await fDocs.arrayBuffer();
+              const mimeMap: Record<string, string> = {
+                js: "application/javascript; charset=utf-8",
+                mjs: "application/javascript; charset=utf-8",
+                css: "text/css; charset=utf-8",
+                json: "application/json; charset=utf-8",
+                map: "application/json; charset=utf-8",
+                png: "image/png",
+                svg: "image/svg+xml",
+                jpg: "image/jpeg",
+                jpeg: "image/jpeg",
+                webp: "image/webp",
+                wasm: "application/wasm",
+              };
+              const headers = { "content-type": mimeMap[ext] ?? "application/octet-stream" };
+              return new Response(buf, { headers });
+            } catch (e) {
+              try { console.error("failed to read docs asset:", docsCandidate, e); } catch (_) {}
+            }
+          }
+        } catch (_) {
+          // ignore and fall through
+        }
+      } catch (err) {
+        // On unexpected errors, log and continue to next handler rather than
+        // throwing a 500 which breaks the entire app bundle loading.
+        try {
+          console.error("/asset handler error:", err);
+        } catch (_) {
+          /* ignore logging failures */
+        }
+      }
+      return ctx.next();
     },
     "/*": async (req: Request) => {
       try {

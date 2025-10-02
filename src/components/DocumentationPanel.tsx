@@ -26,12 +26,13 @@ export function DocumentationPanel({ className, onLoadExample }: DocumentationPa
     return () => window.removeEventListener("message", handleMessage);
   }, [handleMessage]);
 
-  // The documentation is served from the root /docs/
+  // Use the internal docs path. The server will redirect /docs/* -> /_internal/docs/*
+  // and the in-app iframe should load `_internal` directly to avoid public exposure.
   return (
     <div className={cn("h-full w-full flex flex-col", className)}>
       <iframe
         ref={iframeRef}
-        src="/docs/"
+        src="/_internal/docs/"
         className="flex-1 border-none"
         title="Documentation"
       />
