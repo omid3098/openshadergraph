@@ -75,7 +75,7 @@ export function buildRoutes() {
       // Redirect top-level /docs and /docs/* to the internal docs path so the
       // app can still load docs via an iframe at /_internal/docs/ while external
       // requests to /docs are discouraged.
-      const internalPath = `/_internal/docs/${rel}`;
+      const _internalPath = `/_internal/docs/${rel}`;
       if (development && docsProxyOrigin) {
         try {
           if (String(Bun.env.DOCS_PROXY_DEBUG ?? process.env.DOCS_PROXY_DEBUG ?? "").toLowerCase() === "1") {
@@ -120,7 +120,7 @@ export function buildRoutes() {
             return new Response(body, { status: res.status, headers });
           }
           return new Response(res.body, { status: res.status, headers: res.headers });
-        } catch (_err) { /* fall back to static */ }
+        } catch (_err) { void 0; /* fall back to static */ }
       }
       if (rel === "") return serveDocsIndexWithBase();
       const exact = `dist/docs/${rel}`;
@@ -189,7 +189,7 @@ export function buildRoutes() {
               const headers = { "content-type": mimeMap[ext] ?? "application/octet-stream" };
               return new Response(buf, { headers });
             } catch (e) {
-              try { console.error("failed to read app asset:", appCandidate, e); } catch (_) {}
+            try { console.error("failed to read app asset:", appCandidate, e); } catch (_) { void 0; }
             }
           }
         } catch (_) {
@@ -218,11 +218,11 @@ export function buildRoutes() {
               const headers = { "content-type": mimeMap[ext] ?? "application/octet-stream" };
               return new Response(buf, { headers });
             } catch (e) {
-              try { console.error("failed to read docs asset:", docsCandidate, e); } catch (_) {}
+            try { console.error("failed to read docs asset:", docsCandidate, e); } catch (_) { void 0; }
             }
           }
         } catch (_) {
-          // ignore and fall through
+          void 0; // ignore and fall through
         }
       } catch (err) {
         // On unexpected errors, log and continue to next handler rather than
