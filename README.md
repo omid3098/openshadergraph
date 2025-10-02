@@ -1,4 +1,10 @@
-# OpenShaderGraph (Bun + ReactFlow)
+# OpenShaderGraph
+
+[![CI](https://github.com/omid3098/openshadergraph/actions/workflows/ci.yml/badge.svg)](https://github.com/omid3098/openshadergraph/actions/workflows/ci.yml)
+
+Engine-agnostic node-based shader graph for authoring shaders with template-driven compilation to multiple targets.
+
+## Getting Started
 
 To install dependencies:
 
@@ -35,6 +41,10 @@ Quick commands:
 
 See `AGENTS.md` for the minimal working agreement and gates.
 
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, code style, testing requirements, and the pull request process.
+
 ## Static Bundles Mode (parity with Pages)
 
 - Build bundles and manifest:
@@ -52,3 +62,7 @@ OSG_STATIC_BUNDLES=1 bun run dev
 - Notes:
   - The app runs against server APIs only; static bundle fallbacks are not used.
   - First compile is gated on language readiness; preview should render quickly on cold start.
+
+---
+
+Note: Minor README edit to validate versioning bump workflow.

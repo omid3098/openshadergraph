@@ -1,4 +1,5 @@
 /* @vitest-environment jsdom */
+// @ts-nocheck
 import React, { act } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { createRoot } from "react-dom/client";
@@ -11,6 +12,13 @@ vi.mock("@/core/ui/GraphStateContext", () => ({
   useGraphState: () => ({
     nodeUpdaterApi: { updateInputValue: vi.fn() },
     graph: {},
+    nodesById: new Map(),
+    undo: vi.fn(),
+    redo: vi.fn(),
+    canUndo: false,
+    canRedo: false,
+    peekUndo: null,
+    peekRedo: null,
   }),
 }), { virtual: true });
 vi.mock("@/lib/errors", () => ({
@@ -115,6 +123,16 @@ const editorNode = {
   },
 };
 
+const rerouteNode = {
+  template: {
+    type: "reroute",
+    inputs: [{ id: 0, name: "In", type: "float" }],
+    outputs: [{ id: 0, name: "Out", type: "float" }],
+    properties: [],
+    meta: [],
+  },
+};
+
 describe("Graph node pointer capture", () => {
   it("applies drag handle class to standard node headers", () => {
     const { container, cleanup } = renderIntoContainer(
@@ -133,6 +151,41 @@ describe("Graph node pointer capture", () => {
     const header = container.querySelector(".node-drag-handle");
     expect(header).toBeTruthy();
     expect(header?.className).toContain("cursor-grab");
+    cleanup();
+  });
+});
+
+describe("Reroute node rendering", () => {
+  it("renders a minimal body without labels", () => {
+    const { container, cleanup } = renderIntoContainer(
+      <GraphNode data={rerouteNode as any} selected={false} />
+    );
+
+    const dragHandle = container.querySelector(".node-drag-handle");
+    expect(dragHandle).toBeTruthy();
+    const text = container.textContent?.replace(/\s+/g, "");
+    expect(text).toBe("");
+    const rerouteBody = container.querySelector("[data-reroute-node]");
+    expect(rerouteBody).toBeTruthy();
+    expect(rerouteBody).toBe(dragHandle);
+    cleanup();
+  });
+
+  it("does not block pointer events on the body", () => {
+    const pointerSpy = vi.fn();
+    const { container, cleanup } = renderIntoContainer(
+      <div onPointerDown={pointerSpy}>
+        <GraphNode data={rerouteNode as any} selected={false} />
+      </div>
+    );
+
+    const body = container.querySelector("[data-reroute-node]") as HTMLElement;
+    expect(body).toBeTruthy();
+    act(() => {
+      body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+
+    expect(pointerSpy).toHaveBeenCalled();
     cleanup();
   });
 });

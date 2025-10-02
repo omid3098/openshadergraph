@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Textarea } from "./ui/textarea";
 import { cn } from "@/lib/utils";
 // inputs are provided by extracted components
 import ColorInput from "./inputs/ColorInput";
@@ -19,8 +20,10 @@ import { GraphDataPanel } from "./GraphDataPanel";
 import React from "react";
 const PreviewPanel = React.lazy(() => import("./PreviewPanel").then(m => ({ default: m.PreviewPanel })));
 import { AssetsPanel } from "./AssetsPanel";
+import { ProbePreview } from "./ProbePreview";
 import { getBuiltinDisplayLabel, isBuiltinToken } from "@/core/types/builtinInputs";
 import { Paperclip, ArrowDownLeft, ArrowUpRight, SlidersHorizontal, PanelsTopLeft } from "lucide-react";
+import { parseEditorSize } from "@/core/ui/nodeFactory";
 
 type Pin = {
   id?: number;
@@ -54,10 +57,16 @@ function shouldBlockNodePointer(target: EventTarget | null): boolean {
 }
 
 export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) {
-  // Handle (pin) visual size. Doubling from default.
-  const HANDLE_SIZE = 8; // px
+  // Handle (pin) visual size. Slightly larger for easier targeting.
+  const HANDLE_SIZE = 10; // px
   const HANDLE_OFFSET = -Math.ceil(HANDLE_SIZE / 2 + 8);
-  const name = data?.label ?? data?.type ?? "Node";
+  // Spacing for the inline default-value widgets shown near input pins
+  // Increase the gap slightly so the widget does not cover the pin shape
+  const INPUT_WIDGET_GAP_PX = 20; // was ~15px, give a little breathing room
+  // Approx half width of the mini widget (for drawing the decorative line from its center)
+  const INPUT_WIDGET_HALF_PX = 0;
+  const nodeType = data?.template?.type ?? data?.type ?? "";
+  const name = data?.label ?? nodeType ?? data?.type ?? "Node";
   const inputs: Pin[] = useMemo(() => {
     return Array.isArray(data?.template?.inputs) ? (data!.template!.inputs! as Pin[]) : [];
   }, [data]);
@@ -74,9 +83,15 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const edges = useStore((s) => s.edges);
   const { nodeUpdaterApi, graph } = useGraphState();
   const meta: string[] = Array.isArray((data as any)?.template?.meta) ? (((data as any).template.meta as unknown) as string[]) : [];
-  const isEditor = meta.includes("editor_node");
   const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
   const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
+  const editorWidget = meta.find((m) => typeof m === "string" && m.startsWith("editor_widget:"));
+  const editorWidgetKey = editorWidget ? editorWidget.split(":")[1] ?? "" : "";
+  const isProbeWidget = editorWidgetKey.toLowerCase() === "probe";
+  const isEditor = !isProbeWidget && meta.includes("editor_node");
+  const preferredSize = isProbeWidget ? parseEditorSize(meta) : {};
+  const preferredWidth = preferredSize.width;
+  const preferredHeight = preferredSize.height;
   const currentAsset = (data as any)?.asset as NodeAssetPayload | undefined;
 
   const hasAssetProperty = useMemo(() => {
@@ -87,14 +102,22 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   type NodeCategory = "editor" | "asset" | "input" | "transform" | "output";
   const category: NodeCategory = useMemo(() => {
     if (isEditor) return "editor";
-    const t = (data?.template?.type ?? data?.type ?? "").toLowerCase();
+    const t = nodeType.toLowerCase();
     if (t.endsWith("_output") || t === "vertex_output" || t === "fragment_output") return "output";
     if (currentAsset || hasAssetProperty) return "asset";
     const hasNoInputs = (Array.isArray(inputs) ? inputs.length : 0) === 0;
     const hasOutputs = (Array.isArray(outputs) ? outputs.length : 0) > 0;
     if (hasNoInputs && hasOutputs) return "input";
     return "transform";
-  }, [isEditor, data, currentAsset, hasAssetProperty, inputs, outputs]);
+  }, [isEditor, currentAsset, hasAssetProperty, inputs, outputs, nodeType]);
+
+  const isReroute = nodeType === "reroute";
+  const cardWidthClass = useMemo(() => {
+    if (isProbeWidget) {
+      return preferredWidth ? "" : "min-w-[220px] w-[260px]";
+    }
+    return "min-w-[130px] w-[160px]";
+  }, [isProbeWidget, preferredWidth]);
 
   const headerStyle = useMemo(() => {
     const defaultCategoryColors = {
@@ -207,7 +230,28 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   // no-op helper removed; rely on inline stopPropagation handlers
 
   const renderEditorContent = useCallback(() => {
+    const widgetKey = editorWidgetKey.toLowerCase();
+    if (widgetKey === "probe") {
+      if (!nodeId) return <div className="p-3 text-xs text-muted-foreground">Probe unavailable.</div>;
+      return <ProbePreview nodeId={nodeId} graph={graph} className="h-full" />;
+    }
     const key = editorPanelKey.toLowerCase();
+    if (key === "note") {
+      const textProp = Array.isArray((data as any)?.template?.properties)
+        ? ((data as any).template.properties as any[]).find((p) => p && p.id === "text")
+        : undefined;
+      const value = typeof textProp?.value === "string" ? textProp!.value : typeof textProp?.default === "string" ? textProp!.default : "";
+      return (
+        <div className="h-full p-3">
+          <Textarea
+            value={value}
+            placeholder="Write notes here..."
+            className="h-full min-h-[120px] resize-none"
+            onChange={(e) => updatePropertyValue("text", e.currentTarget.value)}
+          />
+        </div>
+      );
+    }
     if (key === "properties") {
       return <PropertiesPanel variant="node" className="h-full overflow-auto" />;
     }
@@ -245,7 +289,123 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <AssetsPanel variant="node" className="h-full" />;
     }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
-  }, [editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
+  }, [editorWidgetKey, editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
+
+  const cardRingVars = useMemo(
+    () =>
+      ({
+        "--tw-ring-color": selected ? "#ffffff" : "var(--border)",
+        "--tw-ring-offset-color": selected ? "#000000" : "var(--card)",
+      }) as React.CSSProperties & {
+        "--tw-ring-color"?: string;
+        "--tw-ring-offset-color"?: string;
+      },
+    [selected]
+  );
+  const cardSizeStyle = useMemo(() => {
+    const style: React.CSSProperties = {};
+    if (preferredWidth) {
+      style.width = preferredWidth;
+      style.minWidth = preferredWidth;
+    }
+    if (preferredHeight) {
+      style.height = preferredHeight;
+      style.minHeight = preferredHeight;
+    }
+    return style;
+  }, [preferredWidth, preferredHeight]);
+
+  const probePreviewHeight = useMemo(() => {
+    if (!isProbeWidget || !preferredHeight) return undefined;
+    return Math.max(72, preferredHeight - 70);
+  }, [isProbeWidget, preferredHeight]);
+  const ringClass = selected ? "ring-2 ring-offset-2" : "ring-1 ring-offset-0";
+  const ringBaseClass = "border-0";
+
+  if (isReroute) {
+    const maxPins = Math.max(inputs.length, outputs.length, 1);
+    const totalInputs = inputs.length || 1;
+    const totalOutputs = outputs.length || 1;
+    const baseSize = 28;
+    const verticalSpacing = 18;
+    const rerouteHeight = Math.max(baseSize, maxPins * verticalSpacing);
+    const handleSize = 10;
+
+    const getHandleStyle = (
+      type: Pin["type"],
+      index: number,
+      total: number,
+      side: "left" | "right"
+    ): React.CSSProperties => {
+      const { color, shape } = getPinTypeColor(type);
+      const top = ((index + 0.5) / total) * 100;
+      const transform = shape === "diamond" ? "translateY(-50%) rotate(45deg)" : "translateY(-50%)";
+      const style: React.CSSProperties = {
+        top: `${top}%`,
+        width: handleSize,
+        height: handleSize,
+        backgroundColor: color,
+        borderRadius: shape === "circle" ? 9999 : 2,
+        transform,
+        zIndex: 5,
+      };
+      if (side === "left") {
+        style.left = -(handleSize / 2 + 3);
+      } else {
+        style.right = -(handleSize / 2 + 3);
+      }
+      return style;
+    };
+
+    return (
+      <div
+        data-reroute-node
+        className={cn(
+          "relative flex items-center justify-center rounded-md border border-border bg-card/80 node-drag-handle cursor-grab active:cursor-grabbing",
+          ringClass
+        )}
+        style={{
+          ...cardRingVars,
+          width: baseSize,
+          minWidth: baseSize,
+          height: rerouteHeight,
+          minHeight: baseSize,
+          padding: 4,
+        }}
+        onPointerDownCapture={(event) => {
+          if (shouldBlockNodePointer(event.target)) {
+            event.stopPropagation();
+          }
+        }}
+      >
+        <div className="w-2.5 h-2.5 rounded-sm border border-border/70 bg-background/70" />
+        {inputs.map((pin, idx) => {
+          const pid = typeof pin.id === "number" ? pin.id : idx;
+          return (
+            <Handle
+              key={`in-${pid}`}
+              id={`in-${pid}`}
+              type="target"
+              position={Position.Left}
+              style={getHandleStyle(pin.type, idx, totalInputs, "left")}
+            />
+          );
+        })}
+        {outputs.map((pin, idx) => {
+          const pid = typeof pin.id === "number" ? pin.id : idx;
+          return (
+            <Handle
+              key={`out-${pid}`}
+              id={`out-${pid}`}
+              type="source"
+              position={Position.Right}
+              style={getHandleStyle(pin.type, idx, totalOutputs, "right")}
+            />
+          );
+        })}
+      </div>
+    );
+  }
 
   if (isEditor) {
     return (
@@ -257,15 +417,22 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           minHeight={200}
         />
         <Card
-          className="h-full flex flex-col"
-          style={selected ? { borderColor: THEME.selectionColor, borderWidth: 2 } : undefined}
+          className={cn("h-full flex flex-col", ringBaseClass, ringClass)}
+          style={cardRingVars}
           onPointerDownCapture={(event) => {
             if (shouldBlockNodePointer(event.target)) {
               event.stopPropagation();
             }
           }}
         >
-          <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center rounded-t-xl" style={headerStyle}>
+          <CardHeader
+            className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center"
+            style={{
+              ...headerStyle,
+              borderTopLeftRadius: "inherit",
+              borderTopRightRadius: "inherit",
+            }}
+          >
             <div className="flex items-center gap-2">
               <PanelsTopLeft className="h-3.5 w-3.5 text-white/90" />
               <CardTitle className="text-sm text-white">{name}</CardTitle>
@@ -281,15 +448,22 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
 
   return (
     <Card
-      className={cn("min-w-[130px] w-[160px]", selected && "border-2")}
-      style={{ borderColor: selected ? THEME.selectionColor : undefined }}
+      className={cn(cardWidthClass, ringBaseClass, ringClass)}
+      style={{ ...cardRingVars, ...cardSizeStyle }}
       onPointerDownCapture={(event) => {
         if (shouldBlockNodePointer(event.target)) {
           event.stopPropagation();
         }
       }}
     >
-      <CardHeader className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center rounded-t-xl" style={headerStyle}>
+      <CardHeader
+        className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center"
+        style={{
+          ...headerStyle,
+          borderTopLeftRadius: "inherit",
+          borderTopRightRadius: "inherit",
+        }}
+      >
         <div className="flex items-center gap-2">
           {(() => {
             if (category === "asset") return <Paperclip className="h-3.5 w-3.5 text-white/90" />;
@@ -300,7 +474,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           <CardTitle className="text-sm text-white">{name}</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="px-3 pb-3">
+      <CardContent className={cn("pb-3", isProbeWidget ? "px-3 flex flex-col gap-3" : "px-3")}>
         <div className={cn("gap-x-2 grid", outputs.length > 0 ? "grid-cols-2" : "grid-cols-1")}> 
           <div className="flex flex-col gap-2">
             {inputs
@@ -325,7 +499,6 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
               const connected = isConnected(pid);
               const val = Array.isArray(pin.value) ? (pin.value as number[]) : undefined;
               const builtinLabel = isBuiltinToken(pin.value) ? getBuiltinDisplayLabel(pin.value) : undefined;
-              const nodeType = data?.template?.type ?? data?.type ?? "";
               const showColor = !connected && nodeType === "color" && pin.name === "in" && Array.isArray(val) && val.length >= 3;
               const showDefaultWidget = !connected && (Array.isArray(val) || typeof builtinLabel === "string");
               const { color: inColor, shape: inShape } = getPinTypeColor(pin.type);
@@ -335,6 +508,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 height: HANDLE_SIZE,
                 backgroundColor: inColor,
                 borderRadius: inShape === "circle" ? 9999 : 2,
+                zIndex: 5,
                 transform: inShape === "diamond" ? "rotate(45deg)" : undefined,
               };
               return (
@@ -344,7 +518,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                     <>
                       <div
                         className="absolute z-[2] flex items-center gap-1 px-1 py-[2px] rounded-md border bg-background/90 backdrop-blur nodrag nowheel"
-                        style={{ right: "calc(100% + 15px)", transform: "scale(0.8)", transformOrigin: "right center" }}
+                        style={{ right: `calc(100% + ${INPUT_WIDGET_GAP_PX}px)`, transform: "scale(0.8)", transformOrigin: "right center" }}
                         onMouseDown={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                         onWheel={(e) => e.stopPropagation()}
@@ -357,8 +531,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{builtinLabel}</span>
                         ) : null}
                       </div>
-                      {/* Visual connector from editor → pin (purely decorative) across the 10px gap */}
-                      <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-[-10px] w-[10px] h-px bg-border/60" />
+                      {/* Decorative connector: start at widget center and extend left, under widget & pin */}
+                      <div
+                        className="pointer-events-none absolute top-1/2 -translate-y-1/2 z-[-1] h-px bg-border"
+                        style={{ left: `${-(INPUT_WIDGET_GAP_PX + INPUT_WIDGET_HALF_PX)}px`, width: `${INPUT_WIDGET_GAP_PX + INPUT_WIDGET_HALF_PX}px` }}
+                      />
                     </>
                   )}
                   <Handle
@@ -382,6 +559,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 height: HANDLE_SIZE,
                 backgroundColor: outColor,
                 borderRadius: outShape === "circle" ? 9999 : 2,
+                zIndex: 5,
                 transform: outShape === "diamond" ? "rotate(45deg)" : undefined,
               };
               return (
@@ -398,13 +576,29 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             })}
           </div>
         </div>
+        {isProbeWidget && nodeId ? (
+          <div className="mb-3">
+            <div
+              className="rounded-md border bg-muted/30 overflow-hidden"
+              data-node-interactive
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                minHeight: probePreviewHeight ?? 180,
+                height: probePreviewHeight,
+              }}
+            >
+              <ProbePreview nodeId={nodeId} graph={graph} className="h-full" />
+            </div>
+          </div>
+        ) : null}
         {properties.length > 0 && (
-          <div className="mt-3 pt-2 border-t">
+          <div className={cn(isProbeWidget ? "pt-2 border-t" : "mt-3 pt-2 border-t")}>
             <div className="flex flex-col gap-2">
               {properties.map((prop: any) => {
                 if (!prop || typeof prop !== "object" || !prop.id) return null;
                 const label = String(prop.label ?? prop.id);
                 const value = prop?.value ?? prop?.default ?? (prop.type === "boolean" ? false : "");
+                if (prop.id === "expose_name") return null;
                 if (prop.type === "enum") {
                   const options: Array<{ value: string; label: string }> = Array.isArray(prop.options)
                     ? prop.options.map((opt: any) => ({ value: String(opt.value), label: String(opt.label ?? opt.value) }))
@@ -433,6 +627,32 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 if (prop.type === "boolean") {
                   const boolValue = Boolean(value);
                   const checkboxId = `prop-${String(prop.id)}`;
+                  if (prop.id === "expose") {
+                    const exposeNameProp = properties.find((p: any) => p && p.id === "expose_name");
+                    const exposeNameValueRaw = exposeNameProp?.value ?? exposeNameProp?.default ?? "";
+                    const exposeNameValue = typeof exposeNameValueRaw === "string" ? exposeNameValueRaw : String(exposeNameValueRaw ?? "");
+                    return (
+                      <div key={prop.id} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={checkboxId}
+                            type="checkbox"
+                            checked={boolValue}
+                            onChange={(e) => updatePropertyValue(prop.id, e.currentTarget.checked)}
+                          />
+                          <label htmlFor={checkboxId} className="text-[11px] text-muted-foreground select-none">{label}</label>
+                        </div>
+                        {boolValue && (
+                          <Input
+                            value={exposeNameValue}
+                            placeholder="Uniform name"
+                            onChange={(event) => updatePropertyValue("expose_name", event.target.value)}
+                            className="h-7 px-2 text-xs"
+                          />
+                        )}
+                      </div>
+                    );
+                  }
                   return (
                     <div key={prop.id} className="flex items-center gap-2">
                       <input

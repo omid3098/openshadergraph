@@ -100,4 +100,21 @@ describe("GraphCompiler exposed node rendering", () => {
     expect(code).toContain("vec4 color_constant_2 = vec4(1.0, 0.0, 0.0, 1.0);");
     expect(code).toContain("uniform vec4 exposed_passthrough_3 = color_constant_2;");
   });
+
+  it("uses a custom expose name when provided", () => {
+    const graph = buildGraph();
+    const exposedNode = graph.nodes.find((n) => n.type === "exposed_passthrough");
+    if (!exposedNode) throw new Error("Graph missing exposed node");
+    exposedNode.properties = [
+      { id: "expose", type: "boolean", value: true, label: "Expose" },
+      { id: "expose_name", type: "string", value: "myUniform", label: "Expose Name" },
+    ];
+
+    const compiler = new GraphCompiler(graph, testLanguage);
+    compiler.compile();
+
+    const code = compiler.result_code;
+    expect(code).toContain("uniform vec4 myUniform = color_constant_2;");
+    expect(code).not.toContain("uniform vec4 exposed_passthrough_3");
+  });
 });

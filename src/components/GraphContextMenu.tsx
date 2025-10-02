@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
 import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
+import type { AlignmentKind, DistributionKind } from "@/core/ui/arrange";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 export type ContextKind = "background" | "node" | "edge" | "selection";
@@ -17,20 +19,70 @@ export type GraphContextMenuProps = {
   onAddNode?: (item: NodePaletteItem) => void;
   onDeleteNode?: (id: string) => void;
   onGroupSelected?: () => void;
+  onDuplicateSelection?: (targetId?: string) => void;
+  onCopySelection?: (targetId?: string) => void;
+  onPasteFromClipboard?: () => void;
+  canPaste?: boolean;
   selectedCount?: number;
   canUngroup?: boolean;
   onUngroupNode?: (id: string) => void;
   onClose: () => void;
   expandAllCategories?: boolean;
+  onAlignSelected?: (alignment: AlignmentKind) => void;
+  onDistributeSelected?: (distribution: DistributionKind) => void;
 };
 
+const ALIGNMENT_OPTIONS: Array<{ kind: AlignmentKind; label: string }> = [
+  { kind: "left", label: "Left" },
+  { kind: "center", label: "Center" },
+  { kind: "right", label: "Right" },
+  { kind: "top", label: "Top" },
+  { kind: "middle", label: "Middle" },
+  { kind: "bottom", label: "Bottom" },
+];
+
+const DISTRIBUTION_OPTIONS: Array<{ kind: DistributionKind; label: string }> = [
+  { kind: "horizontal", label: "Horizontal" },
+  { kind: "vertical", label: "Vertical" },
+];
+
 export function GraphContextMenu(props: GraphContextMenuProps) {
-  const { open, kind, x, y, palette, targetId, onClose, onAddNode, onDeleteNode, onGroupSelected, selectedCount, canUngroup, onUngroupNode, expandAllCategories } = props;
+  const {
+    open,
+    kind,
+    x,
+    y,
+    palette,
+    targetId,
+    onClose,
+    onAddNode,
+    onDeleteNode,
+    onGroupSelected,
+    onDuplicateSelection,
+    onCopySelection,
+    onPasteFromClipboard,
+    canPaste = false,
+    selectedCount,
+    canUngroup,
+    onUngroupNode,
+    expandAllCategories,
+    onAlignSelected,
+    onDistributeSelected,
+  } = props;
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [highlightIndex, setHighlightIndex] = useState(0);
   const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
+  const selectionSize = selectedCount ?? 0;
+  const canAlign = selectionSize >= 2 && Boolean(onAlignSelected);
+  const canDistribute = selectionSize >= 3 && Boolean(onDistributeSelected);
+  const [arrangementOpen, setArrangementOpen] = useState(false);
+  const [activeArrangementSubmenu, setActiveArrangementSubmenu] = useState<"align" | "distribute" | null>(null);
+  const [submenuPosition, setSubmenuPosition] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  const hasArrangementActions = Boolean(onAlignSelected || onDistributeSelected);
+  const arrangementButtonRef = useRef<HTMLButtonElement | null>(null);
+  const arrangementPortalRef = useRef<HTMLDivElement | null>(null);
 
   const formatCategory = (name: string): string => {
     if (!name) return name;
@@ -47,7 +99,11 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     };
     const onDown = (e: MouseEvent) => {
       if (!ref.current) return;
-      if (!ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node | null;
+      // Ignore clicks inside the portaled arrangement submenu or the anchor button
+      if (arrangementPortalRef.current && target && arrangementPortalRef.current.contains(target)) return;
+      if (arrangementButtonRef.current && target && arrangementButtonRef.current.contains(target)) return;
+      if (!ref.current.contains(target as Node)) onClose();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
@@ -61,6 +117,8 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     if (!open) return;
     setQuery("");
     setHighlightIndex(0);
+    setArrangementOpen(false);
+    setActiveArrangementSubmenu(null);
     if (kind === "background" && expandAllCategories) {
       // Expand all categories when requested
       const all = new Set<string>();
@@ -72,6 +130,57 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
       setExpanded(new Set());
     }
   }, [open, kind, expandAllCategories, palette]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!hasArrangementActions) return;
+    if (!canAlign && !canDistribute) {
+      setArrangementOpen(false);
+      setActiveArrangementSubmenu(null);
+    }
+  }, [open, hasArrangementActions, canAlign, canDistribute]);
+
+  const closeArrangementMenus = useCallback(() => {
+    setArrangementOpen(false);
+    setActiveArrangementSubmenu(null);
+  }, []);
+
+  const closeArrangementIfFocusMoves = useCallback(() => {
+    if (typeof document === "undefined") return;
+    requestAnimationFrame(() => {
+      const container = arrangementPortalRef.current;
+      const anchor = arrangementButtonRef.current;
+      const active = document.activeElement;
+      if (container && active && container.contains(active)) return;
+      if (anchor && active && anchor.contains(active)) return;
+      closeArrangementMenus();
+    });
+  }, [closeArrangementMenus]);
+
+  useEffect(() => {
+    if (!arrangementOpen) return;
+    const handlePointer = (event: MouseEvent | PointerEvent | FocusEvent) => {
+      const container = arrangementPortalRef.current;
+      const anchor = arrangementButtonRef.current;
+      const target = event.target as Node | null;
+      if (container && target && container.contains(target)) return;
+      if (anchor && target && anchor.contains(target)) return;
+      closeArrangementMenus();
+    };
+    const handleResize = () => closeArrangementMenus();
+    document.addEventListener("mousedown", handlePointer, true);
+    document.addEventListener("pointerdown", handlePointer, true);
+    document.addEventListener("focusin", handlePointer, true);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleResize, true);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer, true);
+      document.removeEventListener("pointerdown", handlePointer, true);
+      document.removeEventListener("focusin", handlePointer, true);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleResize, true);
+    };
+  }, [arrangementOpen, closeArrangementMenus]);
 
   type VisibleItem =
     | { kind: "category"; key: string }
@@ -173,53 +282,217 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, kind, visibleItems, highlightIndex, expanded, onAddNode]);
 
+  const updateArrangementPosition = useCallback(() => {
+    if (!arrangementButtonRef.current) return;
+    const rect = arrangementButtonRef.current.getBoundingClientRect();
+    const approxHeight = 220;
+    const approxWidth = 190;
+    const top = Math.max(8, Math.min(rect.top, window.innerHeight - approxHeight));
+    const left = Math.min(rect.right + 6, window.innerWidth - approxWidth);
+    setSubmenuPosition({ left, top });
+  }, []);
+
+  const renderArrangementSection = () => {
+    if (!hasArrangementActions) return null;
+    const disabled = !canAlign && !canDistribute;
+    const firstSubmenu: "align" | "distribute" | null = !disabled
+      ? (!canAlign && canDistribute ? "distribute" : canAlign ? "align" : null)
+      : null;
+
+    const openMenu = (autoSubmenu: boolean) => {
+      if (disabled) return;
+      updateArrangementPosition();
+      setArrangementOpen(true);
+      setActiveArrangementSubmenu(autoSubmenu ? firstSubmenu : null);
+    };
+    return (
+      <button
+        ref={arrangementButtonRef}
+        className={cn(
+          "w-full px-2 py-1.5 rounded-md text-sm flex items-center justify-between",
+          disabled && "bg-muted text-muted-foreground cursor-not-allowed",
+          !disabled && arrangementOpen && "bg-accent text-accent-foreground",
+          !disabled && !arrangementOpen && "bg-muted text-foreground hover:bg-accent/80 hover:text-accent-foreground"
+        )}
+        disabled={disabled}
+        aria-haspopup="true"
+        aria-expanded={arrangementOpen && !disabled}
+        onMouseEnter={() => openMenu(false)}
+        onFocus={() => openMenu(true)}
+        onBlur={closeArrangementIfFocusMoves}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (disabled) return;
+          if (arrangementOpen) {
+            closeArrangementMenus();
+          } else {
+            openMenu(false);
+          }
+        }}
+      >
+        <span>Arrangement</span>
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    );
+  };
+
+  const arrangementPortal = arrangementOpen && hasArrangementActions && typeof document !== "undefined"
+    ? createPortal(
+        <div
+          ref={arrangementPortalRef}
+          className="pointer-events-auto"
+          style={{ position: "fixed", left: submenuPosition.left, top: submenuPosition.top, zIndex: 60 }}
+        >
+          <div className="rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[170px]">
+            {onAlignSelected && (
+              <div
+                className="relative"
+                onMouseEnter={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
+                onFocusCapture={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
+              >
+                <button
+                  className={cn(
+                    "w-full px-3 py-1.5 text-sm flex items-center justify-between",
+                    !canAlign && "text-muted-foreground cursor-not-allowed",
+                    canAlign && activeArrangementSubmenu === "align" && "bg-accent text-accent-foreground",
+                    canAlign && activeArrangementSubmenu !== "align" && "hover:bg-accent/70 hover:text-accent-foreground"
+                  )}
+                  disabled={!canAlign}
+                  onMouseEnter={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
+                  onFocus={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!canAlign) return;
+                    setActiveArrangementSubmenu("align");
+                  }}
+                >
+                  <span>Align</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                {canAlign && activeArrangementSubmenu === "align" && (
+                  <div className="absolute left-full top-0 ml-1 rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[150px]">
+                    {ALIGNMENT_OPTIONS.map((option) => (
+                      <button
+                        key={`align:${option.kind}`}
+                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent/70 hover:text-accent-foreground"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!canAlign) return;
+                          onAlignSelected(option.kind);
+                          closeArrangementMenus();
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {onDistributeSelected && (
+              <div
+                className="relative"
+                onMouseEnter={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
+                onFocusCapture={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
+              >
+                <button
+                  className={cn(
+                    "w-full px-3 py-1.5 text-sm flex items-center justify-between",
+                    !canDistribute && "text-muted-foreground cursor-not-allowed",
+                    canDistribute && activeArrangementSubmenu === "distribute" && "bg-accent text-accent-foreground",
+                    canDistribute && activeArrangementSubmenu !== "distribute" && "hover:bg-accent/70 hover:text-accent-foreground"
+                  )}
+                  disabled={!canDistribute}
+                  onMouseEnter={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
+                  onFocus={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!canDistribute) return;
+                    setActiveArrangementSubmenu("distribute");
+                  }}
+                >
+                  <span>Distribute</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                {canDistribute && activeArrangementSubmenu === "distribute" && (
+                  <div className="absolute left-full top-0 ml-1 rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[150px]">
+                    {DISTRIBUTION_OPTIONS.map((option) => (
+                      <button
+                        key={`distribute:${option.kind}`}
+                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent/70 hover:text-accent-foreground"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!canDistribute) return;
+                          onDistributeSelected(option.kind);
+                          closeArrangementMenus();
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   if (!open) return null;
 
   // Basic size & placement logic; clamp within viewport
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const maxW = Math.min(360, vw - 16);
+  const maxW = Math.min(260, vw - 16);
   const maxH = Math.min(420, vh - 16);
   const posX = Math.min(x, vw - maxW - 8);
   const posY = Math.min(y, vh - maxH - 8);
 
   return (
-    <div
-      className="fixed inset-0 z-50 pointer-events-none"
-      aria-hidden={!open}
-    >
-      <Card
-        ref={ref}
-        className="pointer-events-auto shadow-lg border bg-popover text-popover-foreground"
-        style={{ position: "fixed", left: posX, top: posY, width: maxW, maxHeight: maxH, overflow: "auto" }}
-        role="menu"
-        aria-label="Graph context menu"
+    <>
+      <div
+        className="fixed inset-0 z-50 pointer-events-none"
+        aria-hidden={!open}
       >
-        {kind !== "background" && (
-          <CardHeader className="py-2 px-3">
-            <CardTitle className="text-sm">
-              {kind === "selection" && `Selection • ${selectedCount ?? 0} nodes`}
-              {kind === "node" && `Node • ${targetId ?? "(unknown)"}`}
-              {kind === "edge" && `Connection • ${targetId ?? "(unknown)"}`}
-            </CardTitle>
-          </CardHeader>
-        )}
-        <CardContent className="flex flex-col gap-1 p-3">
-          {kind === "background" ? (
-            <>
-              <Input
-                placeholder="Search nodes…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                autoFocus
-                className="h-8 text-sm"
-              />
-              <div className="flex flex-col gap-1">
-                {visibleItems.length === 0 && (
-                  <div className="text-muted-foreground text-sm">No nodes found</div>
-                )}
-                <ul className="flex flex-col">
-                  {visibleItems.map((it, idx) => {
+        <Card
+          ref={ref}
+          className="pointer-events-auto shadow-lg border bg-popover text-popover-foreground"
+          style={{ position: "fixed", left: posX, top: posY, width: maxW, maxHeight: maxH, overflow: "auto" }}
+          role="menu"
+          aria-label="Graph context menu"
+        >
+          {kind !== "background" && (
+            <CardHeader className="py-2 px-3">
+              <CardTitle className="text-sm">
+                {kind === "selection" && `Selection • ${selectedCount ?? 0} nodes`}
+                {kind === "node" && `Node • ${targetId ?? "(unknown)"}`}
+                {kind === "edge" && `Connection • ${targetId ?? "(unknown)"}`}
+              </CardTitle>
+            </CardHeader>
+          )}
+          <CardContent className="flex flex-col gap-1 p-3">
+            {kind === "background" ? (
+              <>
+                <Input
+                  placeholder="Search nodes…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  autoFocus
+                  className="h-8 text-sm"
+                />
+                <div className="flex flex-col gap-1">
+                  {visibleItems.length === 0 && (
+                    <div className="text-muted-foreground text-sm">No nodes found</div>
+                  )}
+                  <ul className="flex flex-col">
+                    {visibleItems.map((it, idx) => {
                     if (it.kind === "category") {
                       const isOpen = expanded.has(it.key);
                       return (
@@ -278,78 +551,190 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                       </li>
                     );
                   })}
-                </ul>
+                  </ul>
+                </div>
+              </>
+            ) : kind === "selection" ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    selectedCount && selectedCount > 0
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!selectedCount || selectedCount <= 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (selectedCount && selectedCount > 0 && onCopySelection) onCopySelection();
+                  }}
+                >
+                  Copy Selection{selectedCount ? ` (${selectedCount})` : ""}
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    canPaste
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!canPaste}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (canPaste && onPasteFromClipboard) onPasteFromClipboard();
+                  }}
+                >
+                  Paste
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    selectedCount && selectedCount > 0
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!selectedCount || selectedCount <= 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (selectedCount && selectedCount > 0 && onDuplicateSelection) onDuplicateSelection();
+                  }}
+                >
+                  Duplicate Selection{selectedCount ? ` (${selectedCount})` : ""}
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    selectedCount && selectedCount > 0
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!selectedCount || selectedCount <= 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
+                  }}
+                >
+                  Group Selected{selectedCount ? ` (${selectedCount})` : ""}
+                </button>
+                {renderArrangementSection()}
               </div>
-            </>
-          ) : kind === "selection" ? (
-            <div className="flex flex-col gap-2">
-              <button
-                className={cn(
-                  "px-2 py-1.5 rounded-md text-sm",
-                  selectedCount && selectedCount > 0
-                    ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                )}
-                disabled={!selectedCount || selectedCount <= 0}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
-                }}
-              >
-                Group Selected{selectedCount ? ` (${selectedCount})` : ""}
-              </button>
-            </div>
-          ) : kind === "node" ? (
-            <div className="flex flex-col gap-2">
-              <button
-                className={cn(
-                  "px-2 py-1.5 rounded-md text-sm",
-                  canUngroup
-                    ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                )}
-                disabled={!canUngroup}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (canUngroup && targetId && onUngroupNode) onUngroupNode(targetId);
-                }}
-              >
-                Ungroup
-              </button>
-              <button
-                className={cn(
-                  "px-2 py-1.5 rounded-md text-sm",
-                  selectedCount && selectedCount > 0
-                    ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                )}
-                disabled={!selectedCount || selectedCount <= 0}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
-                }}
-              >
-                Group Selected{selectedCount ? ` (${selectedCount})` : ""}
-              </button>
-              <button
-                className="px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (targetId && onDeleteNode) onDeleteNode(targetId);
-                }}
-              >
-                Delete Node
-              </button>
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">Actions coming soon…</div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            ) : kind === "node" ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    onCopySelection ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!onCopySelection}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onCopySelection) onCopySelection(targetId);
+                  }}
+                >
+                  Copy Node
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    onDuplicateSelection ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!onDuplicateSelection}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onDuplicateSelection && targetId) onDuplicateSelection(targetId);
+                  }}
+                >
+                  Duplicate Node
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    canUngroup
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!canUngroup}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (canUngroup && targetId && onUngroupNode) onUngroupNode(targetId);
+                  }}
+                >
+                  Ungroup
+                </button>
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    selectedCount && selectedCount > 0
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!selectedCount || selectedCount <= 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
+                  }}
+                >
+                  Group Selected{selectedCount ? ` (${selectedCount})` : ""}
+                </button>
+                {renderArrangementSection()}
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    canPaste ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!canPaste}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (canPaste && onPasteFromClipboard) onPasteFromClipboard();
+                  }}
+                >
+                  Paste
+                </button>
+                <button
+                  className="px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (targetId && onDeleteNode) onDeleteNode(targetId);
+                  }}
+                >
+                  Delete Node
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <button
+                  className={cn(
+                    "px-2 py-1.5 rounded-md text-sm",
+                    onPasteFromClipboard && canPaste
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  )}
+                  disabled={!onPasteFromClipboard || !canPaste}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onPasteFromClipboard) onPasteFromClipboard();
+                  }}
+                >
+                  Paste
+                </button>
+                <div className="text-sm text-muted-foreground">Select nodes to enable more actions</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      {arrangementPortal}
+    </>
   );
 }

@@ -33,6 +33,12 @@
       "label": "Expose",
       "type": "boolean",
       "default": false
+    },
+    {
+      "id": "expose_name",
+      "label": "Expose Name",
+      "type": "string",
+      "default": ""
     }
   ]
 }

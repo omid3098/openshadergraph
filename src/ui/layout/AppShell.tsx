@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { persistGet, persistSet } from "@/lib/storage";
@@ -11,11 +11,15 @@ type AppShellProps = {
   children: React.ReactNode;
   /** Optional custom sidebar content; when omitted, a default nav is shown. */
   sidebarContent?: React.ReactNode | ((opts: { collapsed: boolean }) => React.ReactNode);
+  /** Current theme; when provided, the shell renders the matching icon and delegates toggling. */
+  theme?: "dark" | "light";
+  /** Invoked when the sidebar theme button is clicked. */
+  onToggleTheme?: () => void;
 };
 
-export function AppShell({ header, children, sidebarContent }: AppShellProps) {
+export function AppShell({ header, children, sidebarContent, theme, onToggleTheme }: AppShellProps) {
   const [collapsed, setCollapsed] = useState<boolean>(true);
-  const [dark, setDark] = useState<boolean>(false);
+  const [localTheme, setLocalTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     let mounted = true;
@@ -30,38 +34,44 @@ export function AppShell({ header, children, sidebarContent }: AppShellProps) {
   }, []);
 
   useEffect(() => {
-    void persistSet("ui.sidebar.collapsed", collapsed);
-  }, [collapsed]);
-
-  // Load and apply theme on mount
-  useEffect(() => {
+    if (theme !== undefined) return;
     let mounted = true;
     (async () => {
       const saved = await persistGet<string>("ui.theme");
-      let initialDark = false;
-      if (saved === "dark") initialDark = true;
-      else if (saved === "light") initialDark = false;
-      else if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-        initialDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      }
       if (!mounted) return;
-      setDark(initialDark);
-      if (typeof document !== "undefined") {
-        document.documentElement.classList.toggle("dark", initialDark);
-      }
+      if (saved === "dark" || saved === "light") setLocalTheme(saved);
     })();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [theme]);
 
-  // Persist and apply theme when changed
   useEffect(() => {
-    void persistSet("ui.theme", dark ? "dark" : "light");
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("dark", dark);
+    void persistSet("ui.sidebar.collapsed", collapsed);
+  }, [collapsed]);
+
+  useEffect(() => {
+    if (theme !== undefined) return;
+    void persistSet("ui.theme", localTheme);
+  }, [localTheme, theme]);
+
+  const themeMode = theme ?? localTheme;
+  const isDark = themeMode === "dark";
+  const canToggleTheme = typeof onToggleTheme === "function";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.classList.toggle("dark", isDark);
+  }, [isDark]);
+
+  const handleThemeToggle = useCallback(() => {
+    if (canToggleTheme) {
+      onToggleTheme?.();
+      return;
     }
-  }, [dark]);
+    setLocalTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, [canToggleTheme, onToggleTheme]);
 
   const sidebarWidth = collapsed ? 56 : 224; // px
 
@@ -91,10 +101,11 @@ export function AppShell({ header, children, sidebarContent }: AppShellProps) {
               size="icon"
               className="h-8 w-8"
               aria-label="Toggle theme"
-              onClick={() => setDark((v) => !v)}
-              title={dark ? "Switch to light" : "Switch to dark"}
+              onClick={handleThemeToggle}
+              title={isDark ? "Switch to light" : "Switch to dark"}
+              disabled={!canToggleTheme && typeof document === "undefined"}
             >
-              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </div>
         ) : null}
@@ -129,5 +140,3 @@ function SidebarItem({ icon, label, collapsed }: { icon: React.ReactNode; label:
 }
 
 export default AppShell;
-
-

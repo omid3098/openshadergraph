@@ -1,8 +1,9 @@
 import * as React from "react";
 import type { EdgeProps } from "@xyflow/react";
-import { getBezierPath, useReactFlow } from "@xyflow/react";
+import { getBezierPath, getSimpleBezierPath, getSmoothStepPath, getStraightPath, useReactFlow } from "@xyflow/react";
 import { normalizePinType, type NormalizedPinType } from "@/core/ui/compat";
 import { THEME } from "@/styles/theme";
+import { useSettings } from "@/ui/state/SettingsContext";
 
 function mapNormalizedToThemeKey(t: NormalizedPinType): keyof typeof THEME.pinColors {
   if (t === "float") return "scalar";
@@ -41,9 +42,35 @@ function getPinTypeFromNode(node: any, handleId: string | null | undefined, dir:
 export default function ColoredEdge(props: EdgeProps) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style, source, target, sourceHandle, targetHandle, selected, data } = props as any;
   const rf = useReactFlow();
+  const { curveMode } = useSettings();
   const sourceNode = source ? rf.getNode(source) : undefined;
   const targetNode = target ? rf.getNode(target) : undefined;
-  const [edgePath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const pathParams = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
+  const edgePath = (() => {
+    switch (curveMode) {
+      case "smoothstep": {
+        const [path] = getSmoothStepPath(pathParams);
+        return path;
+      }
+      case "step": {
+        const [path] = getSmoothStepPath({ ...pathParams, borderRadius: 0 });
+        return path;
+      }
+      case "straight": {
+        const [path] = getStraightPath(pathParams);
+        return path;
+      }
+      case "simplebezier": {
+        const [path] = getSimpleBezierPath(pathParams);
+        return path;
+      }
+      case "default":
+      default: {
+        const [path] = getBezierPath(pathParams);
+        return path;
+      }
+    }
+  })();
 
   const sourceType = normalizePinType(data?.sourceType) ?? getPinTypeFromNode(sourceNode, sourceHandle, "out");
   const targetType = normalizePinType(data?.targetType) ?? getPinTypeFromNode(targetNode, targetHandle, "in");
@@ -52,8 +79,16 @@ export default function ColoredEdge(props: EdgeProps) {
   const colorStart = THEME.pinColors[sourceKey] ?? THEME.selectionColor;
   const colorEnd = THEME.pinColors[targetKey] ?? THEME.selectionColor;
   const gradientId = `edge-gradient-${id}`;
+  const dropShadowId = `edge-shadow-${id}`;
 
   const strokeWidth = selected ? 3.5 : 3;
+  const outlineWidth = strokeWidth + 3;
+
+  const shadowPadding = 18;
+  const minX = Math.min(sourceX, targetX) - shadowPadding;
+  const minY = Math.min(sourceY, targetY) - shadowPadding;
+  const width = Math.max(Math.abs(targetX - sourceX) + shadowPadding * 2, shadowPadding * 2);
+  const height = Math.max(Math.abs(targetY - sourceY) + shadowPadding * 2, shadowPadding * 2);
 
   // Avoid any external style "stroke" overriding our gradient
   const cleanedStyle = (() => {
@@ -64,6 +99,8 @@ export default function ColoredEdge(props: EdgeProps) {
     return next;
   })();
 
+  const interactionWidth = 24;
+
   return (
     <g>
       <defs>
@@ -71,18 +108,45 @@ export default function ColoredEdge(props: EdgeProps) {
           <stop offset="0%" stopColor={colorStart} />
           <stop offset="100%" stopColor={colorEnd} />
         </linearGradient>
+        {selected ? (
+          <filter id={dropShadowId} x={minX} y={minY} width={width} height={height} filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#000" floodOpacity="0.35" />
+          </filter>
+        ) : null}
       </defs>
       <path
-        id={id}
         d={edgePath}
         fill="none"
-        stroke={`url(#${gradientId})`}
-        strokeWidth={strokeWidth}
-        style={cleanedStyle}
-        markerEnd={markerEnd}
+        stroke="transparent"
+        strokeWidth={interactionWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="stroke"
       />
+      <g filter={selected ? `url(#${dropShadowId})` : undefined}>
+        {selected ? (
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={outlineWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={cleanedStyle}
+          />
+        ) : null}
+        <path
+          id={id}
+          d={edgePath}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={cleanedStyle}
+          markerEnd={markerEnd}
+        />
+      </g>
     </g>
   );
 }
-
-

@@ -2,6 +2,7 @@ import type { Edge, Node, XYPosition } from "@xyflow/react";
 import type { GraphNode } from "@/core/graph/types";
 import type { NodeProperty, NodeTemplate } from "@/core/schema/types";
 import { parseEditorSize } from "./nodeFactory";
+import { RF_LAYOUT_DEFAULTS } from "./layoutDefaults";
 
 export type AssetEntry = {
   id: string;
@@ -131,10 +132,10 @@ function collectAssetCandidates(properties: NodeProperty[] | undefined, assetPro
 
 export function buildReactFlowGraph({ root, defaults, assets, options }: BuildReactFlowGraphContext): BuildReactFlowGraphResult {
   const layout = {
-    depthX: options?.layout?.depthX ?? 240,
-    rowY: options?.layout?.rowY ?? 120,
-    baseX: options?.layout?.baseX ?? 80,
-    baseY: options?.layout?.baseY ?? 40,
+    depthX: options?.layout?.depthX ?? RF_LAYOUT_DEFAULTS.depthX,
+    rowY: options?.layout?.rowY ?? RF_LAYOUT_DEFAULTS.rowY,
+    baseX: options?.layout?.baseX ?? RF_LAYOUT_DEFAULTS.baseX,
+    baseY: options?.layout?.baseY ?? RF_LAYOUT_DEFAULTS.baseY,
   };
 
   const createdNodes: Node[] = [];
@@ -302,13 +303,24 @@ export function buildReactFlowGraph({ root, defaults, assets, options }: BuildRe
 
   const maxId = Math.max(...Array.from(allNodes.keys())) || Number(root.id) || 0;
 
-  const fragmentPass = (root.nodes ?? []).find((child) => child.type === "fragment_pass");
-  const vertexPass = (root.nodes ?? []).find((child) => child.type === "vertex_pass");
-  const defaultViewPath = fragmentPass
-    ? [rootId, String(fragmentPass.id)]
-    : vertexPass
-      ? [rootId, String(vertexPass.id)]
-      : [rootId];
+  // Compute default view path preferring FragmentPass under Surface if present
+  const surfaceNode = (root.nodes ?? []).find((child) => child.type === "surface");
+  let defaultViewPath: string[] = [rootId];
+  if (surfaceNode && Array.isArray(surfaceNode.nodes)) {
+    const fragmentPass = surfaceNode.nodes.find((child: any) => child && child.type === "fragment_pass");
+    const vertexPass = surfaceNode.nodes.find((child: any) => child && child.type === "vertex_pass");
+    if (fragmentPass) defaultViewPath = [rootId, String((surfaceNode as any).id), String((fragmentPass as any).id)];
+    else if (vertexPass) defaultViewPath = [rootId, String((surfaceNode as any).id), String((vertexPass as any).id)];
+    else defaultViewPath = [rootId, String((surfaceNode as any).id)];
+  } else {
+    const fragmentPass = (root.nodes ?? []).find((child) => child.type === "fragment_pass");
+    const vertexPass = (root.nodes ?? []).find((child) => child.type === "vertex_pass");
+    defaultViewPath = fragmentPass
+      ? [rootId, String((fragmentPass as any).id)]
+      : vertexPass
+        ? [rootId, String((vertexPass as any).id)]
+        : [rootId];
+  }
 
   return {
     nodes: createdNodes,

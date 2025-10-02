@@ -10,9 +10,21 @@ site_dir: dist/docs
 docs_dir: docs
 
 theme:
+  palette:
+    - scheme: slate
+      primary: green
+      toggle:
+        icon: material/white-balance-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: green
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
   name: material
   features:
     - navigation.instant
+    - navigation.footer
     - navigation.tracking
     - search.highlight
     - search.suggest
@@ -21,10 +33,18 @@ theme:
 
 nav:
   - Overview: index.md
+  - Getting Started: getting-started.md
+  - Features: features.md
+  - Tutorials:
+      - Overview: tutorials.md
+      - Basic Color: tutorials/basic-color.md
+      - Addition (Color + Color): tutorials/add-color-color.md
+  - Developers: developers.md
   - Contributing: contributing.md
 
 plugins:
   - search
+  - glightbox
 
 markdown_extensions:
   - admonition
@@ -40,7 +60,11 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
 

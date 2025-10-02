@@ -6,6 +6,7 @@ import { rm, cp, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import path from "path";
 import { gzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { validateLanguagePack, validateNodeTemplate } from "./src/core/schema/validators";
+import { getDeployLabel } from "./src/core/env/getDeployLabel";
 
 // Print help text if requested
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -130,27 +131,6 @@ const formatFileSize = (bytes: number): string => {
 };
 
 console.log("\n🚀 Starting build process...\n");
-const AUTO_TAG = process.argv.includes("--auto-tag");
-
-// --- Versioning: compute app version from git and write src/version.ts ---
-type Semver = { major: number; minor: number; patch: number };
-
-function parseSemverTag(tag: string): Semver | null {
-  const m = tag.trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
-  if (!m) return null;
-  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
-}
-
-function semverToString(v: Semver): string {
-  return `${v.major}.${v.minor}.${v.patch}`;
-}
-
-function bump(v: Semver, kind: "major" | "minor" | "patch"): Semver {
-  if (kind === "major") return { major: v.major + 1, minor: 0, patch: 0 };
-  if (kind === "minor") return { major: v.major, minor: v.minor + 1, patch: 0 };
-  return { major: v.major, minor: v.minor, patch: v.patch + 1 };
-}
-
 function runGit(args: string[]): { ok: boolean; stdout: string } {
   try {
     const res = Bun.spawnSync({ cmd: ["git", ...args], stdout: "pipe", stderr: "pipe" });
@@ -162,64 +142,54 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
 }
 
 async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
-  // Determine latest semver tag
-  const tags = runGit(["tag", "--list", "--sort=-v:refname"]).stdout
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const latestTag = tags.find((t) => parseSemverTag(t));
-  const base = latestTag ? (parseSemverTag(latestTag) as Semver) : { major: 0, minor: 0, patch: 0 };
+  const target = path.resolve(process.cwd(), "src", "version.ts");
+  let raw = "";
+  let versionStr = "0.0.0";
 
-  // Collect commit messages since latest tag (or all if none)
-  const range = latestTag ? `${latestTag}..HEAD` : "HEAD";
-  const logOut = runGit(["log", "--format=%B%x00", range]).stdout; // NUL-delimited bodies
-  const messages = logOut
-    ? logOut.split("\x00").map((m) => m.trim()).filter(Boolean)
-    : [];
-
-  // Determine bump: major if any BREAKING or !, else minor if any feat, else patch if any commits
-  let bumpKind: "major" | "minor" | "patch" | null = null;
-  for (const msg of messages) {
-    if (/BREAKING CHANGE/i.test(msg) || /!\s*:/.test(msg) || /^\w+![:(]/.test(msg)) {
-      bumpKind = "major";
-      break;
+  try {
+    raw = await readFile(target, "utf8");
+    const versionMatch = raw.match(/export const APP_VERSION\s*=\s*"([^"]+)"/);
+    if (versionMatch && versionMatch[1]) versionStr = versionMatch[1];
+  } catch (_err) {
+    // As a last resort, fall back to package.json version
+    try {
+      const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
+      const pkg = JSON.parse(pkgRaw);
+      if (pkg?.version && typeof pkg.version === "string") versionStr = pkg.version;
+    } catch (_err2) {
+      /* ignore */
     }
   }
-  if (!bumpKind && messages.some((m) => /^feat(\(|:)/i.test(m))) bumpKind = "minor";
-  if (!bumpKind && messages.length > 0) bumpKind = "patch";
 
-  const next = bumpKind ? bump(base, bumpKind) : base;
-  const short = runGit(["rev-parse", "--short", "HEAD"]).stdout;
-  const dirty = runGit(["status", "--porcelain"]).stdout.length > 0;
-  const versionStr = semverToString(next);
-  const buildDate = new Date().toISOString();
-  const deploy = String(process.env.DEPLOY ?? "Local");
+  const deployLabel = getDeployLabel({ DEPLOY: Bun.env?.DEPLOY ?? process.env?.DEPLOY });
+  const deployPattern = /export const APP_DEPLOY\s*=\s*"([^"]*)";/;
+  let nextRaw = raw;
 
-  const out = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = ${JSON.stringify(versionStr)};\nexport const APP_COMMIT = ${JSON.stringify(short)};\nexport const APP_BUILD_DATE = ${JSON.stringify(buildDate)};\nexport const APP_DIRTY = ${dirty ? "true" : "false"};\nexport const APP_DEPLOY = ${JSON.stringify(deploy)};\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
-
-  const target = path.resolve(process.cwd(), "src", "version.ts");
-  try {
-    await writeFile(target, out, "utf8");
-    console.log(`🔖 Wrote ${path.relative(process.cwd(), target)} → v${versionStr}${dirty ? " (dirty)" : ""}`);
-  } catch (err) {
-    console.warn("⚠️  Failed to write src/version.ts; using committed fallback.", err);
-  }
-
-  // Optionally create a local git tag for this version (no push here)
-  if (AUTO_TAG) {
-    const tagName = `v${versionStr}`;
-    const existing = runGit(["tag", "--list", tagName]).stdout.trim();
-    if (!existing) {
-      const tagRes = runGit(["tag", "-a", tagName, "-m", `release: ${tagName}`]);
-      if (!tagRes.ok) {
-        console.warn(`⚠️  Failed to create git tag ${tagName}`);
+  if (raw.length) {
+    if (deployPattern.test(raw)) {
+      nextRaw = raw.replace(deployPattern, `export const APP_DEPLOY = "${deployLabel}";`);
+    } else {
+      const insertToken = "export type AppVersionInfo";
+      const insertIndex = raw.indexOf(insertToken);
+      if (insertIndex !== -1) {
+        nextRaw = `${raw.slice(0, insertIndex)}export const APP_DEPLOY = "${deployLabel}";\n\n${raw.slice(insertIndex)}`;
       } else {
-        console.log(`🏷️  Created git tag ${tagName}`);
+        nextRaw = `${raw.trimEnd()}\nexport const APP_DEPLOY = "${deployLabel}";\n`;
       }
     }
+  } else {
+    nextRaw = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = "${versionStr}";\nexport const APP_COMMIT = "";\nexport const APP_BUILD_DATE = "";\nexport const APP_DIRTY = false;\nexport const APP_DEPLOY = "${deployLabel}";\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
   }
 
-  return { version: versionStr, bumped: Boolean(bumpKind) };
+  if (nextRaw !== raw) {
+    await writeFile(target, nextRaw, "utf8");
+    console.log(`🌐 Set deploy label to ${deployLabel} in src/version.ts`);
+  } else {
+    console.log(`🌐 Deploy label already ${deployLabel}`);
+  }
+
+  console.log(`🔖 Using committed src/version.ts → v${versionStr}`);
+  return { version: versionStr, bumped: false };
 }
 
 await computeAndWriteVersionModule();
@@ -495,21 +465,102 @@ async function emitManifest() {
 
 await emitManifest();
 
+function decodeBuffer(buf?: Uint8Array | null): string {
+  if (!buf || buf.byteLength === 0) return "";
+  return new TextDecoder().decode(buf).trim();
+}
+
+async function resolvePythonForMkdocs(mkdocsPath: string): Promise<string | null> {
+  const candidates = new Set<string>();
+  try {
+    const firstLine = (await readFile(mkdocsPath, "utf8")).split("\n")[0] ?? "";
+    if (firstLine.startsWith("#!")) {
+      const shebangCmd = firstLine.slice(2).trim().split(/\s+/)[0] ?? "";
+      if (shebangCmd) candidates.add(shebangCmd);
+    }
+  } catch (_err) {
+    /* ignore */
+  }
+  const env = Bun.env ?? process.env ?? {};
+  const envCandidates = [env.PYTHON, env.PYTHON3];
+  for (const candidate of envCandidates) {
+    if (candidate) candidates.add(candidate);
+  }
+  candidates.add("python3");
+  candidates.add("python");
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const probe = Bun.spawnSync({ cmd: [candidate, "--version"], stdout: "ignore", stderr: "ignore" });
+    if (probe.exitCode === 0) return candidate;
+  }
+  return null;
+}
+
+async function ensureMkdocsDependencies(mkdocsPath: string): Promise<boolean> {
+  const pythonCmd = await resolvePythonForMkdocs(mkdocsPath);
+  if (!pythonCmd) {
+    console.log("ℹ️  Skipping docs build (no Python interpreter available for mkdocs)");
+    return false;
+  }
+
+  const checkScript = "import importlib, sys\ntry:\n    importlib.import_module('mkdocs_glightbox')\nexcept ModuleNotFoundError:\n    sys.exit(1)\n";
+  const check = Bun.spawnSync({ cmd: [pythonCmd, "-c", checkScript], stdout: "ignore", stderr: "ignore" });
+  if (check.exitCode === 0) return true;
+
+  const requirementsPath = path.resolve(process.cwd(), "requirements.txt");
+  if (!existsSync(requirementsPath)) {
+    console.warn("⚠️  Missing requirements.txt; unable to install MkDocs plugins");
+    return false;
+  }
+
+  console.log("📦 Installing MkDocs docs dependencies (requirements.txt)...");
+  const install = Bun.spawnSync({
+    cmd: [pythonCmd, "-m", "pip", "install", "--disable-pip-version-check", "--user", "-r", requirementsPath],
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const installOut = decodeBuffer(install.stdout);
+  if (installOut) console.log(installOut);
+  if (install.exitCode !== 0) {
+    console.warn("⚠️  Failed to install MkDocs dependencies:", decodeBuffer(install.stderr));
+    return false;
+  }
+  const installErr = decodeBuffer(install.stderr);
+  if (installErr) console.log(installErr);
+
+  const recheck = Bun.spawnSync({ cmd: [pythonCmd, "-c", checkScript], stdout: "ignore", stderr: "ignore" });
+  if (recheck.exitCode !== 0) {
+    console.warn("⚠️  mkdocs_glightbox still unavailable after installation; skipping docs build");
+    return false;
+  }
+  return true;
+}
+
 // Optionally build MkDocs docs into dist/docs if mkdocs is available
 async function buildDocsIfAvailable() {
   try {
-    // Check if mkdocs exists on PATH
-    const check = Bun.spawnSync({ cmd: ["bash", "-lc", "command -v mkdocs >/dev/null 2>&1"], stdout: "ignore", stderr: "ignore" });
-    if (check.exitCode !== 0) {
+    const which = Bun.spawnSync({
+      cmd: ["bash", "-lc", "command -v mkdocs"],
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    const mkdocsPath = decodeBuffer(which.stdout);
+    if (which.exitCode !== 0 || !mkdocsPath) {
       console.log("ℹ️  Skipping docs build (mkdocs not found)");
       return;
     }
+
+    if (!(await ensureMkdocsDependencies(mkdocsPath))) return;
+
     console.log("📚 Building documentation (mkdocs)...");
-    const res = Bun.spawnSync({ cmd: ["mkdocs", "build", "--clean"], stdout: "pipe", stderr: "pipe" });
+    const res = Bun.spawnSync({ cmd: [mkdocsPath, "build", "--clean"], stdout: "pipe", stderr: "pipe" });
     if (res.exitCode === 0) {
       console.log("📚 Docs built → dist/docs");
     } else {
-      console.warn("⚠️  mkdocs build failed:", new TextDecoder().decode(res.stderr));
+      const errText = decodeBuffer(res.stderr) || decodeBuffer(res.stdout);
+      console.warn("⚠️  mkdocs build failed:", errText);
     }
   } catch (err) {
     console.warn("⚠️  Error during docs build:", err);

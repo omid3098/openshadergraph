@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { NodeTemplate } from "../schema/nodes";
+import type { NodeTemplate } from "../schema/types";
 import { parseHandleId as _parseHandleId } from "./handles";
 import {
   chooseDominantPinType,

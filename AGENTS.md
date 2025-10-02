@@ -22,12 +22,67 @@ Minimal graph rules:
 - Connections encode as relative refs: `../<nodeId>/<pinId>` on both ends (input and output).
 - Never reorder pins, children, or IDs during load/save round-trips.
 
-## Required Gates (must pass locally before submitting)
+## Required Gates (run locally before confirming a solution, adding a feature, or pushing)
 
-- `bun run test` → all unit tests green (vitest)
+- `bun install --frozen-lockfile`
 - `bun run lint` → 0 errors, 0 warnings (ESLint)
-- If Playwright is configured: `bun run test:e2e` → all E2E tests green
-- Optional: `bun x tsc -p tsconfig.json --noEmit` → clean typecheck
+- `bun x tsc -p tsconfig.json --noEmit` → typecheck clean
+- `bun run test` → all unit tests green (vitest)
+- `bun run test:coverage` → meets global thresholds (lines/statements ≥ 43%); CI enforces this
+- First time only: `bun run test:e2e:install`
+- `bun run test:e2e` → all E2E tests green (Playwright - Chromium only; matches CI)
+
+## Agent Validation & Automation Requirements
+
+Any AI agent, bot, or automation that proposes, implements, or approves changes MUST perform the full validation below in a clean environment before opening or approving a PR. These checks are mandatory and must be attached to the PR as logs/artifacts.
+
+- Run the dependency installation in a reproducible way:
+  - `bun install --frozen-lockfile`
+- Run linting (must exit 0 and show 0 errors, 0 warnings):
+  - `bun run lint`
+- Run the TypeScript checks (must exit 0):
+  - `bun x tsc -p tsconfig.json --noEmit`
+- Run unit tests (must exit 0):
+  - `bun run test`
+- If changes include or affect E2E tests or browser behavior, run (first time only):
+  - `bun run test:e2e:install`
+  - `bun run test:e2e`
+
+Agent behavior requirements:
+
+- Attach the full stdout/stderr for each command to the PR (as artifacts or a comment). Logs should include the exact Bun version and the commands run.
+- If any command exits non-zero, the agent MUST abort the change, mark the PR as failing, and include a remediation plan.
+- Agents MUST call `todo_write` (merge=true) to record each gate's status (pending → in_progress → completed/failed) before approving or merging. The todo entries should be one-line, verb-led items matching the repo `todo_spec` style.
+- Agents MUST not merge or approve PRs on behalf of humans. They may propose changes and create PRs, but approval/merge requires a human reviewer after gates pass in CI.
+- Agents SHOULD pin/declare the Bun runtime version used for validation and prefer reproducing the CI Bun version (from `bun.lock` or workflow) to avoid environment drift.
+
+Enforcement & recommended infra:
+
+- CI MUST include a fast-fail job that runs `bun run lint` and `bun x tsc` and be marked as a required status check in branch protection rules.
+- PR templates should include an "Agent Validation" checklist and require attached logs/artifacts for lint/tsc/tests when an agent created the PR.
+- Consider adding `husky` + `lint-staged` to enforce local pre-push checks for contributors (human or agent-run workflows).
+
+These requirements are mandatory for any automation labeled as an "agent" in PR metadata. Failure to follow these rules will cause automated validations to mark the PR as non-compliant and block merges.
+
+### E2E Testing Setup
+
+First time only - install Chromium browser:
+
+```bash
+bun run test:e2e:install
+```
+
+Run E2E tests (Chromium - matches CI):
+
+```bash
+bun run test:e2e
+```
+
+For local development with VSCode Playwright extension:
+
+- Use Testing sidebar to run/debug individual tests
+- Tests run against production server (`bun run start`)
+- See `e2e/README.md` for detailed guide
 
 ## MCP Docs (Context7) Usage
 
@@ -116,6 +171,26 @@ These are non-negotiable to ship green and stay maintainable.
 
 That’s it. If in doubt, follow the data in `data/**`, confirm APIs with Context7, and don’t submit unless tests and lint are clean.
 
+## Build/Test Commands
+
+- **Build**: `bun run build`
+- **Lint**: `bun run lint` (warnings = errors)
+- **Typecheck**: `bun x tsc -p tsconfig.json --noEmit`
+- **All tests**: `bun run test`
+- **Single test**: `vitest run path/to/file.spec.ts`
+- **E2E tests**: `bun run test:e2e` (first run: `bun run test:e2e:install`)
+- **Dev server**: `bun run dev`
+
+## Code Style Guidelines
+
+- **TypeScript**: Strict mode enabled. Avoid `any`; use precise types.
+- **Imports**: Prefer absolute paths with `@/*` alias. Relative imports only within the same folder when reasonable.
+- **Naming**: PascalCase for React components; camelCase for variables/functions; UPPER_SNAKE_CASE for true constants.
+- **Components**: React JSX runtime; follow Hooks rules; keep UI thin and declarative.
+- **Error handling**: Fail safe with clear, actionable errors (especially for data/language JSON validation).
+- **Formatting**: Use ESLint/Prettier defaults; keep code auto-fixable; no unused imports/exports.
+- **Architecture**: Core logic in `src/core/**`; UI as a thin consumer. Reuse centralized callbacks and helpers.
+
 ## Deployment – Server (API) Playbook
 
 Background: The app is deployed behind a Bun server with full `/api/*` endpoints. Static-only hosts are not targeted. The preview still compiles ThreeJS GLSL via the server compiler for consistency.
@@ -147,3 +222,51 @@ Deployment checklist (Server):
 3. Verify in Network tab (Disable cache):
    - 200 for `/api/languages`, `/api/nodes`, `/api/assets`, `/api/example-graphs`.
    - POST `/api/compile` returns code.
+
+## Viewer Embedding Parameters
+
+The documentation viewer at `viewer.html` accepts parameters via query string or iframe `data-*` attributes. Current parameters:
+
+- `graph64`: base64url-encoded DocGraph JSON (preferred; see `src/viewer/DocGraph.ts`).
+- `graph`: raw DocGraph JSON string.
+- `demo`: optional built-in demo key (e.g., `float-sin`).
+- `theme`: `light` or `dark` (default: `dark`).
+- `fit`: `true` or `false` (default: `true`) – auto-fit after load.
+- `interactive`: `true` or `false` (default: `true`) – enable drag/select/connect and add-node menu.
+- `menubar`: `true` or `false` (default: `false`) – show header chrome.
+- `sidebar`: `true` or `false` (default: `false`) – show left sidebar chrome.
+
+Notes:
+
+- Compilation and right-side dock panels are disabled in the viewer to preserve performance; `compile`, `preview`, and `graphdata` flags are currently ignored.
+
+Examples
+
+Embed with query parameters (use URL-encoded JSON for `graph`):
+
+```html
+<iframe
+  src="/viewer.html?graph=%7B%22v%22%3A1%2C%22nodes%22%3A%5B%7B%22id%22%3A1%2C%22t%22%3A%22float%22%2C%22x%22%3A60%2C%22y%22%3A100%2C%22props%22%3A%7B%22value%22%3A0.5%7D%7D%2C%7B%22id%22%3A2%2C%22t%22%3A%22sin%22%2C%22x%22%3A280%2C%22y%22%3A100%7D%5D%2C%22edges%22%3A%5B%7B%22from%22%3A%5B1%2C0%5D%2C%22to%22%3A%5B2%2C0%5D%7D%5D%7D&interactive=true&theme=light&menubar=true"
+  width="100%"
+  height="420"
+  style="border:0"
+></iframe>
+```
+
+Embed with `data-*` attributes (same keys as query) using raw JSON via `data-graph`:
+
+```html
+<iframe
+  src="/viewer.html"
+  data-graph='{"v":1,"nodes":[{"id":1,"t":"float","x":60,"y":100,"props":{"value":0.5}},{"id":2,"t":"sin","x":280,"y":100}],"edges":[{"from":[1,0],"to":[2,0]}]}'
+  data-interactive="true"
+  data-theme="dark"
+  data-menubar="false"
+  data-sidebar="false"
+  width="100%"
+  height="420"
+  style="border:0"
+></iframe>
+```
+
+Reference implementation lives in `src/viewer.tsx` (flag parsing) and `src/viewer/DocGraph.ts` (graph payload parsing).

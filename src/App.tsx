@@ -11,16 +11,19 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
   type NodeChange,
 } from "@xyflow/react";
 import { isConnectionCompatible, getSourceType, getTargetType, normalizePinType, getPinTypeFor, arePinTypesCompatible, getPinTypeOptionsFor } from "@/core/ui/compat";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { GraphContextMenu, type ContextKind } from "./components/GraphContextMenu";
 import { fetchNodePalette, fetchNodeTemplate } from "./core/schema/nodes";
 import type { NodePalette, NodePaletteItem, NodeTemplate } from "./core/schema/types";
 import { GraphNode } from "./components/GraphNode";
 import ColoredEdge from "./components/ColoredEdge";
+import { DocumentationPanel } from "./components/DocumentationPanel";
+import { persistGet, persistSet } from "./lib/storage";
 import { buildRFNodeFromTemplate, parseEditorSize } from "./core/ui/nodeFactory";
 import {
   attachNodeUpdateApi,
@@ -29,11 +32,13 @@ import {
   type NodeUpdaterApi,
 } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
+import { SettingsProvider, type CurveMode, type ThemeName } from "./ui/state/SettingsContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
 import { serializeGraph as serializeGraphForSave, inflateGraph } from "./core/ui/graphSerde";
 import { connectSingleInputEdge } from "./core/ui/edges";
+import { createRerouteInsertion } from "./core/ui/reroute";
 import {
   clearRecentGraphs,
   loadRecentGraphs,
@@ -47,15 +52,36 @@ import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { loadAssetRegistry } from "./core/assets/registry";
 import { createTemplateCache, type TemplateCache } from "./core/ui/templateCache";
 import { buildReactFlowGraph } from "./core/ui/reactFlowGraph";
+import { alignSelectedNodes, distributeSelectedNodes, type AlignmentKind, type DistributionKind } from "@/core/ui/arrange";
+import { computeDefaultPassLayout } from "./core/ui/layoutDefaults";
 import { AppShell } from "./ui/layout/AppShell";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./components/ui/breadcrumb";
 import { Button } from "./components/ui/button";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
+import { SettingsPage } from "./ui/settings/SettingsPage";
 import type { Graph } from "@/core/graph/types";
 import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
-import { Check, Github, BookOpen } from "lucide-react";
+import { Check, Github, BookOpen, Layers, Settings as SettingsIcon } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
+import { duplicateNodes, type DuplicateNodesResult } from "./core/graph/duplicate";
 import { APP_VERSION_INFO } from "./version";
+import {
+  VIEW_MENU_ITEMS,
+  isEditableHotkeyTarget,
+  DEFAULT_QUICK_NODE_HOTKEYS,
+  buildQuickHotkeyMap,
+  normalizeQuickHotkeyList,
+  type QuickNodeHotkey,
+} from "./core/ui/hotkeys";
+import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
+import { useGraphHistory, type GraphActionMeta, type GraphHistoryApi, type GraphSnapshot } from "./core/ui/useGraphHistory";
+import { useGraphHotkeys } from "./components/hooks/useGraphHotkeys";
+import { useAutoFitOnViewPathChange } from "./core/ui/useAutoFitView";
+import { cn } from "@/lib/utils";
+import { applyDuplicateSelection } from "./core/ui/duplicateSelection";
+import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes, type ClipboardPayload } from "./core/ui/clipboard";
+import { makeInHandle, makeOutHandle } from "./core/ui/handles";
+import { apiFetch } from "@/lib/api";
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -66,7 +92,22 @@ const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
 
-type ViewMenuItem = { key: EditorPanelKey; label: string; digit: "1" | "2" | "3" | "4" | "5"; hotkey: string };
+const ALIGNMENT_LABELS: Record<AlignmentKind, string> = {
+  left: "Align Left",
+  center: "Align Center",
+  right: "Align Right",
+  top: "Align Top",
+  middle: "Align Middle",
+  bottom: "Align Bottom",
+};
+
+const DISTRIBUTION_LABELS: Record<DistributionKind, string> = {
+  horizontal: "Distribute Horizontally",
+  vertical: "Distribute Vertically",
+};
+
+const DUPLICATE_OFFSET = { x: 32, y: 32 };
+const PASTE_OFFSET = { x: 48, y: 48 };
 
 type CanonicalNode = {
   id: number;
@@ -80,6 +121,8 @@ type CanonicalNode = {
   properties?: any[];
 };
 
+type CommitGraphMutation = (meta: GraphActionMeta, mutator: () => void) => void;
+
 function triggerDownload(name: string, contents: string) {
   const blob = new Blob([contents], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -92,31 +135,74 @@ function triggerDownload(name: string, contents: string) {
   URL.revokeObjectURL(url);
 }
 
-const VIEW_MENU_ITEMS: ViewMenuItem[] = [
-  { key: "properties", label: "Properties", digit: "1", hotkey: "⌘1" },
-  { key: "compile", label: "Compile", digit: "2", hotkey: "⌘2" },
-  { key: "graphdata", label: "Graph Data", digit: "3", hotkey: "⌘3" },
-  { key: "assets", label: "Assets", digit: "4", hotkey: "⌘4" },
-  { key: "preview", label: "Preview", digit: "5", hotkey: "⌘5" },
-];
+function triggerTextDownload(name: string, contents: string, mime: string = "text/plain") {
+  const blob = new Blob([contents], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
-const VIEW_HOTKEY_MAP: Record<string, EditorPanelKey> = VIEW_MENU_ITEMS.reduce<Record<string, EditorPanelKey>>(
-  (acc, item) => {
-    acc[item.digit] = item.key;
-    return acc;
-  },
-  {}
-);
+function getInitialTheme(): ThemeName {
+  if (typeof document !== "undefined") {
+    if (document.documentElement.classList.contains("dark")) return "dark";
+  }
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return "light";
+}
+
+function isCurveModeValue(value: unknown): value is CurveMode {
+  return value === "default" || value === "smoothstep" || value === "step" || value === "straight" || value === "simplebezier";
+}
+
+type SidebarNavButtonProps = {
+  icon: ReactNode;
+  label: string;
+  collapsed: boolean;
+  active: boolean;
+  onClick: () => void;
+};
+
+function SidebarNavButton({ icon, label, collapsed, active, onClick }: SidebarNavButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+        collapsed ? "justify-center" : "justify-start",
+        active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {icon}
+      {!collapsed && <span>{label}</span>}
+    </button>
+  );
+}
 
 export function App() {
   const rf = useReactFlow();
+  const [activeView, setActiveView] = useState<"graph" | "settings">("graph");
+  const [theme, setThemeState] = useState<ThemeName>(() => getInitialTheme());
+  const [curveMode, setCurveModeState] = useState<CurveMode>("default");
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [palette, setPalette] = useState<NodePalette | null>(null);
+  const [quickNodeHotkeys, setQuickNodeHotkeysState] = useState<QuickNodeHotkey[]>(DEFAULT_QUICK_NODE_HOTKEYS);
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
+  const viewPathRef = useRef(viewPath);
+  useLayoutEffect(() => { viewPathRef.current = viewPath; }, [viewPath]);
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
+  const [languages, setLanguages] = useState<Array<{ key: string; name: string; path: string }>>([]);
   const fileHandleRef = useRef<any | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [recentGraphs, setRecentGraphs] = useState<RecentGraphEntry[]>([]);
@@ -131,6 +217,16 @@ export function App() {
   }>({ open: false, kind: "background", x: 0, y: 0 });
   const [menuPaletteOverride, setMenuPaletteOverride] = useState<NodePalette | null>(null);
   const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
+  const [clipboardStatus, setClipboardStatus] = useState<{ kind: "success" | "error"; message: string; key: number } | null>(null);
+  const [showDocsPanel, setShowDocsPanel] = useState<boolean>(false);
+  const [docsWidth, setDocsWidth] = useState<number>(768);
+  const docsResizing = useRef(false);
+  const docsStartX = useRef(0);
+  const docsStartW = useRef(0);
+  const [isDocsResizing, setIsDocsResizing] = useState(false);
+  const clipboardStatusTimerRef = useRef<number | null>(null);
+  const quickHotkeysPersistReadyRef = useRef(false);
+  const canPasteViaButton = typeof navigator !== "undefined";
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -140,6 +236,129 @@ export function App() {
   const connectCompletedRef = useRef(false);
   const pendingConnectRef = useRef<{ side: "source" | "target"; nodeId: string; handleId: string; type: ReturnType<typeof normalizePinType> } | null>(null);
   const pinIndexCacheRef = useRef<Map<string, { inputs: ReturnType<typeof normalizePinType>[]; outputs: ReturnType<typeof normalizePinType>[] }>>(new Map());
+  const dragSnapshotRef = useRef<GraphSnapshot | null>(null);
+  const resizeSnapshotRef = useRef<GraphSnapshot | null>(null);
+  const captureSnapshotFnRef = useRef<(() => GraphSnapshot) | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await persistGet<string>("ui.theme");
+      if (cancelled) return;
+      if (saved === "dark" || saved === "light") {
+        setThemeState(saved);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    void persistSet("ui.theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<string>("ui.curveMode");
+      if (cancelled) return;
+      if (isCurveModeValue(stored)) {
+        setCurveModeState(stored);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    void persistSet("ui.curveMode", curveMode);
+  }, [curveMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<QuickNodeHotkey[]>("ui.quickNodeHotkeys");
+      if (cancelled) return;
+      if (Array.isArray(stored)) {
+        setQuickNodeHotkeysState(normalizeQuickHotkeyList(stored as QuickNodeHotkey[]));
+      }
+      quickHotkeysPersistReadyRef.current = true;
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!quickHotkeysPersistReadyRef.current) return;
+    void persistSet("ui.quickNodeHotkeys", quickNodeHotkeys);
+  }, [quickNodeHotkeys]);
+
+  const setQuickNodeHotkeys = useCallback(
+    (next: QuickNodeHotkey[] | ((prev: QuickNodeHotkey[]) => QuickNodeHotkey[])) => {
+      setQuickNodeHotkeysState((prev) => {
+        const updated = typeof next === "function" ? (next as (prev: QuickNodeHotkey[]) => QuickNodeHotkey[])(prev) : next;
+        const normalized = normalizeQuickHotkeyList(Array.isArray(updated) ? updated : []);
+        if (
+          normalized.length === prev.length &&
+          normalized.every((entry, index) => {
+            const current = prev[index];
+            return (
+              current &&
+              current.code === entry.code &&
+              current.type === entry.type &&
+              (current.label ?? "") === (entry.label ?? "")
+            );
+          })
+        ) {
+          return prev;
+        }
+        return normalized;
+      });
+    },
+    []
+  );
+
+  const setTheme = useCallback((next: ThemeName) => {
+    setThemeState(next);
+  }, [setThemeState]);
+  const toggleTheme = useCallback(() => {
+    setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
+  }, [setThemeState]);
+  const setCurveMode = useCallback((next: CurveMode) => {
+    setCurveModeState(next);
+  }, [setCurveModeState]);
+
+
+  const renderSidebar = useCallback(
+    ({ collapsed }: { collapsed: boolean }) => (
+      <nav className="flex-1 p-2 space-y-1">
+        <SidebarNavButton
+          icon={<Layers className="h-4 w-4" />}
+          label="Graph"
+          collapsed={collapsed}
+          active={activeView === "graph"}
+          onClick={() => setActiveView("graph")}
+        />
+        <SidebarNavButton
+          icon={<SettingsIcon className="h-4 w-4" />}
+          label="Settings"
+          collapsed={collapsed}
+          active={activeView === "settings"}
+          onClick={() => setActiveView("settings")}
+        />
+      </nav>
+    ),
+    [activeView, setActiveView]
+  );
+
+  useEffect(() => {
+    if (activeView !== "settings") return;
+    setMenu((m) => (m.open ? { ...m, open: false } : m));
+    setMenuPaletteOverride(null);
+  }, [activeView]);
 
   // MiniMap theme colors sourced from CSS variables and updated when theme changes
   const [mmColors, setMmColors] = useState<{ node: string; stroke: string; mask: string }>(() => {
@@ -176,6 +395,11 @@ export function App() {
     // Mark that this drag sequence actually produced a connection (including adapter insertions)
     if (connectDragRef.current) connectCompletedRef.current = true;
     const nodesNow = nodesRef.current;
+    const nodeLabel = (nodeId: string | null | undefined): string => {
+      if (!nodeId) return "Unknown";
+      const node = nodesRef.current.find((n) => n.id === String(nodeId));
+      return ((node?.data as any)?.label ?? (node?.data as any)?.type ?? String(nodeId)) as string;
+    };
     const ok = isConnectionCompatible(nodesNow as any, params);
     if (!ok) {
       // Attempt adapter insertion for known cases (sampler2D->float/vecN, float->vecN, vec4->vec3, vec3->vec4)
@@ -184,10 +408,14 @@ export function App() {
       const paletteGet = (t: string) => paletteByType.get(t);
 
       const insertAndConnect = async (item: NodePaletteItem, position: { x: number; y: number }, template?: NodeTemplate, hookups?: (id: string) => void) => {
-        const nextId = String(++idCounter.current);
+        const nextIdNum = idCounter.current + 1;
+        const nextId = String(nextIdNum);
         const rfArgs: any = { id: nextId, item, position, nodeDefaults };
         if (template) rfArgs.template = template;
         const rfNode = buildRFNodeFromTemplate(rfArgs);
+        const displayName = ((rfNode.data as any)?.label ?? (rfNode.data as any)?.type ?? item.name ?? item.type ?? `Node ${nextId}`) as string;
+        beginHistoryActionRef.current({ type: "insert-adapter", summary: `${displayName} • Insert` });
+        idCounter.current = nextIdNum;
         const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
         setNodes((prev) => [...prev, decoratedNode as any]);
         if (hookups) hookups(nextId);
@@ -267,6 +495,9 @@ export function App() {
       console.warn("Type mismatch: blocking connection", params);
       return;
     }
+    const srcLabel = nodeLabel(params.source as any);
+    const dstLabel = nodeLabel(params.target as any);
+    beginHistoryActionRef.current({ type: "connect", summary: `${srcLabel} → ${dstLabel}` });
     setEdges((eds) => {
       const next = connectSingleInputEdge(eds, params);
       // annotate dashed edges when either endpoint is an editor node
@@ -292,6 +523,36 @@ export function App() {
     }
     return map;
   }, [palette]);
+
+  const quickHotkeysForSettings = useMemo(() => {
+    return quickNodeHotkeys.map((entry) => {
+      const item = paletteByType.get(entry.type);
+      const label = item?.name ?? entry.label ?? entry.type;
+      if (entry.label === label) return entry;
+      return { ...entry, label };
+    });
+  }, [paletteByType, quickNodeHotkeys]);
+
+  const quickHotkeyMap = useMemo(() => buildQuickHotkeyMap(quickNodeHotkeys), [quickNodeHotkeys]);
+
+  const handleQuickHotkeysChange = useCallback(
+    (next: QuickNodeHotkey[]) => {
+      setQuickNodeHotkeys(next);
+    },
+    [setQuickNodeHotkeys]
+  );
+
+  const settingsValue = useMemo(
+    () => ({
+      theme,
+      setTheme,
+      curveMode,
+      setCurveMode,
+      quickHotkeys: quickHotkeysForSettings,
+      setQuickHotkeys: setQuickNodeHotkeys,
+    }),
+    [curveMode, quickHotkeysForSettings, setCurveMode, setQuickNodeHotkeys, setTheme, theme]
+  );
 
   const templateCacheRef = useRef<TemplateCache | null>(null);
   if (!templateCacheRef.current) {
@@ -326,6 +587,18 @@ export function App() {
         if (isAbortError(err)) return;
         console.warn("Failed to load node palette", err);
       });
+    // Load available language templates for Export menu
+    (async () => {
+      try {
+        const res = await fetch("/api/languages", { signal: ctrl.signal });
+        const data = await res.json();
+        const list: Array<{ key: string; name: string; path: string }> = Array.isArray(data.languages) ? data.languages : [];
+        setLanguages(list);
+      } catch (err) {
+        if (isAbortError(err)) return;
+        console.warn("Failed to fetch languages", err);
+      }
+    })();
     return () => ctrl.abort();
   }, []);
 
@@ -413,6 +686,29 @@ export function App() {
     setRecentGraphsInitialized(true);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!clipboardStatus) return undefined;
+    if (clipboardStatusTimerRef.current !== null) {
+      window.clearTimeout(clipboardStatusTimerRef.current);
+    }
+    const timeout = window.setTimeout(() => {
+      setClipboardStatus(null);
+      clipboardStatusTimerRef.current = null;
+    }, 2400);
+    clipboardStatusTimerRef.current = timeout;
+    return () => {
+      if (clipboardStatusTimerRef.current !== null) {
+        window.clearTimeout(clipboardStatusTimerRef.current);
+        clipboardStatusTimerRef.current = null;
+      }
+    };
+  }, [clipboardStatus]);
+
+  const showClipboardStatus = useCallback((kind: "success" | "error", message: string) => {
+    setClipboardStatus({ kind, message, key: Date.now() });
+  }, []);
+
   
 
   const getFlowCenterClient = useCallback((): { x: number; y: number } => {
@@ -426,12 +722,20 @@ export function App() {
     return { x: 0, y: 0 };
   }, []);
 
+  const getHotkeyPointer = useCallback(() => lastPointerRef.current ?? getFlowCenterClient(), [getFlowCenterClient]);
+
   const [graphData, setGraphData] = useState<Graph>(() => buildGraphData(nodes as any, edges as any, graphName) as any);
 
   const resizingEditorIdsRef = useRef(new Set<string>());
   const pendingGraphUpdateRef = useRef(false);
   const draggingNodeIdsRef = useRef(new Set<string>());
   const autosaveTimeoutRef = useRef<number | null>(null);
+  const resetInteractionState = useCallback(() => {
+    resizingEditorIdsRef.current.clear();
+    draggingNodeIdsRef.current.clear();
+    pendingGraphUpdateRef.current = false;
+  }, []);
+  const pendingHistoryQueueRef = useRef<Array<{ meta: GraphActionMeta; before: GraphSnapshot }>>([]);
 
   const recomputeGraphData = useCallback(() => {
     const next = buildGraphData(nodesRef.current as any, edgesRef.current as any, graphNameRef.current);
@@ -471,12 +775,49 @@ export function App() {
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const pendingSizeUpdates: Array<{ id: string; width?: number; height?: number }> = [];
+      const removedIds = new Set<string>();
+      const movedIds = new Set<string>();
+
+      const labelForId = (nodeId: string): string => {
+        const node = nodesRef.current.find((n) => n.id === nodeId);
+        return ((node?.data as any)?.label ?? (node?.data as any)?.type ?? nodeId) as string;
+      };
+      const formatList = (labels: string[]) => (labels.length === 1 ? labels[0] : `${labels.length} nodes`);
+
       for (const change of changes) {
         if (change.type === "remove") {
           resizingEditorIdsRef.current.delete(change.id);
+          draggingNodeIdsRef.current.delete(change.id);
+          removedIds.add(change.id);
           continue;
         }
-        if (change.type !== "dimensions" || change.resizing === undefined) continue;
+
+        if (isDragStart(change)) {
+          if (!dragSnapshotRef.current) {
+            const snapshotter = captureSnapshotFnRef.current;
+            if (snapshotter) dragSnapshotRef.current = snapshotter();
+          }
+          draggingNodeIdsRef.current.add(change.id);
+          pendingGraphUpdateRef.current = true;
+          continue;
+        }
+
+        if (isDragEnd(change)) {
+          const dragEndChange = change as Extract<NodeChange, { type: "position" }>;
+          const wasDragging = draggingNodeIdsRef.current.delete(dragEndChange.id);
+          if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+            pendingGraphUpdateRef.current = false;
+            scheduleGraphRender();
+          }
+          const nextPos = (dragEndChange as any)?.position ?? (dragEndChange as any)?.positionAbsolute ?? null;
+          const currentNode = nodesRef.current.find((n) => n.id === dragEndChange.id);
+          const prevPos = currentNode?.position ?? null;
+          const moved = Boolean(wasDragging && nextPos && prevPos && (prevPos.x !== nextPos.x || prevPos.y !== nextPos.y));
+          if (moved) movedIds.add(dragEndChange.id);
+          continue;
+        }
+
+        if (change.type !== "dimensions") continue;
         const node = nodesRef.current.find((n) => n.id === change.id);
         const meta = (() => {
           if (!node) return [] as string[];
@@ -484,44 +825,61 @@ export function App() {
           return Array.isArray(template?.meta) ? (template.meta as string[]) : [];
         })();
         if (!meta.includes("editor_node")) continue;
-        if (change.resizing) {
+
+        if (isResizeStart(change)) {
+          if (!resizeSnapshotRef.current) {
+            const snapshotter = captureSnapshotFnRef.current;
+            if (snapshotter) resizeSnapshotRef.current = snapshotter();
+          }
           resizingEditorIdsRef.current.add(change.id);
           pendingGraphUpdateRef.current = true;
-        } else {
-          resizingEditorIdsRef.current.delete(change.id);
-          if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-            pendingGraphUpdateRef.current = false;
-            scheduleGraphRender();
-          }
-          const readDimension = (key: "width" | "height"): number | undefined => {
-            const dims = change.dimensions;
-            const dimVal = dims ? (dims as any)[key] : undefined;
-            if (typeof dimVal === "number" && Number.isFinite(dimVal)) return Math.round(dimVal);
-            if (!node) return undefined;
-            const styleVal = (node as any)?.style?.[key];
-            if (typeof styleVal === "number" && Number.isFinite(styleVal)) return Math.round(styleVal);
-            if (typeof styleVal === "string") {
-              const parsed = Number.parseFloat(styleVal);
-              if (Number.isFinite(parsed)) return Math.round(parsed);
-            }
-            const direct = (node as any)?.[key];
-            if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
-            const dimensionVal = (node as any)?.dimensions?.[key];
-            if (typeof dimensionVal === "number" && Number.isFinite(dimensionVal)) return Math.round(dimensionVal);
-            const measured = (node as any)?.measured?.[key];
-            if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
-            return undefined;
-          };
-          const width = readDimension("width");
-          const height = readDimension("height");
-          if (Number.isFinite(width) || Number.isFinite(height)) {
-            const next: { id: string; width?: number; height?: number } = { id: change.id };
-            if (typeof width === "number" && Number.isFinite(width)) next.width = width;
-            if (typeof height === "number" && Number.isFinite(height)) next.height = height;
-            pendingSizeUpdates.push(next);
-          }
+          continue;
         }
+
+        if (!isResizeEnd(change)) continue;
+        const resizeEndChange = change as Extract<NodeChange, { type: "dimensions" }>;
+        const wasResizing = resizingEditorIdsRef.current.delete(resizeEndChange.id);
+        if (resizingEditorIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
+          pendingGraphUpdateRef.current = false;
+          scheduleGraphRender();
+        }
+        if (!wasResizing) continue;
+
+        const currentSize = (() => {
+          const parsed = parseEditorSize(meta as string[]);
+          return { width: parsed.width, height: parsed.height };
+        })();
+        const readDimension = (key: "width" | "height"): number | undefined => {
+          const dims = resizeEndChange.dimensions;
+          const dimVal = dims ? (dims as any)[key] : undefined;
+          if (typeof dimVal === "number" && Number.isFinite(dimVal)) return Math.round(dimVal);
+          if (!node) return undefined;
+          const styleVal = (node as any)?.style?.[key];
+          if (typeof styleVal === "number" && Number.isFinite(styleVal)) return Math.round(styleVal);
+          if (typeof styleVal === "string") {
+            const parsed = Number.parseFloat(styleVal);
+            if (Number.isFinite(parsed)) return Math.round(parsed);
+          }
+          const direct = (node as any)?.[key];
+          if (typeof direct === "number" && Number.isFinite(direct)) return Math.round(direct);
+          const dimensionVal = (node as any)?.dimensions?.[key];
+          if (typeof dimensionVal === "number" && Number.isFinite(dimensionVal)) return Math.round(dimensionVal);
+          const measured = (node as any)?.measured?.[key];
+          if (typeof measured === "number" && Number.isFinite(measured)) return Math.round(measured);
+          return undefined;
+        };
+        const width = readDimension("width");
+        const height = readDimension("height");
+        const widthChanged = Number.isFinite(width) && (width as number) !== currentSize.width;
+        const heightChanged = Number.isFinite(height) && (height as number) !== currentSize.height;
+        if (!widthChanged && !heightChanged) continue;
+        const next: { id: string; width?: number; height?: number } = { id: resizeEndChange.id };
+        if (widthChanged) next.width = width as number;
+        if (heightChanged) next.height = height as number;
+        pendingSizeUpdates.push(next);
       }
+
+      let resizeSummary: string | null = null;
       if (pendingSizeUpdates.length) {
         const updates = new Map<string, { width?: number; height?: number }>();
         pendingSizeUpdates.forEach((entry) => {
@@ -530,6 +888,9 @@ export function App() {
           if (typeof entry.height === "number" && Number.isFinite(entry.height)) next.height = entry.height;
           updates.set(entry.id, next);
         });
+        const resizeLabels = Array.from(new Set(pendingSizeUpdates.map((entry) => labelForId(entry.id))));
+        const resizeSummaryBase = formatList(resizeLabels);
+        resizeSummary = `${resizeSummaryBase} • Resize`;
         setNodes((prev) =>
           prev.map((n) => {
             const entry = updates.get(n.id);
@@ -576,14 +937,58 @@ export function App() {
           })
         );
       }
+
+      const removedList = Array.from(removedIds);
+      let moveSummary: string | null = null;
+      if (removedList.length) {
+        const labels = removedList.map(labelForId);
+        beginHistoryActionRef.current({ type: "delete-node", summary: `${formatList(labels)} • Delete` });
+      } else {
+        const movedList = Array.from(movedIds).filter((id) => !removedIds.has(id));
+        if (movedList.length) {
+          const labels = movedList.map(labelForId);
+          moveSummary = `${formatList(labels)} • Move`;
+        }
+      }
+
+      if (resizeSummary && resizeSnapshotRef.current) {
+        pendingHistoryQueueRef.current.push({ meta: { type: "resize-node", summary: resizeSummary }, before: resizeSnapshotRef.current });
+        resizeSnapshotRef.current = null;
+      } else if (!resizeSummary && resizeSnapshotRef.current && pendingSizeUpdates.length === 0) {
+        resizeSnapshotRef.current = null;
+      }
+      if (moveSummary && dragSnapshotRef.current) {
+        pendingHistoryQueueRef.current.push({ meta: { type: "move-node", summary: moveSummary }, before: dragSnapshotRef.current });
+        dragSnapshotRef.current = null;
+      } else if (!moveSummary && dragSnapshotRef.current && movedIds.size === 0) {
+        dragSnapshotRef.current = null;
+      }
+
       onNodesChange(changes);
     },
-    // scheduleGraphRender is stable; include to satisfy exhaustive-deps and avoid warning
-    [onNodesChange, setNodes, scheduleGraphRender]
+    [onNodesChange, scheduleGraphRender, setNodes]
   );
 
   // Visible graph based on current viewPath (root vs. inside a group)
   const currentParentId = viewPath.length ? viewPath[viewPath.length - 1] : undefined;
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    const removed = changes.filter((change) => change.type === "remove");
+    if (removed.length) {
+      const connectionLabels = removed.map((change) => {
+        const edge = edgesRef.current.find((e) => e.id === change.id);
+        if (!edge) return change.id;
+        const src = nodesRef.current.find((n) => n.id === edge.source);
+        const dst = nodesRef.current.find((n) => n.id === edge.target);
+        const srcLabel = (src?.data as any)?.label ?? (src?.data as any)?.type ?? edge.source;
+        const dstLabel = (dst?.data as any)?.label ?? (dst?.data as any)?.type ?? edge.target;
+        return `${srcLabel} → ${dstLabel}`;
+      });
+      const summaryBase = connectionLabels.length === 1 ? connectionLabels[0]! : `${connectionLabels.length} connections`;
+      beginHistoryActionRef.current({ type: "disconnect", summary: summaryBase }, { skipIfPending: true });
+    }
+    onEdgesChange(changes);
+  }, [onEdgesChange]);
+
   const visibleNodes = useMemo(() => {
     const base = prepareVisibleNodes(nodes as any, currentParentId) as any;
     if (!showCompileOnly) return base;
@@ -592,15 +997,39 @@ export function App() {
       return !meta.includes("editor_node");
     });
   }, [nodes, currentParentId, showCompileOnly]);
-  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
+  const visibleNodeIdSet = useMemo(() => new Set(visibleNodes.map((n: any) => n.id)), [visibleNodes]);
+  const visibleNodeIds = useMemo(() => visibleNodes.map((n: any) => n.id), [visibleNodes]);
   const visibleEdges = useMemo(() => {
-    const filtered = edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+    const filtered = edges.filter((e) => visibleNodeIdSet.has(e.source) && visibleNodeIdSet.has(e.target));
     // Avoid expensive edge recoloring while dragging/resizing; edge component can infer on the fly
     if (resizingEditorIdsRef.current.size > 0 || draggingNodeIdsRef.current.size > 0) {
       return filtered;
     }
     return ensureColoredEdges(filtered, nodesRef.current);
-  }, [edges, visibleNodeIds, ensureColoredEdges]);
+  }, [edges, visibleNodeIdSet, ensureColoredEdges]);
+
+  const fitViewToNodeIds = useCallback(
+    (nodeIds: string[]) => {
+      if (!nodeIds.length) return;
+      try {
+        rf.fitView({
+          padding: 0.12,
+          includeHiddenNodes: false,
+          nodes: nodeIds.map((id) => ({ id })),
+        } as any);
+      } catch (_err) {
+        // ignore viewport fit failures
+      }
+    },
+    [rf]
+  );
+
+  useAutoFitOnViewPathChange({
+    viewPath,
+    visibleNodeIds,
+    disabled: fitAfterLoadRef.current,
+    fitView: fitViewToNodeIds,
+  });
 
   const activeEditorPanels = useMemo(() => {
     const set = new Set<EditorPanelKey>();
@@ -615,38 +1044,66 @@ export function App() {
     return set;
   }, [nodes, currentParentId]);
 
+  const beginHistoryActionRef = useRef<GraphHistoryApi["beginAction"]>(() => ({ cancel: () => {}, updateMeta: () => {} }));
+  const commitGraphMutationRef = useRef<CommitGraphMutation>(() => {});
+
   // Centralized updater to modify node template inputs while preserving parentId
   const updateInputValue = useCallback((id: string, pinId: number, next: number[] | string | number) => {
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== id) return n;
-        const tpl = (n.data as any)?.template;
-        if (!tpl || !Array.isArray(tpl.inputs)) return n;
-        const idx = tpl.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
-        if (idx < 0) return n;
-        const normalized = Array.isArray(next) ? next : typeof next === "number" ? [next] : next;
-        const nextTpl = { ...tpl, inputs: tpl.inputs.map((p: any, i: number) => (i === idx ? { ...p, value: normalized } : p)) };
-        return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
-      })
-    );
+    const target = nodesRef.current.find((node) => node.id === id);
+    const tpl = (target?.data as any)?.template;
+    if (!target || !tpl || !Array.isArray(tpl.inputs)) return;
+    const idx = tpl.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
+    if (idx < 0) return;
+    const pin = tpl.inputs[idx];
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    const pinName = pin && typeof pin.name === "string" && pin.name.length ? pin.name : `Input ${pinId}`;
+    commitGraphMutationRef.current({ type: "update-input", summary: `${nodeLabel} • ${pinName}` }, () => {
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const tplNow = (n.data as any)?.template;
+          if (!tplNow || !Array.isArray(tplNow.inputs)) return n;
+          const idxNow = tplNow.inputs.findIndex((p: any, i: number) => (typeof p.id === "number" ? p.id === pinId : i === pinId));
+          if (idxNow < 0) return n;
+          const normalized = Array.isArray(next) ? next : typeof next === "number" ? [next] : next;
+          const nextTpl = { ...tplNow, inputs: tplNow.inputs.map((p: any, i: number) => (i === idxNow ? { ...p, value: normalized } : p)) };
+          return { ...n, data: { ...(n.data as any), template: nextTpl } } as any;
+        })
+      );
+    });
   }, [setNodes]);
 
   const updateNodePropertyValue = useCallback((id: string, propId: string, next: unknown) => {
     if (!propId) return;
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== id) return n;
-        const tpl = (n.data as any)?.template ?? {};
-        const props: any[] = Array.isArray((tpl as any).properties) ? ([...(tpl as any).properties] as any[]) : [];
-        const nextProps = props.map((prop) =>
-          prop && typeof prop === "object" && prop.id === propId ? { ...prop, value: next } : prop
-        );
-        return { ...n, data: { ...(n.data as any), template: { ...tpl, properties: nextProps } } } as any;
-      })
-    );
+    const target = nodesRef.current.find((node) => node.id === id);
+    const tpl = (target?.data as any)?.template ?? {};
+    const propsList: any[] = Array.isArray((tpl as any)?.properties) ? ([...(tpl as any).properties] as any[]) : [];
+    if (!target || propsList.length === 0) return;
+    const prop = propsList.find((entry) => entry && typeof entry === "object" && entry.id === propId);
+    if (!prop) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    const propLabel = typeof prop.label === "string" && prop.label.length ? prop.label : propId;
+    commitGraphMutationRef.current({ type: "update-property", summary: `${nodeLabel} • ${propLabel}` }, () => {
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const tplNow = (n.data as any)?.template ?? {};
+          const propsNow: any[] = Array.isArray((tplNow as any).properties) ? ([...(tplNow as any).properties] as any[]) : [];
+          const nextProps = propsNow.map((propEntry) =>
+            propEntry && typeof propEntry === "object" && propEntry.id === propId ? { ...propEntry, value: next } : propEntry
+          );
+          return { ...n, data: { ...(n.data as any), template: { ...tplNow, properties: nextProps } } } as any;
+        })
+      );
+    });
   }, [setNodes]);
 
   const updateNodeAsset = useCallback((id: string, asset: NodeAssetPayload | null) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    const assetLabel = asset ? asset.label ?? asset.id ?? asset.source ?? "Assign Asset" : "Remove Asset";
+    beginHistoryActionRef.current({ type: "update-asset", summary: `${nodeLabel} • ${assetLabel}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -663,6 +1120,10 @@ export function App() {
 
   // Centralized updaters for node label and metas to preserve parentId
   const updateNodeLabel = useCallback((id: string, label: string) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const currentLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    beginHistoryActionRef.current({ type: "rename-node", summary: `${currentLabel} → ${label}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -675,6 +1136,10 @@ export function App() {
 
   const addNodeMeta = useCallback((id: string, metaKey: string) => {
     if (!metaKey) return;
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    beginHistoryActionRef.current({ type: "add-meta", summary: `${nodeLabel} • ${metaKey}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -687,6 +1152,10 @@ export function App() {
   }, [setNodes]);
 
   const removeNodeMeta = useCallback((id: string, metaKey: string) => {
+    const target = nodesRef.current.find((node) => node.id === id);
+    if (!target) return;
+    const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
+    beginHistoryActionRef.current({ type: "remove-meta", summary: `${nodeLabel} • ${metaKey}` });
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
@@ -709,6 +1178,59 @@ export function App() {
     [updateInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta, updateNodeAsset]
   );
 
+  const {
+    beginAction: beginHistoryAction,
+    undo: undoHistory,
+    redo: redoHistory,
+    canUndo,
+    canRedo,
+    peekUndo,
+    peekRedo,
+    reset: resetHistory,
+    captureSnapshot: captureHistorySnapshot,
+    pushEntryWithSnapshots: pushHistorySnapshots,
+  } = useGraphHistory({
+    nodes,
+    edges,
+    viewPath,
+    graphName,
+    nodesRef,
+    edgesRef,
+    viewPathRef,
+    graphNameRef,
+    idCounterRef: idCounter,
+    nodeUpdaterApi,
+    setNodes,
+    setEdges,
+    setViewPath,
+    setGraphName,
+    resetInteractionState,
+  });
+
+  const commitGraphMutation = useCallback((meta: GraphActionMeta, mutator: () => void) => {
+    const before = captureHistorySnapshot();
+    mutator();
+    pendingHistoryQueueRef.current.push({ meta, before });
+  }, [captureHistorySnapshot]);
+  commitGraphMutationRef.current = commitGraphMutation;
+  beginHistoryActionRef.current = beginHistoryAction;
+  captureSnapshotFnRef.current = captureHistorySnapshot;
+
+  useEffect(() => {
+    if (!pendingHistoryQueueRef.current.length) return;
+    const queued = pendingHistoryQueueRef.current.splice(0);
+    for (const entry of queued) {
+      pushHistorySnapshots(entry.meta, entry.before);
+    }
+  }, [nodes, edges, pushHistorySnapshots]);
+
+
+  const formatHistoryPreview = useCallback((meta: GraphActionMeta | null) => {
+    if (!meta) return "No Action";
+    const summary = typeof meta.summary === "string" ? meta.summary.trim() : "";
+    return summary ? `${meta.type} • ${summary}` : meta.type;
+  }, []);
+
   const nodesById = useMemo(() => {
     const map = new Map<string, Node>();
     for (const node of nodes) map.set(node.id, node);
@@ -718,9 +1240,80 @@ export function App() {
   const selectedCount = useMemo(() => nodes.filter((node) => node.selected).length, [nodes]);
 
   const graphStateValue = useMemo(
-    () => ({ nodesById, nodeUpdaterApi, graph: graphData as any }),
-    [nodesById, nodeUpdaterApi, graphData]
+    () => ({
+      nodesById,
+      nodeUpdaterApi,
+      graph: graphData as any,
+      undo: undoHistory,
+      redo: redoHistory,
+      canUndo,
+      canRedo,
+      peekUndo,
+      peekRedo,
+    }),
+    [nodesById, nodeUpdaterApi, graphData, undoHistory, redoHistory, canUndo, canRedo, peekUndo, peekRedo]
   );
+
+  const handleEdgeDoubleClick = useCallback((event: MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!edge) return;
+    const item = paletteByType.get("reroute");
+    if (!item) return;
+    const cache = templateCacheRef.current;
+    if (!cache) return;
+
+    const client = { x: event.clientX, y: event.clientY };
+    let position;
+    try {
+      position = rf.screenToFlowPosition(client);
+    } catch (_err) {
+      position = { x: client.x, y: client.y };
+    }
+
+    const run = async () => {
+      let template: NodeTemplate | undefined;
+      try {
+        template = await cache.load(item.type, item.path);
+      } catch (err) {
+        console.warn("Failed to load reroute node template", err);
+        return;
+      }
+      if (!template) return;
+      cache.prime(item.type, template);
+
+      const edgesNow = edgesRef.current as Edge[];
+      const nodesNow = nodesRef.current as Node[];
+      if (!edgesNow.some((e) => e.id === edge.id)) return;
+      const nextIdNum = idCounter.current + 1;
+      const nextId = String(nextIdNum);
+
+      try {
+        const insertion = createRerouteInsertion({
+          edge,
+          edges: edgesNow,
+          nodes: nodesNow,
+          template,
+          item,
+          position,
+          nextId,
+          nodeDefaults,
+        });
+
+        const decoratedNode = attachNodeUpdateApi(insertion.node as any, nodeUpdaterApi);
+        beginHistoryActionRef.current({ type: "add-node", summary: `${item.name ?? item.type} • Add` });
+        idCounter.current = nextIdNum;
+        pendingGraphUpdateRef.current = true;
+        setNodes((prev) => [...prev, decoratedNode as any]);
+        const nodesForColor = [...nodesNow, decoratedNode as any];
+        setEdges(() => ensureColoredEdges(insertion.edges, nodesForColor as any));
+      } catch (err) {
+        console.warn("Failed to insert reroute node", err);
+      }
+    };
+
+    void run();
+  }, [ensureColoredEdges, nodeUpdaterApi, paletteByType, rf, setEdges, setNodes]);
 
   // Stabilize ReactFlow config to reduce unnecessary re-renders
   const nodeTypes = useMemo(() => ({ graphNode: GraphNode }), []);
@@ -738,6 +1331,9 @@ export function App() {
       const existing = collectEditorNodes(nodesRef.current, type, parent);
       if (existing.length) {
         const removeIds = new Set(existing.map((node) => node.id));
+        const labels = existing.map((node) => ((node.data as any)?.label ?? (node.data as any)?.type ?? node.id) as string);
+        const summaryBase = labels.length === 1 ? labels[0] : `${labels.length} nodes`;
+        beginHistoryActionRef.current({ type: "delete-node", summary: `${summaryBase} • Remove` });
         for (const id of removeIds) {
           resizingEditorIdsRef.current.delete(id);
         }
@@ -761,7 +1357,8 @@ export function App() {
 
       if (template) templateCacheRef.current?.prime(type, template);
 
-      const nextId = String(++idCounter.current);
+      const nextIdNum = idCounter.current + 1;
+      const nextId = String(nextIdNum);
       const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
       const parentPosition = (() => {
         const rel = parentNode?.position;
@@ -806,39 +1403,13 @@ export function App() {
       if (parent) rfArgs.parentId = parent;
       const rfNode = buildRFNodeFromTemplate(rfArgs);
       const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
+      const displayName = ((decoratedNode.data as any)?.label ?? (decoratedNode.data as any)?.type ?? item.name ?? type) as string;
+      beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
+      idCounter.current = nextIdNum;
       setNodes((prev) => [...prev, decoratedNode as any]);
     },
     [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi, rf, getFlowCenterClient]
   );
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.altKey || event.shiftKey || event.ctrlKey) return;
-      if (event.repeat) return;
-
-      const target = event.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (target.isContentEditable) return;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      }
-
-      let digit = event.key;
-      if (!VIEW_HOTKEY_MAP[digit] && typeof event.code === "string" && event.code.startsWith("Digit")) {
-        digit = event.code.slice(-1);
-      }
-
-      const panel = VIEW_HOTKEY_MAP[digit];
-      if (!panel) return;
-
-      event.preventDefault();
-      const pointer = lastPointerRef.current ?? getFlowCenterClient();
-      void toggleEditorNode(panel, { kind: "hotkey", client: pointer });
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [toggleEditorNode, getFlowCenterClient]);
 
   const inflateAndLoadGraph = useCallback(
     async (graph: CanonicalNode, label: string) => {
@@ -891,17 +1462,21 @@ export function App() {
 
       idCounter.current = buildResult.maxId;
       resizingEditorIdsRef.current.clear();
+      dragSnapshotRef.current = null;
+      resizeSnapshotRef.current = null;
+      pendingHistoryQueueRef.current.splice(0);
       pendingGraphUpdateRef.current = false;
 
       setNodes(attachNodesUpdateApi(buildResult.nodes as any, nodeUpdaterApi) as any);
       setEdges(buildResult.edges);
       setGraphName(label ?? "UntitledGraph");
       setViewPath(buildResult.defaultViewPath);
+      resetHistory();
       // Request a one-time fitView after nodes render for this load
       fitAfterLoadRef.current = true;
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [nodeUpdaterApi, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
+    [nodeUpdaterApi, resetHistory, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
@@ -918,12 +1493,21 @@ export function App() {
     }
   }, [inflateAndLoadGraph]);
 
+  const handleLoadExampleGraph = useCallback((key: string) => {
+    const example = examples.find(e => e.key === key);
+    if (example) {
+      void loadExampleGraph(example);
+    } else {
+      console.warn("Example graph not found for key:", key);
+    }
+  }, [examples, loadExampleGraph]);
+
   // Fetch example graphs and load the first by default (only if no recent graph was loaded)
   useEffect(() => {
     const abort = new AbortController();
     (async () => {
       try {
-        const res = await fetch("/api/example-graphs", { signal: abort.signal });
+        const res = await apiFetch("/api/example-graphs", { signal: abort.signal });
         const data = await res.json();
         const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
         setExamples(list);
@@ -1181,6 +1765,42 @@ export function App() {
     [openGraphFromContents, setRecentGraphs]
   );
 
+  const handleExportLanguage = useCallback(async (languageKey: string) => {
+    try {
+      const label = (() => {
+        const trimmed = (graphName || "UntitledGraph").trim();
+        return trimmed.length ? trimmed : "UntitledGraph";
+      })();
+      const deepGraph = JSON.parse(JSON.stringify(graphData));
+      const res = await fetch("/api/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ graph: deepGraph, language: languageKey, engine: "default" }),
+      });
+      if (!res.ok) throw new Error(`Compile failed: ${res.status}`);
+      const data = await res.json();
+      const code: string = String(data.code ?? "");
+      // Determine extension by looking up language pack file for extensions via /api/language
+      let ext = "txt";
+      try {
+        const url = new URL("/api/language", location.origin);
+        url.searchParams.set("name", languageKey);
+        const lr = await fetch(url.toString());
+        if (lr.ok) {
+          const langPack = await lr.json();
+          const exts = Array.isArray(langPack?.file_extensions) ? langPack.file_extensions : [];
+          if (exts.length && typeof exts[0] === "string") ext = exts[0];
+        }
+      } catch (_err) {
+        // fallback ext stays 'txt'
+      }
+      const file = `${label.replace(/\s+/g, "_")}.${ext}`;
+      triggerTextDownload(file, code, "text/plain");
+    } catch (err) {
+      console.warn("Export failed", err);
+    }
+  }, [graphData, graphName]);
+
   const handleClearRecent = useCallback(() => {
     for (const entry of recentGraphs) {
       void removeRecentGraphHandle(entry.name);
@@ -1250,17 +1870,19 @@ export function App() {
         const fragmentOutput = deepClone(foutTpl);
         const previewNode = previewTpl ? deepClone(previewTpl) : undefined;
 
+        const passLayout = computeDefaultPassLayout();
+        vertexPass.position = passLayout.vertexPass;
+        fragmentPass.position = passLayout.fragmentPass;
+        vertexOutput.position = passLayout.vertexOutput;
+        fragmentOutput.position = passLayout.fragmentOutput;
+        if (previewNode) previewNode.position = passLayout.preview;
+
         vertexPass.nodes = [vertexOutput];
         fragmentPass.nodes = [fragmentOutput];
 
-        // Position preview panel next to fragment output if available
-        // Use the same row (y) and push it to the right (x) so they appear side-by-side
-        // Layout defaults come from buildReactFlowGraph: baseX=80, baseY=40, depthX=240
-        // Children of fragment_pass are at depth=2 -> fallback x would be 80 + 2*240 = 560
         if (previewNode) {
           // Ensure meta array exists (editor node sizing comes from template meta)
           if (!Array.isArray(previewNode.meta)) previewNode.meta = [];
-          previewNode.position = [560 + 170, 40];
           fragmentPass.nodes.push(previewNode as any);
         }
 
@@ -1308,6 +1930,7 @@ export function App() {
         setEdges(buildResult.edges);
         setGraphName(`Untitled ${shading.charAt(0).toUpperCase()}${shading.slice(1)}`);
         setViewPath(buildResult.defaultViewPath);
+        resetHistory();
         // Request a one-time fitView after nodes render for this new graph
         fitAfterLoadRef.current = true;
       } catch (err) {
@@ -1315,12 +1938,13 @@ export function App() {
       }
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [paletteByType, loadTemplateDefaults, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
+    [paletteByType, loadTemplateDefaults, resetHistory, setNodes, setEdges, setGraphName, setViewPath, nodeUpdaterApi]
   );
 
-  const addNodeAt = async (opts: { item: NodePaletteItem; x: number; y: number }) => {
+  const addNodeAt = useCallback(async (opts: { item: NodePaletteItem; x: number; y: number }) => {
     const { item, x, y } = opts;
-    const nextId = String(++idCounter.current);
+    const nextIdNum = idCounter.current + 1;
+    const nextId = String(nextIdNum);
     const pos = rf.screenToFlowPosition({ x, y });
     let template: NodeTemplate | undefined;
     try {
@@ -1338,6 +1962,9 @@ export function App() {
     if (template) rfArgs.template = template;
     if (currentParentId) rfArgs.parentId = currentParentId;
     const rfNode = buildRFNodeFromTemplate(rfArgs);
+    const label = ((rfNode.data as any)?.label ?? (rfNode.data as any)?.type ?? item.name ?? item.type ?? `Node ${nextId}`) as string;
+    beginHistoryActionRef.current({ type: "add-node", summary: `${label} • Add` });
+    idCounter.current = nextIdNum;
     // Inject updater on the new node
     const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode as any]);
@@ -1400,7 +2027,36 @@ export function App() {
     } catch (_err) {
       // ignore auto-connect failures
     }
-  };
+  }, [currentParentId, nodeUpdaterApi, rf, setEdges, setNodes]);
+
+  useGraphHotkeys({
+    getPointerClient: getHotkeyPointer,
+    toggleEditorNode,
+    addNodeAt,
+    paletteByType,
+    quickHotkeys: quickHotkeyMap,
+  });
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      if (isEditableHotkeyTarget(event.target)) return;
+      const isMod = event.metaKey || event.ctrlKey;
+      if (!isMod || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if ((key === "z" && event.shiftKey) || key === "y") {
+        event.preventDefault();
+        redoHistory();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [redoHistory, undoHistory]);
 
   const openAddNodeMenuAt = useCallback((x: number, y: number, override: NodePalette | null) => {
     setMenuPaletteOverride(override);
@@ -1440,7 +2096,9 @@ export function App() {
   const deleteNodeById = useCallback(
     async (id: string) => {
       const node = nodesById.get(id);
-      if (node && (node as any).deletable === false) return; // protect mandatory IO nodes
+      if (!node) return;
+      if ((node as any).deletable === false) return; // protect mandatory IO nodes
+      const nodeLabel = ((node.data as any)?.label ?? (node.data as any)?.type ?? id) as string;
       const removed = new Set<string>([id]);
       const dependents = nodesRef.current
         .filter((n) => n.id !== id)
@@ -1462,6 +2120,7 @@ export function App() {
         if (tpl) defaultsByNodeId.set(dep.id, tpl);
       }
 
+      beginHistoryActionRef.current({ type: "delete-node", summary: `${nodeLabel} • Delete` });
       setNodes((ns) =>
         attachNodesUpdateApi(
           ns
@@ -1484,12 +2143,363 @@ export function App() {
     [loadTemplateDefaults, nodeUpdaterApi, nodesById, setEdges, setNodes]
   );
 
+  const duplicateSelection = useCallback(
+    (options?: { targetId?: string }) => {
+      const currentNodes = nodesRef.current;
+      const currentEdges = edgesRef.current;
+      let selectedNodes = currentNodes.filter((node) => node.selected);
+      if (options?.targetId && !selectedNodes.some((n) => n.id === options.targetId)) {
+        const targetNode = currentNodes.find((n) => n.id === options.targetId);
+        if (targetNode) selectedNodes = [...selectedNodes, targetNode];
+      }
+      if (!selectedNodes.length) return;
+
+      const selectedIds = new Set(selectedNodes.map((n) => n.id));
+      const duplicate = duplicateNodes({
+        nodes: currentNodes,
+        edges: currentEdges,
+        selectedIds,
+        allocateId: () => ++idCounter.current,
+        offset: DUPLICATE_OFFSET,
+      });
+      if (!duplicate.nodesToAdd.length) return;
+
+      const label = selectedNodes.length === 1
+        ? (((selectedNodes[0]?.data as any)?.label ?? (selectedNodes[0]?.data as any)?.type ?? selectedNodes[0]?.id) as string)
+        : `${selectedNodes.length} nodes`;
+
+      const merged = applyDuplicateSelection({
+        nodes: currentNodes,
+        edges: currentEdges,
+        selectedIds,
+        duplicate,
+      });
+
+      beginHistoryActionRef.current({ type: "duplicate-node", summary: `${label} • Duplicate` });
+      pendingGraphUpdateRef.current = true;
+
+      const decoratedNodes = attachNodesUpdateApi(merged.nodes as any, nodeUpdaterApi) as any;
+      setNodes(decoratedNodes);
+      const coloredEdges = ensureColoredEdges(merged.edges as any, decoratedNodes as any);
+      setEdges(coloredEdges);
+    },
+    [ensureColoredEdges, nodeUpdaterApi, setEdges, setNodes]
+  );
+
+  type ClipboardBounds = ClipboardPayload["bounds"];
+
+  const computeSelectionBounds = useCallback((nodesList: Node[]): ClipboardBounds => {
+    if (!nodesList.length) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    }
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const node of nodesList) {
+      const pos = node.position ?? { x: 0, y: 0 };
+      const x = Number.isFinite(pos.x) ? pos.x : 0;
+      const y = Number.isFinite(pos.y) ? pos.y : 0;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    return { minX, minY, maxX, maxY };
+  }, []);
+
+  const serializeClipboardSnapshot = useCallback((options?: { includeId?: string }) => {
+    const includeId = options?.includeId;
+    const selectionMap = new Map<string, Node>();
+    for (const node of nodesRef.current) {
+      if (node.selected) selectionMap.set(node.id, node);
+    }
+    if (includeId && !selectionMap.has(includeId)) {
+      const target = nodesRef.current.find((node) => node.id === includeId);
+      if (target) selectionMap.set(target.id, target);
+    }
+    const selected = Array.from(selectionMap.values());
+    if (!selected.length) return null;
+    const selectedIds = new Set<number>();
+    for (const node of selected) {
+      const idNum = Number(node.id);
+      if (Number.isFinite(idNum)) selectedIds.add(idNum);
+    }
+    if (!selectedIds.size) return null;
+    const bounds = computeSelectionBounds(selected);
+    const payload = createClipboardPayload({
+      graph: graphData,
+      selectedIds,
+      parentLookup: (id) => {
+        const found = nodesRef.current.find((node) => Number(node.id) === id);
+        if (!found) return null;
+        const raw = (found as any)?.parentId;
+        if (raw === undefined || raw === null) return null;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      },
+      bounds,
+    });
+    if (!payload) return null;
+    return { text: JSON.stringify(payload), count: selected.length };
+  }, [computeSelectionBounds, graphData]);
+
+  const writeClipboardText = useCallback(async (text: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_err) {
+      // fall through to fallback
+    }
+    if (typeof document === "undefined") return false;
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "absolute";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return true;
+    } catch (_err) {
+      return false;
+    }
+  }, []);
+
+  const copySelectionManual = useCallback(async (targetId?: string) => {
+    const snapshot = serializeClipboardSnapshot(targetId ? { includeId: targetId } : undefined);
+    if (!snapshot) {
+      showClipboardStatus("error", "Select node(s) to copy");
+      return;
+    }
+    const ok = await writeClipboardText(snapshot.text);
+    if (ok) {
+      showClipboardStatus("success", `Copied ${snapshot.count} node${snapshot.count === 1 ? "" : "s"}`);
+    } else {
+      showClipboardStatus("error", "Unable to access clipboard");
+    }
+  }, [serializeClipboardSnapshot, showClipboardStatus, writeClipboardText]);
+
+  const performPasteFromText = useCallback(async (text: string) => {
+    let payload: ClipboardPayload;
+    try {
+      payload = parseClipboardPayload(text);
+    } catch (err) {
+      console.warn("Invalid clipboard payload", err);
+      showClipboardStatus("error", "Clipboard data is not valid");
+      return;
+    }
+    const allocateId = () => ++idCounter.current;
+    const remapped = remapClipboardNodes({ payload, allocateId, offset: PASTE_OFFSET });
+    if (!remapped.nodes.length) {
+      showClipboardStatus("error", "Clipboard payload is empty");
+      return;
+    }
+    try {
+      const newNodes: Node[] = [];
+      const edgeRegex = /^\.\.\/(\d+)\/(\d+)$/;
+      const idMapStrings = new Map<string, string>();
+      remapped.idMap.forEach((newId, oldId) => {
+        idMapStrings.set(String(oldId), String(newId));
+      });
+      for (const graphNode of remapped.nodes) {
+        const defaults = await loadTemplateDefaults(graphNode.type);
+        const paletteItem = paletteByType.get(graphNode.type) ?? ({
+          type: graphNode.type,
+          name: graphNode.name ?? graphNode.type,
+          path: graphNode.type,
+          category: "Clipboard",
+        } as NodePaletteItem);
+        const positionArray = Array.isArray(graphNode.position) && graphNode.position.length >= 2 ? graphNode.position : [0, 0];
+        const rfNode = buildRFNodeFromTemplate({
+          id: String(graphNode.id),
+          item: paletteItem,
+          template: graphNode,
+          templateDefaults: defaults ?? undefined,
+          position: { x: Math.round(positionArray[0]), y: Math.round(positionArray[1]) },
+          parentId: undefined,
+          nodeDefaults,
+        });
+        rfNode.selected = true;
+        const assignment = remapped.parentAssignments.get(graphNode.id) ?? null;
+        if (assignment !== null) {
+          (rfNode as any).parentId = String(assignment);
+        } else {
+          delete (rfNode as any).parentId;
+        }
+        newNodes.push(rfNode as any);
+      }
+
+      const edgesToAdd: Edge[] = [];
+      let edgeSeq = 0;
+      for (const graphNode of remapped.nodes) {
+        const inputs = Array.isArray(graphNode.inputs) ? graphNode.inputs : [];
+        for (let i = 0; i < inputs.length; i += 1) {
+          const pin = inputs[i];
+          const value = (pin as any)?.value;
+          if (typeof value !== "string") continue;
+          const match = value.match(edgeRegex);
+          if (!match) continue;
+          const sourceId = match[1];
+          const pinId = Number(match[2]);
+          const targetPinId = typeof pin.id === "number" ? pin.id : i;
+          edgesToAdd.push({
+            id: `clip-edge-${edgeSeq++}`,
+            source: sourceId,
+            target: String(graphNode.id),
+            sourceHandle: makeOutHandle(pinId),
+            targetHandle: makeInHandle(targetPinId),
+            type: "colored" as any,
+          } as Edge);
+        }
+      }
+
+      const selectedIds = new Set(nodesRef.current.filter((node) => node.selected).map((node) => node.id));
+      const duplicateResult: DuplicateNodesResult = {
+        nodesToAdd: newNodes,
+        edgesToAdd,
+        selection: newNodes.map((node) => node.id),
+        idMap: idMapStrings,
+      };
+
+      const merged = applyDuplicateSelection({
+        nodes: nodesRef.current,
+        edges: edgesRef.current,
+        selectedIds,
+        duplicate: duplicateResult,
+      });
+
+      pendingGraphUpdateRef.current = true;
+
+      const decoratedNodes = attachNodesUpdateApi(merged.nodes as any, nodeUpdaterApi) as any;
+      setNodes(decoratedNodes);
+      const coloredEdges = ensureColoredEdges(merged.edges as any, decoratedNodes as any);
+      setEdges(coloredEdges);
+      beginHistoryActionRef.current({ type: "paste-node", summary: `${newNodes.length} node${newNodes.length === 1 ? "" : "s"} • Paste` });
+      showClipboardStatus("success", `Pasted ${newNodes.length} node${newNodes.length === 1 ? "" : "s"}`);
+    } catch (err) {
+      console.warn("Failed to paste clipboard payload", err);
+      showClipboardStatus("error", "Failed to paste nodes");
+    }
+  }, [ensureColoredEdges, loadTemplateDefaults, nodeUpdaterApi, paletteByType, setEdges, setNodes, showClipboardStatus]);
+
+  const pasteFromClipboard = useCallback(async () => {
+    if (typeof navigator === "undefined" || typeof navigator.clipboard?.readText !== "function") {
+      showClipboardStatus("error", "Clipboard API unavailable. Use Cmd/Ctrl+V instead.");
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        showClipboardStatus("error", "Clipboard is empty");
+        return;
+      }
+      await performPasteFromText(text);
+    } catch (err) {
+      console.warn("Clipboard read failed", err);
+      showClipboardStatus("error", "Unable to read clipboard contents");
+    }
+  }, [performPasteFromText, showClipboardStatus]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const isMod = event.metaKey || event.ctrlKey;
+      if (!isMod || event.altKey || event.shiftKey) return;
+      if (event.repeat) return;
+      if (isEditableHotkeyTarget(event.target)) return;
+      if (event.key.toLowerCase() !== "d") return;
+      event.preventDefault();
+      duplicateSelection();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [duplicateSelection]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleCopy = (event: ClipboardEvent) => {
+      if (isEditableHotkeyTarget(event.target)) return;
+      const snapshot = serializeClipboardSnapshot();
+      if (!snapshot) return;
+      event.preventDefault();
+      try {
+        event.clipboardData?.setData("application/json", snapshot.text);
+        event.clipboardData?.setData("text/plain", snapshot.text);
+      } catch (_err) {
+        // ignore clipboardData failures
+      }
+      void writeClipboardText(snapshot.text);
+      showClipboardStatus("success", `Copied ${snapshot.count} node${snapshot.count === 1 ? "" : "s"}`);
+    };
+    window.addEventListener("copy", handleCopy);
+    return () => window.removeEventListener("copy", handleCopy);
+  }, [serializeClipboardSnapshot, showClipboardStatus, writeClipboardText]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handlePaste = (event: ClipboardEvent) => {
+      if (isEditableHotkeyTarget(event.target)) return;
+      const text =
+        event.clipboardData?.getData("application/json") ||
+        event.clipboardData?.getData("text/plain");
+      if (!text) return;
+      event.preventDefault();
+      void performPasteFromText(text);
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [performPasteFromText]);
+
+  const alignSelection = useCallback(
+    (alignment: AlignmentKind) => {
+      setNodes((prev) => {
+        const selected = prev.filter((n) => n.selected);
+        if (selected.length <= 1) return prev;
+        const selectedIds = new Set(selected.map((n) => n.id));
+        const { nodes: alignedNodes, changed } = alignSelectedNodes(prev, selectedIds, alignment);
+        if (!changed) return prev;
+        const label = selected.length === 1
+          ? (((selected[0]?.data as any)?.label ?? (selected[0]?.data as any)?.type ?? selected[0]?.id) as string)
+          : `${selected.length} nodes`;
+        beginHistoryActionRef.current({ type: `align-${alignment}`, summary: `${label} • ${ALIGNMENT_LABELS[alignment]}` });
+        pendingGraphUpdateRef.current = true;
+        return attachNodesUpdateApi(alignedNodes as any, nodeUpdaterApi) as any;
+      });
+    },
+    [nodeUpdaterApi, setNodes]
+  );
+
+  const distributeSelection = useCallback(
+    (distribution: DistributionKind) => {
+      setNodes((prev) => {
+        const selected = prev.filter((n) => n.selected);
+        if (selected.length <= 2) return prev;
+        const selectedIds = new Set(selected.map((n) => n.id));
+        const { nodes: distributedNodes, changed } = distributeSelectedNodes(prev, selectedIds, distribution);
+        if (!changed) return prev;
+        const label = `${selected.length} nodes`;
+        beginHistoryActionRef.current({ type: `distribute-${distribution}`, summary: `${label} • ${DISTRIBUTION_LABELS[distribution]}` });
+        pendingGraphUpdateRef.current = true;
+        return attachNodesUpdateApi(distributedNodes as any, nodeUpdaterApi) as any;
+      });
+    },
+    [nodeUpdaterApi, setNodes]
+  );
+
   // Group selected nodes into a new container node with dynamic I/O
   const groupSelected = () => {
     const selected = nodesRef.current.filter((n) => n.selected);
     if (!selected.length) return;
     const selectedIds = new Set(selected.map((n) => n.id));
     const idGen = () => String(++idCounter.current);
+    const label = selected.length === 1
+      ? (((selected[0]?.data as any)?.label ?? (selected[0]?.data as any)?.type ?? selected[0]?.id) as string)
+      : `${selected.length} nodes`;
+    beginHistoryActionRef.current({ type: "group-nodes", summary: `${label} • Group` });
     const res = utilGroupSelected(nodes as any, edges as any, selectedIds, idGen);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
     setEdges(res.edges as any);
@@ -1497,6 +2507,9 @@ export function App() {
 
   // Ungroup a group node: move children out, restore external edges, remove group + IO nodes
   const ungroupGroup = (groupId: string) => {
+    const groupNode = nodesById.get(groupId);
+    const label = ((groupNode?.data as any)?.label ?? (groupNode?.data as any)?.type ?? groupId) as string;
+    beginHistoryActionRef.current({ type: "ungroup-node", summary: `${label} • Ungroup` });
     const res = utilUngroupGroup(nodes as any, edges as any, groupId);
     setNodes(attachNodesUpdateApi(res.nodes as any, nodeUpdaterApi) as any);
     setEdges(res.edges as any);
@@ -1520,7 +2533,8 @@ export function App() {
       : projected;
     const defaults = await loadTemplateDefaults("texture");
     const template = defaults ? JSON.parse(JSON.stringify(defaults)) : undefined;
-    const nextId = String(++idCounter.current);
+    const nextIdNum = idCounter.current + 1;
+    const nextId = String(nextIdNum);
     const baseArgs: any = {
       id: nextId,
       item,
@@ -1551,10 +2565,77 @@ export function App() {
         template: { ...tpl, name: payload.label || tpl.name, properties: nextProps },
       },
     } as any;
+    const displayName = (node.data as any)?.label || item.name || payload.label || "Texture";
+    beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
+    idCounter.current = nextIdNum;
     const decoratedNode = attachNodeUpdateApi(node as any, nodeUpdaterApi);
     setNodes((prev) => [...prev, decoratedNode]);
     setMenu((m) => (m.open ? { ...m, open: false } : m));
   }, [paletteByType, rf, currentParentId, loadTemplateDefaults, nodeUpdaterApi, setNodes]);
+
+  // Build a nested tree from example keys (path segments) so the menu can render hierarchical folders
+  const renderExamplesMenu = (examplesList: Array<{ key: string; label: string }>) => {
+    type Node = { children: Record<string, Node>; items: Array<{ key: string; label: string }> };
+    const root: Node = { children: {}, items: [] };
+
+    for (const ex of examplesList) {
+      const parts = ex.key.split("/").filter(Boolean);
+      let cur = root;
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+        if (!cur.children[part]) cur.children[part] = { children: {}, items: [] };
+        if (isLast) {
+          cur.children[part].items.push({ key: ex.key, label: ex.label });
+        }
+        cur = cur.children[part];
+      }
+    }
+
+    const prettify = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const renderNode = (name: string, node: Node, pathPrefix = "") => {
+      const fullPath = pathPrefix ? `${pathPrefix}/${name}` : name;
+      const hasChildren = Object.keys(node.children).length > 0;
+      const hasItems = node.items.length > 0;
+
+      // If this node represents a directory (has children) render a submenu. If it only contains items, render items directly.
+      if (hasChildren) {
+        return (
+          <MenubarSub key={fullPath}>
+            <MenubarSubTrigger>{prettify(name)}</MenubarSubTrigger>
+            <MenubarSubContent>
+              {node.items.map((it) => (
+                <MenubarItem key={it.key} onClick={() => void loadExampleGraph({ key: it.key, label: it.label })}>
+                  {it.label}
+                </MenubarItem>
+              ))}
+              {Object.keys(node.children)
+                .sort()
+                .map((childName) => renderNode(childName, node.children[childName], fullPath))}
+            </MenubarSubContent>
+          </MenubarSub>
+        );
+      }
+
+      // Leaf (no nested directories) but may contain one or more items (rare: files sharing basename)
+      if (!hasItems) return null;
+      return (
+        <Fragment key={fullPath}>
+          {node.items.map((it) => (
+            <MenubarItem key={it.key} onClick={() => void loadExampleGraph({ key: it.key, label: it.label })}>
+              {it.label}
+            </MenubarItem>
+          ))}
+        </Fragment>
+      );
+    };
+
+    // Render top-level directories/files
+    return Object.keys(root.children)
+      .sort()
+      .map((top) => renderNode(top, root.children[top], ""));
+  };
 
   const Header = (
     <div className="w-full flex items-center justify-between gap-3">
@@ -1589,6 +2670,52 @@ export function App() {
               <MenubarSeparator />
               <MenubarItem onClick={() => void handleSave()}>Save</MenubarItem>
               <MenubarItem onClick={() => void handleSaveAs()}>Save As…</MenubarItem>
+            <MenubarSeparator />
+            <MenubarSub>
+              <MenubarSubTrigger>Export</MenubarSubTrigger>
+              <MenubarSubContent>
+                {languages.map((lang) => (
+                  <MenubarItem key={lang.key} onClick={() => void handleExportLanguage(lang.key)}>
+                    {lang.name}
+                  </MenubarItem>
+                ))}
+              </MenubarSubContent>
+            </MenubarSub>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>Edit</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem
+                disabled={!canUndo}
+                onClick={() => {
+                  if (!canUndo) return;
+                  undoHistory();
+                }}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span>Undo</span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-xs">{formatHistoryPreview(peekUndo)}</span>
+                    <span className="text-[10px] uppercase">⌘Z</span>
+                  </div>
+                </div>
+              </MenubarItem>
+              <MenubarItem
+                disabled={!canRedo}
+                onClick={() => {
+                  if (!canRedo) return;
+                  redoHistory();
+                }}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span>Redo</span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-xs">{formatHistoryPreview(peekRedo)}</span>
+                    <span className="text-[10px] uppercase">⇧⌘Z</span>
+                  </div>
+                </div>
+              </MenubarItem>
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
@@ -1637,11 +2764,7 @@ export function App() {
           <MenubarMenu>
             <MenubarTrigger>Examples</MenubarTrigger>
             <MenubarContent>
-              {examples.map((e) => (
-                <MenubarItem key={e.key} onClick={() => void loadExampleGraph(e)}>
-                  {e.label}
-                </MenubarItem>
-              ))}
+              {renderExamplesMenu(examples)}
             </MenubarContent>
           </MenubarMenu>
         </Menubar>
@@ -1678,11 +2801,14 @@ export function App() {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-2">
-        <Button asChild size="sm" variant="secondary">
-          <a href="/docs/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Docs</span>
-          </a>
+        <Button
+          size="sm"
+          variant={showDocsPanel ? "default" : "secondary"}
+          onClick={() => setShowDocsPanel((v) => !v)}
+          className="inline-flex items-center gap-1"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span>Docs</span>
         </Button>
         <a
           href="https://github.com/omid3098/openshadergraph"
@@ -1697,7 +2823,7 @@ export function App() {
           className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
           title={`Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""} • ${APP_VERSION_INFO.buildDate}`}
         >
-          {APP_VERSION_INFO.deploy}-v{APP_VERSION_INFO.version}
+          {APP_VERSION_INFO.deploy}-v{APP_VERSION_INFO.version.replace(/^v/i, "")}
         </span>
       </div>
     </div>
@@ -1708,188 +2834,355 @@ export function App() {
   // After a graph is loaded/created and the view path is applied, fit the viewport to visible nodes once
   useEffect(() => {
     if (!fitAfterLoadRef.current) return;
-    if (!visibleNodes.length) return;
+    if (!visibleNodeIds.length) return;
     // Defer to ensure nodes are mounted and measured
+    let frame: number | null = null;
+    let frame2: number | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let timeout2: ReturnType<typeof setTimeout> | null = null;
+
     const run = () => {
       try {
-        fitAfterLoadRef.current = false;
-        rf.fitView({
-          padding: 0.12,
-          includeHiddenNodes: false,
-          nodes: visibleNodes.map((n: any) => ({ id: n.id })),
-        } as any);
-      } catch (_err) {
-        // ignore
+        fitViewToNodeIds(visibleNodeIds);
+      } finally {
         fitAfterLoadRef.current = false;
       }
     };
+
     if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(run);
+      frame = window.requestAnimationFrame(() => {
+        frame2 = window.requestAnimationFrame(run);
+      });
     } else {
-      setTimeout(run, 0);
+      timeout = setTimeout(() => {
+        timeout2 = setTimeout(run, 0);
+      }, 0);
     }
-  }, [rf, visibleNodes, currentParentId]);
+
+    return () => {
+      if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+        if (frame !== null) window.cancelAnimationFrame(frame);
+        if (frame2 !== null) window.cancelAnimationFrame(frame2);
+      }
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+      if (timeout2 !== null) {
+        clearTimeout(timeout2);
+      }
+    };
+  }, [fitViewToNodeIds, visibleNodeIds, currentParentId]);
+
+  // Load and persist documentation panel width
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const w = await persistGet<number>("docs.width");
+      if (cancelled) return;
+      if (typeof w === "number" && Number.isFinite(w) && w >= 320) setDocsWidth(w);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    void persistSet("docs.width", docsWidth);
+  }, [docsWidth]);
+
+  const onDocsResizeMove = useCallback((e: globalThis.MouseEvent) => {
+    if (!docsResizing.current) return;
+    const dx = docsStartX.current - e.clientX; // dragging left handle; increasing dx widens panel
+    const minW = 320;
+    const maxW = Math.max(window.innerWidth - 160, minW);
+    const next = Math.min(Math.max(docsStartW.current + dx, minW), maxW);
+    setDocsWidth(next);
+  }, []);
+
+  const onDocsResizeStop = useCallback(() => {
+    docsResizing.current = false;
+    window.removeEventListener("mousemove", onDocsResizeMove as EventListener);
+    window.removeEventListener("mouseup", onDocsResizeStop as EventListener);
+    setIsDocsResizing(false);
+  }, [onDocsResizeMove]);
+
+  const onDocsResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    docsResizing.current = true;
+    docsStartX.current = e.clientX;
+    docsStartW.current = docsWidth;
+    window.addEventListener("mousemove", onDocsResizeMove as EventListener);
+    window.addEventListener("mouseup", onDocsResizeStop as EventListener);
+    setIsDocsResizing(true);
+  };
+
+  // Note: listeners are only attached during active resize and removed on mouseup
 
   return (
-    <GraphStateProvider value={graphStateValue}>
-      <AppShell header={Header}>
-        <div ref={flowContainerRef} className="w-full h-full relative">
-          <ReactFlow
-          nodes={visibleNodes}
-          edges={visibleEdges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          defaultEdgeOptions={{ type: "colored" as any }}
-          isValidConnection={isValidConnectionCb}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onConnectStart={(e: any, params: any) => {
-            try {
-              connectCompletedRef.current = false;
-              const side = String(params?.handleType) === "source" ? "source" : "target";
-              const nodeId = String(params?.nodeId ?? "");
-              const handleId = String(params?.handleId ?? "");
-              const t = getPinTypeFor(nodesRef.current as any, nodeId, handleId);
-              connectDragRef.current = { side, nodeId, handleId, type: t } as any;
-            } catch (_err) {
-              connectDragRef.current = null;
-            }
-          }}
-          onConnectEnd={(e: any) => {
-            try {
-              // If ReactFlow accepted the connection (snapped), suppress the add-node menu
-              if (connectCompletedRef.current) return;
-              const target = e?.target as Element | null;
-              const droppedOnHandle = !!(target && target.closest && target.closest(".react-flow__handle"));
-              if (!droppedOnHandle) {
-                const client = { x: e?.clientX ?? lastPointerRef.current?.x ?? 0, y: e?.clientY ?? lastPointerRef.current?.y ?? 0 };
-                void openFilteredAddMenuForDrag(client);
-                return;
-              }
-            } catch (_err) {
-              // ignore
-            } finally {
-              connectCompletedRef.current = false;
-              connectDragRef.current = null;
-            }
-          }}
-          onNodeDragStart={(_e, node) => {
-            try {
-              draggingNodeIdsRef.current.add(node.id);
-              pendingGraphUpdateRef.current = true;
-            } catch (_err) {
-              // ignore
-            }
-          }}
-          onNodeDragStop={(_e, node) => {
-            try {
-              draggingNodeIdsRef.current.delete(node.id);
-            if (draggingNodeIdsRef.current.size === 0 && pendingGraphUpdateRef.current) {
-              pendingGraphUpdateRef.current = false;
-              scheduleGraphRender();
-            }
-            } catch (_err) {
-              // ignore
-            }
-          }}
-          panOnDrag={[1]}
-          selectionOnDrag
-          selectionMode={SelectionMode.Partial}
-          onNodeDoubleClick={(e, node) => {
-            // Drill into container nodes via double click
-            const t = (node.data as any)?.type;
-            if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
-              setViewPath((p) => [...p, node.id]);
-            }
-          }}
-          onPaneClick={() => {
-            // Close context menu when clicking the background pane
-            setMenu((m) => (m.open ? { ...m, open: false } : m));
-            setMenuPaletteOverride(null);
-          }}
-          onPaneContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
-          }}
-          onSelectionContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
-          }}
-          onDragOver={(event) => {
-            if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "copy";
-            }
-          }}
-          onDrop={handleAssetDrop}
-          onNodeContextMenu={(e, node) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
-          }}
-          onEdgeContextMenu={(e, edge) => {
-            e.preventDefault();
-            setMenuPaletteOverride(null);
-            setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
-          }}
-          fitView
+    <SettingsProvider value={settingsValue}>
+      <GraphStateProvider value={graphStateValue}>
+        <AppShell
+          header={Header}
+          sidebarContent={renderSidebar}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         >
-            <Background />
-            <Controls className="rf-controls" position="bottom-left" />
-            <MiniMap
-              className="rf-minimap"
-              position="bottom-right"
-              nodeColor={mmColors.node}
-              nodeStrokeColor={mmColors.stroke}
-              maskColor={mmColors.mask}
+          {activeView === "settings" ? (
+            <SettingsPage
+              curveMode={curveMode}
+              onCurveModeChange={setCurveMode}
+              theme={theme}
+              onThemeChange={setTheme}
+              quickHotkeys={quickHotkeysForSettings}
+              onQuickHotkeysChange={handleQuickHotkeysChange}
+              palette={palette}
             />
-          </ReactFlow>
-          <GraphContextMenu
-          open={menu.open}
-          kind={menu.kind}
-          x={menu.x}
-          y={menu.y}
-          {...(menu.targetId ? { targetId: menu.targetId } : {})}
-          {...((menuPaletteOverride ?? palette) ? { palette: (menuPaletteOverride ?? palette)! } : {})}
-          expandAllCategories={Boolean(menuPaletteOverride)}
-          selectedCount={selectedCount}
-          onGroupSelected={() => {
-            groupSelected();
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-          }}
-          canUngroup={(() => {
-            if (!menu.targetId) return false;
-            const target = nodesById.get(menu.targetId);
-            const type = (target?.data as any)?.template?.type ?? (target?.data as any)?.type;
-            return type === "group";
-          })()}
-          onUngroupNode={(id) => {
-            ungroupGroup(id);
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-          }}
-          onAddNode={async (item) => {
-            if (!item) return;
-            await addNodeAt({ item, x: menu.x, y: menu.y });
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-            pendingConnectRef.current = null;
-          }}
-          onDeleteNode={async (id) => {
-            if (!id) return;
-            await deleteNodeById(id);
-            setMenu((m) => ({ ...m, open: false }));
-            setMenuPaletteOverride(null);
-          }}
-          onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); pendingConnectRef.current = null; }}
-        />
-        </div>
-      </AppShell>
-    </GraphStateProvider>
+          ) : (
+            <div className="w-full h-full flex relative">
+              <div
+                ref={flowContainerRef}
+                className="h-full relative transition-[width] duration-200 ease-linear"
+                style={{ width: showDocsPanel ? `calc(100% - ${docsWidth}px)` : "100%" }}
+              >
+              <ReactFlow
+                style={{ width: "100%", height: "100%" }}
+                nodes={visibleNodes}
+                edges={visibleEdges}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                defaultEdgeOptions={{ type: "colored" as any }}
+                deleteKeyCode={["Backspace", "Delete"]}
+                isValidConnection={isValidConnectionCb}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={onConnect}
+                onConnectStart={(e: any, params: any) => {
+                  try {
+                    connectCompletedRef.current = false;
+                    const side = String(params?.handleType) === "source" ? "source" : "target";
+                    const nodeId = String(params?.nodeId ?? "");
+                    const handleId = String(params?.handleId ?? "");
+                    const t = getPinTypeFor(nodesRef.current as any, nodeId, handleId);
+                    connectDragRef.current = { side, nodeId, handleId, type: t } as any;
+                  } catch (_err) {
+                    connectDragRef.current = null;
+                  }
+                }}
+                onConnectEnd={(e: any) => {
+                  try {
+                    if (connectCompletedRef.current) return;
+                    const target = e?.target as Element | null;
+                    const droppedOnHandle = !!(target && target.closest && target.closest(".react-flow__handle"));
+                    if (!droppedOnHandle) {
+                      const client = { x: e?.clientX ?? lastPointerRef.current?.x ?? 0, y: e?.clientY ?? lastPointerRef.current?.y ?? 0 };
+                      void openFilteredAddMenuForDrag(client);
+                      return;
+                    }
+                  } catch (_err) {
+                    // ignore
+                  } finally {
+                    connectCompletedRef.current = false;
+                    connectDragRef.current = null;
+                  }
+                }}
+                onNodeDragStart={(_e, node) => {
+                  try {
+                    if (!dragSnapshotRef.current) {
+                      const snapshotter = captureSnapshotFnRef.current;
+                      if (snapshotter) dragSnapshotRef.current = snapshotter();
+                    }
+                    draggingNodeIdsRef.current.add(node.id);
+                    pendingGraphUpdateRef.current = true;
+                  } catch (_err) {
+                    // ignore
+                  }
+                }}
+                onNodeDragStop={() => {
+                  try {
+                    pendingGraphUpdateRef.current = true;
+                  } catch (_err) {
+                    // ignore
+                  }
+                }}
+                panOnDrag={[1]}
+                selectionOnDrag
+                selectionMode={SelectionMode.Partial}
+                onNodeDoubleClick={(e, node) => {
+                  const t = (node.data as any)?.type;
+                  if (t === "group" || t === "surface" || t === "vertex_pass" || t === "fragment_pass") {
+                    setViewPath((p) => [...p, node.id]);
+                  }
+                }}
+                onPaneClick={() => {
+                  setMenu((m) => (m.open ? { ...m, open: false } : m));
+                  setMenuPaletteOverride(null);
+                }}
+                onPaneContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "background", x: e.clientX, y: e.clientY });
+                }}
+                onSelectionContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "selection", x: e.clientX, y: e.clientY });
+                }}
+                onDragOver={(event) => {
+                  if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                  }
+                }}
+                onDrop={handleAssetDrop}
+                onNodeContextMenu={(e, node) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "node", x: e.clientX, y: e.clientY, targetId: node.id });
+                }}
+                onEdgeDoubleClick={handleEdgeDoubleClick}
+                onEdgeContextMenu={(e, edge) => {
+                  e.preventDefault();
+                  setMenuPaletteOverride(null);
+                  setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
+                }}
+                connectionLineType={curveMode === "default" ? "smoothstep" : curveMode as any}
+                fitView
+              >
+                <Background />
+                <Controls className="rf-controls" position="bottom-left" />
+                <MiniMap
+                  className="rf-minimap"
+                  position="bottom-right"
+                  nodeColor={mmColors.node}
+                  nodeStrokeColor={mmColors.stroke}
+                  maskColor={mmColors.mask}
+                  pannable
+                  zoomable
+                  onClick={(_event, position) => {
+                    if (!position) return;
+                    try {
+                      const currentZoom = rf.getZoom();
+                      rf.setCenter(position.x, position.y, { zoom: currentZoom, duration: 200 });
+                    } catch (_err) {
+                      // ignore viewport sync failures
+                    }
+                  }}
+                />
+              </ReactFlow>
+              <GraphContextMenu
+                open={menu.open}
+                kind={menu.kind}
+                x={menu.x}
+                y={menu.y}
+                {...(menu.targetId ? { targetId: menu.targetId } : {})}
+                {...((menuPaletteOverride ?? palette) ? { palette: (menuPaletteOverride ?? palette)! } : {})}
+                expandAllCategories={Boolean(menuPaletteOverride)}
+                selectedCount={selectedCount}
+                onCopySelection={(targetId) => {
+                  void copySelectionManual(targetId);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onDuplicateSelection={(targetId) => {
+                  duplicateSelection(targetId ? { targetId } : undefined);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onGroupSelected={() => {
+                  groupSelected();
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                canUngroup={(() => {
+                  if (!menu.targetId) return false;
+                  const target = nodesById.get(menu.targetId);
+                  const type = (target?.data as any)?.template?.type ?? (target?.data as any)?.type;
+                  return type === "group";
+                })()}
+                onUngroupNode={(id) => {
+                  ungroupGroup(id);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onAlignSelected={(alignment) => {
+                  alignSelection(alignment);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onDistributeSelected={(distribution) => {
+                  distributeSelection(distribution);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onPasteFromClipboard={() => {
+                  void pasteFromClipboard();
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                canPaste={canPasteViaButton}
+                onAddNode={async (item) => {
+                  if (!item) return;
+                  await addNodeAt({ item, x: menu.x, y: menu.y });
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                  pendingConnectRef.current = null;
+                }}
+                onDeleteNode={async (id) => {
+                  if (!id) return;
+                  await deleteNodeById(id);
+                  setMenu((m) => ({ ...m, open: false }));
+                  setMenuPaletteOverride(null);
+                }}
+                onClose={() => { setMenu((m) => ({ ...m, open: false })); setMenuPaletteOverride(null); pendingConnectRef.current = null; }}
+              />
+              {clipboardStatus && (
+                <div
+                  className={cn(
+                    "fixed bottom-4 right-4 z-[100] rounded-md border bg-popover px-3 py-2 text-sm shadow-lg",
+                    clipboardStatus.kind === "error" ? "border-destructive text-destructive" : "border-border text-foreground"
+                  )}
+                >
+                  {clipboardStatus.message}
+                </div>
+              )}
+              </div>
+              {/* Documentation Panel resize handle */}
+              {showDocsPanel ? (
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  title="Drag to resize"
+                  onMouseDown={onDocsResizeStart}
+                  className="absolute top-0 h-full w-2 cursor-col-resize bg-transparent"
+                  style={{ left: `calc(100% - ${docsWidth}px - 2px)` }}
+                />
+              ) : null}
+
+              {/* Resize overlay to capture mouse events over iframe */}
+              {isDocsResizing ? (
+                <div
+                  className="fixed inset-0 z-[999] cursor-col-resize"
+                  style={{ pointerEvents: "auto", background: "transparent" }}
+                  onMouseMove={(e) => onDocsResizeMove(e.nativeEvent as unknown as globalThis.MouseEvent)}
+                  onMouseUp={onDocsResizeStop}
+                />
+              ) : null}
+
+              {/* Documentation Panel */}
+              <div
+                className="h-full flex-shrink-0 border-l bg-card transition-[width] duration-200 ease-linear"
+                style={{ width: showDocsPanel ? `${docsWidth}px` : "0px" }}
+              >
+                {showDocsPanel && (
+                  <DocumentationPanel
+                    onLoadExample={handleLoadExampleGraph}
+                    className="w-full"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </AppShell>
+      </GraphStateProvider>
+    </SettingsProvider>
   );
 }
 export default App;

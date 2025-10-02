@@ -1,0 +1,23 @@
+{
+  "type": "editor_note",
+  "name": "Note",
+  "meta": [
+    "editor_node",
+    "editor_panel:note",
+    "editor_size:260x160"
+  ],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [],
+  "properties": [
+    {
+      "id": "text",
+      "label": "Text",
+      "type": "string",
+      "multiline": true,
+      "default": ""
+    }
+  ]
+}
+
+

@@ -38,7 +38,31 @@ function fmtNum(n: number): string {
   return s;
 }
 
+function sanitizeExposeIdentifier(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed.length) return undefined;
+  let sanitized = trimmed.replace(/[^0-9A-Za-z_]/g, "_");
+  sanitized = sanitized.replace(/_{2,}/g, "_");
+  if (!sanitized.length) return undefined;
+  if (!/[A-Za-z_]/.test(sanitized.charAt(0))) sanitized = `_${sanitized}`;
+  return sanitized;
+}
+
+function getExposeOverrideName(node: GraphNode): string | undefined {
+  const props = Array.isArray(node.properties) ? node.properties : [];
+  const exposedViaMeta = Array.isArray(node.meta) && node.meta.includes("exposed");
+  const exposeProp = props.find((p: any) => p && p.id === "expose");
+  const isExposeActive = exposeProp ? Boolean((exposeProp as any).value ?? (exposeProp as any).default) : false;
+  if (!isExposeActive && !exposedViaMeta) return undefined;
+  const exposeNameProp = props.find((p: any) => p && p.id === "expose_name");
+  const custom = sanitizeExposeIdentifier((exposeNameProp as any)?.value ?? (exposeNameProp as any)?.default);
+  return custom;
+}
+
 function getUniqueNodeName(node: GraphNode): string {
+  const custom = getExposeOverrideName(node);
+  if (custom) return custom;
   return node.type ? `${node.type}_${node.id}` : `NO_TYPE_${node.id}`;
 }
 
@@ -169,7 +193,11 @@ export class GraphCompiler {
           return `${value}.${swizzle}`;
         }
         if (fn < tn) {
-          return `${toDesc.glslType}(${value})`;
+          // Promote lower-dimension vector to higher by appending 0.0 components
+          // GLSL requires explicit extra scalars: vec3(v2, 0.0), vec4(v3, 0.0), vec4(v2, 0.0, 0.0)
+          const zeros = Array.from({ length: tn - fn }, () => "0.0").join(", ");
+          const tail = zeros.length ? `, ${zeros}` : "";
+          return `${toDesc.glslType}(${value}${tail})`;
         }
         return value;
       }
@@ -291,6 +319,51 @@ export class GraphCompiler {
           }
         }
       }
+    }
+
+    const visitedReroutes = new Set<number>();
+    const lookupNode = (current: GraphNode, id: number) => {
+      const parent = this.getParent(current);
+      const scope = parent ?? this.graph_data;
+      return this.get_node(scope, id);
+    };
+
+    while (target && target.type === "reroute") {
+      if (visitedReroutes.has(target.id)) {
+        target = undefined;
+        break;
+      }
+      visitedReroutes.add(target.id);
+      const pins = Array.isArray(target.inputs) ? target.inputs : [];
+      let rerouteInput = pins.find((p) => typeof p?.id === "number" ? p.id === output_id : false);
+      if (!rerouteInput && pins.length) rerouteInput = pins[0];
+      if (!rerouteInput || typeof rerouteInput.value !== "string") {
+        target = undefined;
+        break;
+      }
+      const match = rerouteInput.value.match(/^\.\.\/(\d+)\/(\d+)$/);
+      if (!match) {
+        target = undefined;
+        break;
+      }
+      const nextId = Number(match[1]);
+      const nextOutputId = Number(match[2]);
+      const nextTarget = lookupNode(target, nextId);
+      if (!nextTarget) {
+        target = undefined;
+        break;
+      }
+      target = nextTarget;
+      output_id = nextOutputId;
+    }
+
+    if (!target) {
+      const state = this.getPinState(input);
+      delete state.refType;
+      delete state.refNodeId;
+      delete state.refExpression;
+      state.missingRef = true;
+      return;
     }
 
     this.process_node(target);
@@ -740,6 +813,10 @@ export class GraphCompiler {
 
   private compile_node(node: GraphNode) {
     if (this.has_code(node)) return;
+    if (node.type === "reroute") {
+      this.setNodeCode(node, "");
+      return;
+    }
     const props = Array.isArray(node.properties) ? node.properties : [];
     const isExposedProperty = !!props.find((p: any) => p && p.id === "expose" && !!(p as any).value);
     if (

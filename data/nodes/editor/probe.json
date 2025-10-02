@@ -1,0 +1,34 @@
+{
+  "type": "editor_probe",
+  "name": "Value Probe",
+  "meta": [
+    "editor_node",
+    "editor_widget:probe",
+    "editor_size:150x190"
+  ],
+  "nodes": [],
+  "inputs": [
+    {
+      "id": 0,
+      "name": "input",
+      "type": [
+        "float",
+        "float2",
+        "float3",
+        "float4",
+        "color",
+        "bool",
+        "int",
+        "uv",
+        "normal",
+        "position",
+        "sampler2D",
+        "samplerCube",
+        "sampler3D",
+        "sampler2DArray"
+      ]
+    }
+  ],
+  "outputs": [],
+  "properties": []
+}
