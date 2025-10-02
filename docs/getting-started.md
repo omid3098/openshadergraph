@@ -6,27 +6,52 @@ title: Getting Started
 
 Welcome to OpenShaderGraph! This guide will help you create your first shader material using the graph editor. For technical setup and development information, see [Developers](developers.md).
 
-## Your First Material
+## Your First Shader
 
 ### 1. Create a New Graph
 
-From the menu bar, select **File → New → PBR** to create a new PBR material graph.
+!!! example "Try this"
 
-!!! note "Graph Types"
+    === "Exercise"
 
-    You also can choose between **PBR**, **Unlit**, or **Toon** shading. All three follow the same graph structure.
+        1. From the menu bar select **File → New → PBR** to create a new PBR material graph.
+        2. Notice the breadcrumb at the top of the app. It should show **`Untitled Pbr > Surface > FragmentPass`**.
+        3. You should see a **FragmentOutput** node with a **3D Preview** node.
+        4. Try to add a **Compile Output** editor node right click on the canvas and type **Compile Output**.
+
+    === "Expected result"
+
+        - The breadcrumb displays **`Untitled Pbr > Surface > FragmentPass`**.
+        - You should have 3 nodes on the canvas: **FragmentOutput**, **3D Preview**, and **Compile Output**.
 
 ### 2. Understanding Graph Structure
 
-The breadcrumb at the top shows your current location: **`Untitled Pbr > Surface > FragmentPass`**
+As you've seen, the breadcrumb at the top shows your current location in the graph. something like:
 
-<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'doc/simple_pbr' }, window.location.origin)" class="md-button md-button--primary">Show Example</button>
+**`Untitled Pbr > Surface > FragmentPass`**
 
-A new material graph is organized hierarchically:
+<!--
+<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'doc/simple_pbr' }, window.location.origin)" class="md-button md-button--secondary">Load Example Graph</button> -->
+
+In OpenShaderGraph, every layer is a node. it is either a composition node or a primitive node. (Yes, inspired by OpenUSD!)
+
+- Composition nodes are nodes that contain other nodes.
+- Primitive nodes are nodes that do **not** contain other nodes.
 
 ```mermaid
 graph TD
-    A[Root Graph] --> B[Surface]
+    A[Composition] --> B[Composition ]
+    B --> C[Composition]
+    B --> D[Composition]
+    C --> E[Primitive]
+    D --> F[Primitive]
+```
+
+For the pbr graph, you just created, the hierarchy is:
+
+```mermaid
+graph TD
+    A[Untitled Pbr] --> B[Surface]
     B --> C[FragmentPass]
     B --> D[VertexPass]
     C --> E[FragmentOutput]
@@ -34,19 +59,21 @@ graph TD
 ```
 
 - **Surface**: Container for vertex and fragment rendering passes
-- **FragmentPass**: Where you build your material's appearance (color, roughness, etc.)
+- **FragmentPass**: Where you build your material's surface appearance (color, roughness, etc.)
 - **VertexPass**: Where you control vertex positions and attributes
-- **Output nodes**: Final connection points that feed into the engine
+- **Output nodes**: Nodes like Vertex and fragment output nodes are final connection points that feed into the engine.
 
-In OpenShaderGraph, every layer is a node. it is either a composition node or a primitive node. (Yes, inspired by OpenUSD!)
+!!! example "Try this"
 
-- Composition nodes are nodes that contain other nodes.
-- Primitive nodes are nodes that do **not** contain other nodes.
+    === "Exercise"
 
-!!! tip "Navigation"
+        1. Click breadcrumb items to navigate up the hierarchy
+        2. Double-click a composition node (like `Surface`) to drill down into its contents
 
-    - Click breadcrumb items to navigate up the hierarchy
-    - Double-click a group node (like `Surface`) to drill down into its contents
+    === "Expected result"
+
+        - You should be able to navigate up and down the hierarchy.
+        - You should be able to drill down into the contents of a composition node.
 
 ## Core Workflows
 
@@ -62,11 +89,16 @@ Use keyboard shortcuts to spawn commonly-used nodes instantly. Configure shortcu
 
 - Default: **Cmd+Shift** (macOS) or **Ctrl+Shift** (Windows/Linux) + key
 
-!!! tip "Connection Tips"
+!!! example "Try this"
 
-    - Compatible pins snap when hovering
-    - Delete a connection by clicking on the connction line and pressing **Delete** or **Backspace**
-    - Right-click a connection for more options
+    === "Exercise"
+        1. Try both methods of adding nodes to the graph.
+        2. Add a new hotkey to create a UV node. my recommendation is to use **U** so pressing **Cmd+Shift+U** will create a UV node.
+
+    === "Expected result"
+
+        - You should be able to add nodes to the graph using both methods.
+        - You should be able to create a UV node using your new hotkey.
 
 ### Editing Values
 
@@ -76,26 +108,33 @@ Click input fields directly on nodes to edit values:
 - **Colors**: Click the swatch to open a color picker
 - **Vectors**: Edit individual components
 
-## Working with Textures
+### Connecting Nodes
 
-To use a texture in your shader:
+To connect nodes, simply drag and drop the output pin of one node to the input pin of another node.
 
-1. **Add the Assets panel**: Right-click → add `Assets` editor node
+!!! example "Try this"
 
-<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'simple_pbr' }, window.location.origin)" class="md-button md-button--primary">Load Example Graph</button>
+    === "Exercise"
+        1. Add a Color node to the graph.
+        2. Connect from the output of the Color node to the Albedo input of the FragmentOutput node.
+        3. Change the color of the Color node and see the preview update.
 
-2. **Drag & drop**: Drag a texture from the Assets panel onto the canvas to create a `Texture` node
-3. **Add a sampler**: Create a `TextureSampler` node
-4. **Connect**: `Texture.texture` → `TextureSampler.texture`
-5. **Use the output**: Connect `TextureSampler.rgb` to your material inputs
+    === "Expected result"
 
-!!! info "UV Coordinates"
+        - You should be able to connect nodes to the graph.
+        - You should be able to change the color of the Color node and see the preview update.
 
-    The sampler's `uv` input uses built-in UVs by default. Connect a `UV` node to override or transform coordinates.
+!!! tip "Connection Tips"
+
+    - Compatible pins snap when hovering
+    - Delete a connection by selecting the connction line and pressing **Delete** or **Backspace**
+    - You can double click on a connection line to create a re-route node.
 
 ## Editor Nodes
 
 Editor Nodes provide tools and information but **don't affect generated shader code**. Add them via the context menu:
+
+<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'doc/editor_nodes' }, window.location.origin)" class="md-button md-button--secondary">Load Editor Nodes Graph</button>
 
 - **3D Preview**: Real-time material preview with lighting
 - **Assets**: Manage textures and models
@@ -104,87 +143,33 @@ Editor Nodes provide tools and information but **don't affect generated shader c
 - **Properties**: Quick access to selected node properties
 - **Value Probe**: Debug pin values in real-time
 
-## Previewing Your Work
+## Working with Textures
 
-The **3D Preview** panel renders your material in real-time using a three-point lighting setup.
+To use a texture in your shader you need to use the **Assets** editor node. then drag and drop the texture into the graph.
 
-[![Preview panel](./assets/04_preview_panel.png){ width="700" loading=lazy }](./assets/04_preview_panel.png){ .glightbox }
+!!! example "Try this"
 
-- Switch between **Sphere**, **Cube**, **Cylinder**, or **Model** (requires model asset)
-- Preview always uses `ThreeJS_GLSL` internally, regardless of export language
-- Lighting is preview-only—generated shader code remains environment-agnostic
+    === "Exercise"
+        1. Add the **Assets** editor node to the graph.
+        2. Drag and drop the texture into the graph.
+        3. Create a **TextureSampler** node.tex
+        4. Connect the **Texture.texture** pin to the **TextureSampler.texture** pin.
+        5. Connect the **TextureSampler.rgb** pin to the **FragmentOutput.Albedo** pin.
 
-## Exporting Shader Code
+    === "Expected result"
 
-Open the **Compile Output** panel to see your shader as code.
+        - You should be able to see the texture in the 3D Preview node applied on the object.
 
-[![Compile output](./assets/07_compile_output.png){ width="700" loading=lazy }](./assets/07_compile_output.png){ .glightbox }
+## Using the shader in your project
 
-- Default output: **Godot** shading language
-- Switch languages from the dropdown
-- Click **Copy** to export code to your clipboard
-- Your graph is the source of truth—code is generated on the fly
+!!! example "Try this"
 
-## Saving Your Work
+    === "Exercise"
+        1. Open the **Compile Output** editor node.
+        2. From the top menu select **File → Export** and choose a language from the list (menu entries show the language `name`, e.g. "ThreeJS GLSL" or "Godot").
+        3. The editor will compile the active graph using the selected language template and automatically download the generated shader using the language's primary file extension (for example `.glsl` or `.gdshader`).
 
-**File → Save** or **File → Save As** to store your graph.
+    === "Expected result"
 
-[![Save graph](./assets/08_save_graph.png){ width="700" loading=lazy }](./assets/08_save_graph.png){ .glightbox }
-
-- Graphs are saved as `.json` files
-- Recent files appear in **File → Open Recent**
-- Load example graphs from the **Examples** menu
-
-## Hands-On Tutorial: Color + Texture Blend
-
-Let's build a simple material that blends a solid color with a texture.
-
-**Step 1**: Load the starting point
-
-- **Examples → Basic Color** to load a simple colored material
-
-[![Open Basic Color example](./assets/09_open_example_basic_color.png){ width="700" loading=lazy }](./assets/09_open_example_basic_color.png){ .glightbox }
-
-**Step 2**: Add editor tools
-
-- Right-click → add **3D Preview**, **Assets**, and **Compile Output** panels
-
-[![Editor panels](./assets/10_editor_nodes_panels.png){ width="700" loading=lazy }](./assets/10_editor_nodes_panels.png){ .glightbox }
-
-**Step 3**: Create a texture node
-
-- Drag a texture from the **Assets** panel onto the canvas
-
-[![Create Texture node](./assets/11_assets_drag_texture.png){ width="700" loading=lazy }](./assets/11_assets_drag_texture.png){ .glightbox }
-
-**Step 4**: Add a texture sampler
-
-- Right-click → add **TextureSampler**
-- Connect `Texture.texture` → `TextureSampler.texture`
-
-[![Wire TextureSampler](./assets/12_texture_sampler_wiring.png){ width="700" loading=lazy }](./assets/12_texture_sampler_wiring.png){ .glightbox }
-
-**Step 5**: Blend with Lerp
-
-- Add a **Lerp** node and a **Float** node
-- Connect `Color.out` → `Lerp.a`
-- Connect `TextureSampler.rgb` → `Lerp.b`
-- Connect `Float.out` → `Lerp.t` (set to `0.5` for 50/50 blend)
-
-[![Lerp setup](./assets/13_lerp_setup.png){ width="700" loading=lazy }](./assets/13_lerp_setup.png){ .glightbox }
-
-**Step 6**: Output the result
-
-- Connect `Lerp.out` → `FragmentOutput.Albedo`
-
-[![Result](./assets/14_lerp_result_preview.png){ width="700" loading=lazy }](./assets/14_lerp_result_preview.png){ .glightbox }
-
-Try adjusting the Float value to change the blend ratio!
-
-## What's Next?
-
-- **Tutorials**: Step-by-step guides for common tasks
-  - [Basic Color Setup](tutorials/basic-color.md)
-  - [Adding Two Colors](tutorials/add-color-color.md)
-- **[Features Overview](features.md)**: Explore advanced capabilities
-- **[Developers Guide](developers.md)**: Setup for contributors and developers
+        - A file named like `UntitledPbr.glsl` or `UntitledPbr.gdshader` (based on your graph name and chosen language) is downloaded to your machine.
+        - The downloaded shader is produced from the active graph and should visually match the 3D Preview when equivalent lighting and uniform values are provided.

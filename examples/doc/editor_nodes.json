@@ -1,0 +1,181 @@
+{
+  "name": "edito_nodes",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                1090,
+                40
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ]
+            },
+            {
+              "id": 9,
+              "type": "editor_assets",
+              "position": [
+                1622,
+                45
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:assets",
+                "editor_size:758x352"
+              ]
+            },
+            {
+              "id": 11,
+              "type": "editor_properties",
+              "position": [
+                1093,
+                414
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:properties",
+                "editor_size:362x339"
+              ]
+            },
+            {
+              "id": 12,
+              "type": "editor_compile",
+              "position": [
+                1467,
+                417
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:compile",
+                "editor_size:480x340"
+              ]
+            },
+            {
+              "id": 13,
+              "type": "editor_graph_data",
+              "position": [
+                1957,
+                417
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:graphdata",
+                "editor_size:432x328"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

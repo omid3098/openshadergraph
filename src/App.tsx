@@ -135,6 +135,18 @@ function triggerDownload(name: string, contents: string) {
   URL.revokeObjectURL(url);
 }
 
+function triggerTextDownload(name: string, contents: string, mime: string = "text/plain") {
+  const blob = new Blob([contents], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 function getInitialTheme(): ThemeName {
   if (typeof document !== "undefined") {
     if (document.documentElement.classList.contains("dark")) return "dark";
@@ -190,6 +202,7 @@ export function App() {
   useLayoutEffect(() => { viewPathRef.current = viewPath; }, [viewPath]);
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
+  const [languages, setLanguages] = useState<Array<{ key: string; name: string; path: string }>>([]);
   const fileHandleRef = useRef<any | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [recentGraphs, setRecentGraphs] = useState<RecentGraphEntry[]>([]);
@@ -574,6 +587,18 @@ export function App() {
         if (isAbortError(err)) return;
         console.warn("Failed to load node palette", err);
       });
+    // Load available language templates for Export menu
+    (async () => {
+      try {
+        const res = await fetch("/api/languages", { signal: ctrl.signal });
+        const data = await res.json();
+        const list: Array<{ key: string; name: string; path: string }> = Array.isArray(data.languages) ? data.languages : [];
+        setLanguages(list);
+      } catch (err) {
+        if (isAbortError(err)) return;
+        console.warn("Failed to fetch languages", err);
+      }
+    })();
     return () => ctrl.abort();
   }, []);
 
@@ -1740,6 +1765,42 @@ export function App() {
     [openGraphFromContents, setRecentGraphs]
   );
 
+  const handleExportLanguage = useCallback(async (languageKey: string) => {
+    try {
+      const label = (() => {
+        const trimmed = (graphName || "UntitledGraph").trim();
+        return trimmed.length ? trimmed : "UntitledGraph";
+      })();
+      const deepGraph = JSON.parse(JSON.stringify(graphData));
+      const res = await fetch("/api/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ graph: deepGraph, language: languageKey, engine: "default" }),
+      });
+      if (!res.ok) throw new Error(`Compile failed: ${res.status}`);
+      const data = await res.json();
+      const code: string = String(data.code ?? "");
+      // Determine extension by looking up language pack file for extensions via /api/language
+      let ext = "txt";
+      try {
+        const url = new URL("/api/language", location.origin);
+        url.searchParams.set("name", languageKey);
+        const lr = await fetch(url.toString());
+        if (lr.ok) {
+          const langPack = await lr.json();
+          const exts = Array.isArray(langPack?.file_extensions) ? langPack.file_extensions : [];
+          if (exts.length && typeof exts[0] === "string") ext = exts[0];
+        }
+      } catch (_err) {
+        // fallback ext stays 'txt'
+      }
+      const file = `${label.replace(/\s+/g, "_")}.${ext}`;
+      triggerTextDownload(file, code, "text/plain");
+    } catch (err) {
+      console.warn("Export failed", err);
+    }
+  }, [graphData, graphName]);
+
   const handleClearRecent = useCallback(() => {
     for (const entry of recentGraphs) {
       void removeRecentGraphHandle(entry.name);
@@ -2609,6 +2670,17 @@ export function App() {
               <MenubarSeparator />
               <MenubarItem onClick={() => void handleSave()}>Save</MenubarItem>
               <MenubarItem onClick={() => void handleSaveAs()}>Save As…</MenubarItem>
+            <MenubarSeparator />
+            <MenubarSub>
+              <MenubarSubTrigger>Export</MenubarSubTrigger>
+              <MenubarSubContent>
+                {languages.map((lang) => (
+                  <MenubarItem key={lang.key} onClick={() => void handleExportLanguage(lang.key)}>
+                    {lang.name}
+                  </MenubarItem>
+                ))}
+              </MenubarSubContent>
+            </MenubarSub>
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
