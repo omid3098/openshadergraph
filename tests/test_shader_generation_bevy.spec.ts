@@ -31,7 +31,7 @@ describe("Bevy WGSL shader generation", () => {
     const { surface } = basic_color_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Bevy_WGSL.json", "basic_color");
     // Structure
-    expect(shader_code).toMatch(/@fragment\s+fn\s+main\s*\(\)\s*->\s*@location\(0\)\s+vec4<f32>\s*\{/);
+    expect(shader_code).toMatch(/@fragment\s+fn\s+main\s*\([^)]*\)\s*->\s*@location\(0\)\s+vec4<f32>\s*\{/);
     expect(shader_code).toMatch(/let\s+color_\d+\s*:\s*vec4<f32>\s*=\s*vec4<f32>\(1.0,\s*1.0,\s*1.0,\s*1.0\)\s*;/);
     // Returns a vec4
     expect(shader_code).toMatch(/return\s+vec4<f32>\(/);

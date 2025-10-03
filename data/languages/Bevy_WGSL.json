@@ -41,10 +41,10 @@
     },
     "fragment_pass": {
       "template": [
-        "@fragment fn main() -> @location(0) vec4<f32> {",
+        "@fragment fn main(@builtin(position) in_pos: vec4<f32>) -> @location(0) vec4<f32> {",
         "{{internal_nodes}}",
         "// Fallback return in case no fragment_output node writes a value",
-        "return vec4<f32>(0.0, 0.0, 0.0, 1.0);",
+        "\treturn vec4<f32>(0.0, 0.0, 0.0, 1.0);",
         "}"
       ],
       "properties": {
@@ -74,7 +74,7 @@
     "fragment_output": {
       "template": [
         "// Compose final fragment color (unlit baseline)",
-        "let _base: vec3<f32> = vec3<f32>({{inputs:0}});",
+        "let _base: vec3<f32> = {{inputs:0}};",
         "let _emission: vec3<f32> = vec3<f32>({{inputs:3}}) * {{inputs:23}};",
         "let _alpha: f32 = {{inputs:5}};",
         "return vec4<f32>(clamp(_base + _emission, vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(1.0, 1.0, 1.0)), clamp(_alpha, 0.0, 1.0));"
@@ -231,7 +231,7 @@
     "vertex_color": { "template": "let {{name}}: vec4<f32> = vec4<f32>(1.0, 1.0, 1.0, 1.0);" },
     "vertex_normal": { "template": "let {{name}}: vec3<f32> = vec3<f32>(0.0, 0.0, 1.0);" },
     "vertex_output": { "template": "/* vertex output noop for WGSL target */" },
-    "vertex_position": { "template": "let {{name}}: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);" },
+    "vertex_position": { "template": "let {{name}}: vec3<f32> = in_pos.xyz / 1000.0;" },
     "view_direction": { "template": "let {{name}}: vec3<f32> = vec3<f32>(0.0, 0.0, 1.0);",
       "properties": { "space": { "world": { "template": "" }, "object": { "template": "" }, "tangent": { "template": "" } } }
     },

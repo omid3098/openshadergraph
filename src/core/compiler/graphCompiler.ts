@@ -574,9 +574,10 @@ export class GraphCompiler {
         continue;
       }
       const prop = stripped.split("=")[0]?.trim();
-      const propKey = String(prop);
+      const propKey = String(prop ?? "");
       const propKeyNorm = normalizeKey(propKey);
-      const input_pin = node.inputs.find((inp: any) => normalizeKey(String(inp.name)) === propKeyNorm);
+      const pins = Array.isArray((node as any).inputs) ? ((node as any).inputs as any[]) : [];
+      const input_pin = pins.find((inp: any) => normalizeKey(String(inp?.name ?? "")) === propKeyNorm);
       const defVal = defaults.get(propKeyNorm);
       if (!input_pin || defVal === undefined) {
         out.push(line);
@@ -909,8 +910,14 @@ export class GraphCompiler {
       const re = new RegExp(`\\bvec${n}<f32>\\(([^,)]*)\\)`, "g");
       return src.replace(re, (_m: string, s: string) => {
         const expr = (s ?? "").trim();
-        if (expr.includes(",")) return _m; // already expanded
+        // If the expression already contains a comma it's already expanded
+        if (expr.includes(",")) return _m;
+        // If the expression is empty, emit zero constructor
         if (expr.length === 0) return `vec${n}<f32>(0.0)`;
+        // Avoid expanding when the inner expression is already a vector or swizzle
+        // (e.g., "foo.xyz", "vec3<f32>(...)" or function calls). These are
+        // not scalar values and should not be duplicated.
+        if (expr.includes(".") || expr.includes("(") || /\bvec[234]<f32>/.test(expr)) return _m;
         const parts = Array.from({ length: n }, () => expr).join(", ");
         return `vec${n}<f32>(${parts})`;
       });
@@ -1032,8 +1039,40 @@ export class GraphCompiler {
     // Constructor normalization based on language capability
     const caps = (this.lang_def as any)?.capabilities as { vectorCtorScalarSplat?: boolean } | undefined;
     if (caps?.vectorCtorScalarSplat) {
+      // First, collapse any redundant constructors where the inner expression
+      // is already a vector/swatch (e.g., `vec3<f32>(foo.xyz)` -> `foo.xyz`)
+      this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
       this.result_code = this.normalizeScalarVectorConstructors(this.result_code);
+      // Run collapse again to clean up any expansions that may have produced
+      // repeated identical components (defensive).
+      this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
     }
+  }
+
+  // Collapse constructors that wrap vector-like expressions or repeated
+  // identical components emitted by earlier passes. Examples handled:
+  // - vec3<f32>(foo.xyz) -> foo.xyz
+  // - vec3<f32>(foo.xyz, foo.xyz, foo.xyz) -> foo.xyz
+  // - vec4<f32>(bar.xyzw) -> bar.xyzw
+  private collapseRedundantVectorConstructors(code: string): string {
+    let out = code;
+    // vec3 cases: xyz or rgb swizzles
+    out = out.replace(/vec3<\s*f32\s*>\(\s*([A-Za-z0-9_]+\.(?:xyz|rgb|xy|yz|xz))\s*(?:,\s*\1\s*){0,2}\)/g, (_m: string, p1: string) => {
+      return p1;
+    });
+    // vec4 cases: xyzw or rgba swizzles
+    out = out.replace(/vec4<\s*f32\s*>\(\s*([A-Za-z0-9_]+\.(?:xyzw|rgba))\s*(?:,\s*\1\s*){0,3}\)/g, (_m: string, p1: string) => {
+      return p1;
+    });
+    // vec2 cases: xy or rg
+    out = out.replace(/vec2<\s*f32\s*>\(\s*([A-Za-z0-9_]+\.(?:xy|rg))\s*(?:,\s*\1\s*){0,1}\)/g, (_m: string, p1: string) => {
+      return p1;
+    });
+    // Collapse nested constructors like vec3<f32>(vec3<f32>(...)) -> vec3<f32>(...)
+    out = out.replace(/vec(2|3|4)<\s*f32\s*>\(\s*vec\1<\s*f32\s*>\(([^)]*)\)\s*\)/g, (_m: string, _n: string, inner: string) => {
+      return `vec${_n}<f32>(${inner})`;
+    });
+    return out;
   }
 }
 
@@ -1043,7 +1082,12 @@ GraphCompiler.prototype["normalizeScalarVectorConstructors"] = function (this: G
     const re = new RegExp(`\\bvec${n}<f32>\\(([^,)]*)\\)`, "g");
     return src.replace(re, (_m: string, s: string) => {
       const expr = (s ?? "").trim();
+      // If already expanded (contains comma), skip
+      if (expr.includes(",")) return _m;
+      // Empty -> zero constructor
       if (expr.length === 0) return `vec${n}<f32>(0.0)`;
+      // Avoid expanding when inner expression is vector-like or a swizzle or a function call
+      if (expr.includes(".") || expr.includes("(") || /\bvec[234]<f32>/.test(expr)) return _m;
       const parts = Array.from({ length: n }, () => expr).join(", ");
       return `vec${n}<f32>(${parts})`;
     });
