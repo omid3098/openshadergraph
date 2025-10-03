@@ -139,6 +139,16 @@ export const ZLanguagePack = z.object({
   name: z.string().min(1),
   version: z.string().min(1),
   file_extensions: z.array(z.string()).min(1),
+  types: z.record(z.object({
+    code: z.string().min(1),
+    constructor: z.string().min(1).optional(),
+    zero: z.string().min(1).optional(),
+    components: z.number().int().min(1).max(4).optional(),
+  })).optional(),
+  capabilities: z.object({
+    allowRgbSwizzle: z.boolean().optional(),
+    vectorCtorScalarSplat: z.boolean().optional(),
+  }).optional(),
   nodes: z.record(ZLanguageNodeTemplate),
   coordinates: z
     .object({

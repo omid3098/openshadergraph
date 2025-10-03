@@ -10,6 +10,16 @@
     "forward": "-z",
     "handedness": "right"
   },
+  "types": {
+    "float": { "code": "float", "constructor": "float", "zero": "0.0", "components": 1 },
+    "float2": { "code": "vec2", "constructor": "vec2", "zero": "vec2(0.0)", "components": 2 },
+    "float3": { "code": "vec3", "constructor": "vec3", "zero": "vec3(0.0)", "components": 3 },
+    "float4": { "code": "vec4", "constructor": "vec4", "zero": "vec4(0.0)", "components": 4 },
+    "matrix2": { "code": "mat2", "constructor": "mat2", "zero": "mat2(1.0)", "components": 2 },
+    "matrix3": { "code": "mat3", "constructor": "mat3", "zero": "mat3(1.0)", "components": 3 },
+    "matrix4": { "code": "mat4", "constructor": "mat4", "zero": "mat4(1.0)", "components": 4 }
+  },
+  "capabilities": { "allowRgbSwizzle": true, "vectorCtorScalarSplat": false },
   "nodes": {
     "surface": {
       "template": [

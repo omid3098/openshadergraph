@@ -1,12 +1,14 @@
+// Canonical schema types used across core and server
+
 import type { Graph, GraphNode, InputPin, LanguagePack, OutputPin } from "../graph/types";
 import { getCoordinateSystem, swizzleDirectionRefToTarget } from "../types/coordinates";
 import { getNodeTemplate } from "../schema/registry";
 import {
   chooseDominantPinType,
-  formatTypeForGLSL,
-  getPinTypeDescriptor,
+  getCoreTypeInfo,
   guessPinTypeFromLiteral,
   normalizePinType,
+  formatTypeForLanguage,
 } from "../types/pinTypes";
 import { getBuiltinPinType, isBuiltinToken, resolveBuiltinExpression } from "../types/builtinInputs";
 
@@ -177,9 +179,19 @@ export class GraphCompiler {
     const fromName = normalizePinType(from_type);
     const toName = normalizePinType(to_type);
     if (!fromName || !toName || fromName === toName) return value;
-    const fromDesc = getPinTypeDescriptor(fromName);
-    const toDesc = getPinTypeDescriptor(toName);
+    const fromDesc = getCoreTypeInfo(fromName);
+    const toDesc = getCoreTypeInfo(toName);
     if (!fromDesc || !toDesc) return value;
+
+    const langTypes = this.lang_def?.types as any as Record<string, { code: string; constructor?: string; components?: number }> | undefined;
+    const caps = (this.lang_def as any)?.capabilities as { allowRgbSwizzle?: boolean; vectorCtorScalarSplat?: boolean } | undefined;
+    const ctor = (d: ReturnType<typeof getCoreTypeInfo>) => {
+      if (!d) return "";
+      const override = langTypes?.[d.name]?.code;
+      if (override) return override;
+      // fallback: return normalized type name if language omitted mapping
+      return d.name;
+    };
 
     if (fromDesc.kind === toDesc.kind) {
       if (fromDesc.kind === "vector") {
@@ -188,40 +200,45 @@ export class GraphCompiler {
         if (fn > tn) {
           const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
           let swizzle = swz[tn];
-          if (fn === 4 && tn === 3) swizzle = "rgb";
-          if (fn === 4 && tn === 2) swizzle = "rg";
+          if (caps?.allowRgbSwizzle) {
+            if (fn === 4 && tn === 3) swizzle = "rgb";
+            if (fn === 4 && tn === 2) swizzle = "rg";
+          }
           return `${value}.${swizzle}`;
         }
         if (fn < tn) {
           // Promote lower-dimension vector to higher by appending 0.0 components
-          // GLSL requires explicit extra scalars: vec3(v2, 0.0), vec4(v3, 0.0), vec4(v2, 0.0, 0.0)
           const zeros = Array.from({ length: tn - fn }, () => "0.0").join(", ");
           const tail = zeros.length ? `, ${zeros}` : "";
-          return `${toDesc.glslType}(${value}${tail})`;
+          return `${ctor(toDesc)}(${value}${tail})`;
         }
         return value;
       }
       if (fromDesc.kind === "matrix") {
         if (fromDesc.components === toDesc.components) return value;
-        return `${toDesc.glslType}(${value})`;
+        return `${ctor(toDesc)}(${value})`;
       }
       return value;
     }
 
     if (fromDesc.kind === "scalar" && toDesc.kind === "vector") {
-      return `${toDesc.glslType}(${value})`;
+      if (caps?.vectorCtorScalarSplat) {
+        const splat = Array.from({ length: toDesc.components }, () => value).join(", ");
+        return `${ctor(toDesc)}(${splat})`;
+      }
+      return `${ctor(toDesc)}(${value})`;
     }
     if (fromDesc.kind === "vector" && toDesc.kind === "scalar") {
       return `${value}.x`;
     }
     if (fromDesc.kind === "scalar" && toDesc.kind === "matrix") {
-      return `${toDesc.glslType}(${value})`;
+      return `${ctor(toDesc)}(${value})`;
     }
     if (fromDesc.kind === "matrix" && toDesc.kind === "scalar") {
       return `${value}[0][0]`;
     }
     if (fromDesc.kind === "vector" && toDesc.kind === "matrix") {
-      return `${toDesc.glslType}(${value})`;
+      return `${ctor(toDesc)}(${value})`;
     }
     if (fromDesc.kind === "matrix" && toDesc.kind === "vector") {
       const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
@@ -624,7 +641,7 @@ export class GraphCompiler {
     if (needsType) {
       const nodeState = this.getNodeState(node);
       const resolved = nodeState.resolvedType ?? normalizePinType(node.outputs?.[0]?.type);
-      const formatted = formatTypeForGLSL(resolved);
+      const formatted = formatTypeForLanguage(resolved, this.lang_def?.name, this.lang_def?.types as any);
       if (formatted) {
         code = code.replace(/\{\{type\}\}/g, formatted);
       }
@@ -665,33 +682,28 @@ export class GraphCompiler {
     const outputs = node.outputs ?? [];
     if (!outputs.length) return "";
     const primaryType = normalizePinType(outputs[0]?.type);
-    const glslType = formatTypeForGLSL(primaryType);
+    const langType = formatTypeForLanguage(primaryType, this.lang_def?.name, this.lang_def?.types as any);
     const literal = this.getZeroLiteralForType(primaryType);
-    if (!glslType || !literal) {
+    if (!langType || !literal) {
       return `// ${node.type} skipped due to missing input`;
     }
     const unique = getUniqueNodeName(node);
-    return `${glslType} ${unique} = ${literal};`;
+    return `${langType} ${unique} = ${literal};`;
   }
 
   private getZeroLiteralForType(type?: string): string | undefined {
-    switch (type) {
-      case "float":
-        return "0.0";
-      case "float2":
-        return "vec2(0.0)";
-      case "float3":
-        return "vec3(0.0)";
-      case "float4":
-        return "vec4(0.0)";
-      case "matrix2":
-        return "mat2(1.0)";
-      case "matrix3":
-        return "mat3(1.0)";
-      case "matrix4":
-        return "mat4(1.0)";
-      default:
-        return undefined;
+    const t = type ?? "";
+    const langType = (this.lang_def?.types as any)?.[t];
+    if (langType?.zero) return langType.zero;
+    switch (t) {
+      case "float": return "0.0";
+      case "float2": return "vec2(0.0)";
+      case "float3": return "vec3(0.0)";
+      case "float4": return "vec4(0.0)";
+      case "matrix2": return "mat2(1.0)";
+      case "matrix3": return "mat3(1.0)";
+      case "matrix4": return "mat4(1.0)";
+      default: return undefined;
     }
   }
 
@@ -891,6 +903,25 @@ export class GraphCompiler {
     return out;
   }
 
+  // Expand scalar vector constructors if language requires scalar splat
+  private normalizeScalarVectorConstructors(code: string): string {
+    const expand = (src: string, n: number) => {
+      const re = new RegExp(`\\bvec${n}<f32>\\(([^,)]*)\\)`, "g");
+      return src.replace(re, (_m: string, s: string) => {
+        const expr = (s ?? "").trim();
+        if (expr.includes(",")) return _m; // already expanded
+        if (expr.length === 0) return `vec${n}<f32>(0.0)`;
+        const parts = Array.from({ length: n }, () => expr).join(", ");
+        return `vec${n}<f32>(${parts})`;
+      });
+    };
+    let out = code;
+    out = expand(out, 2);
+    out = expand(out, 3);
+    out = expand(out, 4);
+    return out;
+  }
+
   private add_meta_to_result() {
     const allMeta = new Set<string>();
     const propertyMeta = new Set<string>();
@@ -966,32 +997,21 @@ export class GraphCompiler {
       }
       return result;
     }
-    // If property exists but isn't annotated as enum (e.g., diff/minimal graphs), try language mapping directly
-    if (langNode?.properties?.[propId]) {
-      const dict: any = (langNode.properties as any)[propId] ?? {};
+    // If language mapping exists for this property, use it strictly; missing variants render nothing
+    const langPropDict: any = (langNode?.properties as any)?.[propId];
+    if (langPropDict) {
       const token = String(value ?? "");
-      // Try exact key, then common enum prefixes used in language packs
       const variant =
-        dict[token] ??
-        dict[`${propId}_${token}`] ??
-        dict[`wrap_${token}`] ??
-        dict[`filter_${token}`] ??
-        dict[`space_${token}`] ??
+        langPropDict[token] ??
+        langPropDict[`${propId}_${token}`] ??
+        langPropDict[`wrap_${token}`] ??
+        langPropDict[`filter_${token}`] ??
+        langPropDict[`space_${token}`] ??
         undefined;
-      if (variant) {
-        const tpl = (variant as any)?.template ?? "";
-        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
-        return plc ? { template: tpl, placement: plc } : { template: tpl };
-      }
-    }
-    if (!prop && langNode?.properties?.[propId]) {
-      const token = String(value ?? "");
-      const variant = (langNode.properties as any)[propId]?.[token];
-      if (variant) {
-        const tpl = (variant as any)?.template ?? "";
-        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
-        return plc ? { template: tpl, placement: plc } : { template: tpl };
-      }
+      if (!variant) return result; // no emission when mapping has no variant (e.g., boolean false)
+      const tpl = (variant as any)?.template ?? "";
+      const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
+      return plc ? { template: tpl, placement: plc } : { template: tpl };
     }
     if (prop?.type === "boolean") {
       return { template: value ? "true" : "false", placement: "inline" };
@@ -1009,5 +1029,28 @@ export class GraphCompiler {
     const exposed_code = exposed.length ? exposed.join("\n") + "\n" : "";
     this.result_code = this.result_code.replace("{{exposed_nodes}}", exposed_code);
     this.result_code = this.result_code.replace("{{internal_nodes}}", "");
+    // Constructor normalization based on language capability
+    const caps = (this.lang_def as any)?.capabilities as { vectorCtorScalarSplat?: boolean } | undefined;
+    if (caps?.vectorCtorScalarSplat) {
+      this.result_code = this.normalizeScalarVectorConstructors(this.result_code);
+    }
   }
 }
+
+// Expand vecN<f32>(s) -> vecN<f32>(s, ..., s) when language requires scalar splat
+GraphCompiler.prototype["normalizeScalarVectorConstructors"] = function (this: GraphCompiler, code: string): string {
+  const expand = (src: string, n: number) => {
+    const re = new RegExp(`\\bvec${n}<f32>\\(([^,)]*)\\)`, "g");
+    return src.replace(re, (_m: string, s: string) => {
+      const expr = (s ?? "").trim();
+      if (expr.length === 0) return `vec${n}<f32>(0.0)`;
+      const parts = Array.from({ length: n }, () => expr).join(", ");
+      return `vec${n}<f32>(${parts})`;
+    });
+  };
+  let out = code;
+  out = expand(out, 2);
+  out = expand(out, 3);
+  out = expand(out, 4);
+  return out;
+};
