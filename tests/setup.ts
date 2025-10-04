@@ -25,15 +25,41 @@ beforeAll(() => {
 // Optionally mock fetch for tests that don't need real network calls
 // This can be removed if tests properly mock fetch individually
 
-// Polyfill HTMLIFrameElement in jsdom to avoid `instanceof` RHS errors
-// ReactDOM may perform `element instanceof containerInfo.HTMLIFrameElement`.
-// In some test environments HTMLIFrameElement may be undefined which causes
-// a TypeError: Right-hand side of 'instanceof' is not an object. Provide a
-// minimal class so `instanceof` checks work safely.
+// Polyfill DOM constructors in test environment to avoid `instanceof` RHS errors
+// ReactDOM may perform `element instanceof containerInfo.HTMLIFrameElement` or
+// other instanceof checks. Some Node/jsdom test workers may lack these
+// constructors which results in TypeError: Right-hand side of 'instanceof' is
+// not an object. Define minimal safe classes only when missing.
+if (typeof (globalThis as any).HTMLElement === "undefined") {
+  Object.defineProperty(globalThis, "HTMLElement", {
+    value: class HTMLElement {},
+    configurable: true,
+    writable: true,
+  });
+}
+
 if (typeof (globalThis as any).HTMLIFrameElement === "undefined") {
-  if (typeof (globalThis as any).HTMLElement === "undefined") {
-    (globalThis as any).HTMLElement = class HTMLElement {};
-  }
-  (globalThis as any).HTMLIFrameElement = class HTMLIFrameElement extends (globalThis as any).HTMLElement {};
+  Object.defineProperty(globalThis, "HTMLIFrameElement", {
+    value: class HTMLIFrameElement extends (globalThis as any).HTMLElement {},
+    configurable: true,
+    writable: true,
+  });
+}
+
+// Also ensure Element and Node exist for broader compatibility with libraries
+// that rely on these constructors in instanceof checks.
+if (typeof (globalThis as any).Element === "undefined") {
+  Object.defineProperty(globalThis, "Element", {
+    value: class Element {},
+    configurable: true,
+    writable: true,
+  });
+}
+if (typeof (globalThis as any).Node === "undefined") {
+  Object.defineProperty(globalThis, "Node", {
+    value: class Node {},
+    configurable: true,
+    writable: true,
+  });
 }
 

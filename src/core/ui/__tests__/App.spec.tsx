@@ -94,7 +94,12 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders without commitGraphMutation initialization errors", async () => {
+  // Increase timeout for this test because importing and mounting <App />
+  // exercises a number of async effects (template loads, fetches, ResizeObserver)
+  // which can occasionally exceed the default 5s in slower CI/workers.
+  it(
+    "renders without commitGraphMutation initialization errors",
+    async () => {
     const { default: App } = await import("../../../App");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -118,5 +123,7 @@ describe("App", () => {
       warnSpy.mockRestore();
       errorSpy.mockRestore();
     }
-  });
+    },
+    20000
+  );
 });
