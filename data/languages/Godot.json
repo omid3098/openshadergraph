@@ -843,6 +843,18 @@
     "view_position": {
       "template": "vec3 {{name}} = NODE_POSITION_VIEW;"
     },
+    "position": {
+      "template": "vec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "object": { "template": "VERTEX" },
+          "view": { "template": "(VIEW_MATRIX * MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz" },
+          "world": { "template": "(MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz" },
+          "tangent": { "template": "vec3(0.0, 0.0, 0.0)" },
+          "absolute_world": { "template": "(MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz" }
+        }
+      }
+    },
     "instance_id": {
       "template": "float {{name}} = float(INSTANCE_ID);"
     },

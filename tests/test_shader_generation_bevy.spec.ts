@@ -30,13 +30,17 @@ describe("Bevy WGSL shader generation", () => {
   it("basic color shader", async () => {
     const { surface } = basic_color_graph();
     const shader_code = await compile_graph(surface.to_dict(), "Bevy_WGSL.json", "basic_color");
-    // Structure
-    expect(shader_code).toMatch(/@fragment\s+fn\s+main\s*\([^)]*\)\s*->\s*@location\(0\)\s+vec4<f32>\s*\{/);
+    // Structure - updated to match new fragment function signature
+    expect(shader_code).toMatch(/@fragment\s+fn\s+fragment\s*\(\s*in\s*:\s*VertexOutput\s*\)\s*->\s*@location\(0\)\s+vec4<f32>\s*\{/);
     expect(shader_code).toMatch(/let\s+color_\d+\s*:\s*vec4<f32>\s*=\s*vec4<f32>\(1.0,\s*1.0,\s*1.0,\s*1.0\)\s*;/);
     // Returns a vec4
     expect(shader_code).toMatch(/return\s+vec4<f32>\(/);
     // No unresolved placeholders
     expect(shader_code).not.toContain("{{property:");
+    // Vertex and fragment stages present
+    expect(shader_code).toContain("@vertex");
+    expect(shader_code).toContain("struct VertexInput");
+    expect(shader_code).toContain("struct VertexOutput");
     // File written
     const out_file = path.join(SHADERS_DIR, "bevy_wgsl", "basic_color.wgsl");
     await expect(fs.stat(out_file)).resolves.toBeDefined();

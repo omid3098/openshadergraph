@@ -810,6 +810,18 @@
     "view_position": {
       "template": "vec3 {{name}} = -vViewPosition;"
     },
+    "position": {
+      "template": "// __VERTEX_PASS_BEGIN__\nvec3 osg_{{name}}_obj = position;\nvec3 osg_{{name}}_view = (modelViewMatrix * vec4(position, 1.0)).xyz;\nvec3 osg_{{name}}_world = (modelMatrix * vec4(position, 1.0)).xyz;\n// __VERTEX_PASS_END__\nvarying vec3 osg_v{{name}};\nvec3 {{name}} = osg_v{{name}};",
+      "properties": {
+        "space": {
+          "object": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_obj;\n// __VERTEX_PASS_END__" },
+          "view": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_view;\n// __VERTEX_PASS_END__" },
+          "world": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_world;\n// __VERTEX_PASS_END__" },
+          "tangent": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = vec3(0.0, 0.0, 0.0);\n// __VERTEX_PASS_END__" },
+          "absolute_world": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_world;\n// __VERTEX_PASS_END__" }
+        }
+      }
+    },
     "instance_id": {
       "template": "float {{name}} = float(gl_InstanceID);"
     },
