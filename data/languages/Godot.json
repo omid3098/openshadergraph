@@ -74,16 +74,10 @@
         "AO_LIGHT_AFFECT = {{inputs:8}};",
         "CLEARCOAT = {{inputs:9}};",
         "CLEARCOAT_ROUGHNESS = {{inputs:10}};",
-        "TRANSMISSION = {{inputs:11}};",
-        "TRANSMISSION_ROUGHNESS = {{inputs:12}};",
         "SSS_STRENGTH = {{inputs:13}};",
         "SSS_TRANSMITTANCE_COLOR = vec4({{inputs:14}}, 1.0);",
         "ANISOTROPY = {{inputs:17}};",
-        "ANISOTROPY_FLOW = vec3({{inputs:18}});",
-        "IOR = {{inputs:19}};",
-        "REFRACTION = vec3({{inputs:20}});",
-        "THICKNESS = {{inputs:21}};",
-        "BACKLIGHT = vec3({{inputs:22}});",
+        "ANISOTROPY_FLOW = vec3({{inputs:18}}).xy;",
         "EMISSION = vec3({{inputs:3}}) * {{inputs:23}};",
         "{{property:enable_sheen}}",
         "ALPHA = {{inputs:5}};"
@@ -253,7 +247,7 @@
       "template": "float {{name}} = length({{inputs:0}});"
     },
     "separate2": {
-      "template": "vec2 {{name}} = {{inputs:0}};",
+      "template": "vec2 {{name}} = {{inputs:0}}.xy;",
       "outputs": {
         "x": "{{name}}.x",
         "y": "{{name}}.y"

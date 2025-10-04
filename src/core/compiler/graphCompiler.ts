@@ -269,7 +269,23 @@ export class GraphCompiler {
     const langNode = this.lang_def?.nodes?.[node.type];
     const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
     if (!outputs) return name;
-    const candidates = [output.name, String(output.id), output.name?.toLowerCase(), output.name?.toUpperCase()].filter(Boolean) as string[];
+    let templateOutputs: any[] | undefined;
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.outputs && Array.isArray(tpl.outputs)) templateOutputs = tpl.outputs as any[];
+    } catch (_err) {
+      templateOutputs = undefined;
+    }
+    const templateName = templateOutputs?.find((o) => o?.id === output.id)?.name;
+    const candidates = [
+      output.name,
+      templateName,
+      String(output.id),
+      output.name?.toLowerCase(),
+      output.name?.toUpperCase(),
+      templateName ? String(templateName).toLowerCase() : undefined,
+      templateName ? String(templateName).toUpperCase() : undefined,
+    ].filter(Boolean) as string[];
     for (const key of candidates) {
       if (key in outputs) {
         const tpl = outputs[key];
@@ -388,13 +404,26 @@ export class GraphCompiler {
     const targetState = this.getNodeState(target);
     const inputState = this.getPinState(input);
     inputState.missingRef = false;
+    let outputType: string | undefined;
     if (Array.isArray(output_pin.type)) {
-      const t = targetState.resolvedType ?? (output_pin.type[0] as string | undefined);
-      if (t) inputState.refType = t; else delete inputState.refType;
-    } else {
-      const t = targetState.resolvedType ?? (output_pin.type as string | undefined);
-      if (t) inputState.refType = t; else delete inputState.refType;
+      outputType = normalizePinType(output_pin.type);
+    } else if (typeof output_pin.type === "string") {
+      outputType = output_pin.type;
     }
+    if (!outputType) {
+      try {
+        const tpl = getNodeTemplate(target.type);
+        const tplOutputs = tpl?.outputs;
+        if (Array.isArray(tplOutputs)) {
+          const tplOut = tplOutputs.find((o: any) => o?.id === output_id);
+          if (tplOut) outputType = normalizePinType(tplOut.type);
+        }
+      } catch (_err) {
+        outputType = undefined;
+      }
+    }
+    const resolvedType = targetState.resolvedType ?? outputType;
+    if (resolvedType) inputState.refType = resolvedType; else delete inputState.refType;
     const expr = this.get_output_expression(target, output_pin);
     inputState.refNodeId = target.id;
     inputState.refExpression = expr;
@@ -424,12 +453,21 @@ export class GraphCompiler {
       nodeState.allowResolvedType = true;
     }
 
+    let templateInputs: any[] | undefined;
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.inputs && Array.isArray(tpl.inputs)) templateInputs = tpl.inputs as any[];
+    } catch (_err) {
+      templateInputs = undefined;
+    }
+
     const candidate: string[] = [];
     const fallback: string[] = [];
-    for (const input of node.inputs) {
+    for (let idx = 0; idx < node.inputs.length; idx++) {
+      const input = node.inputs[idx];
       this.ensure_input_prepared(node, input);
       const pinState = this.getPinState(input);
-      const declared = normalizePinType(input.type);
+      const declared = normalizePinType(input.type ?? templateInputs?.[idx]?.type);
       if (pinState.refType) candidate.push(pinState.refType);
       if (declared) {
         fallback.push(declared);

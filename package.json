@@ -52,7 +52,8 @@
     "test:e2e:install:all": "bunx playwright install --with-deps",
     "bench": "vitest bench",
     "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix --max-warnings=0"
+    "lint:fix": "eslint . --fix --max-warnings=0",
+    "validate:godot": "bun run --bun scripts/validateGodot.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",

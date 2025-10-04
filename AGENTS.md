@@ -31,6 +31,7 @@ Minimal graph rules:
 - `bun run test:coverage` → meets global thresholds (lines/statements ≥ 43%); CI enforces this
 - First time only: `bun run test:e2e:install`
 - `bun run test:e2e` → all E2E tests green (Playwright - Chromium only; matches CI)
+- When touching language packs, shader templates, or compiler logic: `bun run validate:godot` (manual guard; run locally and keep logs for PR context)
 
 ## Agent Validation & Automation Requirements
 
@@ -47,6 +48,8 @@ Any AI agent, bot, or automation that proposes, implements, or approves changes 
 - If changes include or affect E2E tests or browser behavior, run (first time only):
   - `bun run test:e2e:install`
   - `bun run test:e2e`
+- If changes touch shader language packs, templates, or compiler behavior:
+  - `bun run validate:godot` (attach local logs; not part of CI)
 
 Agent behavior requirements:
 
