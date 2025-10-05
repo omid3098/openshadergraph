@@ -1,5 +1,5 @@
 {
-  "name": "lerp_color",
+  "name": "addition_color",
   "nodes": [
     {
       "id": 1,
@@ -112,12 +112,6 @@
                   "id": 0,
                   "value": "../9/0"
                 }
-              ],
-              "properties": [
-                {
-                  "id": "enable_refraction",
-                  "value": false
-                }
               ]
             },
             {
@@ -137,16 +131,16 @@
               "id": 7,
               "type": "color",
               "position": [
-                373,
-                -58
+                429,
+                1
               ],
               "inputs": [
                 {
                   "id": 0,
                   "value": [
-                    0.23921568627450981,
-                    0.3058823529411765,
                     1,
+                    0.48627450980392156,
+                    0.48627450980392156,
                     1
                   ]
                 }
@@ -170,59 +164,18 @@
             },
             {
               "id": 8,
-              "type": "editor_compile",
-              "position": [
-                1110,
-                421
-              ],
-              "meta": [
-                "editor_node",
-                "editor_panel:compile",
-                "editor_size:480x340"
-              ]
-            },
-            {
-              "id": 9,
-              "type": "lerp",
-              "position": [
-                643,
-                40
-              ],
-              "inputs": [
-                {
-                  "id": 0,
-                  "value": "../7/0"
-                },
-                {
-                  "id": 1,
-                  "value": "../10/0"
-                },
-                {
-                  "id": 2,
-                  "value": "../12/1"
-                }
-              ],
-              "outputs": [
-                {
-                  "id": 0,
-                  "value": "../5/0"
-                }
-              ]
-            },
-            {
-              "id": 10,
               "type": "color",
               "position": [
-                373,
-                65
+                426,
+                128
               ],
               "inputs": [
                 {
                   "id": 0,
                   "value": [
+                    0.3411764705882353,
+                    0.5254901960784314,
                     1,
-                    0.23921568627450981,
-                    0.3215686274509804,
                     1
                   ]
                 }
@@ -245,42 +198,26 @@
               ]
             },
             {
-              "id": 12,
-              "type": "separate2",
+              "id": 9,
+              "type": "add",
               "position": [
-                374,
-                191
+                654,
+                47
               ],
               "inputs": [
                 {
                   "id": 0,
-                  "value": "../14/0"
-                }
-              ],
-              "outputs": [
+                  "value": "../7/0"
+                },
                 {
                   "id": 1,
-                  "value": "../9/2"
+                  "value": "../8/0"
                 }
-              ]
-            },
-            {
-              "id": 14,
-              "type": "position",
-              "position": [
-                168,
-                202
               ],
               "outputs": [
                 {
                   "id": 0,
-                  "value": "../12/0"
-                }
-              ],
-              "properties": [
-                {
-                  "id": "space",
-                  "value": "object"
+                  "value": "../5/0"
                 }
               ]
             }

@@ -811,7 +811,7 @@
       "template": "vec3 {{name}} = -vViewPosition;"
     },
     "position": {
-      "template": "// __VERTEX_PASS_BEGIN__\nvec3 osg_{{name}}_obj = position;\nvec3 osg_{{name}}_view = (modelViewMatrix * vec4(position, 1.0)).xyz;\nvec3 osg_{{name}}_world = (modelMatrix * vec4(position, 1.0)).xyz;\n// __VERTEX_PASS_END__\nvarying vec3 osg_v{{name}};\nvec3 {{name}} = osg_v{{name}};",
+      "template": "// __VERTEX_PASS_BEGIN__\nvec3 osg_{{name}}_obj = position;\nvec3 osg_{{name}}_view = (modelViewMatrix * vec4(position, 1.0)).xyz;\nvec3 osg_{{name}}_world = (modelMatrix * vec4(position, 1.0)).xyz;\n// __VERTEX_PASS_END__\n{{property:space}}\nvarying vec3 osg_v{{name}};\nvec3 {{name}} = osg_v{{name}};",
       "properties": {
         "space": {
           "object": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_obj;\n// __VERTEX_PASS_END__" },

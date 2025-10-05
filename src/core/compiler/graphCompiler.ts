@@ -661,10 +661,13 @@ export class GraphCompiler {
 
   private populateTemplate(node: GraphNode, template: string, options: { mutate?: boolean; stripDefaults?: boolean } = {}): string {
     let code = template;
-    if (code.includes("{{name}}")) {
-      const unique = getUniqueNodeName(node);
-      code = code.replace(/\{\{name\}\}/g, unique);
-    }
+    let cachedUnique: string | undefined;
+    const replaceNamePlaceholders = () => {
+      if (!code.includes("{{name}}")) return;
+      if (!cachedUnique) cachedUnique = getUniqueNodeName(node);
+      code = code.replace(/\{\{name\}\}/g, cachedUnique);
+    };
+    replaceNamePlaceholders();
 
     const needsType = code.includes("{{type}}");
     this.prepare_node_inputs(node, needsType);
@@ -689,6 +692,8 @@ export class GraphCompiler {
     if (code.includes("{{property:")) {
       code = this.replacePropertyPlaceholders(node, code);
     }
+
+    replaceNamePlaceholders();
 
     if (code.includes("{{inputs:")) {
       code = this.replaceInputPlaceholders(node, code);
@@ -1044,6 +1049,11 @@ export class GraphCompiler {
     }
     // If language mapping exists for this property, use it strictly; missing variants render nothing
     const langPropDict: any = (langNode?.properties as any)?.[propId];
+    const applyName = (text: string | undefined) => {
+      if (!text || !text.includes("{{name}}")) return text ?? "";
+      const unique = getUniqueNodeName(node);
+      return text.replace(/\{\{name\}\}/g, unique);
+    };
     if (langPropDict) {
       const token = String(value ?? "");
       const variant =
@@ -1054,14 +1064,14 @@ export class GraphCompiler {
         langPropDict[`space_${token}`] ??
         undefined;
       if (!variant) return result; // no emission when mapping has no variant (e.g., boolean false)
-      const tpl = (variant as any)?.template ?? "";
+      const tpl = applyName((variant as any)?.template ?? "");
       const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
       return plc ? { template: tpl, placement: plc } : { template: tpl };
     }
     if (prop?.type === "boolean") {
       return { template: value ? "true" : "false", placement: "inline" };
     }
-    return { template: coercePropertyValue(value), placement: "inline" };
+    return { template: applyName(coercePropertyValue(value)), placement: "inline" };
   }
 
   public compile() {
@@ -1074,6 +1084,7 @@ export class GraphCompiler {
     const exposed_code = exposed.length ? exposed.join("\n") + "\n" : "";
     this.result_code = this.result_code.replace("{{exposed_nodes}}", exposed_code);
     this.result_code = this.result_code.replace("{{internal_nodes}}", "");
+    this.result_code = this.hoistVaryingDeclarations(this.result_code);
     // Constructor normalization based on language capability
     const caps = (this.lang_def as any)?.capabilities as { vectorCtorScalarSplat?: boolean } | undefined;
     if (caps?.vectorCtorScalarSplat) {
@@ -1085,6 +1096,34 @@ export class GraphCompiler {
       // repeated identical components (defensive).
       this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
     }
+  }
+
+  private hoistVaryingDeclarations(code: string): string {
+    const varyingRe = /^[\t ]*varying\s+[^;\n]+;\s*(?:\r?\n)?/gm;
+    const declarations: string[] = [];
+    const stripped = code.replace(varyingRe, (match) => {
+      const decl = match.trim();
+      if (decl.length && !declarations.includes(decl)) {
+        declarations.push(decl.replace(/;\s*$/, ";"));
+      }
+      return "";
+    });
+    if (!declarations.length) {
+      return code;
+    }
+    const block = `${declarations.join("\n")}\n`;
+    const commentIdx = stripped.indexOf("// Varyings from default vertex shader");
+    if (commentIdx !== -1) {
+      const insertAfter = stripped.indexOf("\n", commentIdx);
+      const pos = insertAfter === -1 ? stripped.length : insertAfter + 1;
+      return `${stripped.slice(0, pos)}${block}${stripped.slice(pos)}`;
+    }
+    const precisionMatch = stripped.match(/precision\s+highp\s+float;\s*/);
+    if (precisionMatch?.index !== undefined) {
+      const pos = precisionMatch.index + precisionMatch[0].length;
+      return `${stripped.slice(0, pos)}\n${block}${stripped.slice(pos)}`;
+    }
+    return `${block}${stripped}`;
   }
 
   // Collapse constructors that wrap vector-like expressions or repeated

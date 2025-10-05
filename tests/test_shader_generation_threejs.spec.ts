@@ -158,6 +158,18 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).not.toContain("{{definition}}");
   });
 
+  it("wires position node through vertex varyings", async () => {
+    const raw = await fs.readFile(path.join(ROOT, "examples", "lerp_color.json"), "utf8");
+    const graph = JSON.parse(raw);
+    const surface = graph.nodes.find((node: any) => node?.type === "surface");
+    expect(surface).toBeTruthy();
+    const shader_code = await compile_graph(surface, "ThreeJS_GLSL.json", "lerp_color_varyings");
+    const { fragment, vertexChunk } = extractPreviewShaders(shader_code);
+    expect(fragment).toMatch(/varying vec3 osg_vposition_\d+;/);
+    expect(fragment).toMatch(/vec3 position_\d+ = osg_vposition_\d+;/);
+    expect(vertexChunk).toMatch(/osg_vposition_\d+ = osg_position_\d+_obj;/);
+  });
+
   it("dot, normalize, normal/view nodes compile (ThreeJS)", async () => {
     const { surface } = dot_normalize_view_graph();
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "dot_normalize_view");

@@ -18,6 +18,7 @@ export type ParsedShader = {
   fragment: string;
   uniforms: ParsedUniform[];
   samplers: ParsedSampler[];
+  varyings: string[];
 };
 
 // Match lines like: "uniform vec4 color_3 = vec4(1.0, 0.0, 0.0, 1.0);"
@@ -50,14 +51,29 @@ function parseInitToValue(type: string, init: string): number | number[] {
 }
 
 export function extractPreviewShaders(source: string): { fragment: string; vertexChunk: string } {
-  const begin = source.indexOf(VERTEX_BEGIN_TOKEN);
-  const end = source.indexOf(VERTEX_END_TOKEN);
-  if (begin === -1 || end === -1 || end < begin) {
-    return { fragment: source, vertexChunk: "" };
+  let cursor = 0;
+  const fragmentPieces: string[] = [];
+  const chunkPieces: string[] = [];
+  while (cursor < source.length) {
+    const begin = source.indexOf(VERTEX_BEGIN_TOKEN, cursor);
+    if (begin === -1) {
+      fragmentPieces.push(source.slice(cursor));
+      break;
+    }
+    const chunkStart = begin + VERTEX_BEGIN_TOKEN.length;
+    const end = source.indexOf(VERTEX_END_TOKEN, chunkStart);
+    if (end === -1) {
+      // Malformed pair; keep the rest of the source untouched to avoid mangling output
+      fragmentPieces.push(source.slice(cursor));
+      break;
+    }
+    fragmentPieces.push(source.slice(cursor, begin));
+    const chunk = source.slice(chunkStart, end).replace(/^[\r\n]+|[\r\n]+$/g, "");
+    if (chunk.trim().length) chunkPieces.push(chunk);
+    cursor = end + VERTEX_END_TOKEN.length;
   }
-  const chunkStart = begin + VERTEX_BEGIN_TOKEN.length;
-  const vertexChunk = source.slice(chunkStart, end).replace(/^[\r\n]+|[\r\n]+$/g, "");
-  const fragment = `${source.slice(0, begin)}${source.slice(end + VERTEX_END_TOKEN.length)}`;
+  const fragment = fragmentPieces.join("");
+  const vertexChunk = chunkPieces.join("\n");
   return { fragment, vertexChunk };
 }
 
@@ -88,7 +104,20 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
     seen.add(name);
     samplers.push({ type, name });
   }
-  return { fragment: out, uniforms, samplers };
+  const varyingMatches = [
+    ...out.matchAll(/(^|\n)\s*(varying\s+[A-Za-z0-9_]+\s+[A-Za-z_][A-Za-z0-9_]*\s*;)/g),
+  ];
+  const varyings: string[] = [];
+  const varyingSeen = new Set<string>();
+  for (const match of varyingMatches) {
+    const decl = match[2];
+    if (!decl) continue;
+    const canonical = decl.replace(/\s+/g, " ").replace(/\s*;$/, ";").trim();
+    if (varyingSeen.has(canonical)) continue;
+    varyingSeen.add(canonical);
+    varyings.push(canonical);
+  }
+  return { fragment: out, uniforms, samplers, varyings };
 }
 
 function formatVertexChunk(chunk: string): string {
@@ -144,13 +173,33 @@ function buildUniformDeclarations(parsed?: ParsedShader): string {
 export function buildPreviewVertexShader(chunk?: string, parsed?: ParsedShader): string {
   const formatted = formatVertexChunk(chunk?.trim() ?? "");
   const uniformDecls = buildUniformDeclarations(parsed);
-  return `
-precision highp float;
-${uniformDecls}varying vec2 vUv;
-varying vec3 vNormal;
-varying vec3 vObjectNormal;
-varying vec3 vViewPosition;
-void main() {
+  const defaultVaryingDecls = [
+    "varying vec2 vUv;",
+    "varying vec3 vNormal;",
+    "varying vec3 vObjectNormal;",
+    "varying vec3 vViewPosition;",
+  ];
+  const defaultNames = new Set(
+    defaultVaryingDecls.map((decl) => decl.split(/\s+/).pop()?.replace(/;$/, "") ?? "")
+  );
+  const extraVaryings: string[] = [];
+  const extraSeen = new Set<string>();
+  for (const decl of parsed?.varyings ?? []) {
+    const trimmed = decl.trim();
+    if (!trimmed.startsWith("varying")) continue;
+    const match = trimmed.match(/varying\s+[A-Za-z0-9_]+\s+([A-Za-z_][A-Za-z0-9_]*)/);
+    const name = match?.[1];
+    if (!name || defaultNames.has(name) || extraSeen.has(name)) continue;
+    extraSeen.add(name);
+    extraVaryings.push(trimmed.endsWith(";") ? trimmed : `${trimmed};`);
+  }
+  let header = "precision highp float;\n";
+  header += uniformDecls;
+  header += `${defaultVaryingDecls.join("\n")}\n`;
+  if (extraVaryings.length) {
+    header += `${extraVaryings.join("\n")}\n`;
+  }
+  return `${header}void main() {
   vUv = uv;
   vec3 osg_InputPosition = position;
   vec3 osg_InputNormal = normal;
