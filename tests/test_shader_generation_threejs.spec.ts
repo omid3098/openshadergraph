@@ -110,7 +110,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toMatch(/vec2 float2_\d+ = vec2\(0.5, 0.25\);/);
     expect(fragment).toMatch(/vec3 float3_\d+ = vec3\(0.1, 0.2, 0.3\);/);
     expect(fragment).toMatch(/vec4 float4_\d+ = vec4\(0.9, 0.7, 0.5, 0.25\);/);
-    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+, float2_\d+\);/);
+    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture2D\(texture_\d+, float2_\d+\);/);
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(texture_sampler_\d+\.rgb\);/);
     expect(fragment).toMatch(/vec3 emission\s*=\s*vec3\(float3_\d+\)(?:\s*\*\s*[^\n;]+)?;/);
     expect(fragment).toMatch(/float alpha\s*=\s*float4_\d+\.x;/);
@@ -125,14 +125,14 @@ describe("ThreeJS GLSL shader generation", () => {
     const { surface } = texture_sampler_default_uv_graph();
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "texture_sampler_builtin_uv");
     const { fragment } = extractPreviewShaders(shader_code);
-    expect(fragment).toMatch(/texture\(texture_\d+,\s*vUv\)/);
+    expect(fragment).toMatch(/texture2D\(texture_\d+,\s*vUv\)/);
   });
 
   it("exposes rgb and channel outputs for texture sampler (ThreeJS)", async () => {
     const { surface } = texture_sampler_channels_graph();
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "texture_sampler_channels");
     const { fragment } = extractPreviewShaders(shader_code);
-    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+,\s*vUv\)/);
+    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture2D\(texture_\d+,\s*vUv\)/);
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(texture_sampler_\d+\.rgb\);/);
     expect(fragment).toMatch(/roughness[^\n]*texture_sampler_\d+\.r/);
     expect(fragment).toMatch(/float alpha\s*=\s*texture_sampler_\d+\.a;/);

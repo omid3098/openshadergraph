@@ -111,8 +111,12 @@ describe("App", () => {
         </ReactFlowProvider>
       );
 
+    let rendered: ReturnType<typeof render> | undefined;
+
     try {
-      expect(renderApp).not.toThrow();
+      expect(() => {
+        rendered = renderApp();
+      }).not.toThrow();
       await Promise.resolve();
       await Promise.resolve();
       expect(
@@ -122,6 +126,7 @@ describe("App", () => {
     } finally {
       warnSpy.mockRestore();
       errorSpy.mockRestore();
+      rendered?.unmount();
     }
     },
     20000

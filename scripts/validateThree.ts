@@ -28,7 +28,9 @@ function prepareFragmentSource(code: string): string {
 async function compileShaderInPage(page: import("@playwright/test").Page, source: string): Promise<CompileResult> {
   return await page.evaluate<CompileResult, string>((code) => {
     const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    // cast to any because TypeScript DOM types may not include all WebGL overloads in this
+    // script execution environment. The runtime (Playwright) will provide a WebGLRenderingContext.
+    const gl = (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) as any;
     if (!gl) {
       return { success: false, log: "WebGL context unavailable" };
     }

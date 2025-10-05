@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api";
 import { useGraphState } from "@/core/ui/GraphStateContext";
 import { resolveInspectorNodeId, type InspectorNodeLike } from "@/core/ui/inspector";
 
@@ -68,9 +69,8 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
     let cancelled = false;
     (async () => {
       try {
-        const url = new URL("/api/language", location.origin);
-        url.searchParams.set("name", langKey);
-        const res = await fetch(url.toString());
+        const params = new URLSearchParams({ name: langKey });
+        const res = await apiFetch(`/api/language?${params.toString()}`);
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as LanguagePack;
         if (!cancelled) setLangPack(data);

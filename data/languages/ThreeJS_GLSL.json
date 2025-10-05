@@ -289,7 +289,7 @@
       }
     },
     "texture_sampler": {
-      "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});",
+      "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture2D({{inputs:0}}, {{inputs:1}});",
       "properties": {
         "wrap_mode": {
           "wrap_repeat": {
@@ -909,7 +909,7 @@
       }
     },
     "triplanar": {
-      "template": "{{property:space}}\nvec3 {{name}}_n = normalize({{name}}_normal);\nvec3 {{name}}_w = pow(abs({{name}}_n), vec3({{inputs:4}}));\n{{name}}_w = {{name}}_w / max(dot({{name}}_w, vec3(1.0)), 1e-5);\nvec2 {{name}}_uvx = {{name}}_pos.yz * {{inputs:3}};\nvec2 {{name}}_uvy = {{name}}_pos.xz * {{inputs:3}};\nvec2 {{name}}_uvz = {{name}}_pos.xy * {{inputs:3}};\nvec4 {{name}}_sample_x = texture({{inputs:0}}, {{name}}_uvx);\nvec4 {{name}}_sample_y = texture({{inputs:0}}, {{name}}_uvy);\nvec4 {{name}}_sample_z = texture({{inputs:0}}, {{name}}_uvz);\nvec4 {{name}} = {{name}}_sample_x * {{name}}_w.x + {{name}}_sample_y * {{name}}_w.y + {{name}}_sample_z * {{name}}_w.z;",
+      "template": "{{property:space}}\nvec3 {{name}}_n = normalize({{name}}_normal);\nvec3 {{name}}_w = pow(abs({{name}}_n), vec3({{inputs:4}}));\n{{name}}_w = {{name}}_w / max(dot({{name}}_w, vec3(1.0)), 1e-5);\nvec2 {{name}}_uvx = {{name}}_pos.yz * {{inputs:3}};\nvec2 {{name}}_uvy = {{name}}_pos.xz * {{inputs:3}};\nvec2 {{name}}_uvz = {{name}}_pos.xy * {{inputs:3}};\nvec4 {{name}}_sample_x = texture2D({{inputs:0}}, {{name}}_uvx);\nvec4 {{name}}_sample_y = texture2D({{inputs:0}}, {{name}}_uvy);\nvec4 {{name}}_sample_z = texture2D({{inputs:0}}, {{name}}_uvz);\nvec4 {{name}} = {{name}}_sample_x * {{name}}_w.x + {{name}}_sample_y * {{name}}_w.y + {{name}}_sample_z * {{name}}_w.z;",
       "properties": {
         "space": {
           "world": {
@@ -945,7 +945,7 @@
       }
     },
     "parallax": {
-      "template": "vec3 {{name}}_view = normalize({{inputs:2}});\nfloat {{name}}_height = texture({{inputs:0}}, {{inputs:1}}).r;\nfloat {{name}}_parallax = ({{name}}_height - 0.5) * {{inputs:3}};\nvec2 {{name}}_offset = {{name}}_view.xy / max(abs({{name}}_view.z), 1e-3) * {{name}}_parallax;\nvec2 {{name}}_uv = {{inputs:1}} - {{name}}_offset;\nfloat {{name}}_depth = {{name}}_height;\nvec2 {{name}} = {{name}}_uv;",
+      "template": "vec3 {{name}}_view = normalize({{inputs:2}});\nfloat {{name}}_height = texture2D({{inputs:0}}, {{inputs:1}}).r;\nfloat {{name}}_parallax = ({{name}}_height - 0.5) * {{inputs:3}};\nvec2 {{name}}_offset = {{name}}_view.xy / max(abs({{name}}_view.z), 1e-3) * {{name}}_parallax;\nvec2 {{name}}_uv = {{inputs:1}} - {{name}}_offset;\nfloat {{name}}_depth = {{name}}_height;\nvec2 {{name}} = {{name}}_uv;",
       "outputs": {
         "uv": "{{name}}",
         "depth": "{{name}}_depth"

@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import type { Dirent } from "fs";
 import path from "path";
 import type { Graph } from "../src/core/graph/types";
 import { NodeBuilder } from "../src/core/graph/node";
@@ -10,7 +11,7 @@ export async function readExampleGraphs(warn?: (msg: string) => void): Promise<E
   const examplesDir = path.resolve(process.cwd(), "examples");
 
   async function walk(dir: string, prefix = ""): Promise<void> {
-    let entries: fs.Dirent[] = [];
+    let entries: Dirent[] = [];
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch (err) {
