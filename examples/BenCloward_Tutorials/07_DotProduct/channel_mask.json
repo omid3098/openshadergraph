@@ -1,0 +1,277 @@
+{
+  "name": "channel_mask",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                1090,
+                40
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ],
+              "properties": [
+                {
+                  "id": "primitive",
+                  "value": "cube"
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "texture",
+              "position": [
+                101,
+                -101
+              ],
+              "name": "UV Grid",
+              "meta": [
+                "exposed"
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "source",
+                  "value": "https://threejs.org/examples/textures/uv_grid_opengl.jpg"
+                },
+                {
+                  "id": "texture_type",
+                  "value": "source_color"
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "texture_sampler",
+              "position": [
+                363,
+                -101
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../8/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "wrap_mode",
+                  "value": "repeat"
+                },
+                {
+                  "id": "filter_mode",
+                  "value": "linear"
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "dot",
+              "position": [
+                654,
+                41
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../13/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../5/0"
+                }
+              ]
+            },
+            {
+              "id": 12,
+              "type": "editor_note",
+              "position": [
+                116,
+                425
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:note",
+                "editor_size:620x200"
+              ],
+              "properties": [
+                {
+                  "id": "text",
+                  "value": "Channel Mask Example. For  more information check this video by Ben Cloward:\nhttps://youtu.be/sD6y-hUxEck?si=zTXnfS_oX5R_XzFl\n"
+                }
+              ]
+            },
+            {
+              "id": 13,
+              "type": "float4",
+              "position": [
+                363,
+                239
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    1,
+                    0,
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": true
+                },
+                {
+                  "id": "expose_name",
+                  "value": "Channel Mask"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
