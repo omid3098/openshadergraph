@@ -1,0 +1,274 @@
+{
+  "name": "DotProductPower",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../12/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "shading_model",
+                  "value": "unlit"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                1090,
+                40
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ]
+            },
+            {
+              "id": 7,
+              "type": "normal_vector",
+              "position": [
+                146,
+                -31
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "space",
+                  "value": "world"
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "view_direction",
+              "position": [
+                146,
+                129
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../9/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "space",
+                  "value": "world"
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "dot",
+              "position": [
+                404,
+                45
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../7/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../8/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../12/0"
+                }
+              ]
+            },
+            {
+              "id": 11,
+              "type": "editor_compile",
+              "position": [
+                1092,
+                407
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:compile",
+                "editor_size:512x343"
+              ]
+            },
+            {
+              "id": 12,
+              "type": "power",
+              "position": [
+                640,
+                44
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../13/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../5/0"
+                }
+              ]
+            },
+            {
+              "id": 13,
+              "type": "float",
+              "position": [
+                404,
+                173
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    3
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../12/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

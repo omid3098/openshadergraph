@@ -53,6 +53,7 @@
     "bench": "vitest bench",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
+    "gates": "bun run scripts/gates.ts",
     "validate:godot": "bun run --bun scripts/validateGodot.ts",
     "validate:three": "bun run --bun scripts/validateThree.ts",
     "validate:shaders": "bun run validate:godot && bun run validate:three"
