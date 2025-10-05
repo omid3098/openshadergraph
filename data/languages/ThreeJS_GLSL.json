@@ -326,7 +326,7 @@
       }
     },
     "texture_sampler_cube": {
-      "template": "{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, normalize({{inputs:1}}));",
+      "template": "{{property:filter_mode}}\nvec4 {{name}} = textureCube({{inputs:0}}, normalize({{inputs:1}}));",
       "properties": {
         "filter_mode": {
           "filter_linear": {
@@ -365,7 +365,7 @@
       "properties": {
         "space": {
           "world": {
-            "template": "normalize(transpose(mat3(viewMatrix)) * vNormal)"
+            "template": "normalize(vObjectNormal)"
           },
           "object": {
             "template": "normalize(vObjectNormal)"
@@ -762,7 +762,7 @@
       "properties": {
         "space": {
           "world": {
-            "template": "normalize(transpose(mat3(viewMatrix)) * {{name}}_t)"
+            "template": "normalize({{name}}_t)"
           },
           "object": {
             "template": "normalize(mat3(modelMatrix) * {{name}}_t)"
@@ -781,7 +781,7 @@
       "properties": {
         "space": {
           "world": {
-            "template": "normalize(transpose(mat3(viewMatrix)) * {{name}}_b)"
+            "template": "normalize({{name}}_b)"
           },
           "object": {
             "template": "normalize(mat3(modelMatrix) * {{name}}_b)"
@@ -805,7 +805,7 @@
       "template": "float {{name}} = gl_FragCoord.z;"
     },
     "world_position": {
-      "template": "vec3 {{name}} = cameraPosition - transpose(mat3(viewMatrix)) * vViewPosition;"
+      "template": "vec3 {{name}} = cameraPosition - vViewPosition;"
     },
     "view_position": {
       "template": "vec3 {{name}} = -vViewPosition;"
