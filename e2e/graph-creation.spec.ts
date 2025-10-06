@@ -17,13 +17,23 @@ test.describe("Graph Creation Flow", () => {
     // Wait for canvas to be ready
     await page.waitForSelector(".react-flow", { timeout: 10000 });
     
-    // Right-click on canvas to open context menu. Use bounding box to click near center
-    const canvas = page.locator(".react-flow");
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('Canvas bounding box not found');
-    const cx = Math.round(box.x + box.width / 2);
-    const cy = Math.round(box.y + box.height / 2);
-    await page.mouse.click(cx, cy, { button: 'right' });
+    // Right-click on the React Flow pane to open context menu via a synthetic event.
+    await page.waitForSelector(".react-flow__pane", { timeout: 10000 });
+    await page.evaluate(() => {
+      const pane = document.querySelector<HTMLElement>(".react-flow__pane");
+      if (!pane) throw new Error("Graph pane element not found");
+      const rect = pane.getBoundingClientRect();
+      const clientX = rect.left + rect.width / 2;
+      const clientY = rect.top + rect.height / 2;
+      const evt = new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+        clientX,
+        clientY,
+      });
+      pane.dispatchEvent(evt);
+    });
 
     // Wait for context menu with a slightly increased timeout to reduce flakiness
     await page.waitForSelector('[role="menu"], [data-radix-menu-content]', { timeout: 10000 });
