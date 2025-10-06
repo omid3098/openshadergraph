@@ -1,0 +1,427 @@
+{
+  "name": "matcap",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                1960,
+                -120
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../8/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "shading_model",
+                  "value": "unlit"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                2160,
+                -120
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ],
+              "properties": [
+                {
+                  "id": "primitive",
+                  "value": "sphere"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "type": "texture",
+              "position": [
+                1760,
+                -420
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../8/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "source",
+                  "value": ""
+                },
+                {
+                  "id": "texture_type",
+                  "value": "source_color"
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "texture_sampler",
+              "position": [
+                1760,
+                -200
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../7/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../17/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../5/0"
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "normal_vector",
+              "position": [
+                360,
+                -220
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "space",
+                  "value": "object"
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "transform",
+              "position": [
+                560,
+                -220
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../11/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "vector_type",
+                  "value": "direction"
+                },
+                {
+                  "id": "conversion",
+                  "value": "object_to_view"
+                }
+              ]
+            },
+            {
+              "id": 11,
+              "type": "normalize",
+              "position": [
+                760,
+                -220
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../12/0"
+                }
+              ]
+            },
+            {
+              "id": 12,
+              "type": "separate3",
+              "position": [
+                960,
+                -220
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../11/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../13/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../13/1"
+                }
+              ]
+            },
+            {
+              "id": 13,
+              "type": "combine2",
+              "position": [
+                1160,
+                -220
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../12/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../12/1"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../15/0"
+                }
+              ]
+            },
+            {
+              "id": 14,
+              "type": "float2",
+              "position": [
+                1360,
+                -320
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    0.5,
+                    0.5
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../15/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": 15,
+              "type": "multiply",
+              "position": [
+                1360,
+                -220
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../13/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../14/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../17/0"
+                }
+              ]
+            },
+            {
+              "id": 16,
+              "type": "float2",
+              "position": [
+                1560,
+                -320
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    0.5,
+                    0.5
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../17/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": 17,
+              "type": "add",
+              "position": [
+                1560,
+                -220
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../15/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../16/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../8/1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
