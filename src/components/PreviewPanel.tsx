@@ -857,6 +857,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             <canvas
               ref={canvasRef}
               className="nodrag nowheel"
+              data-testid="preview-canvas"
               style={{ display: "block", width: "100%", height: "100%" }}
             />
           </div>
@@ -937,6 +938,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
             <canvas
               ref={canvasRef}
               className="nodrag nowheel nopan"
+              data-testid="preview-canvas"
               style={{ display: "block", width: "100%", height: "100%", touchAction: "none" }}
             />
           </div>
