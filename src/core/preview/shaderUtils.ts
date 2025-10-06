@@ -25,6 +25,8 @@ export type ParsedShader = {
 const UNIFORM_INIT_RE = /(^|\n)\s*uniform\s+(?<type>float|vec2|vec3|vec4)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?<init>[^;]+);/g;
 const VERTEX_BEGIN_TOKEN = "// __VERTEX_PASS_BEGIN__";
 const VERTEX_END_TOKEN = "// __VERTEX_PASS_END__";
+const PROJECTION_MATRIX_UNIFORM_RE = /uniform\s+mat[234]\s+projectionMatrix\b/;
+const PROJECTION_MATRIX_REF_RE = /\bprojectionMatrix\b/;
 
 function parseInitToValue(type: string, init: string): number | number[] {
   const t = type.trim();
@@ -116,6 +118,16 @@ export function parseUniformsAndSanitize(fragmentSource: string): ParsedShader {
     if (varyingSeen.has(canonical)) continue;
     varyingSeen.add(canonical);
     varyings.push(canonical);
+  }
+  const needsProjectionUniform = PROJECTION_MATRIX_REF_RE.test(out) && !PROJECTION_MATRIX_UNIFORM_RE.test(out);
+  if (needsProjectionUniform) {
+    const precisionMatch = out.match(/precision\s+(highp|mediump|lowp)\s+float\s*;/);
+    if (precisionMatch) {
+      const insertIndex = precisionMatch.index! + precisionMatch[0].length;
+      out = `${out.slice(0, insertIndex)}\nuniform mat4 projectionMatrix;${out.slice(insertIndex)}`;
+    } else {
+      out = `uniform mat4 projectionMatrix;\n${out}`;
+    }
   }
   return { fragment: out, uniforms, samplers, varyings };
 }

@@ -31,6 +31,22 @@ void main(){ gl_FragColor = vec4(u_color, 1.0); }
   expect(by.get("u_tint")?.value).toEqual([0.1, 0.2, 0.3, 0.4]);
   expect(parsed.varyings).toEqual([]);
 });
+
+  it("injects projectionMatrix uniform when referenced", () => {
+    const src = `precision highp float;\nvoid main(){ vec4 clip = projectionMatrix * vec4(1.0); gl_FragColor = clip; }`;
+    const parsed = parseUniformsAndSanitize(src);
+    expect(parsed.fragment).toMatch(/uniform\s+mat4\s+projectionMatrix\s*;/);
+    const firstIndex = parsed.fragment.indexOf("uniform mat4 projectionMatrix;");
+    const precisionIndex = parsed.fragment.indexOf("precision highp float;");
+    expect(firstIndex).toBeGreaterThan(precisionIndex);
+  });
+
+  it("does not duplicate projectionMatrix uniform if already declared", () => {
+    const src = `precision highp float;\nuniform mat4 projectionMatrix;\nvoid main(){ gl_FragColor = projectionMatrix * vec4(1.0); }`;
+    const parsed = parseUniformsAndSanitize(src);
+    const matches = parsed.fragment.match(/uniform\s+mat4\s+projectionMatrix/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
 });
 
 it("extracts vertex chunk markers and rebuilds vertex shader", () => {
