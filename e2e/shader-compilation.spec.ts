@@ -1,4 +1,4 @@
-import { test, expect, Page, Response } from "@playwright/test";
+import { test, expect, Page, Response, ConsoleMessage } from "@playwright/test";
 
 async function gotoApp(page: Page) {
   await page.addInitScript(() => {
@@ -43,14 +43,94 @@ async function ensureCompilePanelOpen(page: Page) {
   await expect(page.getByLabel("Language")).toBeVisible({ timeout: 10000 });
 }
 
-function waitForCompile(page: Page, expectedLanguage?: string): Promise<Response> {
+type CompileWaitOptions = {
+  language?: string;
+  engine?: string;
+};
+
+function waitForCompile(page: Page, options?: CompileWaitOptions): Promise<Response> {
   return page.waitForResponse((response) => {
     if (!response.url().includes("/api/compile")) return false;
     if (response.request().method() !== "POST") return false;
-    if (!expectedLanguage) return true;
+    if (!options) return true;
     const body = response.request().postData();
-    return typeof body === "string" && body.includes(`"language":"${expectedLanguage}"`);
+    if (typeof body !== "string") return false;
+    if (options.language && !body.includes(`"language":"${options.language}"`)) return false;
+    if (options.engine && !body.includes(`"engine":"${options.engine}"`)) return false;
+    return true;
   });
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function openExample(page: Page, path: string[]) {
+  if (!path.length) return;
+  const trigger = page.getByRole("menuitem", { name: /^Examples$/i }).first();
+  await trigger.hover();
+  await trigger.click();
+  const rootMenu = page.getByRole("menu", { name: /^Examples$/i }).first();
+  await expect(rootMenu).toBeVisible({ timeout: 5000 });
+  let currentMenu = rootMenu;
+  for (let i = 0; i < path.length; i++) {
+    const segment = path[i];
+    const matcher = new RegExp(`^${escapeRegex(segment)}$`, "i");
+    const item = currentMenu.getByRole("menuitem", { name: matcher }).first();
+    const beforeCount = await page.getByRole("menu").count();
+    await item.hover();
+    const isLast = i === path.length - 1;
+    if (isLast) {
+      await item.click();
+      break;
+    }
+    await page.waitForFunction(
+      (prev) => {
+        const menus = Array.from(document.querySelectorAll('[role="menu"]'));
+        return menus.length > prev;
+      },
+      beforeCount,
+      { timeout: 2000 }
+    );
+    const menus = page.getByRole("menu");
+    const newCount = await menus.count();
+    currentMenu = menus.nth(newCount - 1);
+  }
+  await page.keyboard.press("Escape");
+}
+
+function capturePreviewConsoleErrors(page: Page): () => string[] {
+  const errors = new Set<string>();
+  const consoleHandler = (msg: ConsoleMessage) => {
+    if (msg.type() !== "error") return;
+    const text = msg.text();
+    if (/THREE\.WebGLProgram: Shader Error/i.test(text)) {
+      errors.add(text.trim());
+      return;
+    }
+    if (/Fragment shader is not compiled/i.test(text)) {
+      errors.add(text.trim());
+      return;
+    }
+    if (/\[preview-render-error\]/i.test(text)) {
+      errors.add(text.trim());
+    }
+  };
+  const pageErrorHandler = (err: Error | any) => {
+    const message = err?.message ? `[pageerror] ${err.message}` : `[pageerror] ${String(err)}`;
+    errors.add(message.trim());
+  };
+  page.on("console", consoleHandler);
+  page.on("pageerror", pageErrorHandler);
+  let stopped = false;
+  return () => {
+    if (!stopped) {
+      page.off("console", consoleHandler);
+      page.off("pageerror", pageErrorHandler);
+      stopped = true;
+    }
+    return Array.from(errors);
+  };
 }
 
 test.describe("Shader Compilation", () => {
@@ -60,7 +140,7 @@ test.describe("Shader Compilation", () => {
 
     await expect(page.getByLabel("Language")).toContainText(/ThreeJS/i);
 
-    const godotCompile = waitForCompile(page, "Godot");
+    const godotCompile = waitForCompile(page, { language: "Godot" });
     await page.getByLabel("Language").click();
     await page.getByRole("option", { name: "Godot" }).click();
 
@@ -73,7 +153,7 @@ test.describe("Shader Compilation", () => {
     expect(godotBody).toContain('"language":"Godot"');
     await expect(page.getByLabel("Language")).toContainText(/Godot/i);
 
-    const glslCompile = waitForCompile(page, "ThreeJS_GLSL");
+    const glslCompile = waitForCompile(page, { language: "ThreeJS_GLSL" });
     await page.getByLabel("Language").click();
     await page.getByRole("option", { name: "ThreeJS GLSL" }).click();
 
@@ -96,5 +176,22 @@ test.describe("Shader Compilation", () => {
     await toggleViewMenuItem(page, /^Preview/i);
     const previewCanvas = page.locator('canvas[data-engine^="three.js"]').first();
     await expect(previewCanvas).toBeVisible();
+  });
+
+  test("DistanceFade example preview compiles without WebGL errors", async ({ page }) => {
+    const stopCapture = capturePreviewConsoleErrors(page);
+    await gotoApp(page);
+    await toggleViewMenuItem(page, /^Preview/i);
+    const previewCanvas = page.locator('canvas[data-engine^="three.js"]').first();
+    await expect(previewCanvas).toBeVisible();
+
+    const previewCompile = waitForCompile(page, { language: "ThreeJS_GLSL", engine: "preview" });
+    await openExample(page, ["BenCloward Tutorials", "09 InputVectors", "DistanceFade"]);
+    const response = await previewCompile;
+    expect(response.ok()).toBeTruthy();
+    await page.waitForTimeout(500);
+
+    const errors = stopCapture();
+    expect(errors, `ThreeJS preview errors detected:\n${errors.join("\n\n")}`).toHaveLength(0);
   });
 });
