@@ -1260,6 +1260,7 @@ export class GraphCompiler {
       // repeated identical components (defensive).
       this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
     }
+    this.result_code = this.collapseExtraBlankLines(this.result_code);
   }
 
   private hoistVaryingDeclarations(code: string): string {
@@ -1314,6 +1315,22 @@ export class GraphCompiler {
       return `vec${_n}<f32>(${inner})`;
     });
     return out;
+  }
+
+  private collapseExtraBlankLines(code: string): string {
+    const lines = code.split("\n");
+    const out: string[] = [];
+    let blankCount = 0;
+    for (const line of lines) {
+      if (line.trim().length === 0) {
+        blankCount += 1;
+        if (blankCount > 1) continue;
+      } else {
+        blankCount = 0;
+      }
+      out.push(line);
+    }
+    return out.join("\n");
   }
 }
 

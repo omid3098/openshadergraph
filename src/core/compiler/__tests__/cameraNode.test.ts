@@ -53,5 +53,6 @@ describe("camera node", () => {
     expect(code).not.toContain(`${prefix}_z_buffer_sign`);
     expect(code).not.toContain(`${prefix}_width`);
     expect(code).not.toContain(`${prefix}_height`);
+    expect(code).not.toMatch(/\n\s*\n\s*\n/);
   });
 });
