@@ -8,6 +8,8 @@
 
 import { spawn } from "bun";
 import { existsSync } from "fs";
+import os from "os";
+import path from "path";
 
 // ANSI color codes
 const colors = {
@@ -54,6 +56,11 @@ const gates = [
     name: "Test Coverage",
     command: "bun run test:coverage",
     description: "Coverage meets threshold (lines/statements ≥ 43%)",
+  },
+  {
+    name: "Production Build",
+    command: "bun run build",
+    description: "Build production bundle (dist/)",
   },
   {
     name: "E2E Tests",
@@ -152,18 +159,36 @@ function printSummary(results: GateResult[], totalDuration: number) {
   }
 }
 
-async function checkPrerequisites(): Promise<boolean> {
-  // Check if Chromium is installed for E2E tests
-  const playwrightPath = "./.cache/ms-playwright";
-  const hasPlaywright = existsSync(playwrightPath);
-  
-  if (!hasPlaywright) {
-    console.log(`${colors.yellow}${colors.bright}⚠ Warning:${colors.reset} Playwright Chromium not detected.`);
-    console.log(`${colors.yellow}  Run: ${colors.bright}bun run test:e2e:install${colors.reset}${colors.yellow} before running E2E tests.${colors.reset}\n`);
-    return false;
+async function ensurePlaywrightBrowsers(): Promise<void> {
+  const cacheCandidates = [
+    path.join(process.cwd(), ".cache", "ms-playwright"),
+    path.join(os.homedir(), ".cache", "ms-playwright"),
+  ];
+
+  const hasBrowsers = cacheCandidates.some((candidate) => existsSync(candidate));
+  if (hasBrowsers) return;
+
+  console.log(
+    `${colors.yellow}${colors.bright}⚠ Warning:${colors.reset} Playwright Chromium not detected. Installing via 'bun run test:e2e:install'...`
+  );
+
+  const installResult = await runCommand("bun run test:e2e:install");
+  process.stdout.write(installResult.output);
+  process.stderr.write(installResult.error);
+
+  if (!installResult.success) {
+    console.log(`${colors.red}${colors.bright}✗ Failed to install Playwright browsers. E2E gates will likely fail.${colors.reset}\n`);
+    return;
   }
-  
-  return true;
+
+  const postInstallHasBrowsers = cacheCandidates.some((candidate) => existsSync(candidate));
+  if (postInstallHasBrowsers) {
+    console.log(`${colors.green}${colors.bright}✓ Playwright Chromium installed.${colors.reset}\n`);
+  } else {
+    console.log(
+      `${colors.yellow}${colors.bright}⚠ Warning:${colors.reset} Playwright install completed but browsers not detected. Continuing...\n`
+    );
+  }
 }
 
 async function main() {
@@ -175,10 +200,7 @@ async function main() {
   console.log(`${colors.cyan}Working Directory:${colors.reset} ${process.cwd()}\n`);
 
   // Check prerequisites
-  const hasPrereqs = await checkPrerequisites();
-  if (!hasPrereqs) {
-    console.log(`${colors.yellow}Continuing with available gates...${colors.reset}\n`);
-  }
+  await ensurePlaywrightBrowsers();
 
   const results: GateResult[] = [];
   const startTime = performance.now();

@@ -22,7 +22,9 @@ describe("camera node", () => {
 
     const prefix = prefixMatch![1];
     const expectedSnippets = [
-      `mat3 osg_${prefix}_inv_view = transpose(mat3(viewMatrix));`,
+      `mat3 osg_${prefix}_view_rot = mat3(viewMatrix);`,
+      `mat3 osg_${prefix}_inv_view = mat3(`,
+      `vec3(osg_${prefix}_view_rot[0][0], osg_${prefix}_view_rot[1][0], osg_${prefix}_view_rot[2][0])`,
       `vec3 ${prefix}_direction = -normalize(osg_${prefix}_inv_view[2]);`,
       `float ${prefix}_orthographic = projectionMatrix[3][3] > 0.5 ? 1.0 : 0.0;`,
       `${prefix}_near_plane = (m32 + 1.0) / m22;`,
