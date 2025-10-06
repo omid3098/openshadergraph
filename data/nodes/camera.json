@@ -1,0 +1,19 @@
+{
+  "id": -1,
+  "type": "camera",
+  "name": "Camera",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [],
+  "outputs": [
+    { "id": 0, "name": "Position", "type": "float3" },
+    { "id": 1, "name": "Direction", "type": "float3" },
+    { "id": 2, "name": "Orthographic", "type": "float" },
+    { "id": 3, "name": "Near Plane", "type": "float" },
+    { "id": 4, "name": "Far Plane", "type": "float" },
+    { "id": 5, "name": "Z Buffer Sign", "type": "float" },
+    { "id": 6, "name": "Width", "type": "float" },
+    { "id": 7, "name": "Height", "type": "float" }
+  ]
+}
