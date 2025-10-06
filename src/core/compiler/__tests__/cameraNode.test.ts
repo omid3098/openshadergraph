@@ -5,15 +5,19 @@ import { buildNodeHarness } from "@/core/testing/nodeHarness";
 import { GraphCompiler } from "@/core/compiler/graphCompiler";
 
 describe("camera node", () => {
-  let language: LanguagePack;
+  let threeLanguage: LanguagePack;
+  let godotLanguage: LanguagePack;
 
   beforeAll(async () => {
-    language = await loadLanguage("ThreeJS_GLSL");
+    [threeLanguage, godotLanguage] = await Promise.all([
+      loadLanguage("ThreeJS_GLSL"),
+      loadLanguage("Godot"),
+    ]);
   });
 
-  it("emits camera parameters for the preview shader", () => {
+  it("emits only used camera outputs", () => {
     const harness = buildNodeHarness("camera");
-    const compiler = new GraphCompiler(harness.surface, language);
+    const compiler = new GraphCompiler(harness.surface, threeLanguage);
     compiler.compile();
 
     const code = compiler.result_code;
@@ -21,24 +25,34 @@ describe("camera node", () => {
     expect(prefixMatch).not.toBeNull();
 
     const prefix = prefixMatch![1];
-    const expectedSnippets = [
-      `mat3 osg_${prefix}_view_rot = mat3(viewMatrix);`,
-      `mat3 osg_${prefix}_inv_view = mat3(`,
-      `vec3(osg_${prefix}_view_rot[0][0], osg_${prefix}_view_rot[1][0], osg_${prefix}_view_rot[2][0])`,
-      `vec3 ${prefix}_direction = -normalize(osg_${prefix}_inv_view[2]);`,
-      `float ${prefix}_orthographic = projectionMatrix[3][3] > 0.5 ? 1.0 : 0.0;`,
-      `${prefix}_near_plane = (m32 + 1.0) / m22;`,
-      `${prefix}_near_plane = m32 / (m22 - 1.0);`,
-      `${prefix}_far_plane = (m32 - 1.0) / m22;`,
-      `${prefix}_far_plane = m32 / (m22 + 1.0);`,
-      `vec4 ${prefix}_near_clip = projectionMatrix * vec4(0.0, 0.0, -${prefix}_near_plane, 1.0);`,
-      `float ${prefix}_z_buffer_sign = sign(${prefix}_far_ndc - ${prefix}_near_ndc);`,
-      `${prefix}_width = 2.0 / sx;`,
-      `${prefix}_height = 2.0 / sy;`,
-    ];
+    expect(code).not.toContain(`mat3 osg_${prefix}_view_rot`);
+    expect(code).not.toContain(`mat3 osg_${prefix}_inv_view`);
+    expect(code).not.toContain(`vec3 ${prefix}_direction`);
+    expect(code).not.toContain(`float ${prefix}_orthographic`);
+    expect(code).not.toContain(`${prefix}_near_plane`);
+    expect(code).not.toContain(`${prefix}_far_plane`);
+    expect(code).not.toContain(`${prefix}_z_buffer_sign`);
+    expect(code).not.toContain(`${prefix}_width`);
+    expect(code).not.toContain(`${prefix}_height`);
+  });
 
-    for (const snippet of expectedSnippets) {
-      expect(code).toContain(snippet);
-    }
+  it("emits only used camera outputs in Godot", () => {
+    const harness = buildNodeHarness("camera");
+    const compiler = new GraphCompiler(harness.surface, godotLanguage);
+    compiler.compile();
+
+    const code = compiler.result_code;
+    const prefixMatch = code.match(/vec3 (camera_\d+)_position = CAMERA_POSITION_WORLD;/);
+    expect(prefixMatch).not.toBeNull();
+
+    const prefix = prefixMatch![1];
+    expect(code).not.toContain(`vec3 ${prefix}_direction`);
+    expect(code).not.toContain(`float ${prefix}_orthographic`);
+    expect(code).not.toContain(`${prefix}_near_plane`);
+    expect(code).not.toContain(`${prefix}_far_plane`);
+    expect(code).not.toContain(`${prefix}_z_buffer_sign`);
+    expect(code).not.toContain(`${prefix}_width`);
+    expect(code).not.toContain(`${prefix}_height`);
+    expect(code).not.toMatch(/\n\s*\n\s*\n/);
   });
 });

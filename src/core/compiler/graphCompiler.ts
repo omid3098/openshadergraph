@@ -31,6 +31,10 @@ type NodeState = {
   code?: string;
   resolvedType?: string;
   allowResolvedType?: boolean;
+  usedOutputs?: Set<number>;
+  outputIdByKey?: Map<string, number>;
+  outputKeyById?: Map<number, string>;
+  outputExprByKey?: Map<string, string>;
 };
 
 function fmtNum(n: number): string {
@@ -106,6 +110,12 @@ export class GraphCompiler {
       this.nodeState.set(node, state);
     }
     return state;
+  }
+
+  private markOutputUsage(node: GraphNode, outputId: number) {
+    const state = this.getNodeState(node);
+    if (!state.usedOutputs) state.usedOutputs = new Set();
+    state.usedOutputs.add(outputId);
   }
 
   private getPinState(pin: InputPin): PinState {
@@ -264,63 +274,137 @@ export class GraphCompiler {
     return String(value);
   }
 
-  private get_output_expression(node: GraphNode, output: OutputPin): string {
-    const name = getUniqueNodeName(node);
-    const langNode = this.lang_def?.nodes?.[node.type];
-    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
-    if (!outputs) return name;
-    let templateOutputs: any[] | undefined;
-    try {
-      const tpl = getNodeTemplate(node.type);
-      if (tpl?.outputs && Array.isArray(tpl.outputs)) templateOutputs = tpl.outputs as any[];
-    } catch (_err) {
-      templateOutputs = undefined;
-    }
-    const templateName = templateOutputs?.find((o) => o?.id === output.id)?.name;
-    const candidates = [
-      output.name,
-      templateName,
-      String(output.id),
-      output.name?.toLowerCase(),
-      output.name?.toUpperCase(),
-      templateName ? String(templateName).toLowerCase() : undefined,
-      templateName ? String(templateName).toUpperCase() : undefined,
-    ].filter(Boolean) as string[];
-    for (const key of candidates) {
-      if (key in outputs) {
-        const tpl = outputs[key];
-        if (typeof tpl === "string") return tpl.replace(/\{\{name\}\}/g, name);
-      }
-    }
-    return name;
+  private normalizeOutputKey(key: string | undefined): string {
+    return typeof key === "string" ? key.trim().replace(/\s+/g, " ").toLowerCase() : "";
   }
 
-  private resolve_ref(node: GraphNode, input: InputPin) {
-    const path = String(input.value).split("/");
-    if (path.length < 2) throw new Error(`Invalid input ref path: ${input.value}`);
-    let ref_node: GraphNode = node;
-    for (const p of path) {
-      if (p === "..") {
-        const parent = this.getParent(ref_node);
-        if (!parent) throw new Error("Invalid parent traversal in ref path");
-        ref_node = parent;
+  private getTemplateOutputs(node: GraphNode): any[] | undefined {
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.outputs && Array.isArray(tpl.outputs)) return tpl.outputs as any[];
+    } catch (_err) {
+      return undefined;
+    }
+    return undefined;
+  }
+
+  private getOutputKeyCandidates(
+    node: GraphNode,
+    output: OutputPin,
+    templateOutputs?: any[]
+  ): string[] {
+    let templateName: string | undefined;
+    if (!templateOutputs) templateOutputs = this.getTemplateOutputs(node);
+    if (templateOutputs) {
+      const match = templateOutputs.find((o) => o?.id === output.id);
+      if (match && match.name !== undefined) templateName = String(match.name);
+    }
+    const name = output.name !== undefined ? String(output.name) : undefined;
+    const id = typeof output.id === "number" || typeof output.id === "string" ? String(output.id) : undefined;
+    const candidates = [
+      name,
+      templateName,
+      id,
+      name ? name.toLowerCase() : undefined,
+      name ? name.toUpperCase() : undefined,
+      templateName ? templateName.toLowerCase() : undefined,
+      templateName ? templateName.toUpperCase() : undefined,
+    ].filter((v): v is string => typeof v === "string" && v.length > 0);
+    return candidates;
+  }
+
+  private ensureOutputKeyMaps(node: GraphNode) {
+    const state = this.getNodeState(node);
+    if (state.outputIdByKey && state.outputKeyById && state.outputExprByKey) return;
+
+    const langNode = this.lang_def?.nodes?.[node.type];
+    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
+    const mapByKey = new Map<string, number>();
+    const mapById = new Map<number, string>();
+    const exprByKey = new Map<string, string>();
+
+    if (outputs) {
+      for (const [rawKey, tpl] of Object.entries(outputs)) {
+        if (typeof tpl !== "string") continue;
+        const normKey = this.normalizeOutputKey(rawKey);
+        exprByKey.set(normKey, tpl);
+      }
+
+      const templateOutputs = this.getTemplateOutputs(node);
+      for (const output of node.outputs ?? []) {
+        const candidates = this.getOutputKeyCandidates(node, output, templateOutputs);
+        for (const candidate of candidates) {
+          const normalized = this.normalizeOutputKey(candidate);
+          if (!normalized.length) continue;
+          if (!exprByKey.has(normalized)) continue;
+          if (!mapById.has(output.id)) {
+            mapById.set(output.id, normalized);
+            mapByKey.set(normalized, output.id);
+            break;
+          }
+        }
       }
     }
-    const nodeIdPart: string = path[path.length - 2] ?? "";
-    let target = this.get_node(ref_node, nodeIdPart);
-    if (!target) {
-      const state = this.getPinState(input);
-      delete state.refType;
-      delete state.refNodeId;
-      delete state.refExpression;
-      state.missingRef = true;
-      return;
+
+    state.outputIdByKey = mapByKey;
+    state.outputKeyById = mapById;
+    state.outputExprByKey = exprByKey;
+  }
+
+  private applyOutputGuards(node: GraphNode, template: string): string {
+    const state = this.getNodeState(node);
+    const usedOutputs = state.usedOutputs ?? new Set<number>();
+    const mapByKey = state.outputIdByKey ?? new Map<string, number>();
+    const pattern = /\{\{if_output:([^}]+)\}\}([\s\S]*?)\{\{\/if_output\}\}/g;
+    return template.replace(pattern, (_match, rawKeys: string, block: string) => {
+      const keys = String(rawKeys)
+        .split("|")
+        .map((k) => this.normalizeOutputKey(k))
+        .filter((k) => k.length > 0);
+      if (!keys.length) return "";
+      let keep = false;
+      for (const key of keys) {
+        const outputId = mapByKey.get(key);
+        if (outputId !== undefined && usedOutputs.has(outputId)) {
+          keep = true;
+          break;
+        }
+      }
+      return keep ? block : "";
+    });
+  }
+
+  private resolveInputReference(
+    node: GraphNode,
+    input: InputPin
+  ): { target: GraphNode; outputId: number } | undefined {
+    if (typeof input.value !== "string" || !input.value.includes("../")) return undefined;
+    const path = String(input.value).split("/");
+    if (path.length < 2) throw new Error(`Invalid input ref path: ${input.value}`);
+
+    let refNode: GraphNode = node;
+    for (const part of path) {
+      if (part === "..") {
+        const parent = this.getParent(refNode);
+        if (!parent) throw new Error("Invalid parent traversal in ref path");
+        refNode = parent;
+      }
     }
-    let output_id = Number(path[path.length - 1]);
+
+    const nodeIdPart: string = path[path.length - 2] ?? "";
+    let target = this.get_node(refNode, nodeIdPart);
+    if (!target) {
+      return undefined;
+    }
+
+    let outputId = Number(path[path.length - 1]);
+    if (!Number.isFinite(outputId)) {
+      return undefined;
+    }
 
     if (target.type === "group") {
       const groupOut = (target.nodes ?? []).find((n) => n.type === "group_output");
-      const pin = groupOut?.inputs?.find((p) => p.id === output_id);
+      const pin = groupOut?.inputs?.find((p) => p.id === outputId);
       const v = pin?.value;
       if (typeof v === "string") {
         const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
@@ -330,14 +414,14 @@ export class GraphCompiler {
           const reroute = this.get_node(target, internalId) ?? this.get_node(this.graph_data, internalId);
           if (reroute) {
             target = reroute;
-            output_id = internalOutId;
+            outputId = internalOutId;
           }
         }
       }
     } else if (target.type === "group_input") {
       const parent = this.getParent(target);
       if (parent && parent.type === "group") {
-        const pin = parent.inputs?.find((p) => p.id === output_id);
+        const pin = parent.inputs?.find((p) => p.id === outputId);
         const v = pin?.value;
         if (typeof v === "string") {
           const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
@@ -347,7 +431,7 @@ export class GraphCompiler {
             const extNode = this.get_node(parent, extId) ?? this.get_node(this.graph_data, extId);
             if (extNode) {
               target = extNode;
-              output_id = extOutId;
+              outputId = extOutId;
             }
           }
         }
@@ -368,7 +452,7 @@ export class GraphCompiler {
       }
       visitedReroutes.add(target.id);
       const pins = Array.isArray(target.inputs) ? target.inputs : [];
-      let rerouteInput = pins.find((p) => typeof p?.id === "number" ? p.id === output_id : false);
+      let rerouteInput = pins.find((p) => (typeof p?.id === "number" ? p.id === outputId : false));
       if (!rerouteInput && pins.length) rerouteInput = pins[0];
       if (!rerouteInput || typeof rerouteInput.value !== "string") {
         target = undefined;
@@ -387,22 +471,96 @@ export class GraphCompiler {
         break;
       }
       target = nextTarget;
-      output_id = nextOutputId;
+      outputId = nextOutputId;
     }
 
     if (!target) {
-      const state = this.getPinState(input);
-      delete state.refType;
-      delete state.refNodeId;
-      delete state.refExpression;
-      state.missingRef = true;
+      return undefined;
+    }
+
+    return { target, outputId };
+  }
+
+  private collectOutputUsage(node: GraphNode) {
+    const visit = (current: GraphNode) => {
+      for (const input of current.inputs ?? []) {
+        if (typeof input.value !== "string" || !input.value.includes("../")) continue;
+        const info = this.resolveInputReference(current, input);
+        if (info) {
+          this.markOutputUsage(info.target, info.outputId);
+        }
+      }
+      for (const child of current.nodes ?? []) visit(child);
+    };
+    visit(node);
+  }
+
+  private get_output_expression(node: GraphNode, output: OutputPin): string {
+    const name = getUniqueNodeName(node);
+    const langNode = this.lang_def?.nodes?.[node.type];
+    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
+    if (!outputs) return name;
+    this.ensureOutputKeyMaps(node);
+    const state = this.getNodeState(node);
+    const normalizedKey = state.outputKeyById?.get(output.id);
+    if (normalizedKey) {
+      const mapped = state.outputExprByKey?.get(normalizedKey);
+      if (typeof mapped === "string") {
+        return mapped.replace(/\{\{name\}\}/g, name);
+      }
+    }
+
+    let templateOutputs: any[] | undefined;
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.outputs && Array.isArray(tpl.outputs)) templateOutputs = tpl.outputs as any[];
+    } catch (_err) {
+      templateOutputs = undefined;
+    }
+    const templateName = templateOutputs?.find((o) => o?.id === output.id)?.name;
+    const candidates = [
+      output.name,
+      templateName,
+      String(output.id),
+      output.name?.toLowerCase(),
+      output.name?.toUpperCase(),
+      templateName ? String(templateName).toLowerCase() : undefined,
+      templateName ? String(templateName).toUpperCase() : undefined,
+    ].filter(Boolean) as string[];
+    for (const keyCandidate of candidates) {
+      if (keyCandidate in outputs) {
+        const tpl = outputs[keyCandidate];
+        if (typeof tpl === "string") return tpl.replace(/\{\{name\}\}/g, name);
+      }
+    }
+    return name;
+  }
+
+  private resolve_ref(node: GraphNode, input: InputPin) {
+    const info = this.resolveInputReference(node, input);
+    const inputState = this.getPinState(input);
+    if (!info) {
+      delete inputState.refType;
+      delete inputState.refNodeId;
+      delete inputState.refExpression;
+      inputState.missingRef = true;
       return;
     }
 
-    this.process_node(target);
-    const output_pin = target.outputs.find((o) => o.id === output_id)!;
+    const { target, outputId } = info;
+    this.markOutputUsage(target, outputId);
+
     const targetState = this.getNodeState(target);
-    const inputState = this.getPinState(input);
+
+    this.process_node(target);
+    const output_pin = target.outputs.find((o) => o.id === outputId);
+    if (!output_pin) {
+      delete inputState.refType;
+      delete inputState.refNodeId;
+      delete inputState.refExpression;
+      inputState.missingRef = true;
+      return;
+    }
     inputState.missingRef = false;
     let outputType: string | undefined;
     if (Array.isArray(output_pin.type)) {
@@ -415,7 +573,7 @@ export class GraphCompiler {
         const tpl = getNodeTemplate(target.type);
         const tplOutputs = tpl?.outputs;
         if (Array.isArray(tplOutputs)) {
-          const tplOut = tplOutputs.find((o: any) => o?.id === output_id);
+          const tplOut = tplOutputs.find((o: any) => o?.id === outputId);
           if (tplOut) outputType = normalizePinType(tplOut.type);
         }
       } catch (_err) {
@@ -668,6 +826,11 @@ export class GraphCompiler {
       code = code.replace(/\{\{name\}\}/g, cachedUnique);
     };
     replaceNamePlaceholders();
+
+    if (code.includes("{{if_output:")) {
+      this.ensureOutputKeyMaps(node);
+      code = this.applyOutputGuards(node, code);
+    }
 
     const needsType = code.includes("{{type}}");
     this.prepare_node_inputs(node, needsType);
@@ -1076,6 +1239,7 @@ export class GraphCompiler {
 
   public compile() {
     this.initializeGraph();
+    this.collectOutputUsage(this.graph_data);
     this.process_node(this.graph_data);
     this.result_code = this.getNodeCode(this.graph_data) ?? "";
     this.add_meta_to_result();
@@ -1096,6 +1260,7 @@ export class GraphCompiler {
       // repeated identical components (defensive).
       this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
     }
+    this.result_code = this.collapseExtraBlankLines(this.result_code);
   }
 
   private hoistVaryingDeclarations(code: string): string {
@@ -1150,6 +1315,22 @@ export class GraphCompiler {
       return `vec${_n}<f32>(${inner})`;
     });
     return out;
+  }
+
+  private collapseExtraBlankLines(code: string): string {
+    const lines = code.split("\n");
+    const out: string[] = [];
+    let blankCount = 0;
+    for (const line of lines) {
+      if (line.trim().length === 0) {
+        blankCount += 1;
+        if (blankCount > 1) continue;
+      } else {
+        blankCount = 0;
+      }
+      out.push(line);
+    }
+    return out.join("\n");
   }
 }
 
