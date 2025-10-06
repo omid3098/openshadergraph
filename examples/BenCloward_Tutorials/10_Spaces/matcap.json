@@ -140,40 +140,16 @@
               ]
             },
             {
-              "id": 7,
-              "type": "texture",
-              "position": [
-                1760,
-                -420
-              ],
-              "outputs": [
-                {
-                  "id": 0,
-                  "value": "../8/0"
-                }
-              ],
-              "properties": [
-                {
-                  "id": "source",
-                  "value": ""
-                },
-                {
-                  "id": "texture_type",
-                  "value": "source_color"
-                }
-              ]
-            },
-            {
               "id": 8,
               "type": "texture_sampler",
               "position": [
-                1760,
-                -200
+                1709,
+                -121
               ],
               "inputs": [
                 {
                   "id": 0,
-                  "value": "../7/0"
+                  "value": "../20/0"
                 },
                 {
                   "id": 1,
@@ -191,8 +167,8 @@
               "id": 9,
               "type": "normal_vector",
               "position": [
-                360,
-                -220
+                811,
+                -20
               ],
               "outputs": [
                 {
@@ -203,7 +179,7 @@
               "properties": [
                 {
                   "id": "space",
-                  "value": "object"
+                  "value": "world"
                 }
               ]
             },
@@ -211,8 +187,8 @@
               "id": 10,
               "type": "transform",
               "position": [
-                560,
-                -220
+                1011,
+                -20
               ],
               "inputs": [
                 {
@@ -223,7 +199,7 @@
               "outputs": [
                 {
                   "id": 0,
-                  "value": "../11/0"
+                  "value": "../15/0"
                 }
               ],
               "properties": [
@@ -233,75 +209,7 @@
                 },
                 {
                   "id": "conversion",
-                  "value": "object_to_view"
-                }
-              ]
-            },
-            {
-              "id": 11,
-              "type": "normalize",
-              "position": [
-                760,
-                -220
-              ],
-              "inputs": [
-                {
-                  "id": 0,
-                  "value": "../10/0"
-                }
-              ],
-              "outputs": [
-                {
-                  "id": 0,
-                  "value": "../12/0"
-                }
-              ]
-            },
-            {
-              "id": 12,
-              "type": "separate3",
-              "position": [
-                960,
-                -220
-              ],
-              "inputs": [
-                {
-                  "id": 0,
-                  "value": "../11/0"
-                }
-              ],
-              "outputs": [
-                {
-                  "id": 0,
-                  "value": "../13/0"
-                },
-                {
-                  "id": 1,
-                  "value": "../13/1"
-                }
-              ]
-            },
-            {
-              "id": 13,
-              "type": "combine2",
-              "position": [
-                1160,
-                -220
-              ],
-              "inputs": [
-                {
-                  "id": 0,
-                  "value": "../12/0"
-                },
-                {
-                  "id": 1,
-                  "value": "../12/1"
-                }
-              ],
-              "outputs": [
-                {
-                  "id": 0,
-                  "value": "../15/0"
+                  "value": "world_to_view"
                 }
               ]
             },
@@ -309,8 +217,8 @@
               "id": 14,
               "type": "float2",
               "position": [
-                1360,
-                -320
+                1010,
+                195
               ],
               "inputs": [
                 {
@@ -342,13 +250,13 @@
               "id": 15,
               "type": "multiply",
               "position": [
-                1360,
-                -220
+                1227,
+                3
               ],
               "inputs": [
                 {
                   "id": 0,
-                  "value": "../13/0"
+                  "value": "../10/0"
                 },
                 {
                   "id": 1,
@@ -366,8 +274,8 @@
               "id": 16,
               "type": "float2",
               "position": [
-                1560,
-                -320
+                1225,
+                190
               ],
               "inputs": [
                 {
@@ -399,8 +307,8 @@
               "id": 17,
               "type": "add",
               "position": [
-                1560,
-                -220
+                1447,
+                4
               ],
               "inputs": [
                 {
@@ -416,6 +324,34 @@
                 {
                   "id": 0,
                   "value": "../8/1"
+                }
+              ]
+            },
+            {
+              "id": 20,
+              "type": "texture",
+              "position": [
+                1442,
+                -210
+              ],
+              "name": "UV Grid",
+              "meta": [
+                "exposed"
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../8/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "source",
+                  "value": "https://threejs.org/examples/textures/uv_grid_opengl.jpg"
+                },
+                {
+                  "id": "texture_type",
+                  "value": "data"
                 }
               ]
             }
