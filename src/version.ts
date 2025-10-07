@@ -41,7 +41,7 @@ const dirty =
     : coerceBoolean(processEnv?.APP_DIRTY, false);
 
 const deployFallback = getDeployLabel({ DEPLOY: processEnv?.DEPLOY });
-const deploy =
+const resolvedDeploy =
   (typeof __APP_DEPLOY__ !== "undefined" && coerceString(__APP_DEPLOY__, "")) ||
   coerceString(processEnv?.APP_DEPLOY, deployFallback);
 
@@ -49,7 +49,8 @@ export const APP_VERSION = version;
 export const APP_COMMIT = commit;
 export const APP_BUILD_DATE = buildDate;
 export const APP_DIRTY = dirty;
-export const APP_DEPLOY = deploy;
+const APP_DEPLOY_INTERNAL = resolvedDeploy;
+export { APP_DEPLOY_INTERNAL as APP_DEPLOY };
 
 export type AppVersionInfo = {
   version: string;
@@ -64,5 +65,5 @@ export const APP_VERSION_INFO: AppVersionInfo = {
   commit: APP_COMMIT,
   buildDate: APP_BUILD_DATE,
   dirty: APP_DIRTY,
-  deploy: APP_DEPLOY,
+  deploy: APP_DEPLOY_INTERNAL,
 };
