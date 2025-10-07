@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch or tag to evaluate"
+        description: "Branch or tag to evaluate (dev or beta)"
         required: true
-        default: main
+        default: dev
 
 permissions:
   contents: read
