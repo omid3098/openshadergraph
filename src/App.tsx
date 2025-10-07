@@ -1085,6 +1085,12 @@ export function App() {
     if (!target || propsList.length === 0) return;
     const prop = propsList.find((entry) => entry && typeof entry === "object" && entry.id === propId);
     if (!prop) return;
+    const isAssetProp = typeof (prop as any)?.type === "string" && (prop as any).type === "asset";
+    let normalizedNext: unknown = next;
+    if (isAssetProp && typeof next === "string") {
+      const trimmed = next.trim();
+      normalizedNext = trimmed.length > 0 ? trimmed : "";
+    }
     const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
     const propLabel = typeof prop.label === "string" && prop.label.length ? prop.label : propId;
     commitGraphMutationRef.current({ type: "update-property", summary: `${nodeLabel} • ${propLabel}` }, () => {
@@ -1093,10 +1099,29 @@ export function App() {
           if (n.id !== id) return n;
           const tplNow = (n.data as any)?.template ?? {};
           const propsNow: any[] = Array.isArray((tplNow as any).properties) ? ([...(tplNow as any).properties] as any[]) : [];
-          const nextProps = propsNow.map((propEntry) =>
-            propEntry && typeof propEntry === "object" && propEntry.id === propId ? { ...propEntry, value: next } : propEntry
-          );
-          return { ...n, data: { ...(n.data as any), template: { ...tplNow, properties: nextProps } } } as any;
+          const nextProps = propsNow.map((propEntry) => {
+            if (!propEntry || typeof propEntry !== "object" || propEntry.id !== propId) return propEntry;
+            if (normalizedNext === undefined) {
+              const updated = { ...propEntry } as any;
+              delete updated.value;
+              return updated;
+            }
+            return { ...propEntry, value: normalizedNext };
+          });
+          const nextData: any = { ...(n.data as any), template: { ...tplNow, properties: nextProps } };
+          if (isAssetProp) {
+            const prevAsset = (n.data as any)?.asset;
+            if (typeof normalizedNext === "string" && normalizedNext.length > 0) {
+              if (prevAsset && prevAsset.source === normalizedNext) {
+                nextData.asset = { ...prevAsset };
+              } else if (prevAsset) {
+                delete nextData.asset;
+              }
+            } else if (prevAsset) {
+              delete nextData.asset;
+            }
+          }
+          return { ...n, data: nextData } as any;
         })
       );
     });
