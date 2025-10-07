@@ -94,6 +94,49 @@ export function SettingsPage({
         </Card>
 
         <HotkeySettingsCard hotkeys={quickHotkeys} onChange={onQuickHotkeysChange} palette={palette} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>About Me</CardTitle>
+            <CardDescription>
+              I&apos;m Omid Saadat - Trying to make bridges.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <ul className="space-y-2">
+              <li>
+                <a
+                  className="transition-colors hover:text-foreground"
+                  href="https://omid-saadat.com"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  omid-saadat.com
+                </a>
+              </li>
+              <li>
+                <a
+                  className="transition-colors hover:text-foreground"
+                  href="https://x.com/omid3098"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  @omid3098 on X
+                </a>
+              </li>
+              <li>
+                <a
+                  className="transition-colors hover:text-foreground"
+                  href="https://github.com/omid3098"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  @omid3098 on GitHub
+                </a>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
