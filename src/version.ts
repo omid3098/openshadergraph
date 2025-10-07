@@ -49,8 +49,7 @@ export const APP_VERSION = version;
 export const APP_COMMIT = commit;
 export const APP_BUILD_DATE = buildDate;
 export const APP_DIRTY = dirty;
-const APP_DEPLOY_INTERNAL = resolvedDeploy;
-export { APP_DEPLOY_INTERNAL as APP_DEPLOY };
+export const APP_DEPLOY = resolvedDeploy;
 
 export type AppVersionInfo = {
   version: string;
@@ -65,5 +64,5 @@ export const APP_VERSION_INFO: AppVersionInfo = {
   commit: APP_COMMIT,
   buildDate: APP_BUILD_DATE,
   dirty: APP_DIRTY,
-  deploy: APP_DEPLOY_INTERNAL,
+  deploy: APP_DEPLOY,
 };
