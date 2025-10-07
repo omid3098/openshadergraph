@@ -33,6 +33,14 @@ Quick commands:
 - Start dev server: `bun run dev`
 - Build for production: `bun run build`
 
+## Releases
+
+- Versioning is automated by [Semantic Release](https://semantic-release.gitbook.io/semantic-release/).
+- Follow the [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) format for every commit so release notes and version bumps are calculated correctly.
+- After pushing Conventional Commits, run `bun run release:dry` from `main` (or append `-- --branches $(git rev-parse --abbrev-ref HEAD)` to evaluate your branch) to preview the next version bump and changelog.
+- The `CI` workflow publishes releases automatically on pushes to `main` once tests pass; no manual tagging is required.
+- Follow the [Release Testing Playbook](docs/release-testing.md) for a full end-to-end smoke test, including the UI badge and the manual GitHub Action dry-run.
+
 ## Documentation
 
 - Serve locally: `bun run docs:dev` (requires Python + `pip install -r requirements.txt`)
@@ -64,5 +72,3 @@ OSG_STATIC_BUNDLES=1 bun run dev
   - First compile is gated on language readiness; preview should render quickly on cold start.
 
 ---
-
-Note: Minor README edit to validate versioning bump workflow.

@@ -28,7 +28,6 @@ export default defineConfig({
         "**/*.spec.{ts,tsx}",
         "**/*.test.{ts,tsx}",
         "**/types/**",
-        "src/version.ts", // Generated file
         // Exclude viewer shell and heavy preview panel from global coverage gates
         "src/viewer.tsx",
         "src/components/PreviewPanel.tsx",

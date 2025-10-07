@@ -2672,6 +2672,20 @@ export function App() {
       .map((top) => renderNode(top, root.children[top], ""));
   };
 
+  const versionBadgeText = `v${(APP_VERSION_INFO.version || "0.0.0").replace(/^v/i, "")}`;
+  const versionTooltipParts = [
+    `Version ${versionBadgeText}`,
+    APP_VERSION_INFO.deploy ? `Deploy ${APP_VERSION_INFO.deploy}` : null,
+    APP_VERSION_INFO.commit
+      ? `Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""}`
+      : null,
+    APP_VERSION_INFO.buildDate ? `Built ${APP_VERSION_INFO.buildDate}` : null,
+  ].filter(Boolean) as string[];
+  const versionTooltip = versionTooltipParts.join(" • ");
+  const versionAriaLabel = `OpenShaderGraph ${versionBadgeText}${
+    APP_VERSION_INFO.deploy ? ` (${APP_VERSION_INFO.deploy})` : ""
+  }`;
+
   const Header = (
     <div className="w-full flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs">
@@ -2855,10 +2869,16 @@ export function App() {
           <Github className="h-4 w-4" />
         </a>
         <span
-          className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
-          title={`Commit ${APP_VERSION_INFO.commit}${APP_VERSION_INFO.dirty ? " (dirty)" : ""} • ${APP_VERSION_INFO.buildDate}`}
+          className="inline-flex items-center gap-1 rounded-md border bg-muted/70 px-2 py-0.5 text-[11px] text-foreground"
+          title={versionTooltip}
+          aria-label={versionAriaLabel}
         >
-          {APP_VERSION_INFO.deploy}-v{APP_VERSION_INFO.version.replace(/^v/i, "")}
+          <span className="font-medium leading-none">{versionBadgeText}</span>
+          {APP_VERSION_INFO.deploy ? (
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">
+              {APP_VERSION_INFO.deploy}
+            </span>
+          ) : null}
         </span>
       </div>
     </div>
