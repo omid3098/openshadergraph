@@ -1,3 +1,16 @@
+## [0.2.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.2.0-beta.1...v0.2.0-beta.2) (2025-10-07)
+
+- Merge pull request #56 from omid3098/codex/add-container-with-background-for-breadcrumbs- Merge pull request #57 from omid3098/codex/add-minimalist-about-me-section
+### Features
+
+- **ui:** add about section to settings page _(by Omid Saadat)_ ([e886e41]())
+### Bug Fixes
+
+- **ui:** update About Me section in SettingsPage to reflect personal statement _(by Omid Saadat)_ ([36045e8]())
+### Styles
+
+- **app:** emphasize breadcrumb container _(by Omid Saadat)_ ([5fd3701]())
+
 ## [0.2.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.1.0...v0.2.0-beta.1) (2025-10-07)
 
 ### Chores
