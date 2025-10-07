@@ -38,7 +38,7 @@
     "dev:docs": "bash -c 'bun run docs:dev & bun run dev:watch & bun run dev:server:docs'",
     "dev": "bun run dev:all",
     "start": "NODE_ENV=production bun src/index.tsx",
-    "build": "bun run build.ts --auto-tag",
+    "build": "bun run build.ts",
     "docs:dev": "bash -c 'command -v mkdocs >/dev/null 2>&1 || { echo \"mkdocs not found, run: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt\"; exit 1; }; pids=$(lsof -tiTCP:${DOCS_PORT:-8000} -sTCP:LISTEN || true); if [ -n \"$pids\" ]; then echo \"Killing existing docs process on port ${DOCS_PORT:-8000}: $pids\"; kill $pids || kill -9 $pids; fi; mkdocs serve -a 0.0.0.0:${DOCS_PORT:-8000}'",
     "docs:build": "bash -c 'command -v mkdocs >/dev/null 2>&1 || { echo \"mkdocs not found, run: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt\"; exit 1; }; mkdocs build --clean'",
     "test": "vitest run",
@@ -54,6 +54,8 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
     "gates": "bun run scripts/gates.ts",
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run --ci false",
     "validate:godot": "bun run --bun scripts/validateGodot.ts",
     "validate:three": "bun run --bun scripts/validateThree.ts",
     "validate:shaders": "bun run validate:godot && bun run validate:three"
@@ -85,6 +87,12 @@
   "devDependencies": {
     "@eslint/js": "^9.34.0",
     "@playwright/test": "^1.55.1",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^10.2.3",
+    "@semantic-release/npm": "^11.0.3",
+    "@semantic-release/release-notes-generator": "^13.0.0",
     "@testing-library/react": "^16.3.0",
     "@types/bun": "latest",
     "@types/node": "^22.5.4",
@@ -99,6 +107,7 @@
     "globals": "^16.3.0",
     "jsdom": "^24.0.0",
     "typescript": "^5.9.2",
+    "semantic-release": "^24.2.2",
     "vitest": "^3.2.4"
   }
 }

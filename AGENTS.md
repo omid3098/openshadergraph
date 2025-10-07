@@ -112,21 +112,10 @@ These are non-negotiable to ship green and stay maintainable.
 
 ## Versioning & Build Metadata
 
-- The top bar displays the app version. Values come from a generated module: `src/version.ts`.
-- `build.ts` computes and writes `src/version.ts` at startup (prod builds and dev watcher) using git:
-  - Reads the latest semver tag (`vX.Y.Z`) if present; defaults to `0.0.0`.
-  - Scans commit messages since the tag and bumps semver automatically:
-    - major: message contains `BREAKING CHANGE` or a conventional-commit bang (e.g., `feat!:`, `refactor!:`).
-    - minor: message starts with `feat`.
-    - patch: any other commit messages.
-    - No commits since the tag → no bump.
-  - Emits `APP_VERSION`, `APP_COMMIT` (short hash), `APP_BUILD_DATE` (ISO), and `APP_DIRTY` in `src/version.ts`.
-- UI: header shows `vX.Y.Z` with tooltip including short commit and build date. Informational only; does not affect shader output.
-- Dev vs Prod:
-  - Prod: `bun run build && bun run start` regenerates version and ships it in `dist/`. Production build also creates a local git tag `vX.Y.Z` (pushing tags remains manual/CI-controlled).
-  - Dev: `bun run dev` runs the build watcher and hot server. The watcher auto-regenerates `src/version.ts` on HEAD/dirty changes; no restart needed after a commit.
-- Lint: `src/version.ts` is ignored by ESLint.
-- Tags: Production builds auto-create a local tag. Use `git push --tags` to publish tags (or let CI push them).
+- `build.ts` no longer mutates source files. It embeds build metadata (version, commit, dirty flag, deploy label) through Bun's `define` mechanism so browser bundles receive the right constants without touching git.
+- `src/version.ts` reads those compile-time constants and gracefully falls back to environment variables (useful for tests or ad-hoc builds).
+- The header badge shows `vX.Y.Z` plus the deploy label with a tooltip that includes the commit hash and build timestamp. It's informational only.
+- Semantic Release owns version bumps, changelog updates, and git tags. Local builds should not attempt to rewrite tags or bump versions manually.
 
 ### Meta vs Properties Policy (Hard Rules)
 
@@ -153,6 +142,18 @@ These are non-negotiable to ship green and stay maintainable.
 - Run production server: `bun run start`
 
 - Publish tags created by the production build: `git push --tags`
+
+## Versioning & Release Flow
+
+- Automated releases are powered by [Semantic Release](https://semantic-release.gitbook.io/semantic-release/).
+- **Always** use [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) messages so release automation can infer the next version.
+  - Structure: `<type>(optional scope): <short imperative summary>`.
+  - Common types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `revert`.
+  - Breaking changes require either an appended `!` (e.g. `feat!: ...`) or a `BREAKING CHANGE:` footer with the rationale.
+- To confirm the next release number locally, run `bun run release:dry` after committing. Execute it from `main` or append `-- --branches $(git rev-parse --abbrev-ref HEAD)` so Semantic Release evaluates your feature branch; the CLI prints the computed `nextRelease.version` without publishing.
+- GitHub Actions runs `semantic-release` automatically on pushes to `main` after CI succeeds (`.github/workflows/ci.yml`), so never push tags manually.
+- Changelog entries are generated from commit messages and will credit contributors automatically, so list co-authors in the commit trailer when relevant.
+- For a complete rehearsal, follow `docs/release-testing.md`. It covers crafting a scratch Conventional Commit, verifying the UI badge, and triggering the `.github/workflows/release-dry-run.yml` workflow for a no-tag dry run in GitHub Actions.
 
 That’s it. If in doubt, follow the data in `data/**`, confirm APIs with Context7, and don’t submit unless tests and lint are clean.
 
