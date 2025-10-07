@@ -99,14 +99,10 @@ export function SettingsPage({
           <CardHeader>
             <CardTitle>About Me</CardTitle>
             <CardDescription>
-              Minimal tools, thoughtful shaders, and a curiosity for beautiful lighting.
+              I&apos;m Omid Saadat - Trying to make bridges.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              I&apos;m Omid Saadat — exploring real-time rendering and sharing the journey. Connect
-              with me:
-            </p>
             <ul className="space-y-2">
               <li>
                 <a
