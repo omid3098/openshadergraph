@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, NodeResizer, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -94,6 +94,28 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const preferredWidth = preferredSize.width;
   const preferredHeight = preferredSize.height;
   const currentAsset = (data as any)?.asset as NodeAssetPayload | undefined;
+
+  const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const propertyFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
+
+  const scheduleSelectionRestore = useCallback(
+    (element: HTMLInputElement | HTMLTextAreaElement | null, start: number, end: number) => {
+      if (!element || typeof element.setSelectionRange !== "function") return;
+      const restore = () => {
+        if (typeof document !== "undefined" && document.activeElement !== element) return;
+        const length = element.value.length;
+        const clampedStart = Math.min(start, length);
+        const clampedEnd = Math.min(end, length);
+        element.setSelectionRange(clampedStart, clampedEnd);
+      };
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(restore);
+        return;
+      }
+      setTimeout(restore, 0);
+    },
+    []
+  );
 
   const hasAssetProperty = useMemo(() => {
     if (!Array.isArray(properties)) return false;
@@ -245,10 +267,20 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return (
         <div className="h-full p-3">
           <Textarea
+            ref={(element) => {
+              noteTextareaRef.current = element;
+            }}
             value={value}
             placeholder="Write notes here..."
             className="h-full min-h-[120px] resize-none"
-            onChange={(e) => updatePropertyValue("text", e.currentTarget.value)}
+            onChange={(e) => {
+              const target = e.currentTarget;
+              const nextValue = target.value;
+              const selectionStart = target.selectionStart ?? nextValue.length;
+              const selectionEnd = target.selectionEnd ?? selectionStart;
+              updatePropertyValue("text", nextValue);
+              scheduleSelectionRestore(noteTextareaRef.current, selectionStart, selectionEnd);
+            }}
           />
         </div>
       );
@@ -290,7 +322,17 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       return <AssetsPanel variant="node" className="h-full" />;
     }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
-  }, [editorWidgetKey, editorPanelKey, graph, data, nodeId, updatePropertyValue, updateNodeAsset, currentAsset]);
+  }, [
+    editorWidgetKey,
+    editorPanelKey,
+    graph,
+    data,
+    nodeId,
+    updatePropertyValue,
+    updateNodeAsset,
+    currentAsset,
+    scheduleSelectionRestore,
+  ]);
 
   const cardRingVars = useMemo(
     () =>
@@ -645,9 +687,27 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                         </div>
                         {boolValue && (
                           <Input
+                            ref={(element) => {
+                              if (element) {
+                                propertyFieldRefs.current["expose_name"] = element;
+                              } else {
+                                delete propertyFieldRefs.current["expose_name"];
+                              }
+                            }}
                             value={exposeNameValue}
                             placeholder="Uniform name"
-                            onChange={(event) => updatePropertyValue("expose_name", event.target.value)}
+                            onChange={(event) => {
+                              const target = event.currentTarget;
+                              const nextValue = target.value;
+                              const selectionStart = target.selectionStart ?? nextValue.length;
+                              const selectionEnd = target.selectionEnd ?? selectionStart;
+                              updatePropertyValue("expose_name", nextValue);
+                              scheduleSelectionRestore(
+                                propertyFieldRefs.current["expose_name"] ?? null,
+                                selectionStart,
+                                selectionEnd
+                              );
+                            }}
                             className="h-7 px-2 text-xs"
                           />
                         )}
@@ -695,11 +755,29 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                       <label className="text-[11px] text-muted-foreground">{label}</label>
                       <div className="flex items-center gap-2">
                         <Input
+                          ref={(element) => {
+                            if (element) {
+                              propertyFieldRefs.current[prop.id] = element;
+                            } else {
+                              delete propertyFieldRefs.current[prop.id];
+                            }
+                          }}
                           value={value ?? ""}
                           placeholder={placeholder}
                           autoComplete="off"
                           spellCheck={false}
-                          onChange={(event) => updatePropertyValue(prop.id, event.target.value)}
+                          onChange={(event) => {
+                            const target = event.currentTarget;
+                            const nextValue = target.value;
+                            const selectionStart = target.selectionStart ?? nextValue.length;
+                            const selectionEnd = target.selectionEnd ?? selectionStart;
+                            updatePropertyValue(prop.id, nextValue);
+                            scheduleSelectionRestore(
+                              propertyFieldRefs.current[prop.id] ?? null,
+                              selectionStart,
+                              selectionEnd
+                            );
+                          }}
                           onDrop={(event) => {
                             if (event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) {
                               event.preventDefault();
@@ -724,7 +802,29 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
                 return (
                   <div key={prop.id} className="flex flex-col gap-1">
                     <label className="text-[11px] text-muted-foreground">{label}</label>
-                    <Input value={value ?? ""} onChange={(event) => updatePropertyValue(prop.id, event.target.value)} className="h-7 px-2 text-xs" />
+                    <Input
+                      ref={(element) => {
+                        if (element) {
+                          propertyFieldRefs.current[prop.id] = element;
+                        } else {
+                          delete propertyFieldRefs.current[prop.id];
+                        }
+                      }}
+                      value={value ?? ""}
+                      onChange={(event) => {
+                        const target = event.currentTarget;
+                        const nextValue = target.value;
+                        const selectionStart = target.selectionStart ?? nextValue.length;
+                        const selectionEnd = target.selectionEnd ?? selectionStart;
+                        updatePropertyValue(prop.id, nextValue);
+                        scheduleSelectionRestore(
+                          propertyFieldRefs.current[prop.id] ?? null,
+                          selectionStart,
+                          selectionEnd
+                        );
+                      }}
+                      className="h-7 px-2 text-xs"
+                    />
                   </div>
                 );
               })}
