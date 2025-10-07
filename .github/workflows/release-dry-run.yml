@@ -1,0 +1,40 @@
+name: Release Dry Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to evaluate (dev or beta)"
+        required: true
+        default: dev
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  dry-run:
+    name: Semantic Release Dry Run
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Plan release
+        run: bun run release:dry -- --branches ${{ inputs.ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

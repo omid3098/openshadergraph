@@ -141,88 +141,79 @@ function runGit(args: string[]): { ok: boolean; stdout: string } {
   }
 }
 
-async function computeAndWriteVersionModule(): Promise<{ version: string; bumped: boolean }> {
-  const target = path.resolve(process.cwd(), "src", "version.ts");
-  let raw = "";
-  let versionStr = "0.0.0";
-
+async function readPackageVersion(): Promise<string> {
   try {
-    raw = await readFile(target, "utf8");
-    const versionMatch = raw.match(/export const APP_VERSION\s*=\s*"([^"]+)"/);
-    if (versionMatch && versionMatch[1]) versionStr = versionMatch[1];
+    const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
+    const pkg = JSON.parse(pkgRaw);
+    if (pkg?.version && typeof pkg.version === "string") return pkg.version;
   } catch (_err) {
-    // As a last resort, fall back to package.json version
-    try {
-      const pkgRaw = await readFile(path.resolve(process.cwd(), "package.json"), "utf8");
-      const pkg = JSON.parse(pkgRaw);
-      if (pkg?.version && typeof pkg.version === "string") versionStr = pkg.version;
-    } catch (_err2) {
-      /* ignore */
-    }
+    /* ignore */
   }
-
-  const deployLabel = getDeployLabel({ DEPLOY: Bun.env?.DEPLOY ?? process.env?.DEPLOY });
-  const deployPattern = /export const APP_DEPLOY\s*=\s*"([^"]*)";/;
-  let nextRaw = raw;
-
-  if (raw.length) {
-    if (deployPattern.test(raw)) {
-      nextRaw = raw.replace(deployPattern, `export const APP_DEPLOY = "${deployLabel}";`);
-    } else {
-      const insertToken = "export type AppVersionInfo";
-      const insertIndex = raw.indexOf(insertToken);
-      if (insertIndex !== -1) {
-        nextRaw = `${raw.slice(0, insertIndex)}export const APP_DEPLOY = "${deployLabel}";\n\n${raw.slice(insertIndex)}`;
-      } else {
-        nextRaw = `${raw.trimEnd()}\nexport const APP_DEPLOY = "${deployLabel}";\n`;
-      }
-    }
-  } else {
-    nextRaw = `// Auto-generated at build time by build.ts\nexport const APP_VERSION = "${versionStr}";\nexport const APP_COMMIT = "";\nexport const APP_BUILD_DATE = "";\nexport const APP_DIRTY = false;\nexport const APP_DEPLOY = "${deployLabel}";\n\nexport type AppVersionInfo = {\n  version: string;\n  commit: string;\n  buildDate: string;\n  dirty: boolean;\n  deploy: string;\n};\n\nexport const APP_VERSION_INFO: AppVersionInfo = {\n  version: APP_VERSION,\n  commit: APP_COMMIT,\n  buildDate: APP_BUILD_DATE,\n  dirty: APP_DIRTY,\n  deploy: APP_DEPLOY,\n};\n`;
-  }
-
-  if (nextRaw !== raw) {
-    await writeFile(target, nextRaw, "utf8");
-    console.log(`🌐 Set deploy label to ${deployLabel} in src/version.ts`);
-  } else {
-    console.log(`🌐 Deploy label already ${deployLabel}`);
-  }
-
-  console.log(`🔖 Using committed src/version.ts → v${versionStr}`);
-  return { version: versionStr, bumped: false };
+  return "0.0.0";
 }
 
-await computeAndWriteVersionModule();
+function parseBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off"].includes(normalized)) return false;
+  }
+  return undefined;
+}
 
-// In watch mode, monitor git HEAD and dirty state; bump version module on change
-function startGitVersionMonitor() {
-  let lastSig = "";
-  const refreshSig = (): string => {
-    const head = runGit(["rev-parse", "HEAD"]).stdout;
-    const dirty = runGit(["status", "--porcelain"]).stdout.length > 0 ? "*" : "";
-    return `${head}${dirty}`;
+type BuildMetadata = {
+  version: string;
+  commit: string;
+  buildDate: string;
+  dirty: boolean;
+  deploy: string;
+};
+
+async function gatherBuildMetadata(): Promise<BuildMetadata> {
+  const pkgVersion = await readPackageVersion();
+  const env = {
+    ...(typeof Bun !== "undefined" && Bun.env ? Bun.env : {}),
+    ...(typeof process !== "undefined" && process.env ? process.env : {}),
+  } as Record<string, string | undefined>;
+  const repoCommit = runGit(["rev-parse", "--short", "HEAD"]).stdout;
+  const repoDirty = runGit(["status", "--porcelain"]).stdout.length > 0;
+  const now = new Date().toISOString();
+  const version = (env.APP_VERSION && env.APP_VERSION.trim()) || pkgVersion;
+  const commit = (env.APP_COMMIT && env.APP_COMMIT.trim()) || repoCommit;
+  const buildDate = (env.APP_BUILD_DATE && env.APP_BUILD_DATE.trim()) || now;
+  const dirtyOverride = parseBoolean(env.APP_DIRTY);
+  const dirty = dirtyOverride ?? repoDirty;
+  const deploy = (env.APP_DEPLOY && env.APP_DEPLOY.trim()) || getDeployLabel({ DEPLOY: env.DEPLOY });
+  return {
+    version: version || "0.0.0",
+    commit,
+    buildDate,
+    dirty,
+    deploy,
   };
-  lastSig = refreshSig();
-  setInterval(async () => {
-    try {
-      const next = refreshSig();
-      if (next !== lastSig) {
-        lastSig = next;
-        await computeAndWriteVersionModule();
-      }
-    } catch (_err) {
-      // ignore transient git errors
-    }
-  }, 2000);
 }
 
-if (process.argv.includes("--watch")) {
-  startGitVersionMonitor();
-}
+const buildMeta = await gatherBuildMetadata();
+const commitSuffix = buildMeta.commit ? ` (${buildMeta.commit}${buildMeta.dirty ? "*" : ""})` : "";
+console.log(`🔖 Embedding build metadata → v${buildMeta.version}${commitSuffix}`);
+
 
 // Parse CLI arguments with our magical parser
 const cliConfig = parseArgs();
-const outdir = cliConfig.outdir || path.join(process.cwd(), "dist");
+const { define: cliDefine, ...restCliConfig } = cliConfig as Partial<BuildConfig> & { define?: Record<string, any> };
+const outdir = (restCliConfig.outdir as string | undefined) || path.join(process.cwd(), "dist");
+(restCliConfig as Partial<BuildConfig>).outdir = outdir;
+const userDefine = cliDefine && typeof cliDefine === "object" ? cliDefine : {};
+const buildDefine = {
+  "process.env.NODE_ENV": JSON.stringify("production"),
+  __APP_VERSION__: JSON.stringify(buildMeta.version),
+  __APP_COMMIT__: JSON.stringify(buildMeta.commit),
+  __APP_BUILD_DATE__: JSON.stringify(buildMeta.buildDate),
+  __APP_DIRTY__: JSON.stringify(buildMeta.dirty),
+  __APP_DEPLOY__: JSON.stringify(buildMeta.deploy),
+  ...userDefine,
+};
 
 if (existsSync(outdir)) {
   console.log(`🗑️ Cleaning previous build at ${outdir}`);
@@ -245,10 +236,8 @@ const result = await build({
   minify: true,
   target: "browser",
   sourcemap: "linked",
-  define: {
-    "process.env.NODE_ENV": JSON.stringify("production"),
-  },
-  ...cliConfig, // Merge in any CLI-provided options
+  define: buildDefine,
+  ...restCliConfig, // Merge in any CLI-provided options
 });
 
 // Print the results
