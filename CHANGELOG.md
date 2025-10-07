@@ -1,3 +1,16 @@
+## [0.3.0](https://github.com/omid3098/openshadergraph/compare/v0.2.0...v0.3.0) (2025-10-07)
+
+- Merge pull request #56 from omid3098/codex/add-container-with-background-for-breadcrumbs- Merge pull request #57 from omid3098/codex/add-minimalist-about-me-section- Merge pull request #58 from omid3098/beta
+### Features
+
+- **ui:** add about section to settings page _(by Omid Saadat)_ ([e886e41]())
+### Bug Fixes
+
+- **ui:** update About Me section in SettingsPage to reflect personal statement _(by Omid Saadat)_ ([36045e8]())
+### Styles
+
+- **app:** emphasize breadcrumb container _(by Omid Saadat)_ ([5fd3701]())
+
 ## [0.2.0](https://github.com/omid3098/openshadergraph/compare/v0.1.0...v0.2.0) (2025-10-07)
 
 - Add Matcap example graph- Ensure gates build dist and update engine metadata- Fix caret jumping in note and texture node inputs- Fix ThreeJS preview projection uniform and add shader error e2e coverage- Merge branch 'beta' into dev- Merge pull request #45 from omid3098/mkdocs- Merge pull request #46 from omid3098/beta- Merge pull request #47 from omid3098/codex/run-bun-run-gates-and-fix-errors- Merge pull request #48 from omid3098/codex/update-e2e-tests-to-catch-shader-crashes- Merge pull request #49 from omid3098/codex/fix-unused-variables-in-generated-shader- Merge pull request #50 from omid3098/codex/create-matcap-graph-in-ben-cloward-examples- Merge pull request #51 from omid3098/codex/remove-drag-and-drop-for-texture-node- Merge pull request #52 from omid3098/codex/fix-input-field-cursor-behavior- Merge pull request #54 from omid3098/codex/implement-semantic-release-for-versioning- Merge pull request #55 from omid3098/beta- remove audit.md- Remove committed artifacts directory- Trim extra blank lines after camera output pruning- Update AGENTS.md for clarity on local validation requirements and enhance ThreeJS_GLSL templates for shader compatibility- Update docs:dev script to kill existing process on port before starting mkdocs server- Update matcap.json example graph by repositioning nodes, modifying connections, and adding a new texture node for UV Grid. This enhances the graph's structure and visual output capabilities.
