@@ -33,14 +33,14 @@ theme:
 
 nav:
   - Overview: index.md
-  - Getting Started: getting-started.md
-  - Features: features.md
+  - Features: index.md#features
   - Tutorials:
-      - Overview: tutorials.md
-      - Basic Color: tutorials/basic-color.md
-      - Addition (Color + Color): tutorials/add-color-color.md
+      - Overview: index.md#tutorials
+      - Basic Color: index.md#tutorial-basic-color
+      - Addition (Color + Color): index.md#tutorial-addition-color-color
+  - Contributing: index.md#contributing
+  - Getting Started: getting-started.md
   - Developers: developers.md
-  - Contributing: contributing.md
 
 plugins:
   - search
