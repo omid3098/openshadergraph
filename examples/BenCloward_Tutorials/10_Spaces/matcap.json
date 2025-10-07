@@ -1,0 +1,363 @@
+{
+  "name": "matcap",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                1960,
+                -120
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../8/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "shading_model",
+                  "value": "unlit"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                2160,
+                -120
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ],
+              "properties": [
+                {
+                  "id": "primitive",
+                  "value": "sphere"
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "texture_sampler",
+              "position": [
+                1709,
+                -121
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../20/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../17/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../5/0"
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "normal_vector",
+              "position": [
+                811,
+                -20
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "space",
+                  "value": "world"
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "transform",
+              "position": [
+                1011,
+                -20
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../15/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "vector_type",
+                  "value": "direction"
+                },
+                {
+                  "id": "conversion",
+                  "value": "world_to_view"
+                }
+              ]
+            },
+            {
+              "id": 14,
+              "type": "float2",
+              "position": [
+                1010,
+                195
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    0.5,
+                    0.5
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../15/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": 15,
+              "type": "multiply",
+              "position": [
+                1227,
+                3
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../14/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../17/0"
+                }
+              ]
+            },
+            {
+              "id": 16,
+              "type": "float2",
+              "position": [
+                1225,
+                190
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    0.5,
+                    0.5
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../17/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": 17,
+              "type": "add",
+              "position": [
+                1447,
+                4
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../15/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../16/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../8/1"
+                }
+              ]
+            },
+            {
+              "id": 20,
+              "type": "texture",
+              "position": [
+                1442,
+                -210
+              ],
+              "name": "UV Grid",
+              "meta": [
+                "exposed"
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../8/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "source",
+                  "value": "https://threejs.org/examples/textures/uv_grid_opengl.jpg"
+                },
+                {
+                  "id": "texture_type",
+                  "value": "data"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,13 +1,9 @@
 {
-  "type": "",
-  "name": "Basic Color",
-  "meta": [],
+  "name": "basic_color",
   "nodes": [
     {
-      "id": 0,
+      "id": 1,
       "type": "surface",
-      "name": "Surface",
-      "meta": [],
       "position": [
         0,
         0
@@ -15,123 +11,142 @@
       "nodes": [
         {
           "id": 2,
-          "type": "fragment_pass",
-          "name": "FragmentPass",
-          "meta": [],
+          "type": "vertex_pass",
           "position": [
             320,
-            160
+            40
           ],
           "nodes": [
             {
-              "id": 35,
-              "type": "fragment_output",
-              "name": "FragmentOutput",
-              "meta": [],
+              "id": 3,
+              "type": "vertex_output",
               "position": [
-                564,
-                -21
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
               ],
-              "nodes": [],
-              "inputs": [
+              "meta": [
                 {
-                  "id": 0,
-                  "name": "Albedo",
-                  "type": "float3",
-                  "value": "../38/0"
-                },
-                {
-                  "id": 1,
-                  "name": "Roughness",
-                  "type": "float",
-                  "value": [
-                    0.5
-                  ]
-                },
-                {
-                  "id": 2,
-                  "name": "Metallic",
-                  "type": "float",
-                  "value": [
-                    0
-                  ]
-                },
-                {
-                  "id": 3,
-                  "name": "Emission",
-                  "type": "float3",
-                  "value": [
-                    0,
-                    0,
-                    0
-                  ]
-                },
-                {
-                  "id": 4,
-                  "name": "Normal",
-                  "type": "float3",
-                  "value": [
-                    0,
-                    0,
-                    1
-                  ]
-                },
-                {
-                  "id": 5,
-                  "name": "Alpha",
-                  "type": "float",
-                  "value": [
-                    1
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
                   ]
                 }
               ],
-              "outputs": [],
-              "properties": [
+              "inputs": [
                 {
-                  "id": "shading_model",
-                  "label": "Shading",
-                  "type": "enum",
-                  "default": "pbr",
-                  "options": [
-                    {
-                      "value": "pbr",
-                      "label": "PBR",
-                      "langKey": "pbr"
-                    },
-                    {
-                      "value": "unlit",
-                      "label": "Unlit",
-                      "langKey": "unlit"
-                    },
-                    {
-                      "value": "toon",
-                      "label": "Toon",
-                      "langKey": "toon"
-                    }
-                  ],
-                  "value": "pbr"
+                  "id": 0,
+                  "value": "../7/0"
                 }
               ]
             },
             {
-              "id": 38,
-              "type": "color",
-              "name": "Color",
-              "meta": [],
+              "id": 6,
+              "type": "editor_preview",
               "position": [
-                335,
-                -24
+                1090,
+                40
               ],
-              "nodes": [],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ],
+              "properties": [
+                {
+                  "id": "primitive",
+                  "value": "sphere"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "type": "color",
+              "position": [
+                675,
+                41
+              ],
               "inputs": [
                 {
                   "id": 0,
-                  "name": "in",
-                  "type": "float4",
                   "value": [
-                    0.9098039215686274,
-                    0.47843137254901963,
-                    0.47843137254901963,
+                    0.17647058823529413,
+                    0.7254901960784313,
+                    0.1450980392156863,
                     1
                   ]
                 }
@@ -139,159 +154,23 @@
               "outputs": [
                 {
                   "id": 0,
-                  "name": "out",
-                  "type": "float4",
-                  "value": "../35/0"
+                  "value": "../5/0"
                 }
               ],
-              "properties": []
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
             }
-          ],
-          "inputs": [],
-          "outputs": [],
-          "properties": []
-        },
-        {
-          "id": 20,
-          "type": "vertex_pass",
-          "name": "VertexPass",
-          "meta": [],
-          "position": [
-            112,
-            162
-          ],
-          "nodes": [],
-          "inputs": [],
-          "outputs": [],
-          "properties": []
-        }
-      ],
-      "inputs": [],
-      "outputs": [],
-      "properties": []
-    },
-    {
-      "id": 6,
-      "type": "time",
-      "name": "Time",
-      "meta": [],
-      "position": [
-        24,
-        24
-      ],
-      "nodes": [],
-      "inputs": [],
-      "outputs": [
-        {
-          "id": 0,
-          "name": "out",
-          "type": "float",
-          "value": "../7/0"
-        }
-      ],
-      "properties": []
-    },
-    {
-      "id": 7,
-      "type": "multiply",
-      "name": "Multiply",
-      "meta": [],
-      "position": [
-        250,
-        83
-      ],
-      "nodes": [],
-      "inputs": [
-        {
-          "id": 0,
-          "name": "a",
-          "type": "float",
-          "value": "../6/0"
-        },
-        {
-          "id": 1,
-          "name": "b",
-          "type": "float",
-          "value": "../12/0"
-        }
-      ],
-      "outputs": [
-        {
-          "id": 0,
-          "name": "out",
-          "type": "float",
-          "value": "../32/0"
-        }
-      ],
-      "properties": []
-    },
-    {
-      "id": 12,
-      "type": "float2",
-      "name": "Float2",
-      "meta": [],
-      "position": [
-        27,
-        145
-      ],
-      "nodes": [],
-      "inputs": [
-        {
-          "id": 0,
-          "name": "in",
-          "type": "float2",
-          "value": [
-            1,
-            1
           ]
         }
-      ],
-      "outputs": [
-        {
-          "id": 0,
-          "name": "out",
-          "type": "float2",
-          "value": "../7/1"
-        }
-      ],
-      "properties": []
-    },
-    {
-      "id": 31,
-      "type": "group_input",
-      "name": "Group Input",
-      "meta": [],
-      "position": [
-        16,
-        16
-      ],
-      "nodes": [],
-      "inputs": [],
-      "outputs": [],
-      "properties": []
-    },
-    {
-      "id": 32,
-      "type": "group_output",
-      "name": "Group Output",
-      "meta": [],
-      "position": [
-        124,
-        16
-      ],
-      "nodes": [],
-      "inputs": [
-        {
-          "id": 0,
-          "name": "out",
-          "type": "float",
-          "value": "../7/0"
-        }
-      ],
-      "outputs": [],
-      "properties": []
+      ]
     }
-  ],
-  "inputs": [],
-  "outputs": []
+  ]
 }

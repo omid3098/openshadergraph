@@ -81,7 +81,11 @@ import { cn } from "@/lib/utils";
 import { applyDuplicateSelection } from "./core/ui/duplicateSelection";
 import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes, type ClipboardPayload } from "./core/ui/clipboard";
 import { makeInHandle, makeOutHandle } from "./core/ui/handles";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, resolveApiUrl } from "@/lib/api";
+
+const IS_TEST_ENV =
+  (typeof process !== "undefined" && process.env?.VITEST === "true") ||
+  (typeof import.meta !== "undefined" && Boolean((import.meta as any).env?.VITEST));
 
 const nodeDefaults = {
   sourcePosition: Position.Right,
@@ -590,7 +594,7 @@ export function App() {
     // Load available language templates for Export menu
     (async () => {
       try {
-        const res = await fetch("/api/languages", { signal: ctrl.signal });
+        const res = await apiFetch("/api/languages", { signal: ctrl.signal });
         const data = await res.json();
         const list: Array<{ key: string; name: string; path: string }> = Array.isArray(data.languages) ? data.languages : [];
         setLanguages(list);
@@ -1081,6 +1085,12 @@ export function App() {
     if (!target || propsList.length === 0) return;
     const prop = propsList.find((entry) => entry && typeof entry === "object" && entry.id === propId);
     if (!prop) return;
+    const isAssetProp = typeof (prop as any)?.type === "string" && (prop as any).type === "asset";
+    let normalizedNext: unknown = next;
+    if (isAssetProp && typeof next === "string") {
+      const trimmed = next.trim();
+      normalizedNext = trimmed.length > 0 ? trimmed : "";
+    }
     const nodeLabel = ((target.data as any)?.label ?? (target.data as any)?.type ?? id) as string;
     const propLabel = typeof prop.label === "string" && prop.label.length ? prop.label : propId;
     commitGraphMutationRef.current({ type: "update-property", summary: `${nodeLabel} • ${propLabel}` }, () => {
@@ -1089,10 +1099,29 @@ export function App() {
           if (n.id !== id) return n;
           const tplNow = (n.data as any)?.template ?? {};
           const propsNow: any[] = Array.isArray((tplNow as any).properties) ? ([...(tplNow as any).properties] as any[]) : [];
-          const nextProps = propsNow.map((propEntry) =>
-            propEntry && typeof propEntry === "object" && propEntry.id === propId ? { ...propEntry, value: next } : propEntry
-          );
-          return { ...n, data: { ...(n.data as any), template: { ...tplNow, properties: nextProps } } } as any;
+          const nextProps = propsNow.map((propEntry) => {
+            if (!propEntry || typeof propEntry !== "object" || propEntry.id !== propId) return propEntry;
+            if (normalizedNext === undefined) {
+              const updated = { ...propEntry } as any;
+              delete updated.value;
+              return updated;
+            }
+            return { ...propEntry, value: normalizedNext };
+          });
+          const nextData: any = { ...(n.data as any), template: { ...tplNow, properties: nextProps } };
+          if (isAssetProp) {
+            const prevAsset = (n.data as any)?.asset;
+            if (typeof normalizedNext === "string" && normalizedNext.length > 0) {
+              if (prevAsset && prevAsset.source === normalizedNext) {
+                nextData.asset = { ...prevAsset };
+              } else if (prevAsset) {
+                delete nextData.asset;
+              }
+            } else if (prevAsset) {
+              delete nextData.asset;
+            }
+          }
+          return { ...n, data: nextData } as any;
         })
       );
     });
@@ -1481,12 +1510,12 @@ export function App() {
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
     try {
-      const url = new URL("/api/example-graphs", location.origin);
-      url.searchParams.set("name", ex.key);
-      const res = await fetch(url.toString());
+      const params = new URLSearchParams({ name: ex.key });
+      const res = await apiFetch(`/api/example-graphs?${params.toString()}`);
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
-      const graph = data.graph as CanonicalNode;
+      const graph = data?.graph as CanonicalNode | undefined;
+      if (!graph || typeof graph !== "object") throw new Error("Invalid example graph payload");
       await inflateAndLoadGraph(graph, ex.label ?? "UntitledGraph");
     } catch (err) {
       console.warn("Failed to load example graph", ex, err);
@@ -1504,15 +1533,19 @@ export function App() {
 
   // Fetch example graphs and load the first by default (only if no recent graph was loaded)
   useEffect(() => {
+    if (IS_TEST_ENV) return;
     const abort = new AbortController();
+    let cancelled = false;
     (async () => {
       try {
         const res = await apiFetch("/api/example-graphs", { signal: abort.signal });
         const data = await res.json();
         const list: Array<{ key: string; label: string }> = Array.isArray(data.examples) ? data.examples : [];
+        if (cancelled) return;
         setExamples(list);
         if (startupAttemptedRef.current && !initialLoadDoneRef.current && list.length) {
           await loadExampleGraph(list[0]!);
+          if (cancelled) return;
           initialLoadDoneRef.current = true;
         }
       } catch (err: any) {
@@ -1520,7 +1553,10 @@ export function App() {
         console.warn("Failed to load example graphs", err);
       }
     })();
-    return () => abort.abort();
+    return () => {
+      cancelled = true;
+      abort.abort();
+    };
   }, [loadExampleGraph, recentGraphs, recentGraphsInitialized]);
 
   // File save/open helpers (.osg JSON)
@@ -1772,7 +1808,7 @@ export function App() {
         return trimmed.length ? trimmed : "UntitledGraph";
       })();
       const deepGraph = JSON.parse(JSON.stringify(graphData));
-      const res = await fetch("/api/compile", {
+      const res = await fetch(resolveApiUrl("/api/compile"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ graph: deepGraph, language: languageKey, engine: "default" }),
@@ -1783,9 +1819,8 @@ export function App() {
       // Determine extension by looking up language pack file for extensions via /api/language
       let ext = "txt";
       try {
-        const url = new URL("/api/language", location.origin);
-        url.searchParams.set("name", languageKey);
-        const lr = await fetch(url.toString());
+        const params = new URLSearchParams({ name: languageKey });
+        const lr = await apiFetch(`/api/language?${params.toString()}`);
         if (lr.ok) {
           const langPack = await lr.json();
           const exts = Array.isArray(langPack?.file_extensions) ? langPack.file_extensions : [];

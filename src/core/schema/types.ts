@@ -90,6 +90,11 @@ export type LanguagePack = {
   name: string;
   version: string;
   file_extensions: string[];
+  types?: Record<string, { code: string; ctor?: string; zero?: string; components?: number }>;
+  capabilities?: {
+    allowRgbSwizzle?: boolean;
+    vectorCtorScalarSplat?: boolean;
+  };
   nodes: Record<string, LanguageNodeTemplate>;
   coordinates?: {
     up: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";

@@ -4,27 +4,30 @@ export type PinTypeDescriptor = {
   name: string;
   kind: PinTypeKind;
   components: number;
-  glslType: string;
   rank: number;
 };
 
-const PIN_TYPES: Record<string, PinTypeDescriptor> = {
-  float: { name: "float", kind: "scalar", components: 1, glslType: "float", rank: 0x10 + 1 },
-  float2: { name: "float2", kind: "vector", components: 2, glslType: "vec2", rank: 0x20 + 2 },
-  float3: { name: "float3", kind: "vector", components: 3, glslType: "vec3", rank: 0x20 + 3 },
-  float4: { name: "float4", kind: "vector", components: 4, glslType: "vec4", rank: 0x20 + 4 },
-  matrix2: { name: "matrix2", kind: "matrix", components: 2, glslType: "mat2", rank: 0x30 + 2 },
-  matrix3: { name: "matrix3", kind: "matrix", components: 3, glslType: "mat3", rank: 0x30 + 3 },
-  matrix4: { name: "matrix4", kind: "matrix", components: 4, glslType: "mat4", rank: 0x30 + 4 },
-  sampler2D: { name: "sampler2D", kind: "sampler", components: 1, glslType: "sampler2D", rank: 0x05 },
-  samplerCube: { name: "samplerCube", kind: "sampler", components: 1, glslType: "samplerCube", rank: 0x05 },
-  sampler3D: { name: "sampler3D", kind: "sampler", components: 1, glslType: "sampler3D", rank: 0x05 },
-  sampler2DArray: { name: "sampler2DArray", kind: "sampler", components: 1, glslType: "sampler2DArray", rank: 0x05 },
-};
-
-export function getPinTypeDescriptor(type: string | undefined): PinTypeDescriptor | undefined {
+export function getCoreTypeInfo(type: string | undefined): PinTypeDescriptor | undefined {
   if (!type) return undefined;
-  return PIN_TYPES[type];
+  const name = String(type);
+  let kind: PinTypeKind = "unknown";
+  let components = 1;
+  if (name === "float") {
+    kind = "scalar";
+    components = 1;
+  } else if (/^float[2-4]$/.test(name)) {
+    kind = "vector";
+    components = Number(name.replace("float", ""));
+  } else if (/^matrix[2-4]$/.test(name)) {
+    kind = "matrix";
+    components = Number(name.replace("matrix", ""));
+  } else if (/^sampler/.test(name)) {
+    kind = "sampler";
+    components = 1;
+  }
+  const base = kind === "scalar" ? 0x10 : kind === "vector" ? 0x20 : kind === "matrix" ? 0x30 : 0x00;
+  const rank = base + components;
+  return { name, kind, components, rank };
 }
 
 export function normalizePinType(type: unknown): string | undefined {
@@ -39,7 +42,7 @@ export function normalizePinType(type: unknown): string | undefined {
 export function chooseDominantPinType(types: Array<string | undefined>): string | undefined {
   let best: PinTypeDescriptor | undefined;
   for (const t of types) {
-    const desc = getPinTypeDescriptor(t);
+    const desc = getCoreTypeInfo(t);
     if (!desc) continue;
     if (!best || desc.rank > best.rank) {
       best = desc;
@@ -60,10 +63,16 @@ export function guessPinTypeFromLiteral(value: unknown): string | undefined {
   return undefined;
 }
 
-export function formatTypeForGLSL(type: string | undefined): string | undefined {
+// Deprecated: do not use. Kept during migration window only.
+export function formatTypeForGLSL(_type: string | undefined): string | undefined {
+  return undefined;
+}
+
+export function formatTypeForLanguage(type: string | undefined, _languageName?: string, types?: Record<string, { code: string }>): string | undefined {
   if (!type) return undefined;
-  const desc = getPinTypeDescriptor(type);
-  return desc?.glslType;
+  if (types && types[type]?.code) return types[type].code;
+  // Fallback to returning the raw type so language packs must provide mapping
+  return type;
 }
 
 export function widenPinType(current: string | undefined, next: string | undefined): string | undefined {

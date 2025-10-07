@@ -10,8 +10,10 @@ type DocumentationPanelProps = {
 // and sets up a communication channel to handle "Show Example" clicks.
 export function DocumentationPanel({ className, onLoadExample }: DocumentationPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const isBrowser = typeof window !== "undefined" && typeof window.addEventListener === "function";
 
   const handleMessage = useCallback((event: MessageEvent) => {
+    if (!isBrowser) return;
     // Only accept messages from the same origin for security
     if (event.origin !== window.location.origin) return;
 
@@ -19,12 +21,13 @@ export function DocumentationPanel({ className, onLoadExample }: DocumentationPa
     if (data && data.type === "LOAD_EXAMPLE_GRAPH" && typeof data.key === "string") {
       onLoadExample(data.key);
     }
-  }, [onLoadExample]);
+  }, [isBrowser, onLoadExample]);
 
   useEffect(() => {
+    if (!isBrowser) return undefined;
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [handleMessage]);
+  }, [handleMessage, isBrowser]);
 
   // Use the internal docs path. The server will redirect /docs/* -> /_internal/docs/*
   // and the in-app iframe should load `_internal` directly to avoid public exposure.

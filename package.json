@@ -39,7 +39,7 @@
     "dev": "bun run dev:all",
     "start": "NODE_ENV=production bun src/index.tsx",
     "build": "bun run build.ts --auto-tag",
-    "docs:dev": "bash -c 'command -v mkdocs >/dev/null 2>&1 || { echo \"mkdocs not found, run: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt\"; exit 1; }; mkdocs serve -a 0.0.0.0:${DOCS_PORT:-8000}'",
+    "docs:dev": "bash -c 'command -v mkdocs >/dev/null 2>&1 || { echo \"mkdocs not found, run: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt\"; exit 1; }; pids=$(lsof -tiTCP:${DOCS_PORT:-8000} -sTCP:LISTEN || true); if [ -n \"$pids\" ]; then echo \"Killing existing docs process on port ${DOCS_PORT:-8000}: $pids\"; kill $pids || kill -9 $pids; fi; mkdocs serve -a 0.0.0.0:${DOCS_PORT:-8000}'",
     "docs:build": "bash -c 'command -v mkdocs >/dev/null 2>&1 || { echo \"mkdocs not found, run: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt\"; exit 1; }; mkdocs build --clean'",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -52,7 +52,11 @@
     "test:e2e:install:all": "bunx playwright install --with-deps",
     "bench": "vitest bench",
     "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix --max-warnings=0"
+    "lint:fix": "eslint . --fix --max-warnings=0",
+    "gates": "bun run scripts/gates.ts",
+    "validate:godot": "bun run --bun scripts/validateGodot.ts",
+    "validate:three": "bun run --bun scripts/validateThree.ts",
+    "validate:shaders": "bun run validate:godot && bun run validate:three"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",

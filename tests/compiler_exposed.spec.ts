@@ -7,6 +7,12 @@ const testLanguage: LanguagePack = {
   name: "TestLang",
   version: "0.1.0",
   file_extensions: ["glsl"],
+  types: {
+    float: { code: "float" },
+    float2: { code: "vec2" },
+    float3: { code: "vec3" },
+    float4: { code: "vec4" },
+  },
   nodes: {
     root: {
       template: "{{meta}}\n{{internal_nodes}}\n{{exposed_nodes}}",

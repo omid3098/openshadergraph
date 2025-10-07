@@ -94,7 +94,12 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders without commitGraphMutation initialization errors", async () => {
+  // Increase timeout for this test because importing and mounting <App />
+  // exercises a number of async effects (template loads, fetches, ResizeObserver)
+  // which can occasionally exceed the default 5s in slower CI/workers.
+  it(
+    "renders without commitGraphMutation initialization errors",
+    async () => {
     const { default: App } = await import("../../../App");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -106,8 +111,12 @@ describe("App", () => {
         </ReactFlowProvider>
       );
 
+    let rendered: ReturnType<typeof render> | undefined;
+
     try {
-      expect(renderApp).not.toThrow();
+      expect(() => {
+        rendered = renderApp();
+      }).not.toThrow();
       await Promise.resolve();
       await Promise.resolve();
       expect(
@@ -117,6 +126,9 @@ describe("App", () => {
     } finally {
       warnSpy.mockRestore();
       errorSpy.mockRestore();
+      rendered?.unmount();
     }
-  });
+    },
+    20000
+  );
 });

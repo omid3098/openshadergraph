@@ -110,7 +110,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toMatch(/vec2 float2_\d+ = vec2\(0.5, 0.25\);/);
     expect(fragment).toMatch(/vec3 float3_\d+ = vec3\(0.1, 0.2, 0.3\);/);
     expect(fragment).toMatch(/vec4 float4_\d+ = vec4\(0.9, 0.7, 0.5, 0.25\);/);
-    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+, float2_\d+\);/);
+    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture2D\(texture_\d+, float2_\d+\);/);
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(texture_sampler_\d+\.rgb\);/);
     expect(fragment).toMatch(/vec3 emission\s*=\s*vec3\(float3_\d+\)(?:\s*\*\s*[^\n;]+)?;/);
     expect(fragment).toMatch(/float alpha\s*=\s*float4_\d+\.x;/);
@@ -125,14 +125,14 @@ describe("ThreeJS GLSL shader generation", () => {
     const { surface } = texture_sampler_default_uv_graph();
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "texture_sampler_builtin_uv");
     const { fragment } = extractPreviewShaders(shader_code);
-    expect(fragment).toMatch(/texture\(texture_\d+,\s*vUv\)/);
+    expect(fragment).toMatch(/texture2D\(texture_\d+,\s*vUv\)/);
   });
 
   it("exposes rgb and channel outputs for texture sampler (ThreeJS)", async () => {
     const { surface } = texture_sampler_channels_graph();
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "texture_sampler_channels");
     const { fragment } = extractPreviewShaders(shader_code);
-    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture\(texture_\d+,\s*vUv\)/);
+    expect(fragment).toMatch(/vec4 texture_sampler_\d+ = texture2D\(texture_\d+,\s*vUv\)/);
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(texture_sampler_\d+\.rgb\);/);
     expect(fragment).toMatch(/roughness[^\n]*texture_sampler_\d+\.r/);
     expect(fragment).toMatch(/float alpha\s*=\s*texture_sampler_\d+\.a;/);
@@ -156,6 +156,18 @@ describe("ThreeJS GLSL shader generation", () => {
     const shader_code = await compile_graph(surface.to_dict(), "ThreeJS_GLSL.json", "exposed_no_placeholder");
     const { fragment } = extractPreviewShaders(shader_code);
     expect(fragment).not.toContain("{{definition}}");
+  });
+
+  it("wires position node through vertex varyings", async () => {
+    const raw = await fs.readFile(path.join(ROOT, "examples", "lerp_color.json"), "utf8");
+    const graph = JSON.parse(raw);
+    const surface = graph.nodes.find((node: any) => node?.type === "surface");
+    expect(surface).toBeTruthy();
+    const shader_code = await compile_graph(surface, "ThreeJS_GLSL.json", "lerp_color_varyings");
+    const { fragment, vertexChunk } = extractPreviewShaders(shader_code);
+    expect(fragment).toMatch(/varying vec3 osg_vposition_\d+;/);
+    expect(fragment).toMatch(/vec3 position_\d+ = osg_vposition_\d+;/);
+    expect(vertexChunk).toMatch(/osg_vposition_\d+ = osg_position_\d+_obj;/);
   });
 
   it("dot, normalize, normal/view nodes compile (ThreeJS)", async () => {

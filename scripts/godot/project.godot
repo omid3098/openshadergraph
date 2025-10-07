@@ -1,0 +1,5 @@
+; Engine configuration file for Godot shader validator
+config_version=5
+
+[application]
+config/name="OpenShaderGraph Validator"

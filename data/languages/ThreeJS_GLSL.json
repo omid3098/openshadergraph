@@ -1,6 +1,6 @@
 {
   "name": "ThreeJS GLSL",
-  "version": "1.0",
+  "version": "0.180.0",
   "file_extensions": [
     "glsl"
   ],
@@ -10,6 +10,16 @@
     "forward": "-z",
     "handedness": "right"
   },
+  "types": {
+    "float": { "code": "float", "constructor": "float", "zero": "0.0", "components": 1 },
+    "float2": { "code": "vec2", "constructor": "vec2", "zero": "vec2(0.0)", "components": 2 },
+    "float3": { "code": "vec3", "constructor": "vec3", "zero": "vec3(0.0)", "components": 3 },
+    "float4": { "code": "vec4", "constructor": "vec4", "zero": "vec4(0.0)", "components": 4 },
+    "matrix2": { "code": "mat2", "constructor": "mat2", "zero": "mat2(1.0)", "components": 2 },
+    "matrix3": { "code": "mat3", "constructor": "mat3", "zero": "mat3(1.0)", "components": 3 },
+    "matrix4": { "code": "mat4", "constructor": "mat4", "zero": "mat4(1.0)", "components": 4 }
+  },
+  "capabilities": { "allowRgbSwizzle": true, "vectorCtorScalarSplat": false },
   "nodes": {
     "surface": {
       "template": "precision highp float;\n{{meta}}\n#ifndef SHADING_UNLIT\n#ifndef SHADING_TOON\n#ifndef SHADING_PBR\n#define SHADING_PBR 1\n#endif\n#endif\n#endif\n\n// Varyings from default vertex shader\nvarying vec2 vUv;\nvarying vec3 vNormal;\nvarying vec3 vObjectNormal;\nvarying vec3 vViewPosition;\n\n// Preview lighting and timing uniforms (provided by preview panel)\n// Three-point lighting rig: key, fill, and rim\nuniform vec3 uKeyDir;\nuniform vec3 uKeyColor;\nuniform vec3 uFillDir;\nuniform vec3 uFillColor;\nuniform vec3 uRimDir;\nuniform vec3 uRimColor;\nuniform vec3 uAmbient;\nuniform float uExposure;\nuniform float uTime;\n\n// PBR helpers\nfloat saturate(float x) { return clamp(x, 0.0, 1.0); }\nvec3 saturate(vec3 x) { return clamp(x, vec3(0.0), vec3(1.0)); }\nfloat D_GGX(float NoH, float a) { float a2 = a*a; float f = (NoH * NoH) * (a2 - 1.0) + 1.0; return a2 / (3.14159265 * f * f + 1e-5); }\nfloat V_SmithGGXCorrelated(float NoV, float NoL, float a) { float a2 = a*a; float gv = NoL * sqrt((NoV - NoV * a2) * NoV + a2); float gl = NoV * sqrt((NoL - NoL * a2) * NoL + a2); return 0.5 / max(gv + gl, 1e-5); }\nvec3 F_Schlick(vec3 f0, float VoH) { float f = pow(1.0 - VoH, 5.0); return f + (1.0 - f) * f0; }\nvec3 BRDF_Lambert(vec3 diffuseColor) { return diffuseColor / 3.14159265; }\n\n// Exposed uniforms (from graph)\n{{exposed_nodes}}\n\n// Graph internal code\n{{internal_nodes}}\n"
@@ -183,7 +193,7 @@
       "template": "{{type}} {{name}} = ({{inputs:0}} - {{inputs:1}}) / ({{inputs:2}} - {{inputs:1}}) * ({{inputs:4}} - {{inputs:3}}) + {{inputs:3}};"
     },
     "round": {
-      "template": "{{type}} {{name}} = round({{inputs:0}});"
+      "template": "{{type}} {{name}} = floor({{inputs:0}} + {{type}}(0.5));"
     },
     "saturate": {
       "template": "{{type}} {{name}} = clamp({{inputs:0}}, {{type}}(0.0), {{type}}(1.0));"
@@ -279,7 +289,7 @@
       }
     },
     "texture_sampler": {
-      "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, {{inputs:1}});",
+      "template": "{{property:wrap_mode}}\n{{property:filter_mode}}\nvec4 {{name}} = texture2D({{inputs:0}}, {{inputs:1}});",
       "properties": {
         "wrap_mode": {
           "wrap_repeat": {
@@ -316,7 +326,7 @@
       }
     },
     "texture_sampler_cube": {
-      "template": "{{property:filter_mode}}\nvec4 {{name}} = texture({{inputs:0}}, normalize({{inputs:1}}));",
+      "template": "{{property:filter_mode}}\nvec4 {{name}} = textureCube({{inputs:0}}, normalize({{inputs:1}}));",
       "properties": {
         "filter_mode": {
           "filter_linear": {
@@ -355,7 +365,7 @@
       "properties": {
         "space": {
           "world": {
-            "template": "normalize(transpose(mat3(viewMatrix)) * vNormal)"
+            "template": "normalize(vObjectNormal)"
           },
           "object": {
             "template": "normalize(vObjectNormal)"
@@ -712,6 +722,19 @@
         }
       }
     },
+    "camera": {
+      "template": "{{if_output:position}}vec3 {{name}}_position = cameraPosition;{{/if_output}}\n{{if_output:direction}}mat3 osg_{{name}}_view_rot = mat3(viewMatrix);\nmat3 osg_{{name}}_inv_view = mat3(\n  vec3(osg_{{name}}_view_rot[0][0], osg_{{name}}_view_rot[1][0], osg_{{name}}_view_rot[2][0]),\n  vec3(osg_{{name}}_view_rot[0][1], osg_{{name}}_view_rot[1][1], osg_{{name}}_view_rot[2][1]),\n  vec3(osg_{{name}}_view_rot[0][2], osg_{{name}}_view_rot[1][2], osg_{{name}}_view_rot[2][2])\n);\nvec3 {{name}}_direction = -normalize(osg_{{name}}_inv_view[2]);{{/if_output}}\n{{if_output:orthographic|near plane|far plane|z buffer sign|width|height}}float {{name}}_orthographic = projectionMatrix[3][3] > 0.5 ? 1.0 : 0.0;{{/if_output}}\n{{if_output:near plane|far plane|z buffer sign}}\nfloat {{name}}_near_plane;\nfloat {{name}}_far_plane;\n{\n  float m22 = projectionMatrix[2][2];\n  float m32 = projectionMatrix[3][2];\n  if ({{name}}_orthographic > 0.5) {\n    {{name}}_near_plane = (m32 + 1.0) / m22;\n    {{name}}_far_plane = (m32 - 1.0) / m22;\n  } else {\n    {{name}}_near_plane = m32 / (m22 - 1.0);\n    {{name}}_far_plane = m32 / (m22 + 1.0);\n  }\n}\nvec4 {{name}}_near_clip = projectionMatrix * vec4(0.0, 0.0, -{{name}}_near_plane, 1.0);\nvec4 {{name}}_far_clip = projectionMatrix * vec4(0.0, 0.0, -{{name}}_far_plane, 1.0);\nfloat {{name}}_near_clip_w = max(abs({{name}}_near_clip.w), 1e-6);\nfloat {{name}}_far_clip_w = max(abs({{name}}_far_clip.w), 1e-6);\nfloat {{name}}_near_ndc = {{name}}_near_clip.z / {{name}}_near_clip_w;\nfloat {{name}}_far_ndc = {{name}}_far_clip.z / {{name}}_far_clip_w;\n{{/if_output}}\n{{if_output:z buffer sign}}float {{name}}_z_buffer_sign = sign({{name}}_far_ndc - {{name}}_near_ndc);\nif ({{name}}_z_buffer_sign == 0.0) {\n  {{name}}_z_buffer_sign = 1.0;\n}{{/if_output}}\n{{if_output:width|height}}float {{name}}_width = 0.0;\nfloat {{name}}_height = 0.0;\nif ({{name}}_orthographic > 0.5) {\n  float sx = projectionMatrix[0][0];\n  float sy = projectionMatrix[1][1];\n  if (abs(sx) > 1e-6) {\n    {{name}}_width = 2.0 / sx;\n  }\n  if (abs(sy) > 1e-6) {\n    {{name}}_height = 2.0 / sy;\n  }\n}{{/if_output}}",
+      "outputs": {
+        "position": "{{name}}_position",
+        "direction": "{{name}}_direction",
+        "orthographic": "{{name}}_orthographic",
+        "near plane": "{{name}}_near_plane",
+        "far plane": "{{name}}_far_plane",
+        "z buffer sign": "{{name}}_z_buffer_sign",
+        "width": "{{name}}_width",
+        "height": "{{name}}_height"
+      }
+    },
     "camera_position": {
       "template": "vec3 {{name}} = {{property:space}};",
       "properties": {
@@ -752,7 +775,7 @@
       "properties": {
         "space": {
           "world": {
-            "template": "normalize(transpose(mat3(viewMatrix)) * {{name}}_t)"
+            "template": "normalize({{name}}_t)"
           },
           "object": {
             "template": "normalize(mat3(modelMatrix) * {{name}}_t)"
@@ -771,7 +794,7 @@
       "properties": {
         "space": {
           "world": {
-            "template": "normalize(transpose(mat3(viewMatrix)) * {{name}}_b)"
+            "template": "normalize({{name}}_b)"
           },
           "object": {
             "template": "normalize(mat3(modelMatrix) * {{name}}_b)"
@@ -795,10 +818,22 @@
       "template": "float {{name}} = gl_FragCoord.z;"
     },
     "world_position": {
-      "template": "vec3 {{name}} = cameraPosition - transpose(mat3(viewMatrix)) * vViewPosition;"
+      "template": "vec3 {{name}} = cameraPosition - vViewPosition;"
     },
     "view_position": {
       "template": "vec3 {{name}} = -vViewPosition;"
+    },
+    "position": {
+      "template": "// __VERTEX_PASS_BEGIN__\nvec3 osg_{{name}}_obj = position;\nvec3 osg_{{name}}_view = (modelViewMatrix * vec4(position, 1.0)).xyz;\nvec3 osg_{{name}}_world = (modelMatrix * vec4(position, 1.0)).xyz;\n// __VERTEX_PASS_END__\n{{property:space}}\nvarying vec3 osg_v{{name}};\nvec3 {{name}} = osg_v{{name}};",
+      "properties": {
+        "space": {
+          "object": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_obj;\n// __VERTEX_PASS_END__" },
+          "view": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_view;\n// __VERTEX_PASS_END__" },
+          "world": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_world;\n// __VERTEX_PASS_END__" },
+          "tangent": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = vec3(0.0, 0.0, 0.0);\n// __VERTEX_PASS_END__" },
+          "absolute_world": { "template": "// __VERTEX_PASS_BEGIN__\nosg_v{{name}} = osg_{{name}}_world;\n// __VERTEX_PASS_END__" }
+        }
+      }
     },
     "instance_id": {
       "template": "float {{name}} = float(gl_InstanceID);"
@@ -887,7 +922,7 @@
       }
     },
     "triplanar": {
-      "template": "{{property:space}}\nvec3 {{name}}_n = normalize({{name}}_normal);\nvec3 {{name}}_w = pow(abs({{name}}_n), vec3({{inputs:4}}));\n{{name}}_w = {{name}}_w / max(dot({{name}}_w, vec3(1.0)), 1e-5);\nvec2 {{name}}_uvx = {{name}}_pos.yz * {{inputs:3}};\nvec2 {{name}}_uvy = {{name}}_pos.xz * {{inputs:3}};\nvec2 {{name}}_uvz = {{name}}_pos.xy * {{inputs:3}};\nvec4 {{name}}_sample_x = texture({{inputs:0}}, {{name}}_uvx);\nvec4 {{name}}_sample_y = texture({{inputs:0}}, {{name}}_uvy);\nvec4 {{name}}_sample_z = texture({{inputs:0}}, {{name}}_uvz);\nvec4 {{name}} = {{name}}_sample_x * {{name}}_w.x + {{name}}_sample_y * {{name}}_w.y + {{name}}_sample_z * {{name}}_w.z;",
+      "template": "{{property:space}}\nvec3 {{name}}_n = normalize({{name}}_normal);\nvec3 {{name}}_w = pow(abs({{name}}_n), vec3({{inputs:4}}));\n{{name}}_w = {{name}}_w / max(dot({{name}}_w, vec3(1.0)), 1e-5);\nvec2 {{name}}_uvx = {{name}}_pos.yz * {{inputs:3}};\nvec2 {{name}}_uvy = {{name}}_pos.xz * {{inputs:3}};\nvec2 {{name}}_uvz = {{name}}_pos.xy * {{inputs:3}};\nvec4 {{name}}_sample_x = texture2D({{inputs:0}}, {{name}}_uvx);\nvec4 {{name}}_sample_y = texture2D({{inputs:0}}, {{name}}_uvy);\nvec4 {{name}}_sample_z = texture2D({{inputs:0}}, {{name}}_uvz);\nvec4 {{name}} = {{name}}_sample_x * {{name}}_w.x + {{name}}_sample_y * {{name}}_w.y + {{name}}_sample_z * {{name}}_w.z;",
       "properties": {
         "space": {
           "world": {
@@ -907,7 +942,7 @@
       }
     },
     "normal_map_unpack": {
-      "template": "vec3 {{name}}_tangent = normalize(vec3({{inputs:0}}) * 2.0 - 1.0);\n{{name}}_tangent = normalize(mix(vec3(0.0, 0.0, 1.0), {{name}}_tangent, {{inputs:1}}));\nvec3 {{name}}_N = normalize(vNormal);\nvec3 {{name}}_up = abs({{name}}_N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);\nvec3 {{name}}_T = normalize(cross({{name}}_up, {{name}}_N));\nvec3 {{name}}_B = cross({{name}}_N, {{name}}_T);\nmat3 {{name}}_tbn = mat3({{name}}_T, {{name}}_B, {{name}}_N);\nvec3 {{name}}_view = normalize({{name}}_tbn * {{name}}_tangent);\nvec3 {{name}} = {{property:space}};",
+      "template": "vec3 {{name}}_tangent = normalize(vec3({{inputs:0}}) * 2.0 - 1.0);\n{{name}}_tangent = normalize(mix(vec3(0.0, 0.0, 1.0), {{name}}_tangent, {{inputs:1}}));\nvec3 {{name}}_N = normalize(vNormal);\nvec3 {{name}}_up = abs({{name}}_N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);\nvec3 {{name}}_T = normalize(cross({{name}}_up, {{name}}_N));\nvec3 {{name}}_B = cross({{name}}_N, {{name}}_T);\nmat3 {{name}}_tbn = mat3({{name}}_T, {{name}}_B, {{name}}_N);\nvec3 {{name}}_view = normalize({{name}}_tbn * {{name}}_tangent);\nvec3 {{name}};\n{{property:space}}",
       "properties": {
         "space": {
           "tangent": {
@@ -923,7 +958,7 @@
       }
     },
     "parallax": {
-      "template": "vec3 {{name}}_view = normalize({{inputs:2}});\nfloat {{name}}_height = texture({{inputs:0}}, {{inputs:1}}).r;\nfloat {{name}}_parallax = ({{name}}_height - 0.5) * {{inputs:3}};\nvec2 {{name}}_offset = {{name}}_view.xy / max(abs({{name}}_view.z), 1e-3) * {{name}}_parallax;\nvec2 {{name}}_uv = {{inputs:1}} - {{name}}_offset;\nfloat {{name}}_depth = {{name}}_height;\nvec2 {{name}} = {{name}}_uv;",
+      "template": "vec3 {{name}}_view = normalize({{inputs:2}});\nfloat {{name}}_height = texture2D({{inputs:0}}, {{inputs:1}}).r;\nfloat {{name}}_parallax = ({{name}}_height - 0.5) * {{inputs:3}};\nvec2 {{name}}_offset = {{name}}_view.xy / max(abs({{name}}_view.z), 1e-3) * {{name}}_parallax;\nvec2 {{name}}_uv = {{inputs:1}} - {{name}}_offset;\nfloat {{name}}_depth = {{name}}_height;\nvec2 {{name}} = {{name}}_uv;",
       "outputs": {
         "uv": "{{name}}",
         "depth": "{{name}}_depth"

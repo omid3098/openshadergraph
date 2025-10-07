@@ -64,6 +64,11 @@ export function getNodeTemplate(type: string): NodeTemplate | undefined {
   return templateMap.get(type);
 }
 
+export function listNodeTemplates(): NodeTemplate[] {
+  loadTemplatesSyncOnce();
+  return Array.from(templateMap.values()).map((template) => JSON.parse(JSON.stringify(template)) as NodeTemplate);
+}
+
 export async function loadLanguage(nameOrPath: string): Promise<LanguagePack> {
   let abs = nameOrPath;
   if (!path.isAbsolute(abs)) {

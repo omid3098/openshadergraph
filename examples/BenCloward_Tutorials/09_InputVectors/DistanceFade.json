@@ -1,0 +1,322 @@
+{
+  "name": "DistanceFade",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../12/0"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                1090,
+                40
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ]
+            },
+            {
+              "id": 7,
+              "type": "camera",
+              "position": [
+                -267,
+                -110
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "position",
+              "position": [
+                -268,
+                218
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../9/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "space",
+                  "value": "object"
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "subtract",
+              "position": [
+                29,
+                39
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../7/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../8/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "length3",
+              "position": [
+                223,
+                39
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../9/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../11/0"
+                }
+              ]
+            },
+            {
+              "id": 11,
+              "type": "subtract",
+              "position": [
+                425,
+                39
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../15/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../12/0"
+                }
+              ]
+            },
+            {
+              "id": 12,
+              "type": "divide",
+              "position": [
+                633,
+                39
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../11/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../16/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../5/0"
+                }
+              ]
+            },
+            {
+              "id": 14,
+              "type": "editor_compile",
+              "position": [
+                240,
+                334
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:compile",
+                "editor_size:480x340"
+              ]
+            },
+            {
+              "id": 15,
+              "type": "float",
+              "position": [
+                211,
+                133
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../11/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": true
+                },
+                {
+                  "id": "expose_name",
+                  "value": "Start"
+                }
+              ]
+            },
+            {
+              "id": 16,
+              "type": "float",
+              "position": [
+                423,
+                156
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../12/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": true
+                },
+                {
+                  "id": "expose_name",
+                  "value": "End"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

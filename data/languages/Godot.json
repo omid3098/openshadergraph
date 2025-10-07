@@ -1,6 +1,6 @@
 {
   "name": "Godot",
-  "version": "1.0",
+  "version": "4.5-stable",
   "file_extensions": [
     "gdshader"
   ],
@@ -10,6 +10,16 @@
     "forward": "-z",
     "handedness": "right"
   },
+  "types": {
+    "float": { "code": "float", "constructor": "float", "zero": "0.0", "components": 1 },
+    "float2": { "code": "vec2", "constructor": "vec2", "zero": "vec2(0.0)", "components": 2 },
+    "float3": { "code": "vec3", "constructor": "vec3", "zero": "vec3(0.0)", "components": 3 },
+    "float4": { "code": "vec4", "constructor": "vec4", "zero": "vec4(0.0)", "components": 4 },
+    "matrix2": { "code": "mat2", "constructor": "mat2", "zero": "mat2(1.0)", "components": 2 },
+    "matrix3": { "code": "mat3", "constructor": "mat3", "zero": "mat3(1.0)", "components": 3 },
+    "matrix4": { "code": "mat4", "constructor": "mat4", "zero": "mat4(1.0)", "components": 4 }
+  },
+  "capabilities": { "allowRgbSwizzle": true, "vectorCtorScalarSplat": false },
   "nodes": {
     "surface": {
       "template": [
@@ -64,16 +74,10 @@
         "AO_LIGHT_AFFECT = {{inputs:8}};",
         "CLEARCOAT = {{inputs:9}};",
         "CLEARCOAT_ROUGHNESS = {{inputs:10}};",
-        "TRANSMISSION = {{inputs:11}};",
-        "TRANSMISSION_ROUGHNESS = {{inputs:12}};",
         "SSS_STRENGTH = {{inputs:13}};",
         "SSS_TRANSMITTANCE_COLOR = vec4({{inputs:14}}, 1.0);",
         "ANISOTROPY = {{inputs:17}};",
-        "ANISOTROPY_FLOW = vec3({{inputs:18}});",
-        "IOR = {{inputs:19}};",
-        "REFRACTION = vec3({{inputs:20}});",
-        "THICKNESS = {{inputs:21}};",
-        "BACKLIGHT = vec3({{inputs:22}});",
+        "ANISOTROPY_FLOW = vec3({{inputs:18}}).xy;",
         "EMISSION = vec3({{inputs:3}}) * {{inputs:23}};",
         "{{property:enable_sheen}}",
         "ALPHA = {{inputs:5}};"
@@ -243,7 +247,7 @@
       "template": "float {{name}} = length({{inputs:0}});"
     },
     "separate2": {
-      "template": "vec2 {{name}} = {{inputs:0}};",
+      "template": "vec2 {{name}} = {{inputs:0}}.xy;",
       "outputs": {
         "x": "{{name}}.x",
         "y": "{{name}}.y"
@@ -745,6 +749,20 @@
         }
       }
     },
+
+    "camera": {
+      "template": "{{if_output:position}}vec3 {{name}}_position = CAMERA_POSITION_WORLD;{{/if_output}}\n{{if_output:direction}}vec3 {{name}}_direction = normalize((INV_VIEW_MATRIX * vec4(0.0, 0.0, -1.0, 0.0)).xyz);{{/if_output}}\n{{if_output:orthographic|near plane|far plane|z buffer sign|width|height}}float {{name}}_orthographic = PROJECTION_MATRIX[3][3] > 0.5 ? 1.0 : 0.0;{{/if_output}}\n{{if_output:near plane|far plane|z buffer sign}}\nfloat {{name}}_near_plane;\nfloat {{name}}_far_plane;\n{\n  float m22 = PROJECTION_MATRIX[2][2];\n  float m32 = PROJECTION_MATRIX[3][2];\n  if ({{name}}_orthographic > 0.5) {\n    {{name}}_near_plane = (m32 + 1.0) / m22;\n    {{name}}_far_plane = (m32 - 1.0) / m22;\n  } else {\n    {{name}}_near_plane = m32 / (m22 - 1.0);\n    {{name}}_far_plane = m32 / (m22 + 1.0);\n  }\n}\nvec4 {{name}}_near_clip = PROJECTION_MATRIX * vec4(0.0, 0.0, -{{name}}_near_plane, 1.0);\nvec4 {{name}}_far_clip = PROJECTION_MATRIX * vec4(0.0, 0.0, -{{name}}_far_plane, 1.0);\nfloat {{name}}_near_clip_w = max(abs({{name}}_near_clip.w), 1e-6);\nfloat {{name}}_far_clip_w = max(abs({{name}}_far_clip.w), 1e-6);\nfloat {{name}}_near_ndc = {{name}}_near_clip.z / {{name}}_near_clip_w;\nfloat {{name}}_far_ndc = {{name}}_far_clip.z / {{name}}_far_clip_w;\n{{/if_output}}\n{{if_output:z buffer sign}}float {{name}}_z_buffer_sign = sign({{name}}_far_ndc - {{name}}_near_ndc);\nif ({{name}}_z_buffer_sign == 0.0) {\n  {{name}}_z_buffer_sign = 1.0;\n}{{/if_output}}\n{{if_output:width|height}}float {{name}}_width = 0.0;\nfloat {{name}}_height = 0.0;\nif ({{name}}_orthographic > 0.5) {\n  float sx = PROJECTION_MATRIX[0][0];\n  float sy = PROJECTION_MATRIX[1][1];\n  if (abs(sx) > 1e-6) {\n    {{name}}_width = 2.0 / sx;\n  }\n  if (abs(sy) > 1e-6) {\n    {{name}}_height = 2.0 / sy;\n  }\n}{{/if_output}}",
+      "outputs": {
+        "position": "{{name}}_position",
+        "direction": "{{name}}_direction",
+        "orthographic": "{{name}}_orthographic",
+        "near plane": "{{name}}_near_plane",
+        "far plane": "{{name}}_far_plane",
+        "z buffer sign": "{{name}}_z_buffer_sign",
+        "width": "{{name}}_width",
+        "height": "{{name}}_height"
+      }
+    },
     "camera_position": {
       "template": "vec3 {{name}} = {{property:space}};",
       "properties": {
@@ -832,6 +850,18 @@
     },
     "view_position": {
       "template": "vec3 {{name}} = NODE_POSITION_VIEW;"
+    },
+    "position": {
+      "template": "vec3 {{name}} = {{property:space}};",
+      "properties": {
+        "space": {
+          "object": { "template": "VERTEX" },
+          "view": { "template": "(VIEW_MATRIX * MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz" },
+          "world": { "template": "(MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz" },
+          "tangent": { "template": "vec3(0.0, 0.0, 0.0)" },
+          "absolute_world": { "template": "(MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz" }
+        }
+      }
     },
     "instance_id": {
       "template": "float {{name}} = float(INSTANCE_ID);"
@@ -963,10 +993,10 @@
       }
     },
     "value_noise": {
-      "template": "float {{name}}_hash(vec3 p) {\n  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);\n}\nvec3 {{name}}_p = vec3({{inputs:0}}) * {{inputs:1}} + vec3({{inputs:2}});\nvec3 {{name}}_i = floor({{name}}_p);\nvec3 {{name}}_f = fract({{name}}_p);\n{{name}}_f = {{name}}_f * {{name}}_f * (3.0 - 2.0 * {{name}}_f);\nfloat {{name}}_n000 = {{name}}_hash({{name}}_i + vec3(0.0, 0.0, 0.0));\nfloat {{name}}_n100 = {{name}}_hash({{name}}_i + vec3(1.0, 0.0, 0.0));\nfloat {{name}}_n010 = {{name}}_hash({{name}}_i + vec3(0.0, 1.0, 0.0));\nfloat {{name}}_n110 = {{name}}_hash({{name}}_i + vec3(1.0, 1.0, 0.0));\nfloat {{name}}_n001 = {{name}}_hash({{name}}_i + vec3(0.0, 0.0, 1.0));\nfloat {{name}}_n101 = {{name}}_hash({{name}}_i + vec3(1.0, 0.0, 1.0));\nfloat {{name}}_n011 = {{name}}_hash({{name}}_i + vec3(0.0, 1.0, 1.0));\nfloat {{name}}_n111 = {{name}}_hash({{name}}_i + vec3(1.0, 1.0, 1.0));\nfloat {{name}}_nx00 = mix({{name}}_n000, {{name}}_n100, {{name}}_f.x);\nfloat {{name}}_nx10 = mix({{name}}_n010, {{name}}_n110, {{name}}_f.x);\nfloat {{name}}_nx01 = mix({{name}}_n001, {{name}}_n101, {{name}}_f.x);\nfloat {{name}}_nx11 = mix({{name}}_n011, {{name}}_n111, {{name}}_f.x);\nfloat {{name}}_nxy0 = mix({{name}}_nx00, {{name}}_nx10, {{name}}_f.y);\nfloat {{name}}_nxy1 = mix({{name}}_nx01, {{name}}_nx11, {{name}}_f.y);\nfloat {{name}} = mix({{name}}_nxy0, {{name}}_nxy1, {{name}}_f.z);"
+      "template": "vec3 {{name}}_p = vec3({{inputs:0}}) * {{inputs:1}} + vec3({{inputs:2}});\nvec3 {{name}}_i = floor({{name}}_p);\nvec3 {{name}}_f = fract({{name}}_p);\n{{name}}_f = {{name}}_f * {{name}}_f * (3.0 - 2.0 * {{name}}_f);\nfloat {{name}}_n000 = fract(sin(dot({{name}}_i + vec3(0.0, 0.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n100 = fract(sin(dot({{name}}_i + vec3(1.0, 0.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n010 = fract(sin(dot({{name}}_i + vec3(0.0, 1.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n110 = fract(sin(dot({{name}}_i + vec3(1.0, 1.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n001 = fract(sin(dot({{name}}_i + vec3(0.0, 0.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n101 = fract(sin(dot({{name}}_i + vec3(1.0, 0.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n011 = fract(sin(dot({{name}}_i + vec3(0.0, 1.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_n111 = fract(sin(dot({{name}}_i + vec3(1.0, 1.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\nfloat {{name}}_nx00 = mix({{name}}_n000, {{name}}_n100, {{name}}_f.x);\nfloat {{name}}_nx10 = mix({{name}}_n010, {{name}}_n110, {{name}}_f.x);\nfloat {{name}}_nx01 = mix({{name}}_n001, {{name}}_n101, {{name}}_f.x);\nfloat {{name}}_nx11 = mix({{name}}_n011, {{name}}_n111, {{name}}_f.x);\nfloat {{name}}_nxy0 = mix({{name}}_nx00, {{name}}_nx10, {{name}}_f.y);\nfloat {{name}}_nxy1 = mix({{name}}_nx01, {{name}}_nx11, {{name}}_f.y);\nfloat {{name}} = mix({{name}}_nxy0, {{name}}_nxy1, {{name}}_f.z);"
     },
     "fbm_noise": {
-      "template": "float {{name}}_hash(vec3 p) {\n  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);\n}\nvec3 {{name}}_p = vec3({{inputs:0}}) * {{inputs:1}};\nfloat {{name}}_amp = 1.0;\nfloat {{name}}_freq = 1.0;\nfloat {{name}}_sum = 0.0;\nint {{name}}_oct = int(clamp(floor({{inputs:2}} + 0.5), 1.0, 8.0));\nfor (int {{name}}_i = 0; {{name}}_i < 8; {{name}}_i++) {\n  if ({{name}}_i >= {{name}}_oct) break;\n  vec3 {{name}}_pp = {{name}}_p * {{name}}_freq;\n  vec3 {{name}}_i3 = floor({{name}}_pp);\n  vec3 {{name}}_f3 = fract({{name}}_pp);\n  {{name}}_f3 = {{name}}_f3 * {{name}}_f3 * (3.0 - 2.0 * {{name}}_f3);\n  float {{name}}_n000 = {{name}}_hash({{name}}_i3 + vec3(0.0, 0.0, 0.0));\n  float {{name}}_n100 = {{name}}_hash({{name}}_i3 + vec3(1.0, 0.0, 0.0));\n  float {{name}}_n010 = {{name}}_hash({{name}}_i3 + vec3(0.0, 1.0, 0.0));\n  float {{name}}_n110 = {{name}}_hash({{name}}_i3 + vec3(1.0, 1.0, 0.0));\n  float {{name}}_n001 = {{name}}_hash({{name}}_i3 + vec3(0.0, 0.0, 1.0));\n  float {{name}}_n101 = {{name}}_hash({{name}}_i3 + vec3(1.0, 0.0, 1.0));\n  float {{name}}_n011 = {{name}}_hash({{name}}_i3 + vec3(0.0, 1.0, 1.0));\n  float {{name}}_n111 = {{name}}_hash({{name}}_i3 + vec3(1.0, 1.0, 1.0));\n  float {{name}}_nx00 = mix({{name}}_n000, {{name}}_n100, {{name}}_f3.x);\n  float {{name}}_nx10 = mix({{name}}_n010, {{name}}_n110, {{name}}_f3.x);\n  float {{name}}_nx01 = mix({{name}}_n001, {{name}}_n101, {{name}}_f3.x);\n  float {{name}}_nx11 = mix({{name}}_n011, {{name}}_n111, {{name}}_f3.x);\n  float {{name}}_nxy0 = mix({{name}}_nx00, {{name}}_nx10, {{name}}_f3.y);\n  float {{name}}_nxy1 = mix({{name}}_nx01, {{name}}_nx11, {{name}}_f3.y);\n  float {{name}}_noise = mix({{name}}_nxy0, {{name}}_nxy1, {{name}}_f3.z);\n  {{name}}_sum += {{name}}_noise * {{name}}_amp;\n  {{name}}_freq *= {{inputs:4}};\n  {{name}}_amp *= {{inputs:3}};\n}\nfloat {{name}} = {{name}}_sum;"
+      "template": "vec3 {{name}}_p = vec3({{inputs:0}}) * {{inputs:1}};\nfloat {{name}}_amp = 1.0;\nfloat {{name}}_freq = 1.0;\nfloat {{name}}_sum = 0.0;\nint {{name}}_oct = int(clamp(floor({{inputs:2}} + 0.5), 1.0, 8.0));\nfor (int {{name}}_i = 0; {{name}}_i < 8; {{name}}_i++) {\n  if ({{name}}_i >= {{name}}_oct) break;\n  vec3 {{name}}_pp = {{name}}_p * {{name}}_freq;\n  vec3 {{name}}_i3 = floor({{name}}_pp);\n  vec3 {{name}}_f3 = fract({{name}}_pp);\n  {{name}}_f3 = {{name}}_f3 * {{name}}_f3 * (3.0 - 2.0 * {{name}}_f3);\n  float {{name}}_n000 = fract(sin(dot({{name}}_i3 + vec3(0.0, 0.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n100 = fract(sin(dot({{name}}_i3 + vec3(1.0, 0.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n010 = fract(sin(dot({{name}}_i3 + vec3(0.0, 1.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n110 = fract(sin(dot({{name}}_i3 + vec3(1.0, 1.0, 0.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n001 = fract(sin(dot({{name}}_i3 + vec3(0.0, 0.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n101 = fract(sin(dot({{name}}_i3 + vec3(1.0, 0.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n011 = fract(sin(dot({{name}}_i3 + vec3(0.0, 1.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_n111 = fract(sin(dot({{name}}_i3 + vec3(1.0, 1.0, 1.0), vec3(127.1, 311.7, 74.7))) * 43758.5453);\n  float {{name}}_nx00 = mix({{name}}_n000, {{name}}_n100, {{name}}_f3.x);\n  float {{name}}_nx10 = mix({{name}}_n010, {{name}}_n110, {{name}}_f3.x);\n  float {{name}}_nx01 = mix({{name}}_n001, {{name}}_n101, {{name}}_f3.x);\n  float {{name}}_nx11 = mix({{name}}_n011, {{name}}_n111, {{name}}_f3.x);\n  float {{name}}_nxy0 = mix({{name}}_nx00, {{name}}_nx10, {{name}}_f3.y);\n  float {{name}}_nxy1 = mix({{name}}_nx01, {{name}}_nx11, {{name}}_f3.y);\n  float {{name}}_noise = mix({{name}}_nxy0, {{name}}_nxy1, {{name}}_f3.z);\n  {{name}}_sum += {{name}}_noise * {{name}}_amp;\n  {{name}}_freq *= {{inputs:4}};\n  {{name}}_amp *= {{inputs:3}};\n}\nfloat {{name}} = {{name}}_sum;"
     }
   },
   "meta": {

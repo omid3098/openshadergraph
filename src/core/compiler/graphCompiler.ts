@@ -1,12 +1,14 @@
+// Canonical schema types used across core and server
+
 import type { Graph, GraphNode, InputPin, LanguagePack, OutputPin } from "../graph/types";
 import { getCoordinateSystem, swizzleDirectionRefToTarget } from "../types/coordinates";
 import { getNodeTemplate } from "../schema/registry";
 import {
   chooseDominantPinType,
-  formatTypeForGLSL,
-  getPinTypeDescriptor,
+  getCoreTypeInfo,
   guessPinTypeFromLiteral,
   normalizePinType,
+  formatTypeForLanguage,
 } from "../types/pinTypes";
 import { getBuiltinPinType, isBuiltinToken, resolveBuiltinExpression } from "../types/builtinInputs";
 
@@ -29,6 +31,10 @@ type NodeState = {
   code?: string;
   resolvedType?: string;
   allowResolvedType?: boolean;
+  usedOutputs?: Set<number>;
+  outputIdByKey?: Map<string, number>;
+  outputKeyById?: Map<number, string>;
+  outputExprByKey?: Map<string, string>;
 };
 
 function fmtNum(n: number): string {
@@ -106,6 +112,12 @@ export class GraphCompiler {
     return state;
   }
 
+  private markOutputUsage(node: GraphNode, outputId: number) {
+    const state = this.getNodeState(node);
+    if (!state.usedOutputs) state.usedOutputs = new Set();
+    state.usedOutputs.add(outputId);
+  }
+
   private getPinState(pin: InputPin): PinState {
     let state = this.pinState.get(pin);
     if (!state) {
@@ -177,9 +189,19 @@ export class GraphCompiler {
     const fromName = normalizePinType(from_type);
     const toName = normalizePinType(to_type);
     if (!fromName || !toName || fromName === toName) return value;
-    const fromDesc = getPinTypeDescriptor(fromName);
-    const toDesc = getPinTypeDescriptor(toName);
+    const fromDesc = getCoreTypeInfo(fromName);
+    const toDesc = getCoreTypeInfo(toName);
     if (!fromDesc || !toDesc) return value;
+
+    const langTypes = this.lang_def?.types as any as Record<string, { code: string; constructor?: string; components?: number }> | undefined;
+    const caps = (this.lang_def as any)?.capabilities as { allowRgbSwizzle?: boolean; vectorCtorScalarSplat?: boolean } | undefined;
+    const ctor = (d: ReturnType<typeof getCoreTypeInfo>) => {
+      if (!d) return "";
+      const override = langTypes?.[d.name]?.code;
+      if (override) return override;
+      // fallback: return normalized type name if language omitted mapping
+      return d.name;
+    };
 
     if (fromDesc.kind === toDesc.kind) {
       if (fromDesc.kind === "vector") {
@@ -188,40 +210,45 @@ export class GraphCompiler {
         if (fn > tn) {
           const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
           let swizzle = swz[tn];
-          if (fn === 4 && tn === 3) swizzle = "rgb";
-          if (fn === 4 && tn === 2) swizzle = "rg";
+          if (caps?.allowRgbSwizzle) {
+            if (fn === 4 && tn === 3) swizzle = "rgb";
+            if (fn === 4 && tn === 2) swizzle = "rg";
+          }
           return `${value}.${swizzle}`;
         }
         if (fn < tn) {
           // Promote lower-dimension vector to higher by appending 0.0 components
-          // GLSL requires explicit extra scalars: vec3(v2, 0.0), vec4(v3, 0.0), vec4(v2, 0.0, 0.0)
           const zeros = Array.from({ length: tn - fn }, () => "0.0").join(", ");
           const tail = zeros.length ? `, ${zeros}` : "";
-          return `${toDesc.glslType}(${value}${tail})`;
+          return `${ctor(toDesc)}(${value}${tail})`;
         }
         return value;
       }
       if (fromDesc.kind === "matrix") {
         if (fromDesc.components === toDesc.components) return value;
-        return `${toDesc.glslType}(${value})`;
+        return `${ctor(toDesc)}(${value})`;
       }
       return value;
     }
 
     if (fromDesc.kind === "scalar" && toDesc.kind === "vector") {
-      return `${toDesc.glslType}(${value})`;
+      if (caps?.vectorCtorScalarSplat) {
+        const splat = Array.from({ length: toDesc.components }, () => value).join(", ");
+        return `${ctor(toDesc)}(${splat})`;
+      }
+      return `${ctor(toDesc)}(${value})`;
     }
     if (fromDesc.kind === "vector" && toDesc.kind === "scalar") {
       return `${value}.x`;
     }
     if (fromDesc.kind === "scalar" && toDesc.kind === "matrix") {
-      return `${toDesc.glslType}(${value})`;
+      return `${ctor(toDesc)}(${value})`;
     }
     if (fromDesc.kind === "matrix" && toDesc.kind === "scalar") {
       return `${value}[0][0]`;
     }
     if (fromDesc.kind === "vector" && toDesc.kind === "matrix") {
-      return `${toDesc.glslType}(${value})`;
+      return `${ctor(toDesc)}(${value})`;
     }
     if (fromDesc.kind === "matrix" && toDesc.kind === "vector") {
       const swz: Record<number, string> = { 1: "x", 2: "xy", 3: "xyz", 4: "xyzw" };
@@ -247,47 +274,137 @@ export class GraphCompiler {
     return String(value);
   }
 
-  private get_output_expression(node: GraphNode, output: OutputPin): string {
-    const name = getUniqueNodeName(node);
-    const langNode = this.lang_def?.nodes?.[node.type];
-    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
-    if (!outputs) return name;
-    const candidates = [output.name, String(output.id), output.name?.toLowerCase(), output.name?.toUpperCase()].filter(Boolean) as string[];
-    for (const key of candidates) {
-      if (key in outputs) {
-        const tpl = outputs[key];
-        if (typeof tpl === "string") return tpl.replace(/\{\{name\}\}/g, name);
-      }
-    }
-    return name;
+  private normalizeOutputKey(key: string | undefined): string {
+    return typeof key === "string" ? key.trim().replace(/\s+/g, " ").toLowerCase() : "";
   }
 
-  private resolve_ref(node: GraphNode, input: InputPin) {
-    const path = String(input.value).split("/");
-    if (path.length < 2) throw new Error(`Invalid input ref path: ${input.value}`);
-    let ref_node: GraphNode = node;
-    for (const p of path) {
-      if (p === "..") {
-        const parent = this.getParent(ref_node);
-        if (!parent) throw new Error("Invalid parent traversal in ref path");
-        ref_node = parent;
+  private getTemplateOutputs(node: GraphNode): any[] | undefined {
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.outputs && Array.isArray(tpl.outputs)) return tpl.outputs as any[];
+    } catch (_err) {
+      return undefined;
+    }
+    return undefined;
+  }
+
+  private getOutputKeyCandidates(
+    node: GraphNode,
+    output: OutputPin,
+    templateOutputs?: any[]
+  ): string[] {
+    let templateName: string | undefined;
+    if (!templateOutputs) templateOutputs = this.getTemplateOutputs(node);
+    if (templateOutputs) {
+      const match = templateOutputs.find((o) => o?.id === output.id);
+      if (match && match.name !== undefined) templateName = String(match.name);
+    }
+    const name = output.name !== undefined ? String(output.name) : undefined;
+    const id = typeof output.id === "number" || typeof output.id === "string" ? String(output.id) : undefined;
+    const candidates = [
+      name,
+      templateName,
+      id,
+      name ? name.toLowerCase() : undefined,
+      name ? name.toUpperCase() : undefined,
+      templateName ? templateName.toLowerCase() : undefined,
+      templateName ? templateName.toUpperCase() : undefined,
+    ].filter((v): v is string => typeof v === "string" && v.length > 0);
+    return candidates;
+  }
+
+  private ensureOutputKeyMaps(node: GraphNode) {
+    const state = this.getNodeState(node);
+    if (state.outputIdByKey && state.outputKeyById && state.outputExprByKey) return;
+
+    const langNode = this.lang_def?.nodes?.[node.type];
+    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
+    const mapByKey = new Map<string, number>();
+    const mapById = new Map<number, string>();
+    const exprByKey = new Map<string, string>();
+
+    if (outputs) {
+      for (const [rawKey, tpl] of Object.entries(outputs)) {
+        if (typeof tpl !== "string") continue;
+        const normKey = this.normalizeOutputKey(rawKey);
+        exprByKey.set(normKey, tpl);
+      }
+
+      const templateOutputs = this.getTemplateOutputs(node);
+      for (const output of node.outputs ?? []) {
+        const candidates = this.getOutputKeyCandidates(node, output, templateOutputs);
+        for (const candidate of candidates) {
+          const normalized = this.normalizeOutputKey(candidate);
+          if (!normalized.length) continue;
+          if (!exprByKey.has(normalized)) continue;
+          if (!mapById.has(output.id)) {
+            mapById.set(output.id, normalized);
+            mapByKey.set(normalized, output.id);
+            break;
+          }
+        }
       }
     }
-    const nodeIdPart: string = path[path.length - 2] ?? "";
-    let target = this.get_node(ref_node, nodeIdPart);
-    if (!target) {
-      const state = this.getPinState(input);
-      delete state.refType;
-      delete state.refNodeId;
-      delete state.refExpression;
-      state.missingRef = true;
-      return;
+
+    state.outputIdByKey = mapByKey;
+    state.outputKeyById = mapById;
+    state.outputExprByKey = exprByKey;
+  }
+
+  private applyOutputGuards(node: GraphNode, template: string): string {
+    const state = this.getNodeState(node);
+    const usedOutputs = state.usedOutputs ?? new Set<number>();
+    const mapByKey = state.outputIdByKey ?? new Map<string, number>();
+    const pattern = /\{\{if_output:([^}]+)\}\}([\s\S]*?)\{\{\/if_output\}\}/g;
+    return template.replace(pattern, (_match, rawKeys: string, block: string) => {
+      const keys = String(rawKeys)
+        .split("|")
+        .map((k) => this.normalizeOutputKey(k))
+        .filter((k) => k.length > 0);
+      if (!keys.length) return "";
+      let keep = false;
+      for (const key of keys) {
+        const outputId = mapByKey.get(key);
+        if (outputId !== undefined && usedOutputs.has(outputId)) {
+          keep = true;
+          break;
+        }
+      }
+      return keep ? block : "";
+    });
+  }
+
+  private resolveInputReference(
+    node: GraphNode,
+    input: InputPin
+  ): { target: GraphNode; outputId: number } | undefined {
+    if (typeof input.value !== "string" || !input.value.includes("../")) return undefined;
+    const path = String(input.value).split("/");
+    if (path.length < 2) throw new Error(`Invalid input ref path: ${input.value}`);
+
+    let refNode: GraphNode = node;
+    for (const part of path) {
+      if (part === "..") {
+        const parent = this.getParent(refNode);
+        if (!parent) throw new Error("Invalid parent traversal in ref path");
+        refNode = parent;
+      }
     }
-    let output_id = Number(path[path.length - 1]);
+
+    const nodeIdPart: string = path[path.length - 2] ?? "";
+    let target = this.get_node(refNode, nodeIdPart);
+    if (!target) {
+      return undefined;
+    }
+
+    let outputId = Number(path[path.length - 1]);
+    if (!Number.isFinite(outputId)) {
+      return undefined;
+    }
 
     if (target.type === "group") {
       const groupOut = (target.nodes ?? []).find((n) => n.type === "group_output");
-      const pin = groupOut?.inputs?.find((p) => p.id === output_id);
+      const pin = groupOut?.inputs?.find((p) => p.id === outputId);
       const v = pin?.value;
       if (typeof v === "string") {
         const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
@@ -297,14 +414,14 @@ export class GraphCompiler {
           const reroute = this.get_node(target, internalId) ?? this.get_node(this.graph_data, internalId);
           if (reroute) {
             target = reroute;
-            output_id = internalOutId;
+            outputId = internalOutId;
           }
         }
       }
     } else if (target.type === "group_input") {
       const parent = this.getParent(target);
       if (parent && parent.type === "group") {
-        const pin = parent.inputs?.find((p) => p.id === output_id);
+        const pin = parent.inputs?.find((p) => p.id === outputId);
         const v = pin?.value;
         if (typeof v === "string") {
           const m = v.match(/^\.\.\/(\d+)\/(\d+)$/);
@@ -314,7 +431,7 @@ export class GraphCompiler {
             const extNode = this.get_node(parent, extId) ?? this.get_node(this.graph_data, extId);
             if (extNode) {
               target = extNode;
-              output_id = extOutId;
+              outputId = extOutId;
             }
           }
         }
@@ -335,7 +452,7 @@ export class GraphCompiler {
       }
       visitedReroutes.add(target.id);
       const pins = Array.isArray(target.inputs) ? target.inputs : [];
-      let rerouteInput = pins.find((p) => typeof p?.id === "number" ? p.id === output_id : false);
+      let rerouteInput = pins.find((p) => (typeof p?.id === "number" ? p.id === outputId : false));
       if (!rerouteInput && pins.length) rerouteInput = pins[0];
       if (!rerouteInput || typeof rerouteInput.value !== "string") {
         target = undefined;
@@ -354,30 +471,117 @@ export class GraphCompiler {
         break;
       }
       target = nextTarget;
-      output_id = nextOutputId;
+      outputId = nextOutputId;
     }
 
     if (!target) {
-      const state = this.getPinState(input);
-      delete state.refType;
-      delete state.refNodeId;
-      delete state.refExpression;
-      state.missingRef = true;
+      return undefined;
+    }
+
+    return { target, outputId };
+  }
+
+  private collectOutputUsage(node: GraphNode) {
+    const visit = (current: GraphNode) => {
+      for (const input of current.inputs ?? []) {
+        if (typeof input.value !== "string" || !input.value.includes("../")) continue;
+        const info = this.resolveInputReference(current, input);
+        if (info) {
+          this.markOutputUsage(info.target, info.outputId);
+        }
+      }
+      for (const child of current.nodes ?? []) visit(child);
+    };
+    visit(node);
+  }
+
+  private get_output_expression(node: GraphNode, output: OutputPin): string {
+    const name = getUniqueNodeName(node);
+    const langNode = this.lang_def?.nodes?.[node.type];
+    const outputs = (langNode as any)?.outputs as Record<string, string> | undefined;
+    if (!outputs) return name;
+    this.ensureOutputKeyMaps(node);
+    const state = this.getNodeState(node);
+    const normalizedKey = state.outputKeyById?.get(output.id);
+    if (normalizedKey) {
+      const mapped = state.outputExprByKey?.get(normalizedKey);
+      if (typeof mapped === "string") {
+        return mapped.replace(/\{\{name\}\}/g, name);
+      }
+    }
+
+    let templateOutputs: any[] | undefined;
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.outputs && Array.isArray(tpl.outputs)) templateOutputs = tpl.outputs as any[];
+    } catch (_err) {
+      templateOutputs = undefined;
+    }
+    const templateName = templateOutputs?.find((o) => o?.id === output.id)?.name;
+    const candidates = [
+      output.name,
+      templateName,
+      String(output.id),
+      output.name?.toLowerCase(),
+      output.name?.toUpperCase(),
+      templateName ? String(templateName).toLowerCase() : undefined,
+      templateName ? String(templateName).toUpperCase() : undefined,
+    ].filter(Boolean) as string[];
+    for (const keyCandidate of candidates) {
+      if (keyCandidate in outputs) {
+        const tpl = outputs[keyCandidate];
+        if (typeof tpl === "string") return tpl.replace(/\{\{name\}\}/g, name);
+      }
+    }
+    return name;
+  }
+
+  private resolve_ref(node: GraphNode, input: InputPin) {
+    const info = this.resolveInputReference(node, input);
+    const inputState = this.getPinState(input);
+    if (!info) {
+      delete inputState.refType;
+      delete inputState.refNodeId;
+      delete inputState.refExpression;
+      inputState.missingRef = true;
       return;
     }
 
-    this.process_node(target);
-    const output_pin = target.outputs.find((o) => o.id === output_id)!;
+    const { target, outputId } = info;
+    this.markOutputUsage(target, outputId);
+
     const targetState = this.getNodeState(target);
-    const inputState = this.getPinState(input);
-    inputState.missingRef = false;
-    if (Array.isArray(output_pin.type)) {
-      const t = targetState.resolvedType ?? (output_pin.type[0] as string | undefined);
-      if (t) inputState.refType = t; else delete inputState.refType;
-    } else {
-      const t = targetState.resolvedType ?? (output_pin.type as string | undefined);
-      if (t) inputState.refType = t; else delete inputState.refType;
+
+    this.process_node(target);
+    const output_pin = target.outputs.find((o) => o.id === outputId);
+    if (!output_pin) {
+      delete inputState.refType;
+      delete inputState.refNodeId;
+      delete inputState.refExpression;
+      inputState.missingRef = true;
+      return;
     }
+    inputState.missingRef = false;
+    let outputType: string | undefined;
+    if (Array.isArray(output_pin.type)) {
+      outputType = normalizePinType(output_pin.type);
+    } else if (typeof output_pin.type === "string") {
+      outputType = output_pin.type;
+    }
+    if (!outputType) {
+      try {
+        const tpl = getNodeTemplate(target.type);
+        const tplOutputs = tpl?.outputs;
+        if (Array.isArray(tplOutputs)) {
+          const tplOut = tplOutputs.find((o: any) => o?.id === outputId);
+          if (tplOut) outputType = normalizePinType(tplOut.type);
+        }
+      } catch (_err) {
+        outputType = undefined;
+      }
+    }
+    const resolvedType = targetState.resolvedType ?? outputType;
+    if (resolvedType) inputState.refType = resolvedType; else delete inputState.refType;
     const expr = this.get_output_expression(target, output_pin);
     inputState.refNodeId = target.id;
     inputState.refExpression = expr;
@@ -407,12 +611,21 @@ export class GraphCompiler {
       nodeState.allowResolvedType = true;
     }
 
+    let templateInputs: any[] | undefined;
+    try {
+      const tpl = getNodeTemplate(node.type);
+      if (tpl?.inputs && Array.isArray(tpl.inputs)) templateInputs = tpl.inputs as any[];
+    } catch (_err) {
+      templateInputs = undefined;
+    }
+
     const candidate: string[] = [];
     const fallback: string[] = [];
-    for (const input of node.inputs) {
+    for (let idx = 0; idx < node.inputs.length; idx++) {
+      const input = node.inputs[idx];
       this.ensure_input_prepared(node, input);
       const pinState = this.getPinState(input);
-      const declared = normalizePinType(input.type);
+      const declared = normalizePinType(input.type ?? templateInputs?.[idx]?.type);
       if (pinState.refType) candidate.push(pinState.refType);
       if (declared) {
         fallback.push(declared);
@@ -557,9 +770,10 @@ export class GraphCompiler {
         continue;
       }
       const prop = stripped.split("=")[0]?.trim();
-      const propKey = String(prop);
+      const propKey = String(prop ?? "");
       const propKeyNorm = normalizeKey(propKey);
-      const input_pin = node.inputs.find((inp: any) => normalizeKey(String(inp.name)) === propKeyNorm);
+      const pins = Array.isArray((node as any).inputs) ? ((node as any).inputs as any[]) : [];
+      const input_pin = pins.find((inp: any) => normalizeKey(String(inp?.name ?? "")) === propKeyNorm);
       const defVal = defaults.get(propKeyNorm);
       if (!input_pin || defVal === undefined) {
         out.push(line);
@@ -605,9 +819,17 @@ export class GraphCompiler {
 
   private populateTemplate(node: GraphNode, template: string, options: { mutate?: boolean; stripDefaults?: boolean } = {}): string {
     let code = template;
-    if (code.includes("{{name}}")) {
-      const unique = getUniqueNodeName(node);
-      code = code.replace(/\{\{name\}\}/g, unique);
+    let cachedUnique: string | undefined;
+    const replaceNamePlaceholders = () => {
+      if (!code.includes("{{name}}")) return;
+      if (!cachedUnique) cachedUnique = getUniqueNodeName(node);
+      code = code.replace(/\{\{name\}\}/g, cachedUnique);
+    };
+    replaceNamePlaceholders();
+
+    if (code.includes("{{if_output:")) {
+      this.ensureOutputKeyMaps(node);
+      code = this.applyOutputGuards(node, code);
     }
 
     const needsType = code.includes("{{type}}");
@@ -624,7 +846,7 @@ export class GraphCompiler {
     if (needsType) {
       const nodeState = this.getNodeState(node);
       const resolved = nodeState.resolvedType ?? normalizePinType(node.outputs?.[0]?.type);
-      const formatted = formatTypeForGLSL(resolved);
+      const formatted = formatTypeForLanguage(resolved, this.lang_def?.name, this.lang_def?.types as any);
       if (formatted) {
         code = code.replace(/\{\{type\}\}/g, formatted);
       }
@@ -633,6 +855,8 @@ export class GraphCompiler {
     if (code.includes("{{property:")) {
       code = this.replacePropertyPlaceholders(node, code);
     }
+
+    replaceNamePlaceholders();
 
     if (code.includes("{{inputs:")) {
       code = this.replaceInputPlaceholders(node, code);
@@ -665,33 +889,28 @@ export class GraphCompiler {
     const outputs = node.outputs ?? [];
     if (!outputs.length) return "";
     const primaryType = normalizePinType(outputs[0]?.type);
-    const glslType = formatTypeForGLSL(primaryType);
+    const langType = formatTypeForLanguage(primaryType, this.lang_def?.name, this.lang_def?.types as any);
     const literal = this.getZeroLiteralForType(primaryType);
-    if (!glslType || !literal) {
+    if (!langType || !literal) {
       return `// ${node.type} skipped due to missing input`;
     }
     const unique = getUniqueNodeName(node);
-    return `${glslType} ${unique} = ${literal};`;
+    return `${langType} ${unique} = ${literal};`;
   }
 
   private getZeroLiteralForType(type?: string): string | undefined {
-    switch (type) {
-      case "float":
-        return "0.0";
-      case "float2":
-        return "vec2(0.0)";
-      case "float3":
-        return "vec3(0.0)";
-      case "float4":
-        return "vec4(0.0)";
-      case "matrix2":
-        return "mat2(1.0)";
-      case "matrix3":
-        return "mat3(1.0)";
-      case "matrix4":
-        return "mat4(1.0)";
-      default:
-        return undefined;
+    const t = type ?? "";
+    const langType = (this.lang_def?.types as any)?.[t];
+    if (langType?.zero) return langType.zero;
+    switch (t) {
+      case "float": return "0.0";
+      case "float2": return "vec2(0.0)";
+      case "float3": return "vec3(0.0)";
+      case "float4": return "vec4(0.0)";
+      case "matrix2": return "mat2(1.0)";
+      case "matrix3": return "mat3(1.0)";
+      case "matrix4": return "mat4(1.0)";
+      default: return undefined;
     }
   }
 
@@ -891,6 +1110,31 @@ export class GraphCompiler {
     return out;
   }
 
+  // Expand scalar vector constructors if language requires scalar splat
+  private normalizeScalarVectorConstructors(code: string): string {
+    const expand = (src: string, n: number) => {
+      const re = new RegExp(`\\bvec${n}<f32>\\(([^,)]*)\\)`, "g");
+      return src.replace(re, (_m: string, s: string) => {
+        const expr = (s ?? "").trim();
+        // If the expression already contains a comma it's already expanded
+        if (expr.includes(",")) return _m;
+        // If the expression is empty, emit zero constructor
+        if (expr.length === 0) return `vec${n}<f32>(0.0)`;
+        // Avoid expanding when the inner expression is already a vector or swizzle
+        // (e.g., "foo.xyz", "vec3<f32>(...)" or function calls). These are
+        // not scalar values and should not be duplicated.
+        if (expr.includes(".") || expr.includes("(") || /\bvec[234]<f32>/.test(expr)) return _m;
+        const parts = Array.from({ length: n }, () => expr).join(", ");
+        return `vec${n}<f32>(${parts})`;
+      });
+    };
+    let out = code;
+    out = expand(out, 2);
+    out = expand(out, 3);
+    out = expand(out, 4);
+    return out;
+  }
+
   private add_meta_to_result() {
     const allMeta = new Set<string>();
     const propertyMeta = new Set<string>();
@@ -966,41 +1210,36 @@ export class GraphCompiler {
       }
       return result;
     }
-    // If property exists but isn't annotated as enum (e.g., diff/minimal graphs), try language mapping directly
-    if (langNode?.properties?.[propId]) {
-      const dict: any = (langNode.properties as any)[propId] ?? {};
+    // If language mapping exists for this property, use it strictly; missing variants render nothing
+    const langPropDict: any = (langNode?.properties as any)?.[propId];
+    const applyName = (text: string | undefined) => {
+      if (!text || !text.includes("{{name}}")) return text ?? "";
+      const unique = getUniqueNodeName(node);
+      return text.replace(/\{\{name\}\}/g, unique);
+    };
+    if (langPropDict) {
       const token = String(value ?? "");
-      // Try exact key, then common enum prefixes used in language packs
       const variant =
-        dict[token] ??
-        dict[`${propId}_${token}`] ??
-        dict[`wrap_${token}`] ??
-        dict[`filter_${token}`] ??
-        dict[`space_${token}`] ??
+        langPropDict[token] ??
+        langPropDict[`${propId}_${token}`] ??
+        langPropDict[`wrap_${token}`] ??
+        langPropDict[`filter_${token}`] ??
+        langPropDict[`space_${token}`] ??
         undefined;
-      if (variant) {
-        const tpl = (variant as any)?.template ?? "";
-        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
-        return plc ? { template: tpl, placement: plc } : { template: tpl };
-      }
-    }
-    if (!prop && langNode?.properties?.[propId]) {
-      const token = String(value ?? "");
-      const variant = (langNode.properties as any)[propId]?.[token];
-      if (variant) {
-        const tpl = (variant as any)?.template ?? "";
-        const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
-        return plc ? { template: tpl, placement: plc } : { template: tpl };
-      }
+      if (!variant) return result; // no emission when mapping has no variant (e.g., boolean false)
+      const tpl = applyName((variant as any)?.template ?? "");
+      const plc: "inline" | "meta" | undefined = (variant as any)?.placement;
+      return plc ? { template: tpl, placement: plc } : { template: tpl };
     }
     if (prop?.type === "boolean") {
       return { template: value ? "true" : "false", placement: "inline" };
     }
-    return { template: coercePropertyValue(value), placement: "inline" };
+    return { template: applyName(coercePropertyValue(value)), placement: "inline" };
   }
 
   public compile() {
     this.initializeGraph();
+    this.collectOutputUsage(this.graph_data);
     this.process_node(this.graph_data);
     this.result_code = this.getNodeCode(this.graph_data) ?? "";
     this.add_meta_to_result();
@@ -1009,5 +1248,111 @@ export class GraphCompiler {
     const exposed_code = exposed.length ? exposed.join("\n") + "\n" : "";
     this.result_code = this.result_code.replace("{{exposed_nodes}}", exposed_code);
     this.result_code = this.result_code.replace("{{internal_nodes}}", "");
+    this.result_code = this.hoistVaryingDeclarations(this.result_code);
+    // Constructor normalization based on language capability
+    const caps = (this.lang_def as any)?.capabilities as { vectorCtorScalarSplat?: boolean } | undefined;
+    if (caps?.vectorCtorScalarSplat) {
+      // First, collapse any redundant constructors where the inner expression
+      // is already a vector/swatch (e.g., `vec3<f32>(foo.xyz)` -> `foo.xyz`)
+      this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
+      this.result_code = this.normalizeScalarVectorConstructors(this.result_code);
+      // Run collapse again to clean up any expansions that may have produced
+      // repeated identical components (defensive).
+      this.result_code = this.collapseRedundantVectorConstructors(this.result_code);
+    }
+    this.result_code = this.collapseExtraBlankLines(this.result_code);
+  }
+
+  private hoistVaryingDeclarations(code: string): string {
+    const varyingRe = /^[\t ]*varying\s+[^;\n]+;\s*(?:\r?\n)?/gm;
+    const declarations: string[] = [];
+    const stripped = code.replace(varyingRe, (match) => {
+      const decl = match.trim();
+      if (decl.length && !declarations.includes(decl)) {
+        declarations.push(decl.replace(/;\s*$/, ";"));
+      }
+      return "";
+    });
+    if (!declarations.length) {
+      return code;
+    }
+    const block = `${declarations.join("\n")}\n`;
+    const commentIdx = stripped.indexOf("// Varyings from default vertex shader");
+    if (commentIdx !== -1) {
+      const insertAfter = stripped.indexOf("\n", commentIdx);
+      const pos = insertAfter === -1 ? stripped.length : insertAfter + 1;
+      return `${stripped.slice(0, pos)}${block}${stripped.slice(pos)}`;
+    }
+    const precisionMatch = stripped.match(/precision\s+highp\s+float;\s*/);
+    if (precisionMatch?.index !== undefined) {
+      const pos = precisionMatch.index + precisionMatch[0].length;
+      return `${stripped.slice(0, pos)}\n${block}${stripped.slice(pos)}`;
+    }
+    return `${block}${stripped}`;
+  }
+
+  // Collapse constructors that wrap vector-like expressions or repeated
+  // identical components emitted by earlier passes. Examples handled:
+  // - vec3<f32>(foo.xyz) -> foo.xyz
+  // - vec3<f32>(foo.xyz, foo.xyz, foo.xyz) -> foo.xyz
+  // - vec4<f32>(bar.xyzw) -> bar.xyzw
+  private collapseRedundantVectorConstructors(code: string): string {
+    let out = code;
+    // vec3 cases: xyz or rgb swizzles
+    out = out.replace(/vec3<\s*f32\s*>\(\s*([A-Za-z0-9_]+\.(?:xyz|rgb|xy|yz|xz))\s*(?:,\s*\1\s*){0,2}\)/g, (_m: string, p1: string) => {
+      return p1;
+    });
+    // vec4 cases: xyzw or rgba swizzles
+    out = out.replace(/vec4<\s*f32\s*>\(\s*([A-Za-z0-9_]+\.(?:xyzw|rgba))\s*(?:,\s*\1\s*){0,3}\)/g, (_m: string, p1: string) => {
+      return p1;
+    });
+    // vec2 cases: xy or rg
+    out = out.replace(/vec2<\s*f32\s*>\(\s*([A-Za-z0-9_]+\.(?:xy|rg))\s*(?:,\s*\1\s*){0,1}\)/g, (_m: string, p1: string) => {
+      return p1;
+    });
+    // Collapse nested constructors like vec3<f32>(vec3<f32>(...)) -> vec3<f32>(...)
+    out = out.replace(/vec(2|3|4)<\s*f32\s*>\(\s*vec\1<\s*f32\s*>\(([^)]*)\)\s*\)/g, (_m: string, _n: string, inner: string) => {
+      return `vec${_n}<f32>(${inner})`;
+    });
+    return out;
+  }
+
+  private collapseExtraBlankLines(code: string): string {
+    const lines = code.split("\n");
+    const out: string[] = [];
+    let blankCount = 0;
+    for (const line of lines) {
+      if (line.trim().length === 0) {
+        blankCount += 1;
+        if (blankCount > 1) continue;
+      } else {
+        blankCount = 0;
+      }
+      out.push(line);
+    }
+    return out.join("\n");
   }
 }
+
+// Expand vecN<f32>(s) -> vecN<f32>(s, ..., s) when language requires scalar splat
+GraphCompiler.prototype["normalizeScalarVectorConstructors"] = function (this: GraphCompiler, code: string): string {
+  const expand = (src: string, n: number) => {
+    const re = new RegExp(`\\bvec${n}<f32>\\(([^,)]*)\\)`, "g");
+    return src.replace(re, (_m: string, s: string) => {
+      const expr = (s ?? "").trim();
+      // If already expanded (contains comma), skip
+      if (expr.includes(",")) return _m;
+      // Empty -> zero constructor
+      if (expr.length === 0) return `vec${n}<f32>(0.0)`;
+      // Avoid expanding when inner expression is vector-like or a swizzle or a function call
+      if (expr.includes(".") || expr.includes("(") || /\bvec[234]<f32>/.test(expr)) return _m;
+      const parts = Array.from({ length: n }, () => expr).join(", ");
+      return `vec${n}<f32>(${parts})`;
+    });
+  };
+  let out = code;
+  out = expand(out, 2);
+  out = expand(out, 3);
+  out = expand(out, 4);
+  return out;
+};
