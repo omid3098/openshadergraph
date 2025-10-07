@@ -2818,9 +2818,10 @@ export function App() {
           </MenubarMenu>
         </Menubar>
       </div>
-      <div className="flex-1 flex items-center">
-        <Breadcrumb>
-          <BreadcrumbList>
+      <div className="flex-1">
+        <div className="flex items-center rounded-md border border-border/40 bg-muted/40 px-3 py-1.5 shadow-sm">
+          <Breadcrumb className="w-full">
+            <BreadcrumbList className="text-xs">
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
                 <button onClick={() => setViewPath([])} className="hover:underline text-xs">{graphName}</button>
@@ -2846,8 +2847,9 @@ export function App() {
                 </Fragment>
               );
             })}
-          </BreadcrumbList>
-        </Breadcrumb>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <Button
