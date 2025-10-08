@@ -3,7 +3,7 @@ import { assetsHandler } from "../src/server/assets";
 
 describe("/api/assets route", () => {
   it("returns categories with asset metadata", async () => {
-    const res = await assetsHandler();
+    const res = await assetsHandler(new Request("http://localhost/api/assets"));
     expect(res.ok).toBe(true);
     const data = await res.json();
     expect(typeof data.version).toBe("number");
@@ -22,5 +22,12 @@ describe("/api/assets route", () => {
         expect(item.builtin).toBe(true);
       }
     }
+  });
+
+  it("ignores provider query parameters", async () => {
+    const res = await assetsHandler(new Request("http://localhost/api/assets?provider=ambientcg"));
+    expect(res.ok).toBe(true);
+    const data = await res.json();
+    expect(Array.isArray(data.categories)).toBe(true);
   });
 });

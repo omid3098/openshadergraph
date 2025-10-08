@@ -2,7 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { validateAssetLibrary } from "../core/schema/validators";
 
-export async function assetsHandler(): Promise<Response> {
+export async function assetsHandler(_req: Request): Promise<Response> {
   try {
     const abs = path.resolve(process.cwd(), "data", "assets", "library.json");
     try {
@@ -23,6 +23,7 @@ export async function assetsHandler(): Promise<Response> {
         items: category.items.map((item) => ({ ...item, builtin: true })),
       })),
     };
+
     return Response.json(withBuiltin);
   } catch (err) {
     console.error("/api/assets failed:", err);

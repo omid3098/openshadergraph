@@ -61,9 +61,17 @@ vi.mock("@/core/assets/kind", () => ({
   TEXTURE_EXTENSIONS: ["png"],
   ASSET_DRAG_MIME: "application/x-asset",
 }), { virtual: true });
-vi.mock("@/lib/storage", () => ({
-  persistGet: vi.fn(() => Promise.resolve(null)),
-  persistSet: vi.fn(() => Promise.resolve()),
+const { loadUserAssetsMock, saveUserAssetsMock } = vi.hoisted(() => ({
+  loadUserAssetsMock: vi.fn(() => Promise.resolve([])),
+  saveUserAssetsMock: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@/core/assets/userAssets", () => ({
+  appendUserAsset: (list: any[], asset: any) => [...list, asset],
+  createUserAssetId: () => "user-mock",
+  loadUserAssets: loadUserAssetsMock,
+  removeUserAssetById: (list: any[], id: string) => list.filter((asset) => asset.id !== id),
+  saveUserAssets: saveUserAssetsMock,
+  USER_ASSETS_CHANGED_EVENT: "osg:user-assets:changed",
 }), { virtual: true });
 vi.mock("@/core/assets/search", () => ({
   buildAssetHaystack: (asset: any) => `${asset.label}|${asset.type}`.toLowerCase(),
@@ -76,6 +84,24 @@ vi.mock("../src/components/PreviewPanel", () => ({ PreviewPanel: () => null }));
 import GraphNode from "../src/components/GraphNode";
 import CodeBlock from "../src/components/CodeBlock";
 import { AssetsPanel } from "../src/components/AssetsPanel";
+import { SettingsProvider } from "../src/ui/state/SettingsContext";
+
+function createSettingsValue() {
+  return {
+    theme: "dark",
+    setTheme: vi.fn(),
+    curveMode: "default",
+    setCurveMode: vi.fn(),
+    quickHotkeys: [],
+    setQuickHotkeys: vi.fn(),
+    assetLibraries: {
+      ambientcg: {
+        enabled: false,
+      },
+    },
+    setAssetLibraries: vi.fn(),
+  };
+}
 
 function renderIntoContainer(element: React.ReactElement) {
   const container = document.createElement("div");
@@ -213,9 +239,11 @@ describe("In-node widgets keep focus", () => {
     const pointerSpy = vi.fn();
     const wheelSpy = vi.fn();
     const { container, cleanup } = renderIntoContainer(
-      <div onPointerDown={pointerSpy} onWheel={wheelSpy}>
-        <AssetsPanel variant="node" />
-      </div>
+      <SettingsProvider value={createSettingsValue()}>
+        <div onPointerDown={pointerSpy} onWheel={wheelSpy}>
+          <AssetsPanel variant="node" />
+        </div>
+      </SettingsProvider>
     );
 
     await flushPromises(3);

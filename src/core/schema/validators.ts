@@ -169,6 +169,13 @@ export const ZLanguagePack = z.object({
   meta: z.record(z.object({ template: z.union([z.string(), z.array(z.string())]) })).optional(),
 });
 
+const ZAssetProviderMeta = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  assetId: z.string().min(1).optional(),
+  assetUrl: z.string().min(1).optional(),
+});
+
 const ZAssetItem = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -177,6 +184,8 @@ const ZAssetItem = z.object({
   description: z.string().optional(),
   tags: z.array(z.string().min(1)).optional(),
   builtin: z.boolean().optional(),
+  preview: z.string().min(1).optional(),
+  provider: ZAssetProviderMeta.optional(),
 });
 
 const ZAssetCategory = z.object({

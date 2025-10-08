@@ -5,6 +5,12 @@ export type ThemeName = "dark" | "light";
 
 export type CurveMode = "default" | "smoothstep" | "step" | "straight" | "simplebezier";
 
+export type AssetLibrariesSettings = {
+  ambientcg: {
+    enabled: boolean;
+  };
+};
+
 type SettingsContextValue = {
   theme: ThemeName;
   setTheme: (next: ThemeName) => void;
@@ -12,6 +18,8 @@ type SettingsContextValue = {
   setCurveMode: (next: CurveMode) => void;
   quickHotkeys: QuickNodeHotkey[];
   setQuickHotkeys: (next: QuickNodeHotkey[]) => void;
+  assetLibraries: AssetLibrariesSettings;
+  setAssetLibraries: (next: AssetLibrariesSettings) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
