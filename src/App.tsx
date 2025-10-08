@@ -97,13 +97,13 @@ const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
 const DEFAULT_ASSET_LIBRARIES: AssetLibrariesSettings = {
-  ambientcg: { enabled: false },
+  ambientcg: { enabled: true },
 };
 
 function normalizeAssetLibraries(value?: AssetLibrariesSettings | null): AssetLibrariesSettings {
   return {
     ambientcg: {
-      enabled: value?.ambientcg?.enabled === true,
+      enabled: value?.ambientcg?.enabled !== false,
     },
   };
 }

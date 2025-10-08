@@ -10,7 +10,6 @@ const PAGE_SIZE = 96;
 const PAGE_CACHE_TTL_MS = 30 * 60 * 1000;
 const ZIP_CACHE_TTL_MS = 10 * 60 * 1000;
 
-const MODEL_FILE_EXTENSIONS = new Set(["usdc", "usd", "usdz", "glb", "gltf", "obj", "fbx"]);
 const DIRECT_FILE_EXTENSIONS = new Set(["exr", "hdr", "png", "jpg", "jpeg", "webp", "tif", "tiff"]);
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -218,37 +217,6 @@ function extractDirectDownloads(asset: AmbientcgAsset): AmbientcgDownload[] {
   return downloads;
 }
 
-function selectModelDownloads(asset: AmbientcgAsset): Array<{ download: AmbientcgDownload; filename: string }> {
-  const folders = asset.downloadFolders?.default?.downloadFiletypeCategories;
-  if (!folders) return [];
-  const selections: Array<{ download: AmbientcgDownload; filename: string }> = [];
-  for (const category of Object.values(folders)) {
-    if (!category?.downloads) continue;
-    const sorted = [...category.downloads].sort((a, b) => {
-      const weight = (value: string | undefined) => {
-        if (!value) return Number.POSITIVE_INFINITY;
-        const match = value.match(/(\d+)(k|m)/i);
-        if (!match) return Number.POSITIVE_INFINITY;
-        const amount = Number(match[1]);
-        const unit = match[2].toLowerCase();
-        return unit === "m" ? amount * 1000 : amount;
-      };
-      return weight(a.attribute) - weight(b.attribute);
-    });
-    for (const download of sorted) {
-      const contents = download?.zipContent ?? [];
-      for (const file of contents) {
-        const ext = file.split(".").pop()?.toLowerCase() ?? "";
-        if (!MODEL_FILE_EXTENSIONS.has(ext)) continue;
-        selections.push({ download, filename: file });
-        break;
-      }
-      if (selections.length) break;
-    }
-  }
-  return selections;
-}
-
 type AmbientcgItemType = "all" | "texture" | "model";
 
 function mapAmbientcgAsset(asset: AmbientcgAsset, filter: AmbientcgItemType): AssetItem[] {
@@ -260,8 +228,10 @@ function mapAmbientcgAsset(asset: AmbientcgAsset, filter: AmbientcgItemType): As
   } as const;
   const previewImage = pickPreviewImage(asset.previewImage);
   const items: AssetItem[] = [];
+  if (filter === "model") {
+    return items;
+  }
   const allowTextures = filter === "all" || filter === "texture";
-  const allowModels = filter === "all" || filter === "model";
 
   const displayName = asset.displayName || asset.assetId;
   const description = normalizeDescription(asset);
@@ -319,38 +289,7 @@ function mapAmbientcgAsset(asset: AmbientcgAsset, filter: AmbientcgItemType): As
     }
   }
 
-  if (allowModels) {
-    for (const selection of selectModelDownloads(asset)) {
-      const download = selection.download;
-      const link = download.downloadLink || download.fullDownloadPath;
-      if (!link) continue;
-      const file = selection.filename;
-      const ext = file.split(".").pop()?.toLowerCase() ?? "";
-      const id = `ambientcg:${asset.assetId}:model:${slugify(file)}`;
-      const attribute = download.attribute?.replace(/[-_]+/g, " ") || ext.toUpperCase();
-      const source = buildAmbientcgFileUrl(link, file);
-      items.push({
-        id,
-        label: `${displayName} • ${attribute}`,
-        type: "model",
-        source,
-        description,
-        tags: buildTags(asset, [attribute, ext]),
-        builtin: true,
-        preview: previewImage,
-        provider,
-      });
-    }
-  }
-
   return items;
-}
-
-function buildAmbientcgFileUrl(downloadLink: string, fileName: string): string {
-  const params = new URLSearchParams();
-  params.set("download", downloadLink);
-  params.set("file", fileName);
-  return `/api/assets/ambientcg/file?${params.toString()}`;
 }
 
 function parseOffsetFromUrl(url: string | null | undefined): number | null {
@@ -430,13 +369,16 @@ export type AmbientcgCatalogResult = {
 export async function queryAmbientcgItems(options: AmbientcgCatalogQuery = {}): Promise<AmbientcgCatalogResult> {
   const query = (options.query ?? "").trim();
   const filter: AmbientcgItemType = options.type === "texture" || options.type === "model" ? options.type : "all";
+  if (filter === "model") {
+    return { items: [], cursor: null };
+  }
   let offset = parseCursor(options.cursor);
   let page = await loadAmbientcgPage(query, offset);
   let nextOffset = page.nextOffset;
 
   const items: AssetItem[] = [];
   const maxPages = filter === "all" ? 1 : 4;
-  const minResults = filter === "model" ? 8 : filter === "texture" ? 24 : 0;
+  const minResults = filter === "texture" ? 24 : 0;
   let processed = 0;
 
   while (true) {

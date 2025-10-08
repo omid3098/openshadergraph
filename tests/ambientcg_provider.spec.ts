@@ -11,7 +11,7 @@ describe("ambientcg provider", () => {
     vi.restoreAllMocks();
   });
 
-  it("maps API assets into texture and model entries", async () => {
+  it("maps API assets into texture entries", async () => {
     const sampleAsset = {
       assetId: "Wood001",
       displayName: "Wood 001",
@@ -74,7 +74,7 @@ describe("ambientcg provider", () => {
     expect(Array.isArray(result.items)).toBe(true);
     expect(result.items.some((item) => item.label.includes("Color"))).toBe(true);
     expect(result.items.some((item) => item.source.endsWith(".exr"))).toBe(true);
-    expect(result.items.some((item) => item.type === "model")).toBe(true);
+    expect(result.items.every((item) => item.type === "texture")).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -120,8 +120,9 @@ describe("ambientcg provider", () => {
     expect(res.ok).toBe(true);
     const data = await res.json();
     expect(Array.isArray(data.items)).toBe(true);
-    expect(data.items.every((item: any) => item.type === "model")).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(data.items.length).toBe(0);
+    expect(data.cursor).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("streams a file from an ambientcg archive", async () => {

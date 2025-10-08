@@ -8,10 +8,17 @@ import { fetchAssetLibrary, fetchAmbientcgCatalog } from "@/core/schema/assets";
 import { inferAssetKind, MODEL_EXTENSIONS, TEXTURE_EXTENSIONS, ASSET_DRAG_MIME } from "@/core/assets/kind";
 import type { AssetCategory, AssetItem, AssetLibrary } from "@/core/schema/types";
 import { cn } from "@/lib/utils";
-import { persistGet, persistSet } from "@/lib/storage";
 import { Check, Copy, Box, Image as ImageIcon, Trash2, ExternalLink } from "lucide-react";
 import { buildAssetHaystack, type AssetWithCategory } from "@/core/assets/search";
 import { useSettings } from "@/ui/state/SettingsContext";
+import {
+  appendUserAsset,
+  createUserAssetId,
+  loadUserAssets,
+  removeUserAssetById,
+  saveUserAssets,
+  USER_ASSETS_CHANGED_EVENT,
+} from "@/core/assets/userAssets";
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -26,8 +33,6 @@ export type AssetsPanelProps = {
   className?: string;
   variant?: "docked" | "overlay" | "node";
 };
-
-const USER_ASSETS_STORAGE_KEY = "assets.user";
 
 const TYPE_FILTER_OPTIONS = [
   { value: "all", label: "All" },
@@ -111,18 +116,28 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
     let cancelled = false;
     (async () => {
       try {
-        const stored = await persistGet<AssetItem[]>(USER_ASSETS_STORAGE_KEY);
-        if (cancelled || !stored) return;
-        const normalized = stored
-          .filter((asset): asset is AssetItem => !!asset && typeof asset.id === "string" && typeof asset.source === "string")
-          .map((asset) => ({ ...asset, builtin: false }));
-        setUserAssets(normalized);
+        const stored = await loadUserAssets();
+        if (cancelled) return;
+        setUserAssets(stored.map((asset) => ({ ...asset, builtin: false })));
       } catch (err) {
         console.warn("Failed to load user assets", err);
       }
     })();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const listener = (event: Event) => {
+      const detail = (event as CustomEvent<AssetItem[]>).detail;
+      if (!Array.isArray(detail)) return;
+      setUserAssets(detail.map((asset) => ({ ...asset, builtin: false })));
+    };
+    window.addEventListener(USER_ASSETS_CHANGED_EVENT, listener as EventListener);
+    return () => {
+      window.removeEventListener(USER_ASSETS_CHANGED_EVENT, listener as EventListener);
     };
   }, []);
 
@@ -360,13 +375,15 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
   const updateUserAssets = useCallback((updater: (prev: AssetItem[]) => AssetItem[]) => {
     setUserAssets((prev) => {
       const next = updater(prev).map((asset) => ({ ...asset, builtin: false }));
-      void persistSet(USER_ASSETS_STORAGE_KEY, next);
+      void saveUserAssets(next).catch((err) => {
+        console.warn("Failed to persist user assets", err);
+      });
       return next;
     });
   }, []);
 
   const removeUserAsset = useCallback((id: string) => {
-    updateUserAssets((prev) => prev.filter((asset) => asset.id !== id));
+    updateUserAssets((prev) => removeUserAssetById(prev, id));
   }, [updateUserAssets]);
 
   const handleDrop = useCallback(
@@ -383,7 +400,7 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
         const dataUrl = await readFileAsDataUrl(file).catch(() => null);
         if (!dataUrl) continue;
         additions.push({
-          id: `user-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          id: createUserAssetId(),
           label: file.name,
           type: kind,
           source: dataUrl,
@@ -395,7 +412,7 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
       }
 
       if (!additions.length) return;
-      updateUserAssets((prev) => [...prev, ...additions]);
+      updateUserAssets((prev) => additions.reduce((acc, asset) => appendUserAsset(acc, asset), prev));
     },
     [updateUserAssets]
   );

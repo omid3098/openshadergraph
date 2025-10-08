@@ -138,7 +138,7 @@ function ViewerInner() {
     setCurveMode: () => {},
     quickHotkeys: [],
     setQuickHotkeys: () => {},
-    assetLibraries: { ambientcg: { enabled: false } },
+    assetLibraries: { ambientcg: { enabled: true } },
     setAssetLibraries: () => {},
   }), [theme, curveMode]);
 

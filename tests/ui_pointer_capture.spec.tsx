@@ -61,9 +61,17 @@ vi.mock("@/core/assets/kind", () => ({
   TEXTURE_EXTENSIONS: ["png"],
   ASSET_DRAG_MIME: "application/x-asset",
 }), { virtual: true });
-vi.mock("@/lib/storage", () => ({
-  persistGet: vi.fn(() => Promise.resolve(null)),
-  persistSet: vi.fn(() => Promise.resolve()),
+const { loadUserAssetsMock, saveUserAssetsMock } = vi.hoisted(() => ({
+  loadUserAssetsMock: vi.fn(() => Promise.resolve([])),
+  saveUserAssetsMock: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@/core/assets/userAssets", () => ({
+  appendUserAsset: (list: any[], asset: any) => [...list, asset],
+  createUserAssetId: () => "user-mock",
+  loadUserAssets: loadUserAssetsMock,
+  removeUserAssetById: (list: any[], id: string) => list.filter((asset) => asset.id !== id),
+  saveUserAssets: saveUserAssetsMock,
+  USER_ASSETS_CHANGED_EVENT: "osg:user-assets:changed",
 }), { virtual: true });
 vi.mock("@/core/assets/search", () => ({
   buildAssetHaystack: (asset: any) => `${asset.label}|${asset.type}`.toLowerCase(),
