@@ -1,9 +1,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { validateAssetLibrary } from "../core/schema/validators";
+import { AMBIENT_CG_PROVIDER_ID, loadAmbientcgCategories } from "./providers/ambientcg";
 
-export async function assetsHandler(): Promise<Response> {
+export async function assetsHandler(req: Request): Promise<Response> {
   try {
+    const url = new URL(req.url);
+    const providerParams = url.searchParams.getAll("provider");
+    const providerSet = new Set(providerParams.map((p) => p.trim().toLowerCase()).filter(Boolean));
     const abs = path.resolve(process.cwd(), "data", "assets", "library.json");
     try {
       const st = await fs.stat(abs);
@@ -23,6 +27,21 @@ export async function assetsHandler(): Promise<Response> {
         items: category.items.map((item) => ({ ...item, builtin: true })),
       })),
     };
+
+    if (providerSet.has(AMBIENT_CG_PROVIDER_ID)) {
+      try {
+        const ambientCategories = await loadAmbientcgCategories();
+        for (const category of ambientCategories) {
+          withBuiltin.categories.push({
+            ...category,
+            items: category.items.map((item) => ({ ...item, builtin: true })),
+          });
+        }
+      } catch (err) {
+        console.error("[ambientcg] failed to load library", err);
+      }
+    }
+
     return Response.json(withBuiltin);
   } catch (err) {
     console.error("/api/assets failed:", err);

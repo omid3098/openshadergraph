@@ -76,6 +76,24 @@ vi.mock("../src/components/PreviewPanel", () => ({ PreviewPanel: () => null }));
 import GraphNode from "../src/components/GraphNode";
 import CodeBlock from "../src/components/CodeBlock";
 import { AssetsPanel } from "../src/components/AssetsPanel";
+import { SettingsProvider } from "../src/ui/state/SettingsContext";
+
+function createSettingsValue() {
+  return {
+    theme: "dark",
+    setTheme: vi.fn(),
+    curveMode: "default",
+    setCurveMode: vi.fn(),
+    quickHotkeys: [],
+    setQuickHotkeys: vi.fn(),
+    assetLibraries: {
+      ambientcg: {
+        enabled: false,
+      },
+    },
+    setAssetLibraries: vi.fn(),
+  };
+}
 
 function renderIntoContainer(element: React.ReactElement) {
   const container = document.createElement("div");
@@ -213,9 +231,11 @@ describe("In-node widgets keep focus", () => {
     const pointerSpy = vi.fn();
     const wheelSpy = vi.fn();
     const { container, cleanup } = renderIntoContainer(
-      <div onPointerDown={pointerSpy} onWheel={wheelSpy}>
-        <AssetsPanel variant="node" />
-      </div>
+      <SettingsProvider value={createSettingsValue()}>
+        <div onPointerDown={pointerSpy} onWheel={wheelSpy}>
+          <AssetsPanel variant="node" />
+        </div>
+      </SettingsProvider>
     );
 
     await flushPromises(3);

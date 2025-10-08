@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { formatQuickHotkeyDisplay, type QuickNodeHotkey } from "@/core/ui/hotkeys";
 import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
-import type { CurveMode, ThemeName } from "@/ui/state/SettingsContext";
+import type { AssetLibrariesSettings, CurveMode, ThemeName } from "@/ui/state/SettingsContext";
 
 type SettingsPageProps = {
   curveMode: CurveMode;
@@ -17,6 +17,10 @@ type SettingsPageProps = {
   quickHotkeys: QuickNodeHotkey[];
   onQuickHotkeysChange: (next: QuickNodeHotkey[]) => void;
   palette: NodePalette | null;
+  assetLibraries: AssetLibrariesSettings;
+  onAssetLibrariesChange: (
+    next: AssetLibrariesSettings | ((prev: AssetLibrariesSettings) => AssetLibrariesSettings)
+  ) => void;
 };
 
 const curveModeOptions: Array<{ value: CurveMode; label: string }> = [
@@ -40,6 +44,8 @@ export function SettingsPage({
   quickHotkeys,
   onQuickHotkeysChange,
   palette,
+  assetLibraries,
+  onAssetLibrariesChange,
 }: SettingsPageProps) {
   return (
     <div className="w-full h-full overflow-auto p-6">
@@ -93,6 +99,8 @@ export function SettingsPage({
           </CardContent>
         </Card>
 
+        <AssetLibrariesCard assetLibraries={assetLibraries} onChange={onAssetLibrariesChange} />
+
         <HotkeySettingsCard hotkeys={quickHotkeys} onChange={onQuickHotkeysChange} palette={palette} />
 
         <Card>
@@ -139,6 +147,51 @@ export function SettingsPage({
         </Card>
       </div>
     </div>
+  );
+}
+
+type AssetLibrariesCardProps = {
+  assetLibraries: AssetLibrariesSettings;
+  onChange: (
+    next: AssetLibrariesSettings | ((prev: AssetLibrariesSettings) => AssetLibrariesSettings)
+  ) => void;
+};
+
+function AssetLibrariesCard({ assetLibraries, onChange }: AssetLibrariesCardProps) {
+  const ambientEnabled = assetLibraries?.ambientcg?.enabled ?? false;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Asset Libraries</CardTitle>
+        <CardDescription>Connect external providers to expand the built-in asset catalog.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">ambientCG</div>
+            <p className="text-xs text-muted-foreground">
+              Browse thousands of free PBR materials, HDRIs, and models hosted by ambientCG directly inside the Assets panel.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={ambientEnabled}
+              onChange={(event) => {
+                const enabled = event.target.checked;
+                onChange((prev) => ({ ...prev, ambientcg: { enabled } }));
+              }}
+              className="h-4 w-4 accent-primary"
+            />
+            <span>{ambientEnabled ? "Enabled" : "Disabled"}</span>
+          </label>
+        </div>
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          When enabled, ambientCG assets appear alongside built-in textures and models. Assets load on demand and respect your
+          search and type filters.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -32,7 +32,7 @@ import {
   type NodeUpdaterApi,
 } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
-import { SettingsProvider, type CurveMode, type ThemeName } from "./ui/state/SettingsContext";
+import { SettingsProvider, type CurveMode, type ThemeName, type AssetLibrariesSettings } from "./ui/state/SettingsContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
@@ -95,6 +95,18 @@ const nodeDefaults = {
 const initialNodes: Node[] = [];
 
 const initialEdges: Edge[] = [];
+
+const DEFAULT_ASSET_LIBRARIES: AssetLibrariesSettings = {
+  ambientcg: { enabled: false },
+};
+
+function normalizeAssetLibraries(value?: AssetLibrariesSettings | null): AssetLibrariesSettings {
+  return {
+    ambientcg: {
+      enabled: value?.ambientcg?.enabled === true,
+    },
+  };
+}
 
 const ALIGNMENT_LABELS: Record<AlignmentKind, string> = {
   left: "Align Left",
@@ -200,6 +212,7 @@ export function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [palette, setPalette] = useState<NodePalette | null>(null);
   const [quickNodeHotkeys, setQuickNodeHotkeysState] = useState<QuickNodeHotkey[]>(DEFAULT_QUICK_NODE_HOTKEYS);
+  const [assetLibraries, setAssetLibrariesState] = useState<AssetLibrariesSettings>(DEFAULT_ASSET_LIBRARIES);
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
   const viewPathRef = useRef(viewPath);
@@ -300,6 +313,22 @@ export function App() {
     void persistSet("ui.quickNodeHotkeys", quickNodeHotkeys);
   }, [quickNodeHotkeys]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<AssetLibrariesSettings>("ui.assetLibraries");
+      if (cancelled || !stored) return;
+      setAssetLibrariesState(normalizeAssetLibraries(stored));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    void persistSet("ui.assetLibraries", assetLibraries);
+  }, [assetLibraries]);
+
   const setQuickNodeHotkeys = useCallback(
     (next: QuickNodeHotkey[] | ((prev: QuickNodeHotkey[]) => QuickNodeHotkey[])) => {
       setQuickNodeHotkeysState((prev) => {
@@ -334,6 +363,20 @@ export function App() {
   const setCurveMode = useCallback((next: CurveMode) => {
     setCurveModeState(next);
   }, [setCurveModeState]);
+
+  const setAssetLibraries = useCallback(
+    (next: AssetLibrariesSettings | ((prev: AssetLibrariesSettings) => AssetLibrariesSettings)) => {
+      setAssetLibrariesState((prev) => {
+        const updated = typeof next === "function" ? (next as (prev: AssetLibrariesSettings) => AssetLibrariesSettings)(prev) : next;
+        const normalized = normalizeAssetLibraries(updated);
+        if (normalized.ambientcg.enabled === prev.ambientcg.enabled) {
+          return prev;
+        }
+        return normalized;
+      });
+    },
+    []
+  );
 
 
   const renderSidebar = useCallback(
@@ -539,6 +582,14 @@ export function App() {
 
   const quickHotkeyMap = useMemo(() => buildQuickHotkeyMap(quickNodeHotkeys), [quickNodeHotkeys]);
 
+  const enabledLibraryProviders = useMemo(() => {
+    const list: string[] = [];
+    if (assetLibraries.ambientcg.enabled) {
+      list.push("ambientcg");
+    }
+    return list;
+  }, [assetLibraries]);
+
   const handleQuickHotkeysChange = useCallback(
     (next: QuickNodeHotkey[]) => {
       setQuickNodeHotkeys(next);
@@ -554,8 +605,10 @@ export function App() {
       setCurveMode,
       quickHotkeys: quickHotkeysForSettings,
       setQuickHotkeys: setQuickNodeHotkeys,
+      assetLibraries,
+      setAssetLibraries,
     }),
-    [curveMode, quickHotkeysForSettings, setCurveMode, setQuickNodeHotkeys, setTheme, theme]
+    [assetLibraries, curveMode, quickHotkeysForSettings, setAssetLibraries, setCurveMode, setQuickNodeHotkeys, setTheme, theme]
   );
 
   const templateCacheRef = useRef<TemplateCache | null>(null);
@@ -1480,7 +1533,7 @@ export function App() {
         ? (rootCandidate.nodes.find((n: any) => n?.type === "surface") ?? rootCandidate.nodes[0])
         : (inflatedGraph as any);
 
-      const assetRegistry = await loadAssetRegistry();
+      const assetRegistry = await loadAssetRegistry({ providers: enabledLibraryProviders });
 
       const buildResult = buildReactFlowGraph({
         root: rootGraph as any,
@@ -1505,7 +1558,7 @@ export function App() {
       fitAfterLoadRef.current = true;
     },
     // ensureColoredEdges is not referenced inside; remove to satisfy exhaustive-deps
-    [nodeUpdaterApi, resetHistory, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
+    [enabledLibraryProviders, nodeUpdaterApi, resetHistory, setEdges, setGraphName, setNodes, setViewPath, paletteByType]
   );
 
   const loadExampleGraph = useCallback(async (ex: { key: string; label: string }) => {
@@ -2991,6 +3044,8 @@ export function App() {
               quickHotkeys={quickHotkeysForSettings}
               onQuickHotkeysChange={handleQuickHotkeysChange}
               palette={palette}
+              assetLibraries={assetLibraries}
+              onAssetLibrariesChange={setAssetLibraries}
             />
           ) : (
             <div className="w-full h-full flex relative">

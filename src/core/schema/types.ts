@@ -107,6 +107,13 @@ export type LanguagePack = {
 
 export type AssetKind = "texture" | "model" | string;
 
+export type AssetProviderMeta = {
+  id: string;
+  name: string;
+  assetId?: string;
+  assetUrl?: string;
+};
+
 export type AssetItem = {
   id: string;
   label: string;
@@ -115,6 +122,8 @@ export type AssetItem = {
   description?: string;
   tags?: string[];
   builtin?: boolean;
+  preview?: string;
+  provider?: AssetProviderMeta;
 };
 
 export type AssetCategory = {

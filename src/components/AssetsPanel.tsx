@@ -2,13 +2,15 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState, type Compo
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { fetchAssetLibrary } from "@/core/schema/assets";
 import { inferAssetKind, MODEL_EXTENSIONS, TEXTURE_EXTENSIONS, ASSET_DRAG_MIME } from "@/core/assets/kind";
 import type { AssetCategory, AssetItem, AssetLibrary } from "@/core/schema/types";
 import { cn } from "@/lib/utils";
 import { persistGet, persistSet } from "@/lib/storage";
-import { Check, Copy, Box, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Check, Copy, Box, Image as ImageIcon, Trash2, ExternalLink } from "lucide-react";
 import { buildAssetHaystack, type AssetWithCategory } from "@/core/assets/search";
+import { useSettings } from "@/ui/state/SettingsContext";
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -26,22 +28,42 @@ export type AssetsPanelProps = {
 
 const USER_ASSETS_STORAGE_KEY = "assets.user";
 
+const TYPE_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "texture", label: "Textures" },
+  { value: "model", label: "Models" },
+] as const;
+
+type TypeFilterValue = (typeof TYPE_FILTER_OPTIONS)[number]["value"];
+
 export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps) {
   const [library, setLibrary] = useState<AssetLibrary | null>(null);
   const [userAssets, setUserAssets] = useState<AssetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilterValue>("all");
   const [dragActive, setDragActive] = useState(false);
   const normalizedQuery = query.trim().toLowerCase();
   const deferredQuery = useDeferredValue(normalizedQuery);
   const textureHint = useMemo(() => TEXTURE_EXTENSIONS.map((ext) => `.${ext}`).slice(0, 6).join(", "), []);
   const modelHint = useMemo(() => MODEL_EXTENSIONS.map((ext) => `.${ext}`).slice(0, 6).join(", "), []);
+  const { assetLibraries } = useSettings();
+
+  const enabledProviders = useMemo(() => {
+    const list: string[] = [];
+    if (assetLibraries?.ambientcg?.enabled) {
+      list.push("ambientcg");
+    }
+    return list;
+  }, [assetLibraries]);
+
+  const providersKey = enabledProviders.join("|");
 
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
-    fetchAssetLibrary(ctrl.signal)
+    fetchAssetLibrary({ signal: ctrl.signal, providers: enabledProviders })
       .then((data) => {
         const normalized: AssetLibrary = {
           ...data,
@@ -63,7 +85,7 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
         setLoading(false);
       });
     return () => ctrl.abort();
-  }, []);
+  }, [providersKey, enabledProviders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,11 +146,17 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
   );
 
   const filteredAssets = useMemo(() => {
-    if (!deferredQuery) return allAssets;
+    if (!deferredQuery && typeFilter === "all") return allAssets;
+    if (!deferredQuery) {
+      return allAssets.filter((asset) => (typeFilter === "all" ? true : asset.type === typeFilter));
+    }
     return assetSearchIndex
-      .filter((entry) => entry.haystack.includes(deferredQuery))
+      .filter((entry) => {
+        if (typeFilter !== "all" && entry.asset.type !== typeFilter) return false;
+        return entry.haystack.includes(deferredQuery);
+      })
       .map((entry) => entry.asset);
-  }, [allAssets, assetSearchIndex, deferredQuery]);
+  }, [allAssets, assetSearchIndex, deferredQuery, typeFilter]);
 
   const updateUserAssets = useCallback((updater: (prev: AssetItem[]) => AssetItem[]) => {
     setUserAssets((prev) => {
@@ -163,6 +191,7 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
           description: kind === "texture" ? "User imported texture asset." : "User imported model asset.",
           tags: ["user", kind],
           builtin: false,
+          preview: dataUrl,
         });
       }
 
@@ -200,13 +229,38 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
 
   const body = (
     <div className="flex flex-col gap-3 h-full nodrag nowheel" data-node-interactive>
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-muted-foreground">Search assets</label>
-        <Input
-          placeholder="Filter by name, tag, or type"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-1">
+            <label className="text-xs text-muted-foreground">Search assets</label>
+            <Input
+              placeholder="Filter by name, tag, or provider"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-2 sm:w-44">
+            <label className="text-xs text-muted-foreground">Type</label>
+            <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val as TypeFilterValue)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPE_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {enabledProviders.length ? (
+          <p className="text-[11px] leading-4 text-muted-foreground">
+            Showing built-in assets{" "}
+            {enabledProviders.includes("ambientcg") ? "and ambientCG library" : ""}.
+          </p>
+        ) : null}
       </div>
       <div
         {...dragProps}
@@ -233,6 +287,9 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
                 {filteredAssets.map((asset) => {
                   const isTexture = asset.type === "texture";
                   const draggable = asset.type === "texture" || asset.type === "model";
+                  const previewSrc = asset.preview ?? (isTexture ? asset.source : undefined);
+                  const providerName = asset.provider?.name ?? null;
+                  const providerLink = asset.provider?.assetUrl ?? null;
                   return (
                     <div
                       key={`${asset.category.id}:${asset.id}`}
@@ -246,7 +303,17 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
                       }}
                     >
                       <div className="relative aspect-square w-full overflow-hidden rounded-sm border border-muted/60 bg-muted">
-                        {isTexture ? (
+                        {previewSrc ? (
+                          <img
+                            src={previewSrc}
+                            alt={asset.label}
+                            className="size-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            crossOrigin="anonymous"
+                            draggable={false}
+                          />
+                        ) : isTexture ? (
                           <img
                             src={asset.source}
                             alt={asset.label}
@@ -282,11 +349,39 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
                         <div className="min-w-0">
                           <div className="truncate text-xs font-medium leading-tight">{asset.label}</div>
                           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            {asset.category.label}
+                            {providerName ? (
+                              <span className="flex items-center gap-1">
+                                <span>{providerName}</span>
+                                <span>•</span>
+                                <span className="truncate">{asset.category.label}</span>
+                              </span>
+                            ) : (
+                              asset.category.label
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <TypeBadge type={asset.type} />
+                          {providerLink ? (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-7 opacity-0 transition-opacity group-hover:opacity-100"
+                              title="Open provider page"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                try {
+                                  window.open(providerLink, "_blank", "noopener,noreferrer");
+                                } catch (_err) {
+                                  /* ignore */
+                                }
+                              }}
+                              onPointerDown={(event) => event.stopPropagation()}
+                            >
+                              <ExternalLink className="size-3.5" />
+                            </Button>
+                          ) : null}
                           <CopySourceButton
                             source={asset.source}
                             size="icon"
