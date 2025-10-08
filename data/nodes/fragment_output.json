@@ -238,13 +238,13 @@
         }
       ]
     },
-    { "id": "enable_clearcoat", "label": "Clearcoat", "type": "boolean", "default": false },
-    { "id": "enable_transmission", "label": "Transmission", "type": "boolean", "default": false },
-    { "id": "enable_sss", "label": "SSS", "type": "boolean", "default": false },
-    { "id": "enable_sheen", "label": "Sheen", "type": "boolean", "default": false },
-    { "id": "enable_anisotropy", "label": "Anisotropy", "type": "boolean", "default": false },
-    { "id": "enable_refraction", "label": "Refraction", "type": "boolean", "default": false },
-    { "id": "enable_backlight", "label": "Backlight", "type": "boolean", "default": false }
+    { "id": "enable_clearcoat", "label": "Clearcoat (WIP)", "type": "boolean", "default": false },
+    { "id": "enable_transmission", "label": "Transmission (WIP)", "type": "boolean", "default": false },
+    { "id": "enable_sss", "label": "SSS (WIP)", "type": "boolean", "default": false },
+    { "id": "enable_sheen", "label": "Sheen (WIP)", "type": "boolean", "default": false },
+    { "id": "enable_anisotropy", "label": "Anisotropy (WIP)", "type": "boolean", "default": false },
+    { "id": "enable_refraction", "label": "Refraction (WIP)", "type": "boolean", "default": false },
+    { "id": "enable_backlight", "label": "Backlight (WIP)", "type": "boolean", "default": false }
   ],
   "meta": [
     {
