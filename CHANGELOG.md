@@ -1,3 +1,9 @@
+## [0.2.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.2.0-beta.2...v0.2.0-beta.3) (2025-10-08)
+
+### Bug Fixes
+
+- **data:** update fragment output node labels to indicate WIP status _(by Omid Saadat)_ ([f6a8254]())
+
 ## [0.2.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.2.0-beta.1...v0.2.0-beta.2) (2025-10-07)
 
 - Merge pull request #56 from omid3098/codex/add-container-with-background-for-breadcrumbs- Merge pull request #57 from omid3098/codex/add-minimalist-about-me-section
