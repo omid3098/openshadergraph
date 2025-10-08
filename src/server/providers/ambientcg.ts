@@ -1,13 +1,13 @@
 import { unzipSync } from "fflate";
-import type { AssetCategory, AssetItem } from "../../core/schema/types";
+import type { AssetItem } from "../../core/schema/types";
 
 export const AMBIENT_CG_PROVIDER_ID = "ambientcg";
 export const AMBIENT_CG_PROVIDER_NAME = "ambientCG";
 
 const API_BASE_URL = "https://ambientcg.com/api/v2/full_json";
-const API_INCLUDE = "downloadData,mapData,previewData";
-const PAGE_SIZE = 128;
-const LIBRARY_CACHE_TTL_MS = 30 * 60 * 1000;
+const API_INCLUDE = "downloadData,previewData";
+const PAGE_SIZE = 96;
+const PAGE_CACHE_TTL_MS = 30 * 60 * 1000;
 const ZIP_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const MODEL_FILE_EXTENSIONS = new Set(["usdc", "usd", "usdz", "glb", "gltf", "obj", "fbx"]);
@@ -68,18 +68,12 @@ type AmbientcgAsset = {
 type AmbientcgApiResponse = {
   foundAssets?: AmbientcgAsset[];
   nextPageHttp?: string | null;
-  numberOfResults?: number;
 };
 
-type AmbientcgLibrary = {
-  textures: AssetItem[];
-  models: AssetItem[];
-};
-
-type LibraryCacheState = {
+type AmbientcgPageCacheEntry = {
   expiresAt: number;
-  value: AmbientcgLibrary | null;
-  promise: Promise<AmbientcgLibrary> | null;
+  assets: AmbientcgAsset[];
+  nextOffset: number | null;
 };
 
 type ZipCacheEntry = {
@@ -89,12 +83,7 @@ type ZipCacheEntry = {
   filename: string;
 };
 
-const libraryCache: LibraryCacheState = {
-  expiresAt: 0,
-  value: null,
-  promise: null,
-};
-
+const pageCache = new Map<string, AmbientcgPageCacheEntry>();
 const zipCache = new Map<string, ZipCacheEntry>();
 
 function slugify(value: string | undefined | null): string {
@@ -260,94 +249,101 @@ function selectModelDownloads(asset: AmbientcgAsset): Array<{ download: Ambientc
   return selections;
 }
 
-function mapAsset(asset: AmbientcgAsset): AmbientcgLibrary {
+type AmbientcgItemType = "all" | "texture" | "model";
+
+function mapAmbientcgAsset(asset: AmbientcgAsset, filter: AmbientcgItemType): AssetItem[] {
   const provider = {
     id: AMBIENT_CG_PROVIDER_ID,
     name: AMBIENT_CG_PROVIDER_NAME,
     assetId: asset.assetId,
     assetUrl: asset.shortLink,
-  };
+  } as const;
   const previewImage = pickPreviewImage(asset.previewImage);
-  const textures: AssetItem[] = [];
-  const models: AssetItem[] = [];
+  const items: AssetItem[] = [];
+  const allowTextures = filter === "all" || filter === "texture";
+  const allowModels = filter === "all" || filter === "model";
 
   const displayName = asset.displayName || asset.assetId;
   const description = normalizeDescription(asset);
 
-  for (const preview of extractMapPreviews(asset)) {
-    const mapLabel = preview.name.trim().replace(/\s+/g, " ");
-    const id = `ambientcg:${asset.assetId}:preview:${slugify(mapLabel) || slugify(preview.url)}`;
-    textures.push({
-      id,
-      label: `${displayName} • ${mapLabel}`,
-      type: "texture",
-      source: preview.url,
-      description,
-      tags: buildTags(asset, [mapLabel, "preview"]),
-      builtin: true,
-      preview: preview.url,
-      provider,
-    });
+  if (allowTextures) {
+    for (const preview of extractMapPreviews(asset)) {
+      const mapLabel = preview.name.trim().replace(/\s+/g, " ");
+      const id = `ambientcg:${asset.assetId}:preview:${slugify(mapLabel) || slugify(preview.url)}`;
+      items.push({
+        id,
+        label: `${displayName} • ${mapLabel}`,
+        type: "texture",
+        source: preview.url,
+        description,
+        tags: buildTags(asset, [mapLabel, "preview"]),
+        builtin: true,
+        preview: preview.url,
+        provider,
+      });
+    }
+
+    for (const hdri of extractHdriPreviews(asset)) {
+      const name = hdri.name || "Preview";
+      const id = `ambientcg:${asset.assetId}:hdri:${slugify(name)}:${slugify(hdri.url)}`;
+      items.push({
+        id,
+        label: `${displayName} • ${name}`,
+        type: "texture",
+        source: hdri.url,
+        description,
+        tags: buildTags(asset, [name, "preview"]),
+        builtin: true,
+        preview: previewImage ?? hdri.url,
+        provider,
+      });
+    }
+
+    for (const download of extractDirectDownloads(asset)) {
+      const link = download.downloadLink || download.fullDownloadPath;
+      if (!link) continue;
+      const attribute = download.attribute || download.fileName || download.filetype || "Variant";
+      const labelAttribute = attribute.replace(/[-_]+/g, " ");
+      const id = `ambientcg:${asset.assetId}:direct:${slugify(attribute)}:${slugify(link)}`;
+      items.push({
+        id,
+        label: `${displayName} • ${labelAttribute}`,
+        type: "texture",
+        source: link,
+        description,
+        tags: buildTags(asset, [attribute, download.filetype ?? ""]),
+        builtin: true,
+        preview: previewImage,
+        provider,
+      });
+    }
   }
 
-  for (const hdri of extractHdriPreviews(asset)) {
-    const name = hdri.name || "Preview";
-    const id = `ambientcg:${asset.assetId}:hdri:${slugify(name)}:${slugify(hdri.url)}`;
-    textures.push({
-      id,
-      label: `${displayName} • ${name}`,
-      type: "texture",
-      source: hdri.url,
-      description,
-      tags: buildTags(asset, [name, "preview"]),
-      builtin: true,
-      preview: previewImage ?? hdri.url,
-      provider,
-    });
+  if (allowModels) {
+    for (const selection of selectModelDownloads(asset)) {
+      const download = selection.download;
+      const link = download.downloadLink || download.fullDownloadPath;
+      if (!link) continue;
+      const file = selection.filename;
+      const ext = file.split(".").pop()?.toLowerCase() ?? "";
+      const id = `ambientcg:${asset.assetId}:model:${slugify(file)}`;
+      const attribute = download.attribute?.replace(/[-_]+/g, " ") || ext.toUpperCase();
+      const source = buildAmbientcgFileUrl(link, file);
+      items.push({
+        id,
+        label: `${displayName} • ${attribute}`,
+        type: "model",
+        source,
+        description,
+        tags: buildTags(asset, [attribute, ext]),
+        builtin: true,
+        preview: previewImage,
+        provider,
+      });
+    }
   }
 
-  for (const download of extractDirectDownloads(asset)) {
-    const link = download.downloadLink || download.fullDownloadPath;
-    if (!link) continue;
-    const attribute = download.attribute || download.fileName || download.filetype || "Variant";
-    const labelAttribute = attribute.replace(/[-_]+/g, " ");
-    const id = `ambientcg:${asset.assetId}:direct:${slugify(attribute)}:${slugify(link)}`;
-    textures.push({
-      id,
-      label: `${displayName} • ${labelAttribute}`,
-      type: "texture",
-      source: link,
-      description,
-      tags: buildTags(asset, [attribute, download.filetype ?? ""]),
-      builtin: true,
-      preview: previewImage,
-      provider,
-    });
-  }
-
-  for (const selection of selectModelDownloads(asset)) {
-    const download = selection.download;
-    const link = download.downloadLink || download.fullDownloadPath;
-    if (!link) continue;
-    const file = selection.filename;
-    const ext = file.split(".").pop()?.toLowerCase() ?? "";
-    const id = `ambientcg:${asset.assetId}:model:${slugify(file)}`;
-    const attribute = download.attribute?.replace(/[-_]+/g, " ") || ext.toUpperCase();
-    const source = buildAmbientcgFileUrl(link, file);
-    models.push({
-      id,
-      label: `${displayName} • ${attribute}`,
-      type: "model",
-      source,
-      description,
-      tags: buildTags(asset, [attribute, ext]),
-      builtin: true,
-      preview: previewImage,
-      provider,
-    });
-  }
-
-  return { textures, models };
+  return items;
 }
 
 function buildAmbientcgFileUrl(downloadLink: string, fileName: string): string {
@@ -357,11 +353,31 @@ function buildAmbientcgFileUrl(downloadLink: string, fileName: string): string {
   return `/api/assets/ambientcg/file?${params.toString()}`;
 }
 
-async function fetchAmbientcgPage(offset: number): Promise<AmbientcgApiResponse> {
+function parseOffsetFromUrl(url: string | null | undefined): number | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const offsetParam = parsed.searchParams.get("offset");
+    if (!offsetParam) return null;
+    const offset = Number(offsetParam);
+    return Number.isFinite(offset) ? offset : null;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function makePageCacheKey(query: string, offset: number): string {
+  return `${query.toLowerCase()}::${offset}`;
+}
+
+async function fetchAmbientcgPageRaw(query: string, offset: number): Promise<AmbientcgApiResponse> {
   const url = new URL(API_BASE_URL);
   url.searchParams.set("limit", String(PAGE_SIZE));
-  url.searchParams.set("offset", String(offset));
+  url.searchParams.set("offset", String(Math.max(0, offset)));
   url.searchParams.set("include", API_INCLUDE);
+  if (query) {
+    url.searchParams.set("q", query);
+  }
   const res = await fetch(url.toString(), { headers: { accept: "application/json" } });
   if (!res.ok) {
     throw new Error(`ambientCG API error: ${res.status}`);
@@ -369,80 +385,96 @@ async function fetchAmbientcgPage(offset: number): Promise<AmbientcgApiResponse>
   return (await res.json()) as AmbientcgApiResponse;
 }
 
-async function fetchAmbientcgAssets(): Promise<AmbientcgAsset[]> {
-  const assets: AmbientcgAsset[] = [];
-  let offset = 0;
-  let safety = 0;
-  const maxPages = 64;
-  while (safety < maxPages) {
-    safety += 1;
-    const page = await fetchAmbientcgPage(offset);
-    const found = Array.isArray(page.foundAssets) ? page.foundAssets : [];
-    assets.push(...found);
-    if (!page.nextPageHttp || found.length === 0) break;
-    offset += PAGE_SIZE;
-    if (typeof page.numberOfResults === "number" && offset >= page.numberOfResults) break;
+async function loadAmbientcgPage(query: string, offset: number): Promise<AmbientcgPageCacheEntry> {
+  const key = makePageCacheKey(query, offset);
+  const now = Date.now();
+  const cached = pageCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached;
   }
-  return assets;
+  const response = await fetchAmbientcgPageRaw(query, offset);
+  const assets = Array.isArray(response.foundAssets) ? response.foundAssets : [];
+  const nextOffset = parseOffsetFromUrl(response.nextPageHttp);
+  const entry: AmbientcgPageCacheEntry = {
+    assets,
+    nextOffset,
+    expiresAt: now + PAGE_CACHE_TTL_MS,
+  };
+  pageCache.set(key, entry);
+  return entry;
 }
 
-async function buildAmbientcgLibrary(): Promise<AmbientcgLibrary> {
-  const assets = await fetchAmbientcgAssets();
-  const textures: AssetItem[] = [];
-  const models: AssetItem[] = [];
-  for (const asset of assets) {
-    if (!asset?.assetId) continue;
-    const mapped = mapAsset(asset);
-    textures.push(...mapped.textures);
-    models.push(...mapped.models);
+function parseCursor(cursor: string | null | undefined): number {
+  if (!cursor) return 0;
+  const value = Number(cursor);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.floor(value);
+}
+
+function encodeCursor(offset: number | null): string | null {
+  if (offset === null || !Number.isFinite(offset) || offset < 0) return null;
+  return String(Math.floor(offset));
+}
+
+export type AmbientcgCatalogQuery = {
+  cursor?: string | null;
+  query?: string;
+  type?: "texture" | "model" | "all";
+};
+
+export type AmbientcgCatalogResult = {
+  items: AssetItem[];
+  cursor: string | null;
+};
+
+export async function queryAmbientcgItems(options: AmbientcgCatalogQuery = {}): Promise<AmbientcgCatalogResult> {
+  const query = (options.query ?? "").trim();
+  const filter: AmbientcgItemType = options.type === "texture" || options.type === "model" ? options.type : "all";
+  let offset = parseCursor(options.cursor);
+  let page = await loadAmbientcgPage(query, offset);
+  let nextOffset = page.nextOffset;
+
+  const items: AssetItem[] = [];
+  const maxPages = filter === "all" ? 1 : 4;
+  const minResults = filter === "model" ? 8 : filter === "texture" ? 24 : 0;
+  let processed = 0;
+
+  while (true) {
+    processed += 1;
+    for (const asset of page.assets) {
+      if (!asset?.assetId) continue;
+      items.push(...mapAmbientcgAsset(asset, filter));
+    }
+
+    if (filter === "all") break;
+    if (items.length >= minResults) break;
+    if (nextOffset === null) break;
+    if (processed >= maxPages) break;
+
+    offset = nextOffset;
+    page = await loadAmbientcgPage(query, offset);
+    nextOffset = page.nextOffset;
   }
+
   return {
-    textures,
-    models,
+    items,
+    cursor: encodeCursor(nextOffset),
   };
 }
 
-export async function loadAmbientcgLibrary(): Promise<AmbientcgLibrary> {
-  const now = Date.now();
-  if (libraryCache.value && libraryCache.expiresAt > now) {
-    return libraryCache.value;
+export async function ambientcgCatalogHandler(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const cursor = url.searchParams.get("cursor");
+    const query = url.searchParams.get("query") ?? "";
+    const typeParam = (url.searchParams.get("type") ?? "").toLowerCase();
+    const type = typeParam === "texture" || typeParam === "model" ? typeParam : typeParam === "all" ? "all" : undefined;
+    const result = await queryAmbientcgItems({ cursor, query, type });
+    return Response.json(result);
+  } catch (err) {
+    console.error("[ambientcg] catalog handler failed", err);
+    return Response.json({ error: "Failed to load ambientCG assets" }, { status: 500 });
   }
-  if (libraryCache.promise) {
-    return libraryCache.promise;
-  }
-  const promise = buildAmbientcgLibrary()
-    .then((library) => {
-      libraryCache.value = library;
-      libraryCache.expiresAt = Date.now() + LIBRARY_CACHE_TTL_MS;
-      libraryCache.promise = null;
-      return library;
-    })
-    .catch((err) => {
-      libraryCache.promise = null;
-      throw err;
-    });
-  libraryCache.promise = promise;
-  return promise;
-}
-
-export async function loadAmbientcgCategories(): Promise<AssetCategory[]> {
-  const library = await loadAmbientcgLibrary();
-  const categories: AssetCategory[] = [];
-  if (library.textures.length) {
-    categories.push({
-      id: "ambientcg:textures",
-      label: "ambientCG • Textures",
-      items: library.textures,
-    });
-  }
-  if (library.models.length) {
-    categories.push({
-      id: "ambientcg:models",
-      label: "ambientCG • Models",
-      items: library.models,
-    });
-  }
-  return categories;
 }
 
 export async function ambientcgFileHandler(req: Request): Promise<Response> {

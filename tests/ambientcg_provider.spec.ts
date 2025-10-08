@@ -56,20 +56,71 @@ describe("ambientcg provider", () => {
       },
     };
 
-    const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockResolvedValue(
-      new Response(
-        JSON.stringify({ foundAssets: [sampleAsset], nextPageHttp: null, numberOfResults: 1 }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      )
-    );
+    const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockImplementation((...args: unknown[]) => {
+      const [url] = args as [string];
+      if (url.startsWith("https://ambientcg.com/api/v2/full_json")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ foundAssets: [sampleAsset], nextPageHttp: null }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+        );
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
 
-    const { loadAmbientcgLibrary } = await import("../src/server/providers/ambientcg");
-    const library = await loadAmbientcgLibrary();
-    expect(Array.isArray(library.textures)).toBe(true);
-    expect(library.textures.some((item) => item.label.includes("Color"))).toBe(true);
-    expect(library.textures.some((item) => item.source.endsWith(".exr"))).toBe(true);
-    expect(Array.isArray(library.models)).toBe(true);
-    expect(library.models[0]?.source).toContain("/api/assets/ambientcg/file");
+    const { queryAmbientcgItems } = await import("../src/server/providers/ambientcg");
+    const result = await queryAmbientcgItems();
+    expect(Array.isArray(result.items)).toBe(true);
+    expect(result.items.some((item) => item.label.includes("Color"))).toBe(true);
+    expect(result.items.some((item) => item.source.endsWith(".exr"))).toBe(true);
+    expect(result.items.some((item) => item.type === "model")).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles catalog handler queries", async () => {
+    const sampleAsset = {
+      assetId: "Model001",
+      displayName: "Model 001",
+      dataType: "3DScan",
+      downloadFolders: {
+        default: {
+          downloadFiletypeCategories: {
+            zip: {
+              downloads: [
+                {
+                  downloadLink: "https://ambientcg.com/get?file=Model001_1K.zip",
+                  attribute: "1K",
+                  zipContent: ["Model001_1K.glb"],
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+
+    const fetchMock = vi.spyOn(globalThis, "fetch" as any).mockImplementation((...args: unknown[]) => {
+      const [url] = args as [string];
+      if (url.startsWith("https://ambientcg.com/api/v2/full_json")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ foundAssets: [sampleAsset], nextPageHttp: null }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+        );
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { ambientcgCatalogHandler } = await import("../src/server/providers/ambientcg");
+    const res = await ambientcgCatalogHandler(
+      new Request("http://localhost/api/assets/ambientcg/catalog?type=model")
+    );
+    expect(res.ok).toBe(true);
+    const data = await res.json();
+    expect(Array.isArray(data.items)).toBe(true);
+    expect(data.items.every((item: any) => item.type === "model")).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
