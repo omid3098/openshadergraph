@@ -1,3 +1,19 @@
+## [0.4.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.3.0...v0.4.0-beta.1) (2025-10-08)
+
+- Merge branch 'dev' into beta- Merge pull request #59 from omid3098/codex/implement-ambientcg-api-integration
+### Chores
+
+- **release:** 0.2.0-beta.2 _(by semantic-release-bot)_ ([a5f6267]())- **release:** 0.2.0-beta.3 _(by semantic-release-bot)_ ([9f187f9]())
+### Features
+
+- integrate ambientcg asset library _(by Omid Saadat)_ ([778bfd2]())- streamline ambientcg defaults and manual assets _(by Omid Saadat)_ ([5702c33]())
+### Bug Fixes
+
+- **data:** update fragment output node labels to indicate WIP status _(by Omid Saadat)_ ([f6a8254]())
+### Performance Improvements
+
+- **ambientcg:** paginate provider catalog _(by Omid Saadat)_ ([de08bb5]())
+
 ## [0.2.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.2.0-beta.2...v0.2.0-beta.3) (2025-10-08)
 
 ### Bug Fixes
