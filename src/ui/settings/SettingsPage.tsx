@@ -5,9 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatQuickHotkeyDisplay, type QuickNodeHotkey } from "@/core/ui/hotkeys";
-import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
-import type { CurveMode, ThemeName } from "@/ui/state/SettingsContext";
+import type { AssetItem, NodePalette, NodePaletteItem } from "@/core/schema/types";
+import type { AssetLibrariesSettings, CurveMode, ThemeName } from "@/ui/state/SettingsContext";
+import { Plus, Trash2 } from "lucide-react";
+import {
+  appendUserAsset,
+  createUserAssetId,
+  loadUserAssets,
+  removeUserAssetById,
+  saveUserAssets,
+  USER_ASSETS_CHANGED_EVENT,
+} from "@/core/assets/userAssets";
 
 type SettingsPageProps = {
   curveMode: CurveMode;
@@ -17,6 +27,10 @@ type SettingsPageProps = {
   quickHotkeys: QuickNodeHotkey[];
   onQuickHotkeysChange: (next: QuickNodeHotkey[]) => void;
   palette: NodePalette | null;
+  assetLibraries: AssetLibrariesSettings;
+  onAssetLibrariesChange: (
+    next: AssetLibrariesSettings | ((prev: AssetLibrariesSettings) => AssetLibrariesSettings)
+  ) => void;
 };
 
 const curveModeOptions: Array<{ value: CurveMode; label: string }> = [
@@ -40,6 +54,8 @@ export function SettingsPage({
   quickHotkeys,
   onQuickHotkeysChange,
   palette,
+  assetLibraries,
+  onAssetLibrariesChange,
 }: SettingsPageProps) {
   return (
     <div className="w-full h-full overflow-auto p-6">
@@ -93,6 +109,8 @@ export function SettingsPage({
           </CardContent>
         </Card>
 
+        <AssetLibrariesCard assetLibraries={assetLibraries} onChange={onAssetLibrariesChange} />
+
         <HotkeySettingsCard hotkeys={quickHotkeys} onChange={onQuickHotkeysChange} palette={palette} />
 
         <Card>
@@ -139,6 +157,256 @@ export function SettingsPage({
         </Card>
       </div>
     </div>
+  );
+}
+
+type AssetLibrariesCardProps = {
+  assetLibraries: AssetLibrariesSettings;
+  onChange: (
+    next: AssetLibrariesSettings | ((prev: AssetLibrariesSettings) => AssetLibrariesSettings)
+  ) => void;
+};
+
+function AssetLibrariesCard({ assetLibraries, onChange }: AssetLibrariesCardProps) {
+  const ambientEnabled = assetLibraries?.ambientcg?.enabled ?? false;
+  const [manualAssets, setManualAssets] = useState<AssetItem[]>([]);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualUrl, setManualUrl] = useState("");
+  const [manualLabel, setManualLabel] = useState("");
+  const [manualType, setManualType] = useState<"texture" | "model">("texture");
+  const [manualError, setManualError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const stored = await loadUserAssets();
+        if (cancelled) return;
+        setManualAssets(stored);
+      } catch (err) {
+        console.warn("Failed to load saved assets", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const listener = (event: Event) => {
+      const detail = (event as CustomEvent<AssetItem[]>).detail;
+      if (!Array.isArray(detail)) return;
+      setManualAssets(detail);
+    };
+    window.addEventListener(USER_ASSETS_CHANGED_EVENT, listener as EventListener);
+    return () => {
+      window.removeEventListener(USER_ASSETS_CHANGED_EVENT, listener as EventListener);
+    };
+  }, []);
+
+  const persistManualAssets = useCallback((updater: (prev: AssetItem[]) => AssetItem[]) => {
+    setManualAssets((prev) => {
+      const next = updater(prev);
+      void saveUserAssets(next).catch((err) => {
+        console.warn("Failed to persist manual assets", err);
+      });
+      return next;
+    });
+  }, []);
+
+  const toggleManualForm = useCallback(() => {
+    setShowManualForm((prev) => {
+      const next = !prev;
+      if (!next) {
+        setManualUrl("");
+        setManualLabel("");
+        setManualType("texture");
+        setManualError(null);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleManualSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const trimmedUrl = manualUrl.trim();
+      if (!trimmedUrl) {
+        setManualError("Enter a valid URL.");
+        return;
+      }
+      let normalizedUrl: string;
+      try {
+        const parsed = new URL(trimmedUrl);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          throw new Error("Unsupported protocol");
+        }
+        normalizedUrl = parsed.toString();
+      } catch {
+        setManualError("Enter a valid HTTP or HTTPS URL.");
+        return;
+      }
+      const label = manualLabel.trim() || normalizedUrl;
+      const type = manualType === "model" ? "model" : "texture";
+      const description =
+        type === "texture" ? "Manually added texture asset." : "Manually added model asset.";
+      const tags = ["user", type, "manual"];
+      const asset: AssetItem = {
+        id: createUserAssetId(),
+        label,
+        type,
+        source: normalizedUrl,
+        description,
+        tags,
+        builtin: false,
+        preview: type === "texture" ? normalizedUrl : undefined,
+      };
+      persistManualAssets((prev) => appendUserAsset(prev, asset));
+      setManualUrl("");
+      setManualLabel("");
+      setManualType("texture");
+      setManualError(null);
+    },
+    [manualLabel, manualType, manualUrl, persistManualAssets]
+  );
+
+  const handleManualRemove = useCallback(
+    (id: string) => {
+      persistManualAssets((prev) => removeUserAssetById(prev, id));
+    },
+    [persistManualAssets]
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Asset Libraries</CardTitle>
+        <CardDescription>Connect external providers and save your own asset URLs for quick access.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">ambientCG</div>
+            <p className="text-xs text-muted-foreground">
+              Browse thousands of free PBR materials and HDRI textures from ambientCG directly inside the Assets panel.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={ambientEnabled}
+              onChange={(event) => {
+                const enabled = event.target.checked;
+                onChange((prev) => ({ ...prev, ambientcg: { enabled } }));
+              }}
+              className="h-4 w-4 accent-primary"
+            />
+            <span>{ambientEnabled ? "Enabled" : "Disabled"}</span>
+          </label>
+        </div>
+        <div className="space-y-3 rounded-md border border-border/60 bg-muted/10 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Manual Asset URLs</div>
+              <p className="text-xs text-muted-foreground">
+                Store direct links to textures or models so they stay available in the My Assets section.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={toggleManualForm}
+              aria-label={showManualForm ? "Hide manual asset form" : "Add manual asset"}
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
+          {showManualForm ? (
+            <form className="space-y-3" onSubmit={handleManualSubmit}>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="manual-asset-url">Asset URL</Label>
+                  <Input
+                    id="manual-asset-url"
+                    type="url"
+                    value={manualUrl}
+                    onChange={(event) => setManualUrl(event.target.value)}
+                    placeholder="https://example.com/diffuse.png"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="manual-asset-type">Type</Label>
+                  <select
+                    id="manual-asset-type"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={manualType}
+                    onChange={(event) => setManualType(event.target.value === "model" ? "model" : "texture")}
+                  >
+                    <option value="texture">Texture</option>
+                    <option value="model">Model</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="manual-asset-label">Display name (optional)</Label>
+                <Input
+                  id="manual-asset-label"
+                  value={manualLabel}
+                  onChange={(event) => setManualLabel(event.target.value)}
+                  placeholder="Wood Floor Albedo"
+                />
+              </div>
+              {manualError ? <p className="text-xs text-destructive">{manualError}</p> : null}
+              <div className="flex items-center gap-2">
+                <Button type="submit" size="sm">
+                  Save Asset
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={toggleManualForm}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          ) : null}
+          {manualAssets.length > 0 ? (
+            <ul className="space-y-2">
+              {manualAssets.map((asset) => (
+                <li
+                  key={asset.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{asset.label}</div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {asset.type === "model" ? "Model" : "Texture"}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-8"
+                    onClick={() => handleManualRemove(asset.id)}
+                    aria-label={`Remove ${asset.label}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              Saved assets appear in the Assets panel under My Assets for quick drag-and-drop access.
+            </p>
+          )}
+        </div>
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          ambientCG assets respect your search and type filters, and manual URLs stay synced with the My Assets collection.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -138,6 +138,8 @@ function ViewerInner() {
     setCurveMode: () => {},
     quickHotkeys: [],
     setQuickHotkeys: () => {},
+    assetLibraries: { ambientcg: { enabled: true } },
+    setAssetLibraries: () => {},
   }), [theme, curveMode]);
 
   const nodesById = useMemo(() => {

@@ -10,6 +10,8 @@ export function buildAssetHaystack(asset: AssetWithCategory): string {
     ...(asset.tags ?? []),
     asset.description ?? "",
     asset.category?.label ?? "",
+    asset.provider?.name ?? "",
+    asset.provider?.assetId ?? "",
   ]
     .join(" ")
     .toLowerCase();
