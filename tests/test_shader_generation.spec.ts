@@ -43,6 +43,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/SPECULAR\s*=\s*0\.5\s*;/);
     expect(shader_code).toMatch(/AO\s*=\s*1\.0\s*;/);
     expect(shader_code).toMatch(/AO_LIGHT_AFFECT\s*=\s*0\.0\s*;/);
+    expect(shader_code).not.toMatch(/void vertex\(\) \{[^}]*NORMAL = vec3\(0\.0,\s*0\.0,\s*1\.0\);/);
     expect(shader_code).not.toMatch(/CLEARCOAT\s*=\s*0\.0\s*;/);
     expect(shader_code).not.toMatch(/CLEARCOAT_ROUGHNESS\s*=\s*0\.5\s*;/);
     expect(shader_code).not.toMatch(/SSS_STRENGTH\s*=\s*0\.0\s*;/);

@@ -749,7 +749,7 @@ export class GraphCompiler {
     if (!template) return code;
     const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
     const isVertexOut = node.type === "vertex_output";
-    const preserveOutputDefaults = node.type === "fragment_output" || node.type === "vertex_output";
+    const preserveOutputDefaults = node.type === "fragment_output";
     let outputPinPolicies: Map<number, boolean> | undefined;
     if (preserveOutputDefaults) {
       const props = Array.isArray(node.properties) ? node.properties : [];
