@@ -1,6 +1,6 @@
 {
   "name": "openshadergraph",
-  "version": "0.4.0-beta.2",
+  "version": "0.4.0-beta.3",
   "description": "Engine-agnostic node-based shader graph for authoring shaders with template-driven compilation to multiple targets",
   "author": "OpenShaderGraph Contributors",
   "license": "MIT",

@@ -1,3 +1,10 @@
+## [0.4.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.2...v0.4.0-beta.3) (2025-10-09)
+
+- Merge pull request #62 from omid3098/codex/fix-reversed-matcap-textures-in-godot
+### Bug Fixes
+
+- **coordinates:** synchronize view orientation across languages _(by Omid Saadat)_ ([3a21b2b]())- **godot:** derive view-space orientation from coordinates metadata _(by Omid Saadat)_ ([1ab4fbf]())- **godot:** mirror view transforms for matcap consistency _(by Omid Saadat)_ ([0de5271]())
+
 ## [0.4.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.1...v0.4.0-beta.2) (2025-10-09)
 
 - Merge pull request #61 from omid3098/codex/update-shader-compiler-to-include-default-values
