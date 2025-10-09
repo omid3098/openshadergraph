@@ -8,7 +8,11 @@
     "up": "+y",
     "right": "+x",
     "forward": "-z",
-    "handedness": "right"
+    "handedness": "right",
+    "spaces": {
+      "view": { "up": "-y", "right": "-x", "forward": "-z" },
+      "screen": { "up": "-y", "right": "-x", "forward": "-z" }
+    }
   },
   "types": {
     "float": { "code": "float", "constructor": "float", "zero": "0.0", "components": 1 },

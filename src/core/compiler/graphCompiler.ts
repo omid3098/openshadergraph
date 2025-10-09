@@ -1,7 +1,12 @@
 // Canonical schema types used across core and server
 
 import type { Graph, GraphNode, InputPin, LanguagePack, OutputPin } from "../graph/types";
-import { getCoordinateSystem, swizzleDirectionRefToTarget } from "../types/coordinates";
+import type { CoordinateSpace } from "../schema/types";
+import {
+  getCoordinateSystem,
+  swizzleDirectionRefToTarget,
+  swizzleDirectionTargetToRef,
+} from "../types/coordinates";
 import { getNodeTemplate } from "../schema/registry";
 import {
   chooseDominantPinType,
@@ -601,6 +606,73 @@ export class GraphCompiler {
     state.prepared = true;
   }
 
+  private getNodePropertyValue(node: GraphNode, propId: string): unknown {
+    const props = Array.isArray(node.properties) ? node.properties : [];
+    const prop = props.find((p: any) => p && (p as any).id === propId);
+    if (prop && typeof prop === "object") {
+      if ((prop as any).value !== undefined) return (prop as any).value;
+      if ((prop as any).default !== undefined) return (prop as any).default;
+    }
+    try {
+      const tpl = getNodeTemplate(node.type);
+      const tplProps = Array.isArray((tpl as any)?.properties) ? ((tpl as any).properties as any[]) : [];
+      const tplProp = tplProps.find((p) => p && p.id === propId);
+      if (tplProp && tplProp.default !== undefined) {
+        return tplProp.default;
+      }
+    } catch (_err) {
+      /* ignore missing template */
+    }
+    return undefined;
+  }
+
+  private resolveCoordinateSpace(space: string | undefined): CoordinateSpace | undefined {
+    if (!space) return undefined;
+    const normalized = space.trim().toLowerCase();
+    switch (normalized) {
+      case "world":
+        return "world";
+      case "object":
+        return "object";
+      case "view":
+        return "view";
+      case "tangent":
+        return "tangent";
+      case "screen":
+        return "screen";
+      case "absolute_world":
+      case "absolute-world":
+        return "absolute_world";
+      default:
+        return undefined;
+    }
+  }
+
+  private parseTransformConversion(node: GraphNode): { from?: CoordinateSpace; to?: CoordinateSpace } {
+    const raw = this.getNodePropertyValue(node, "conversion");
+    const value = typeof raw === "string" ? raw : "object_to_world";
+    const parts = value.split("_to_");
+    if (parts.length !== 2) {
+      return {};
+    }
+    const [fromRaw, toRaw] = parts as [string, string];
+    return {
+      from: this.resolveCoordinateSpace(fromRaw),
+      to: this.resolveCoordinateSpace(toRaw),
+    };
+  }
+
+  private applyInputSpaceSwizzle(node: GraphNode, inputIndex: number, expr: string): string {
+    if (node.type !== "transform" || inputIndex !== 0) return expr;
+    const vectorType = this.getNodePropertyValue(node, "vector_type");
+    const kind = typeof vectorType === "string" ? vectorType : "direction";
+    if (kind !== "direction" && kind !== "position") return expr;
+    const { from } = this.parseTransformConversion(node);
+    if (!from) return expr;
+    const cs = getCoordinateSystem(this.lang_def, from);
+    return swizzleDirectionRefToTarget(expr, cs);
+  }
+
   private prepare_node_inputs(node: GraphNode, unifyType: boolean) {
     if (!Array.isArray(node.inputs)) return;
     const nodeState = this.getNodeState(node);
@@ -733,6 +805,7 @@ export class GraphCompiler {
       if (fromType || expected) {
         code = this.convert_type(code, fromType, expected);
       }
+      code = this.applyInputSpaceSwizzle(node, index, code);
       pinState.code = code;
       return code;
     });
@@ -868,11 +941,32 @@ export class GraphCompiler {
   }
 
   private applyDirectionSwizzle(node: GraphNode, code: string): string {
-    if (node.type !== "normal_vector" && node.type !== "view_direction") return code;
-    const cs = getCoordinateSystem(this.lang_def);
+    if (!code) return code;
+    let space: CoordinateSpace | undefined;
+    let shouldApply = false;
+    if (node.type === "normal_vector") {
+      const spaceProp = this.getNodePropertyValue(node, "space");
+      space = this.resolveCoordinateSpace(typeof spaceProp === "string" ? spaceProp : "world") ?? "world";
+      shouldApply = true;
+    } else if (node.type === "view_direction") {
+      space = "view";
+      shouldApply = true;
+    } else if (node.type === "transform") {
+      const vectorType = this.getNodePropertyValue(node, "vector_type");
+      const kind = typeof vectorType === "string" ? vectorType : "direction";
+      if (kind === "direction" || kind === "position") {
+        const { to } = this.parseTransformConversion(node);
+        if (to) {
+          space = to;
+          shouldApply = true;
+        }
+      }
+    }
+    if (!shouldApply || !space) return code;
     const name = getUniqueNodeName(node);
-    const swizzled = swizzleDirectionRefToTarget(name, cs);
-    if (swizzled === name || !code) return code;
+    const cs = getCoordinateSystem(this.lang_def, space);
+    const swizzled = swizzleDirectionTargetToRef(name, cs);
+    if (swizzled === name) return code;
     const lines = code.split("\n");
     if (!lines.length) return code;
     lines.push(`${name} = ${swizzled};`);
