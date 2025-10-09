@@ -10,8 +10,8 @@
     "forward": "-z",
     "handedness": "right",
     "spaces": {
-      "view": { "up": "+y", "right": "-x", "forward": "-z" },
-      "screen": { "up": "+y", "right": "-x", "forward": "-z" }
+      "view": { "up": "-y", "right": "-x", "forward": "-z" },
+      "screen": { "up": "-y", "right": "-x", "forward": "-z" }
     }
   },
   "types": {
