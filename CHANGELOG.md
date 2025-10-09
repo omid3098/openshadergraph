@@ -1,3 +1,13 @@
+## [0.4.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.1...v0.4.0-beta.2) (2025-10-09)
+
+- Merge pull request #61 from omid3098/codex/update-shader-compiler-to-include-default-values
+### Chores
+
+- **release:** 0.4.0 _(by semantic-release-bot)_ ([7c01411]())
+### Bug Fixes
+
+- **compiler:** include output defaults when features enabled _(by Omid Saadat)_ ([e67943a]())- restore vertex defaults for shader outputs _(by Omid Saadat)_ ([044381c]())- reuse engine fragment normal defaults _(by Omid Saadat)_ ([308e033]())- stop clobbering vertex output normals _(by Omid Saadat)_ ([c6f06ff]())
+
 ## [0.4.0](https://github.com/omid3098/openshadergraph/compare/v0.3.0...v0.4.0) (2025-10-08)
 
 - Merge branch 'dev' into beta- Merge pull request #59 from omid3098/codex/implement-ambientcg-api-integration- Merge pull request #60 from omid3098/beta
