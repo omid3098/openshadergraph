@@ -1,3 +1,10 @@
+## [0.4.0-beta.7](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.6...v0.4.0-beta.7) (2025-10-09)
+
+- Merge pull request #65 from omid3098/codex/fix-errors-in-generated-godot-shader
+### Bug Fixes
+
+- **godot:** repair voronoi noise shader generation _(by Omid Saadat)_ ([26da787]())
+
 ## [0.4.0-beta.6](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.5...v0.4.0-beta.6) (2025-10-09)
 
 ### Features
