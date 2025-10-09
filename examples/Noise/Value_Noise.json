@@ -1,0 +1,296 @@
+{
+  "name": "Value_Noise",
+  "nodes": [
+    {
+      "id": 1,
+      "type": "surface",
+      "position": [
+        0,
+        0
+      ],
+      "nodes": [
+        {
+          "id": 2,
+          "type": "vertex_pass",
+          "position": [
+            320,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 3,
+              "type": "vertex_output",
+              "position": [
+                560,
+                40
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "fragment_pass",
+          "position": [
+            680,
+            40
+          ],
+          "nodes": [
+            {
+              "id": 5,
+              "type": "fragment_output",
+              "position": [
+                920,
+                40
+              ],
+              "meta": [
+                {
+                  "uiPinGroups": [
+                    {
+                      "feature": "clearcoat",
+                      "enabledBy": "enable_clearcoat",
+                      "pins": [
+                        9,
+                        10
+                      ]
+                    },
+                    {
+                      "feature": "transmission",
+                      "enabledBy": "enable_transmission",
+                      "pins": [
+                        11,
+                        12,
+                        19,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "sss",
+                      "enabledBy": "enable_sss",
+                      "pins": [
+                        13,
+                        14,
+                        21,
+                        22
+                      ]
+                    },
+                    {
+                      "feature": "sheen",
+                      "enabledBy": "enable_sheen",
+                      "pins": [
+                        15,
+                        16
+                      ]
+                    },
+                    {
+                      "feature": "anisotropy",
+                      "enabledBy": "enable_anisotropy",
+                      "pins": [
+                        17,
+                        18
+                      ]
+                    },
+                    {
+                      "feature": "refraction",
+                      "enabledBy": "enable_refraction",
+                      "pins": [
+                        20,
+                        21
+                      ]
+                    },
+                    {
+                      "feature": "backlight",
+                      "enabledBy": "enable_backlight",
+                      "pins": [
+                        22
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "editor_preview",
+              "position": [
+                1090,
+                40
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:preview",
+                "editor_size:520x360"
+              ],
+              "properties": [
+                {
+                  "id": "primitive",
+                  "value": "sphere"
+                },
+                {
+                  "id": "lighting_profile",
+                  "value": "three-point-studio"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "type": "color",
+              "position": [
+                446,
+                -1
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    1,
+                    0.20784313725490197,
+                    0.20784313725490197,
+                    1
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/0"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "color",
+              "position": [
+                452,
+                118
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": [
+                    0.21176470588235294,
+                    1,
+                    0.25882352941176473,
+                    1
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/1"
+                }
+              ],
+              "properties": [
+                {
+                  "id": "expose",
+                  "value": false
+                },
+                {
+                  "id": "expose_name",
+                  "value": ""
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "lerp",
+              "position": [
+                708,
+                91
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../7/0"
+                },
+                {
+                  "id": 1,
+                  "value": "../9/0"
+                },
+                {
+                  "id": 2,
+                  "value": "../18/0"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../5/0"
+                }
+              ]
+            },
+            {
+              "id": 15,
+              "type": "uv",
+              "position": [
+                227,
+                252
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../18/0"
+                }
+              ]
+            },
+            {
+              "id": 16,
+              "type": "editor_compile",
+              "position": [
+                1102,
+                418
+              ],
+              "meta": [
+                "editor_node",
+                "editor_panel:compile",
+                "editor_size:480x340"
+              ]
+            },
+            {
+              "id": 18,
+              "type": "value_noise",
+              "position": [
+                447,
+                242
+              ],
+              "inputs": [
+                {
+                  "id": 0,
+                  "value": "../15/0"
+                },
+                {
+                  "id": 1,
+                  "value": [
+                    100
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "id": 0,
+                  "value": "../10/2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
