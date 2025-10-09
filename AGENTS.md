@@ -24,14 +24,10 @@ Minimal graph rules:
 
 ## Required Gates (run ALL locally before confirming a solution, adding a feature, or pushing)
 
-- `bun install --frozen-lockfile`
-- `bun run lint` → 0 errors, 0 warnings (ESLint)
-- `bun x tsc -p tsconfig.json --noEmit` → typecheck clean
-- `bun run test` → all unit tests green (vitest)
-- `bun run test:coverage` → meets global thresholds (lines/statements ≥ 43%); CI enforces this
-- First time only: `bun run test:e2e:install`
-- `bun run test:e2e` → all E2E tests green (Playwright - Chromium only; matches CI)
-- `bun run validate:shaders` → all shaders compile
+- Agents MUST execute `bun run gates` **before committing**. This umbrella task sequentially runs lint, typecheck, unit tests, coverage, shader validation, and Playwright E2E checks, ensuring every gate is exercised in one command.
+- If `bun run gates` surfaces a failing subcommand, fix the issue and rerun the full command until it passes. Do **not** rely on running individual gate commands in isolation.
+- First time only: run `bun run test:e2e:install` before `bun run gates` so Playwright has the required browsers.
+- `bun install --frozen-lockfile` remains required whenever dependencies change.
 
 Agent behavior requirements:
 

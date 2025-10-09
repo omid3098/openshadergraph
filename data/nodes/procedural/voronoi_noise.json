@@ -1,0 +1,17 @@
+{
+  "id": -1,
+  "type": "voronoi_noise",
+  "name": "Voronoi Noise",
+  "meta": [],
+  "position": [0, 0],
+  "nodes": [],
+  "inputs": [
+    { "id": 0, "name": "uv", "type": "float2", "value": [0.0, 0.0] },
+    { "id": 1, "name": "angle_offset", "type": "float", "value": [0.0] },
+    { "id": 2, "name": "cell_density", "type": "float", "value": [5.0] }
+  ],
+  "outputs": [
+    { "id": 0, "name": "out", "type": "float" },
+    { "id": 1, "name": "cells", "type": "float" }
+  ]
+}

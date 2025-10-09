@@ -269,9 +269,13 @@ export function buildProbeGraph(root: Graph | null | undefined, probeNodeId: num
       };
       // Position-like inputs: default to builtin UV so 2D procedurals vary across the screen
       if (lowerType.includes("noise")) {
-        const pos = getPin("position");
-        if (isDisconnected(pos)) {
-          (pos as any).value = "builtin:uv";
+        const coordinatePins = ["uv", "position", "coords"];
+        for (const name of coordinatePins) {
+          const target = getPin(name);
+          if (!target) continue;
+          if (!isDisconnected(target)) continue;
+          (target as any).value = "builtin:uv";
+          break;
         }
       }
       if (Array.isArray(node.nodes)) {
