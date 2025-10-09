@@ -22,6 +22,8 @@ import {
   collectSamplerSettings,
   cloneTextureForUniform,
 } from "@/core/preview/graphAssets";
+import type { LightingProfile, LightingProfileLight } from "@/core/preview/lightingProfiles";
+import { DEFAULT_LIGHTING_PROFILE_ID, getLightingProfile, lightingProfiles } from "@/core/preview/lightingProfiles";
 
 type PreviewAsset = {
   id?: string;
@@ -42,6 +44,50 @@ type PreviewPanelProps = {
 };
 
 type Primitive = "sphere" | "cube" | "cylinder" | "custom";
+
+type Vec3Tuple = [number, number, number];
+
+const FALLBACK_LIGHT_DIRECTIONS: Vec3Tuple[] = [
+  [-0.35, 0.8, 0.6],
+  [0.6, 0.2, 0.2],
+  [-0.2, 0.3, -0.9],
+];
+
+const FALLBACK_LIGHT_COLORS: Vec3Tuple[] = [
+  [3.0, 3.0, 3.0],
+  [1.2, 1.2, 1.2],
+  [2.0, 2.0, 2.0],
+];
+
+const FALLBACK_AMBIENT: Vec3Tuple = [0.08, 0.08, 0.08];
+const FALLBACK_EXPOSURE = 1.3;
+
+function normalizeTuple(vec: Vec3Tuple): Vec3Tuple {
+  const [x, y, z] = vec;
+  const len = Math.hypot(x, y, z);
+  if (!Number.isFinite(len) || len === 0) return [0, 0, 1];
+  return [x / len, y / len, z / len];
+}
+
+function resolveDirection(light: LightingProfileLight | undefined, fallback: Vec3Tuple): Vec3Tuple {
+  let dir: Vec3Tuple | undefined;
+  if (light) {
+    if (light.direction) {
+      dir = light.direction;
+    } else if (light.position) {
+      dir = [-light.position[0], -light.position[1], -light.position[2]];
+    }
+  }
+  if (!dir) dir = fallback;
+  return normalizeTuple(dir);
+}
+
+function resolveColor(light: LightingProfileLight | undefined, fallback: Vec3Tuple): Vec3Tuple {
+  if (!light) return fallback;
+  const [r, g, b] = light.color;
+  const intensity = Number.isFinite(light.intensity) ? light.intensity : 1;
+  return [r * intensity, g * intensity, b * intensity];
+}
 
 function disposeMaterial(
   mat: any | null | undefined,
@@ -102,6 +148,17 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const [modelStatus, setModelStatus] = useState<string | null>(null);
   const [modelDropActive, setModelDropActive] = useState(false);
   const [customModel, setCustomModel] = useState<{ source: string; label: string } | null>(null);
+  const [lightingProfileId, setLightingProfileId] = useState<string>(() => {
+    const prop = getProperty?.("lighting_profile");
+    if (typeof prop === "string" && lightingProfiles.some((profile) => profile.id === prop)) return prop;
+    const stored = typeof localStorage !== "undefined" ? localStorage.getItem("previewPanel.lightingProfile") : null;
+    if (stored && lightingProfiles.some((profile) => profile.id === stored)) return stored;
+    return DEFAULT_LIGHTING_PROFILE_ID;
+  });
+
+  const lightingProfile = useMemo(() => getLightingProfile(lightingProfileId), [lightingProfileId]);
+  const lightingDescription = lightingProfile.description.trim();
+  const hasLightingDescription = lightingDescription.length > 0;
 
   useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.width", String(width)); }, [width]);
   // Keep latest setProperty in a ref to avoid effect dependency loops
@@ -109,6 +166,14 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   useEffect(() => { setPropertyRef.current = setProperty; }, [setProperty]);
   const setAssetRef = useRef<typeof setAsset>(setAsset);
   useEffect(() => { setAssetRef.current = setAsset; }, [setAsset]);
+  const lightingProfileRef = useRef<LightingProfile | null>(lightingProfile);
+  useEffect(() => { lightingProfileRef.current = lightingProfile; }, [lightingProfile]);
+
+  useEffect(() => {
+    const id = lightingProfile.id;
+    if (setPropertyRef.current) setPropertyRef.current("lighting_profile", id);
+    if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.lightingProfile", id);
+  }, [lightingProfile]);
 
   useEffect(() => {
     // Persist primitive to node property when available; otherwise use localStorage fallback
@@ -379,16 +444,23 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         cam.updateMatrixWorld();
         cam.updateProjectionMatrix();
         const view = cam.matrixWorldInverse;
-        const key = new (THREE as any).Vector3(-0.35, 0.8, 0.6).normalize();
-        const fill = new (THREE as any).Vector3(0.6, 0.2, 0.2).normalize();
-        const rim = new (THREE as any).Vector3(-0.2, 0.3, -0.9).normalize();
-        key.transformDirection(view);
-        fill.transformDirection(view);
-        rim.transformDirection(view);
-        const u = (materialRef.current.uniforms as any);
-        if (u.uKeyDir?.value?.set) u.uKeyDir.value.set(key.x, key.y, key.z);
-        if (u.uFillDir?.value?.set) u.uFillDir.value.set(fill.x, fill.y, fill.z);
-        if (u.uRimDir?.value?.set) u.uRimDir.value.set(rim.x, rim.y, rim.z);
+        const viewMatrix = new (THREE as any).Matrix3().setFromMatrix4(view);
+        const profile = lightingProfileRef.current;
+        const lights = profile?.lights ?? [];
+        const dirTuples = FALLBACK_LIGHT_DIRECTIONS.map((fallback, index) => resolveDirection(lights[index], fallback));
+        const vectors = dirTuples.map((tuple) =>
+          new (THREE as any).Vector3(tuple[0], tuple[1], tuple[2]).applyMatrix3(viewMatrix).normalize()
+        );
+        const u = materialRef.current.uniforms as any;
+        const entries: Array<[string, any]> = [
+          ["uKeyDir", vectors[0]],
+          ["uFillDir", vectors[1]],
+          ["uRimDir", vectors[2]],
+        ];
+        for (const [name, vec] of entries) {
+          const uniform = u?.[name];
+          if (uniform?.value?.set && vec) uniform.value.set(vec.x, vec.y, vec.z);
+        }
       }
       try {
         renderer.render(scene, camera);
@@ -490,7 +562,11 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         const src = typeof getProperty === "function" ? (getProperty("model_source") as string | undefined) : undefined;
         const label = typeof getProperty === "function" ? (getProperty("model_label") as string | undefined) : undefined;
         const prim = typeof getProperty === "function" ? (getProperty("primitive") as Primitive | undefined) : undefined;
+        const profileProp = typeof getProperty === "function" ? (getProperty("lighting_profile") as string | undefined) : undefined;
         if (typeof prim === "string") setPrimitive(prim as Primitive);
+        if (typeof profileProp === "string" && lightingProfiles.some((profile) => profile.id === profileProp)) {
+          setLightingProfileId(profileProp);
+        }
         if (src) {
           void loadModelAsset(src, label || "Model", { persist: false, asset: ((asset as any) ?? null) });
         }
@@ -604,6 +680,12 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         }
       }
     }
+    const lights = lightingProfile.lights;
+    const worldDirectionTuples = FALLBACK_LIGHT_DIRECTIONS.map((fallback, index) => resolveDirection(lights[index], fallback));
+    const colorTuples = FALLBACK_LIGHT_COLORS.map((fallback, index) => resolveColor(lights[index], fallback));
+    const ambientTuple = lightingProfile.ambient ?? FALLBACK_AMBIENT;
+    const exposure = Number.isFinite(lightingProfile.exposure) ? lightingProfile.exposure : FALLBACK_EXPOSURE;
+
     // Ensure preview-owned environment/lighting uniforms exist with sensible defaults
     // Directions are provided in view space (updated every frame), initialize now to avoid a black first frame
     try {
@@ -611,20 +693,35 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       cam.updateMatrixWorld();
       cam.updateProjectionMatrix();
       const view = cam.matrixWorldInverse;
-      const keyDir = new (THREE as any).Vector3(-0.35, 0.8, 0.6).normalize().applyMatrix3(new (THREE as any).Matrix3().setFromMatrix4(view));
-      const fillDir = new (THREE as any).Vector3(0.6, 0.2, 0.2).normalize().applyMatrix3(new (THREE as any).Matrix3().setFromMatrix4(view));
-      const rimDir = new (THREE as any).Vector3(-0.2, 0.3, -0.9).normalize().applyMatrix3(new (THREE as any).Matrix3().setFromMatrix4(view));
-      if (!uniforms.uKeyDir) uniforms.uKeyDir = { value: new (THREE as any).Vector3(keyDir.x, keyDir.y, keyDir.z) };
-      if (!uniforms.uFillDir) uniforms.uFillDir = { value: new (THREE as any).Vector3(fillDir.x, fillDir.y, fillDir.z) };
-      if (!uniforms.uRimDir) uniforms.uRimDir = { value: new (THREE as any).Vector3(rimDir.x, rimDir.y, rimDir.z) };
+      const viewMatrix = new (THREE as any).Matrix3().setFromMatrix4(view);
+      const dirVectors = worldDirectionTuples.map((tuple) =>
+        new (THREE as any).Vector3(tuple[0], tuple[1], tuple[2]).applyMatrix3(viewMatrix).normalize()
+      );
+      const [keyDir, fillDir, rimDir] = dirVectors;
+      if (!uniforms.uKeyDir) uniforms.uKeyDir = { value: keyDir };
+      else if (uniforms.uKeyDir.value?.set) uniforms.uKeyDir.value.set(keyDir.x, keyDir.y, keyDir.z);
+      else uniforms.uKeyDir.value = keyDir;
+      if (!uniforms.uFillDir) uniforms.uFillDir = { value: fillDir };
+      else if (uniforms.uFillDir.value?.set) uniforms.uFillDir.value.set(fillDir.x, fillDir.y, fillDir.z);
+      else uniforms.uFillDir.value = fillDir;
+      if (!uniforms.uRimDir) uniforms.uRimDir = { value: rimDir };
+      else if (uniforms.uRimDir.value?.set) uniforms.uRimDir.value.set(rimDir.x, rimDir.y, rimDir.z);
+      else uniforms.uRimDir.value = rimDir;
     } catch {
-      // no-op
+      const fallbackVectors = worldDirectionTuples.map((tuple) => new (THREE as any).Vector3(tuple[0], tuple[1], tuple[2]));
+      const [keyDir, fillDir, rimDir] = fallbackVectors;
+      if (!uniforms.uKeyDir) uniforms.uKeyDir = { value: keyDir };
+      if (!uniforms.uFillDir) uniforms.uFillDir = { value: fillDir };
+      if (!uniforms.uRimDir) uniforms.uRimDir = { value: rimDir };
     }
-    if (!uniforms.uKeyColor) uniforms.uKeyColor = { value: new (THREE as any).Vector3(3.0, 3.0, 3.0) } as any;
-    if (!uniforms.uFillColor) uniforms.uFillColor = { value: new (THREE as any).Vector3(1.2, 1.2, 1.2) } as any;
-    if (!uniforms.uRimColor) uniforms.uRimColor = { value: new (THREE as any).Vector3(2.0, 2.0, 2.0) } as any;
-    if (!uniforms.uAmbient) uniforms.uAmbient = { value: new (THREE as any).Vector3(0.08, 0.08, 0.08) } as any;
-    if (!uniforms.uExposure) uniforms.uExposure = { value: 1.3 } as any;
+
+    const colorVectors = colorTuples.map((tuple) => new (THREE as any).Vector3(tuple[0], tuple[1], tuple[2]));
+    const [keyColor, fillColor, rimColor] = colorVectors;
+    uniforms.uKeyColor = { value: keyColor } as any;
+    uniforms.uFillColor = { value: fillColor } as any;
+    uniforms.uRimColor = { value: rimColor } as any;
+    uniforms.uAmbient = { value: new (THREE as any).Vector3(ambientTuple[0], ambientTuple[1], ambientTuple[2]) } as any;
+    uniforms.uExposure = { value: exposure } as any;
     if (!uniforms.uTime) uniforms.uTime = { value: 0 } as any;
     const mat = new (THREE as any).ShaderMaterial({
       vertexShader: defaultVertexShader(vertexChunk, parsed),
@@ -693,7 +790,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     return () => {
       cancelled = true;
     };
-  }, [ensureSamplerFallback, fragCode, vertexChunk, wireframe, textureAssignments, samplerSettings]);
+  }, [ensureSamplerFallback, fragCode, vertexChunk, wireframe, textureAssignments, samplerSettings, lightingProfile]);
 
   const handleCanvasDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (!event.dataTransfer?.types.includes(ASSET_DRAG_MIME)) return;
@@ -779,6 +876,20 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
               </SelectContent>
             </Select>
           </div>
+          <div className="min-w-[160px]">
+            <Select value={lightingProfile.id} onValueChange={(value) => { setLightingProfileId(value); setProperty?.("lighting_profile", value); }}>
+              <SelectTrigger aria-label="Lighting profile" title={hasLightingDescription ? lightingDescription : undefined}>
+                <SelectValue placeholder="Lighting" />
+              </SelectTrigger>
+              <SelectContent>
+                {lightingProfiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate</label>
           <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe</label>
           <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnv} onChange={(e) => setUseEnv(e.target.checked)} /> env</label>
@@ -823,7 +934,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
         <CardHeader className="py-3 px-4 flex flex-row items-center justify-end">
           <div className="flex items-center gap-2">
             <div className="min-w-[120px]">
-            <Select value={primitive} onValueChange={(v) => { const next = v as Primitive; setPrimitive(next); setProperty?.("primitive", next); }}>
+              <Select value={primitive} onValueChange={(v) => { const next = v as Primitive; setPrimitive(next); setProperty?.("primitive", next); }}>
                 <SelectTrigger aria-label="Primitive">
                   <SelectValue placeholder="Primitive" />
                 </SelectTrigger>
@@ -832,6 +943,20 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
                   <SelectItem value="cube">Cube</SelectItem>
                   <SelectItem value="cylinder">Cylinder</SelectItem>
                   {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[160px]">
+              <Select value={lightingProfile.id} onValueChange={(value) => { setLightingProfileId(value); setProperty?.("lighting_profile", value); }}>
+                <SelectTrigger aria-label="Lighting profile" title={hasLightingDescription ? lightingDescription : undefined}>
+                  <SelectValue placeholder="Lighting" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lightingProfiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -910,6 +1035,20 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
                   <SelectItem value="cube">Cube</SelectItem>
                   <SelectItem value="cylinder">Cylinder</SelectItem>
                   {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[160px]">
+              <Select value={lightingProfile.id} onValueChange={(value) => { setLightingProfileId(value); setProperty?.("lighting_profile", value); }}>
+                <SelectTrigger aria-label="Lighting profile" title={hasLightingDescription ? lightingDescription : undefined}>
+                  <SelectValue placeholder="Lighting" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lightingProfiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
