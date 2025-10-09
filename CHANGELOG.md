@@ -1,3 +1,13 @@
+## [0.4.0-beta.5](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.4...v0.4.0-beta.5) (2025-10-09)
+
+- Merge pull request #64 from omid3098/codex/add-voronoi-and-simple-noise-nodes
+### Bug Fixes
+
+- stabilize procedural noise uv wiring _(by Omid Saadat)_ ([5b49160]())
+### Documentation
+
+- require bun run gates umbrella validation _(by Omid Saadat)_ ([4788177]())
+
 ## [0.4.0-beta.4](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.3...v0.4.0-beta.4) (2025-10-09)
 
 - Merge pull request #63 from omid3098/codex/implement-lighting-profiles-for-3d-preview
