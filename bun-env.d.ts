@@ -24,6 +24,11 @@ declare module "*.png" {
   export default path;
 }
 
+declare module "*.json" {
+  const value: unknown;
+  export default value;
+}
+
 // Fallback types for Three.js examples modules used at runtime
 declare module "three/examples/jsm/environments/RoomEnvironment.js" {
   import type { Scene } from "three";

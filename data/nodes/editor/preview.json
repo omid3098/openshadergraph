@@ -29,6 +29,12 @@
       "type": "string",
       "label": "Model Label",
       "default": ""
+    },
+    {
+      "id": "lighting_profile",
+      "type": "string",
+      "label": "Lighting Profile",
+      "default": "three-point-studio"
     }
   ]
 }
