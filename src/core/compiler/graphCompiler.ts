@@ -747,7 +747,10 @@ export class GraphCompiler {
       template = undefined;
     }
     if (!template) return code;
-    const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
+    const langName = this.lang_def?.name ?? "";
+    const lowerLang = langName.toLowerCase();
+    const isThree = lowerLang.includes("three");
+    const isGodot = lowerLang.includes("godot");
     const isVertexOut = node.type === "vertex_output";
     const preserveOutputDefaults = node.type === "fragment_output" || node.type === "vertex_output";
     let outputPinPolicies: Map<number, boolean> | undefined;
@@ -814,41 +817,52 @@ export class GraphCompiler {
         out.push(line);
         continue;
       }
+      const value = input_pin.value;
+      let lineToEmit = line;
+      if (isGodot && node.type === "fragment_output" && propKey === "NORMAL") {
+        const normMatchesDefault = Array.isArray(defVal)
+          && Array.isArray(value)
+          && defVal.length === value.length
+          && defVal.every((d, i) => Number(d) === Number(value[i]));
+        if (normMatchesDefault) {
+          lineToEmit = line.replace(/vec3\s*\(\s*0\.0\s*,\s*0\.0\s*,\s*1\.0\s*\)/g, "vec3(NORMAL)");
+        }
+      }
+
       if (preserveOutputDefaults) {
         const pinId = typeof input_pin.id === "number" ? input_pin.id : undefined;
         if (pinId !== undefined) {
           const policy = outputPinPolicies?.get(pinId);
           if (policy === undefined || policy) {
-            out.push(line);
+            out.push(lineToEmit);
             continue;
           }
         } else {
-          out.push(line);
+          out.push(lineToEmit);
           continue;
         }
       }
-      const value = input_pin.value;
       if (typeof value === "string" && value.includes("../")) {
-        out.push(line);
+        out.push(lineToEmit);
         continue;
       }
       if (isThree && isVertexOut) {
         if (propKey === "VERTEX" || propKey === "COLOR") {
-          out.push(line);
+          out.push(lineToEmit);
           continue;
         }
         if (propKey === "NORMAL") {
           const vv = JSON.stringify(value);
           const dd = JSON.stringify(defVal);
           if (vv !== dd) {
-            out.push(line);
+            out.push(lineToEmit);
           }
           continue;
         }
       }
       const vv = JSON.stringify(value);
       const dd = JSON.stringify(defVal);
-      if (vv !== dd) out.push(line);
+      if (vv !== dd) out.push(lineToEmit);
     }
     return out.join("\n");
   }
