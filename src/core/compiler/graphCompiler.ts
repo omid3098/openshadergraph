@@ -747,8 +747,46 @@ export class GraphCompiler {
       template = undefined;
     }
     if (!template) return code;
-    const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
+    const langName = this.lang_def?.name ?? "";
+    const lowerLang = langName.toLowerCase();
+    const isThree = lowerLang.includes("three");
+    const isGodot = lowerLang.includes("godot");
     const isVertexOut = node.type === "vertex_output";
+    const preserveOutputDefaults = node.type === "fragment_output" || node.type === "vertex_output";
+    let outputPinPolicies: Map<number, boolean> | undefined;
+    if (preserveOutputDefaults) {
+      const props = Array.isArray(node.properties) ? node.properties : [];
+      const getPropertyValue = (propId: string): unknown => {
+        const prop = props.find((p: any) => p && (p as any).id === propId);
+        if (!prop) return undefined;
+        if ((prop as any).value !== undefined) return (prop as any).value;
+        return (prop as any).default;
+      };
+      const metaEntries = Array.isArray(node.meta) ? node.meta : [];
+      const pinGroups: Array<{ pins?: unknown; enabledBy?: unknown }> = [];
+      for (const entry of metaEntries) {
+        if (!entry || typeof entry !== "object") continue;
+        const groups = (entry as any).uiPinGroups;
+        if (Array.isArray(groups)) {
+          for (const group of groups) {
+            if (group && typeof group === "object") pinGroups.push(group as any);
+          }
+        }
+      }
+      const map = new Map<number, boolean>();
+      for (const group of pinGroups) {
+        const pins = Array.isArray(group.pins) ? (group.pins as any[]) : [];
+        if (!pins.length) continue;
+        const propId = typeof group.enabledBy === "string" ? group.enabledBy : undefined;
+        const enabled = propId ? Boolean(getPropertyValue(propId)) : false;
+        for (const pin of pins) {
+          if (typeof pin !== "number") continue;
+          const prev = map.get(pin) ?? false;
+          map.set(pin, prev || enabled);
+        }
+      }
+      outputPinPolicies = map;
+    }
 
     const normalizeKey = (s: string) =>
       s
@@ -780,27 +818,51 @@ export class GraphCompiler {
         continue;
       }
       const value = input_pin.value;
+      let lineToEmit = line;
+      if (isGodot && node.type === "fragment_output" && propKey === "NORMAL") {
+        const normMatchesDefault = Array.isArray(defVal)
+          && Array.isArray(value)
+          && defVal.length === value.length
+          && defVal.every((d, i) => Number(d) === Number(value[i]));
+        if (normMatchesDefault) {
+          lineToEmit = line.replace(/vec3\s*\(\s*0\.0\s*,\s*0\.0\s*,\s*1\.0\s*\)/g, "vec3(NORMAL)");
+        }
+      }
+
+      if (preserveOutputDefaults) {
+        const pinId = typeof input_pin.id === "number" ? input_pin.id : undefined;
+        if (pinId !== undefined) {
+          const policy = outputPinPolicies?.get(pinId);
+          if (policy === undefined || policy) {
+            out.push(lineToEmit);
+            continue;
+          }
+        } else {
+          out.push(lineToEmit);
+          continue;
+        }
+      }
       if (typeof value === "string" && value.includes("../")) {
-        out.push(line);
+        out.push(lineToEmit);
         continue;
       }
       if (isThree && isVertexOut) {
         if (propKey === "VERTEX" || propKey === "COLOR") {
-          out.push(line);
+          out.push(lineToEmit);
           continue;
         }
         if (propKey === "NORMAL") {
           const vv = JSON.stringify(value);
           const dd = JSON.stringify(defVal);
           if (vv !== dd) {
-            out.push(line);
+            out.push(lineToEmit);
           }
           continue;
         }
       }
       const vv = JSON.stringify(value);
       const dd = JSON.stringify(defVal);
-      if (vv !== dd) out.push(line);
+      if (vv !== dd) out.push(lineToEmit);
     }
     return out.join("\n");
   }

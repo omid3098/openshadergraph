@@ -35,11 +35,22 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/shader_type spatial;/);
     expect(shader_code).toMatch(/vec4 color_\d+ = vec4\(1.0, 1.0, 1.0, 1.0\);/);
     expect(shader_code).toMatch(/ALBEDO = vec3\(color_\d+\.rgb\);/);
-    expect(shader_code).not.toMatch(/ROUGHNESS\s*=/);
-    expect(shader_code).not.toMatch(/METALLIC\s*=/);
-    expect(shader_code).not.toMatch(/EMISSION\s*=/);
-    expect(shader_code).not.toMatch(/NORMAL\s*=/);
-    expect(shader_code).not.toMatch(/ALPHA\s*=/);
+    expect(shader_code).toMatch(/ROUGHNESS\s*=\s*0\.5\s*;/);
+    expect(shader_code).toMatch(/METALLIC\s*=\s*0\.0\s*;/);
+    expect(shader_code).toMatch(/EMISSION\s*=\s*vec3\(0\.0,\s*0\.0,\s*0\.0\)\s*\*\s*1\.0\s*;/);
+    expect(shader_code).toMatch(/NORMAL\s*=\s*vec3\(NORMAL\)\s*;/);
+    expect(shader_code).toMatch(/ALPHA\s*=\s*1\.0\s*;/);
+    expect(shader_code).toMatch(/SPECULAR\s*=\s*0\.5\s*;/);
+    expect(shader_code).toMatch(/AO\s*=\s*1\.0\s*;/);
+    expect(shader_code).toMatch(/AO_LIGHT_AFFECT\s*=\s*0\.0\s*;/);
+    expect(shader_code).toMatch(/void vertex\(\) \{[^}]*NORMAL\s*=\s*vec3\(NORMAL\)\s*;/);
+    expect(shader_code).toMatch(/void vertex\(\) \{[^}]*COLOR\s*=\s*vec4\(COLOR\)\s*;/);
+    expect(shader_code).not.toMatch(/CLEARCOAT\s*=\s*0\.0\s*;/);
+    expect(shader_code).not.toMatch(/CLEARCOAT_ROUGHNESS\s*=\s*0\.5\s*;/);
+    expect(shader_code).not.toMatch(/SSS_STRENGTH\s*=\s*0\.0\s*;/);
+    expect(shader_code).not.toMatch(/SSS_TRANSMITTANCE_COLOR\s*=\s*vec4/);
+    expect(shader_code).not.toMatch(/ANISOTROPY\s*=\s*0\.0\s*;/);
+    expect(shader_code).not.toMatch(/ANISOTROPY_FLOW\s*=\s*vec3/);
     // No duplicates: one vertex(), one fragment(), one ALBEDO assignment, one color var decl
     const count = (re: RegExp) => (shader_code.match(re) ?? []).length;
     expect(count(/^void vertex\(\)/gm)).toBe(1);
@@ -57,6 +68,33 @@ describe("Godot shader generation", () => {
     expect(firstDecl).toBeLessThan(firstUse);
     const out_file = path.join(SHADERS_DIR, "godot", "basic_color.gdshader");
     await expect(fs.stat(out_file)).resolves.toBeDefined();
+  });
+
+  it("emits optional feature defaults when enabled", async () => {
+    const { surface, fragment_output } = basic_color_graph();
+    const props = ((fragment_output as any).properties ?? ((fragment_output as any).properties = [])) as any[];
+    const enable = (id: string) => {
+      const existing = props.find((p) => p && p.id === id);
+      if (existing) existing.value = true;
+      else props.push({ id, type: "boolean", value: true });
+    };
+    enable("enable_clearcoat");
+    enable("enable_transmission");
+    enable("enable_sss");
+    enable("enable_sheen");
+    enable("enable_anisotropy");
+    enable("enable_refraction");
+    enable("enable_backlight");
+
+    const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "basic_color_features_enabled");
+    expect(shader_code).toMatch(/CLEARCOAT\s*=\s*0\.0\s*;/);
+    expect(shader_code).toMatch(/CLEARCOAT_ROUGHNESS\s*=\s*0\.5\s*;/);
+    expect(shader_code).toMatch(/SSS_STRENGTH\s*=\s*0\.0\s*;/);
+    expect(shader_code).toMatch(/SSS_TRANSMITTANCE_COLOR\s*=\s*vec4\(1\.0,\s*0\.8,\s*0\.7,\s*1\.0\)\s*;/);
+    expect(shader_code).toMatch(/ANISOTROPY\s*=\s*0\.0\s*;/);
+    expect(shader_code).toMatch(/ANISOTROPY_FLOW\s*=\s*vec3\(1\.0,\s*0\.0,\s*0\.0\)\.xy\s*;/);
+    // Sheen template should be injected even if values remain defaults
+    expect(shader_code).toMatch(/_osg_sheen\s*=\s*vec3\(\s*1\.0,\s*1\.0,\s*1\.0\s*\)\s*\*\s*0\.0/);
   });
 
   it("addition shader", async () => {
