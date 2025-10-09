@@ -1,3 +1,9 @@
+## [0.4.0-beta.6](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.5...v0.4.0-beta.6) (2025-10-09)
+
+### Features
+
+- add noise graph examples _(by Omid Saadat)_ ([18fc433]())
+
 ## [0.4.0-beta.5](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.4...v0.4.0-beta.5) (2025-10-09)
 
 - Merge pull request #64 from omid3098/codex/add-voronoi-and-simple-noise-nodes
