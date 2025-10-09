@@ -1,3 +1,10 @@
+## [0.4.0-beta.4](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.3...v0.4.0-beta.4) (2025-10-09)
+
+- Merge pull request #63 from omid3098/codex/implement-lighting-profiles-for-3d-preview
+### Features
+
+- **preview:** add lighting profiles to 3d preview _(by Omid Saadat)_ ([c2ffb8d]())
+
 ## [0.4.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.2...v0.4.0-beta.3) (2025-10-09)
 
 - Merge pull request #62 from omid3098/codex/fix-reversed-matcap-textures-in-godot
