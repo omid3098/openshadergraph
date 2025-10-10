@@ -120,6 +120,8 @@ const ALIGNMENT_LABELS: Record<AlignmentKind, string> = {
 const DISTRIBUTION_LABELS: Record<DistributionKind, string> = {
   horizontal: "Distribute Horizontally",
   vertical: "Distribute Vertically",
+  "vertical-stack": "Stack Vertically",
+  "horizontal-stack": "Stack Horizontally",
 };
 
 const DUPLICATE_OFFSET = { x: 32, y: 32 };
@@ -235,6 +237,7 @@ export function App() {
   const [menuPaletteOverride, setMenuPaletteOverride] = useState<NodePalette | null>(null);
   const [showCompileOnly, setShowCompileOnly] = useState<boolean>(false);
   const [clipboardStatus, setClipboardStatus] = useState<{ kind: "success" | "error"; message: string; key: number } | null>(null);
+  const [canPasteFromClipboard, setCanPasteFromClipboard] = useState(false);
   const [showDocsPanel, setShowDocsPanel] = useState<boolean>(false);
   const [docsWidth, setDocsWidth] = useState<number>(768);
   const docsResizing = useRef(false);
@@ -243,7 +246,6 @@ export function App() {
   const [isDocsResizing, setIsDocsResizing] = useState(false);
   const clipboardStatusTimerRef = useRef<number | null>(null);
   const quickHotkeysPersistReadyRef = useRef(false);
-  const canPasteViaButton = typeof navigator !== "undefined";
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -2494,6 +2496,35 @@ export function App() {
   }, [performPasteFromText, showClipboardStatus]);
 
   useEffect(() => {
+    if (!menu.open) {
+      setCanPasteFromClipboard(false);
+      return;
+    }
+    if (typeof navigator === "undefined" || typeof navigator.clipboard?.readText !== "function") {
+      setCanPasteFromClipboard(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (cancelled) return;
+        if (!text) {
+          setCanPasteFromClipboard(false);
+          return;
+        }
+        parseClipboardPayload(text);
+        setCanPasteFromClipboard(true);
+      } catch (_err) {
+        if (!cancelled) setCanPasteFromClipboard(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [menu.open, menu.kind, menu.targetId]);
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const isMod = event.metaKey || event.ctrlKey;
       if (!isMod || event.altKey || event.shiftKey) return;
@@ -2565,7 +2596,8 @@ export function App() {
     (distribution: DistributionKind) => {
       setNodes((prev) => {
         const selected = prev.filter((n) => n.selected);
-        if (selected.length <= 2) return prev;
+        const minSelection = distribution === "vertical-stack" || distribution === "horizontal-stack" ? 2 : 3;
+        if (selected.length < minSelection) return prev;
         const selectedIds = new Set(selected.map((n) => n.id));
         const { nodes: distributedNodes, changed } = distributeSelectedNodes(prev, selectedIds, distribution);
         if (!changed) return prev;
@@ -3229,7 +3261,7 @@ export function App() {
                   setMenu((m) => ({ ...m, open: false }));
                   setMenuPaletteOverride(null);
                 }}
-                canPaste={canPasteViaButton}
+                canPaste={canPasteFromClipboard}
                 onAddNode={async (item) => {
                   if (!item) return;
                   await addNodeAt({ item, x: menu.x, y: menu.y });
