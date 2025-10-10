@@ -38,7 +38,8 @@ export type GraphActionType =
   | "align-center"
   | "align-middle"
   | "distribute-horizontal"
-  | "distribute-vertical";
+  | "distribute-vertical"
+  | "distribute-vertical-stack";
 
 export type GraphActionMeta = {
   type: GraphActionType;

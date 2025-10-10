@@ -51,6 +51,7 @@ const ALIGNMENT_OPTIONS: Array<{ kind: AlignmentKind; label: string }> = [
 const DISTRIBUTION_OPTIONS: Array<{ kind: DistributionKind; label: string }> = [
   { kind: "horizontal", label: "Horizontal" },
   { kind: "vertical", label: "Vertical" },
+  { kind: "vertical-stack", label: "Vertical Stack" },
 ];
 
 export function GraphContextMenu(props: GraphContextMenuProps) {

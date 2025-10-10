@@ -1,7 +1,7 @@
 import type { Node, XYPosition } from "@xyflow/react";
 
 export type AlignmentKind = "left" | "center" | "right" | "top" | "middle" | "bottom";
-export type DistributionKind = "horizontal" | "vertical";
+export type DistributionKind = "horizontal" | "vertical" | "vertical-stack";
 
 const EPSILON = 1e-3;
 
@@ -153,6 +153,8 @@ export function alignSelectedNodes(nodes: Node[], selectedIds: Set<string>, alig
   return { nodes: changed ? nextNodes : nodes, changed };
 }
 
+const STACK_GAP = 1;
+
 export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>, distribution: DistributionKind): ArrangementResult {
   if (!selectedIds.size) return { nodes, changed: false };
   const selected = nodes.filter((node) => selectedIds.has(node.id));
@@ -202,7 +204,7 @@ export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>,
       if (appliedLast) changed = true;
       const appliedFirst = replaceNode(nextNodes, indexMap, first, { x: start, y: first.top });
       if (appliedFirst) changed = true;
-    } else {
+    } else if (distribution === "vertical") {
       const sorted = [...metrics].sort((a, b) => a.top - b.top);
       const first = sorted[0];
       const last = sorted[sorted.length - 1];
@@ -226,6 +228,15 @@ export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>,
       if (appliedLast) changed = true;
       const appliedFirst = replaceNode(nextNodes, indexMap, first, { x: first.left, y: start });
       if (appliedFirst) changed = true;
+    } else if (distribution === "vertical-stack") {
+      const sorted = [...metrics].sort((a, b) => a.top - b.top || a.left - b.left);
+      if (sorted.length === 0) return;
+      let cursor = Math.min(...sorted.map((metric) => metric.top));
+      for (const metric of sorted) {
+        const applied = replaceNode(nextNodes, indexMap, metric, { x: metric.left, y: cursor });
+        if (applied) changed = true;
+        cursor += metric.height + STACK_GAP;
+      }
     }
   });
 

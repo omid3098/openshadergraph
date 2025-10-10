@@ -137,6 +137,25 @@ describe("distributeSelectedNodes", () => {
     expect(firstGap).toBeCloseTo(secondGap, 4);
   });
 
+  it("stacks nodes vertically with a 1px gap", () => {
+    const nodes = [
+      makeNode("a", { x: 0, y: 50 }, { width: 40, height: 20 }),
+      makeNode("b", { x: 40, y: 10 }, { width: 40, height: 60 }),
+      makeNode("c", { x: -10, y: 90 }, { width: 40, height: 30 }),
+    ];
+    const selection = new Set(["a", "b", "c"]);
+    const { nodes: stacked } = distributeSelectedNodes(nodes, selection, "vertical-stack");
+    const a = stacked.find((n) => n.id === "a")!;
+    const b = stacked.find((n) => n.id === "b")!;
+    const c = stacked.find((n) => n.id === "c")!;
+    expect(b.position.y).toBeCloseTo(10, 4);
+    expect(a.position.y).toBeCloseTo((b.position.y + (b.height ?? 0) + 1), 4);
+    expect(c.position.y).toBeCloseTo((a.position.y + (a.height ?? 0) + 1), 4);
+    expect(a.position.x).toBe(0);
+    expect(b.position.x).toBe(40);
+    expect(c.position.x).toBe(-10);
+  });
+
   it("does nothing when fewer than three nodes are selected", () => {
     const nodes = [
       makeNode("1", { x: 0, y: 0 }, { width: 50, height: 50 }),
