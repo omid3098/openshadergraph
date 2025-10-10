@@ -1,3 +1,19 @@
+## [0.5.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.4.0...v0.5.0-beta.1) (2025-10-10)
+
+- Merge branch 'dev' into beta- Merge pull request #61 from omid3098/codex/update-shader-compiler-to-include-default-values- Merge pull request #62 from omid3098/codex/fix-reversed-matcap-textures-in-godot- Merge pull request #63 from omid3098/codex/implement-lighting-profiles-for-3d-preview- Merge pull request #64 from omid3098/codex/add-voronoi-and-simple-noise-nodes- Merge pull request #65 from omid3098/codex/fix-errors-in-generated-godot-shader- Merge pull request #66 from omid3098/codex/refactor-right-click-context-menu-design
+### Chores
+
+- **release:** 0.4.0 _(by semantic-release-bot)_ ([7c01411]())- **release:** 0.4.0-beta.2 _(by semantic-release-bot)_ ([725255e]())- **release:** 0.4.0-beta.3 _(by semantic-release-bot)_ ([e5d67a6]())- **release:** 0.4.0-beta.4 _(by semantic-release-bot)_ ([6ed37bb]())- **release:** 0.4.0-beta.5 _(by semantic-release-bot)_ ([6037131]())- **release:** 0.4.0-beta.6 _(by semantic-release-bot)_ ([aee0339]())- **release:** 0.4.0-beta.7 _(by semantic-release-bot)_ ([8d80984]())- **release:** 0.4.0-beta.8 _(by semantic-release-bot)_ ([a324f4a]())
+### Features
+
+- add clipboard-aware paste and vertical stack arrange _(by Omid Saadat)_ ([0f40202]())- add noise graph examples _(by Omid Saadat)_ ([18fc433]())- **arrange:** add horizontal stack distribution _(by Omid Saadat)_ ([75af74a]())- **preview:** add lighting profiles to 3d preview _(by Omid Saadat)_ ([c2ffb8d]())
+### Bug Fixes
+
+- **compiler:** include output defaults when features enabled _(by Omid Saadat)_ ([e67943a]())- **coordinates:** synchronize view orientation across languages _(by Omid Saadat)_ ([3a21b2b]())- **godot:** derive view-space orientation from coordinates metadata _(by Omid Saadat)_ ([1ab4fbf]())- **godot:** mirror view transforms for matcap consistency _(by Omid Saadat)_ ([0de5271]())- **godot:** repair voronoi noise shader generation _(by Omid Saadat)_ ([26da787]())- restore vertex defaults for shader outputs _(by Omid Saadat)_ ([044381c]())- reuse engine fragment normal defaults _(by Omid Saadat)_ ([308e033]())- stabilize procedural noise uv wiring _(by Omid Saadat)_ ([5b49160]())- stop clobbering vertex output normals _(by Omid Saadat)_ ([c6f06ff]())- streamline graph context menu _(by Omid Saadat)_ ([c6a0a52]())- **ui:** increase vertical and horizontal stack gaps for better node alignment _(by Omid Saadat)_ ([8ca91bb]())- **ui:** space stacked nodes using measured sizes _(by Omid Saadat)_ ([dfef971]())- **ui:** update vertical and horizontal stack gaps to 5px and 25px for improved node distribution _(by Omid Saadat)_ ([7432136]())- widen horizontal stack spacing _(by Omid Saadat)_ ([bd57ef0]())
+### Documentation
+
+- require bun run gates umbrella validation _(by Omid Saadat)_ ([4788177]())
+
 ## [0.4.0-beta.8](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.7...v0.4.0-beta.8) (2025-10-10)
 
 - Merge pull request #66 from omid3098/codex/refactor-right-click-context-menu-design
