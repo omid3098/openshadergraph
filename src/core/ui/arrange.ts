@@ -186,7 +186,8 @@ export function alignSelectedNodes(nodes: Node[], selectedIds: Set<string>, alig
   return { nodes: changed ? nextNodes : nodes, changed };
 }
 
-const STACK_GAP = 1;
+const VERTICAL_STACK_GAP = 1;
+const HORIZONTAL_STACK_GAP = 15;
 
 function resolveStackSize(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
@@ -277,7 +278,7 @@ export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>,
       for (const metric of sorted) {
         const applied = replaceNode(nextNodes, indexMap, metric, { x: baseX, y: cursor });
         if (applied) changed = true;
-        cursor += resolveStackSize(metric.height) + STACK_GAP;
+        cursor += resolveStackSize(metric.height) + VERTICAL_STACK_GAP;
       }
     } else if (distribution === "horizontal-stack") {
       if (metrics.length <= 1) return;
@@ -288,7 +289,7 @@ export function distributeSelectedNodes(nodes: Node[], selectedIds: Set<string>,
       for (const metric of sorted) {
         const applied = replaceNode(nextNodes, indexMap, metric, { x: cursor, y: baseY });
         if (applied) changed = true;
-        cursor += resolveStackSize(metric.width) + STACK_GAP;
+        cursor += resolveStackSize(metric.width) + HORIZONTAL_STACK_GAP;
       }
     }
   });

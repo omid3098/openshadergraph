@@ -173,7 +173,7 @@ describe("distributeSelectedNodes", () => {
     expect(c.position.x).toBe(minX);
   });
 
-  it("stacks nodes horizontally with a 1px gap", () => {
+  it("stacks nodes horizontally with a 15px gap", () => {
     const nodes = [
       makeNode("a", { x: 0, y: 0 }, { width: 40, height: 40 }),
       makeNode("b", { x: 120, y: 20 }, { width: 60, height: 60 }),
@@ -188,8 +188,8 @@ describe("distributeSelectedNodes", () => {
     expect(a.position.y).toBe(minY);
     expect(b.position.y).toBe(minY);
     expect(c.position.y).toBe(minY);
-    expect(b.position.x).toBeCloseTo(a.position.x + (a.width ?? 0) + 1, 4);
-    expect(c.position.x).toBeCloseTo(b.position.x + (b.width ?? 0) + 1, 4);
+    expect(b.position.x).toBeCloseTo(a.position.x + (a.width ?? 0) + 15, 4);
+    expect(c.position.x).toBeCloseTo(b.position.x + (b.width ?? 0) + 15, 4);
   });
 
   it("does nothing when fewer than three nodes are selected", () => {
@@ -229,7 +229,7 @@ describe("distributeSelectedNodes", () => {
       (horizontalStacked.find((n) => n.id === "2")?.position.x ?? 0) -
         (horizontalStacked.find((n) => n.id === "1")?.position.x ?? 0) -
         ((horizontalStacked.find((n) => n.id === "1")?.width ?? 0))
-    ).toBeCloseTo(1, 4);
+    ).toBeCloseTo(15, 4);
   });
 
   it("uses measured dimensions when stacking nodes without width/height", () => {
@@ -249,7 +249,7 @@ describe("distributeSelectedNodes", () => {
     const first = horizontalStacked.find((n) => n.id === "a")!;
     const second = horizontalStacked.find((n) => n.id === "b")!;
     expect(first.position.y).toBeCloseTo(second.position.y, 4);
-    expect(second.position.x).toBeCloseTo(first.position.x + ((nodes[0] as any).measured.width ?? 0) + 1, 4);
+    expect(second.position.x).toBeCloseTo(first.position.x + ((nodes[0] as any).measured.width ?? 0) + 15, 4);
   });
 
   it("falls back to editor size metadata when stacking editor panels", () => {
@@ -263,7 +263,7 @@ describe("distributeSelectedNodes", () => {
     const second = horizontalStacked.find((n) => n.id === "panel-2")!;
     expect(first.position.y).toBeCloseTo(20, 4);
     expect(second.position.y).toBeCloseTo(20, 4);
-    expect(second.position.x).toBeCloseTo(first.position.x + 200 + 1, 4);
+    expect(second.position.x).toBeCloseTo(first.position.x + 200 + 15, 4);
 
     const { nodes: verticalStacked } = distributeSelectedNodes(nodes, selection, "vertical-stack");
     const top = verticalStacked.find((n) => n.id === "panel-1")!;
