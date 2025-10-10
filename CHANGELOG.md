@@ -1,3 +1,13 @@
+## [0.4.0-beta.8](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.7...v0.4.0-beta.8) (2025-10-10)
+
+- Merge pull request #66 from omid3098/codex/refactor-right-click-context-menu-design
+### Features
+
+- add clipboard-aware paste and vertical stack arrange _(by Omid Saadat)_ ([0f40202]())- **arrange:** add horizontal stack distribution _(by Omid Saadat)_ ([75af74a]())
+### Bug Fixes
+
+- streamline graph context menu _(by Omid Saadat)_ ([c6a0a52]())- **ui:** increase vertical and horizontal stack gaps for better node alignment _(by Omid Saadat)_ ([8ca91bb]())- **ui:** space stacked nodes using measured sizes _(by Omid Saadat)_ ([dfef971]())- **ui:** update vertical and horizontal stack gaps to 5px and 25px for improved node distribution _(by Omid Saadat)_ ([7432136]())- widen horizontal stack spacing _(by Omid Saadat)_ ([bd57ef0]())
+
 ## [0.4.0-beta.7](https://github.com/omid3098/openshadergraph/compare/v0.4.0-beta.6...v0.4.0-beta.7) (2025-10-09)
 
 - Merge pull request #65 from omid3098/codex/fix-errors-in-generated-godot-shader
