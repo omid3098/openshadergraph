@@ -138,6 +138,8 @@ function ViewerInner() {
     setCurveMode: () => {},
     quickHotkeys: [],
     setQuickHotkeys: () => {},
+    actionHotkeys: { quickExportCode: "KeyE" },
+    setActionHotkeys: () => {},
     assetLibraries: { ambientcg: { enabled: true } },
     setAssetLibraries: () => {},
   }), [theme, curveMode]);

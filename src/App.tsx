@@ -32,7 +32,13 @@ import {
   type NodeUpdaterApi,
 } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
-import { SettingsProvider, type CurveMode, type ThemeName, type AssetLibrariesSettings } from "./ui/state/SettingsContext";
+import {
+  SettingsProvider,
+  type CurveMode,
+  type ThemeName,
+  type AssetLibrariesSettings,
+  type ActionHotkeys,
+} from "./ui/state/SettingsContext";
 import { isAbortError } from "./lib/errors";
 import { prepareVisibleNodes } from "./core/ui/visible";
 import { buildGraphData } from "./core/ui/graphData";
@@ -47,6 +53,13 @@ import {
   type RecentGraphEntry,
 } from "./core/ui/recentGraphs";
 import { loadRecentGraphHandle, removeRecentGraphHandle, saveRecentGraphHandle } from "./core/ui/recentGraphHandles";
+import {
+  getLastExportLanguage,
+  loadExportHandle,
+  removeExportHandle,
+  saveExportHandle,
+  setLastExportLanguage,
+} from "./core/ui/exportHandles";
 import { restoreInputsToDefaults } from "./core/ui/resetInputs";
 import { ASSET_DRAG_MIME, parseAssetDragPayload } from "./core/assets/kind";
 import { loadAssetRegistry } from "./core/assets/registry";
@@ -71,6 +84,7 @@ import {
   DEFAULT_QUICK_NODE_HOTKEYS,
   buildQuickHotkeyMap,
   normalizeQuickHotkeyList,
+  formatQuickHotkeyDisplay,
   type QuickNodeHotkey,
 } from "./core/ui/hotkeys";
 import { isDragEnd, isDragStart, isResizeEnd, isResizeStart } from "./core/ui/historyGates";
@@ -106,6 +120,16 @@ function normalizeAssetLibraries(value?: AssetLibrariesSettings | null): AssetLi
       enabled: value?.ambientcg?.enabled !== false,
     },
   };
+}
+
+const DEFAULT_ACTION_HOTKEYS: ActionHotkeys = {
+  quickExportCode: "KeyE",
+};
+
+function normalizeActionHotkeys(value?: ActionHotkeys | null): ActionHotkeys {
+  const code = typeof value?.quickExportCode === "string" ? value.quickExportCode.trim() : "";
+  const normalized = code.length ? code : DEFAULT_ACTION_HOTKEYS.quickExportCode;
+  return { quickExportCode: normalized };
 }
 
 const ALIGNMENT_LABELS: Record<AlignmentKind, string> = {
@@ -215,11 +239,16 @@ export function App() {
   const [palette, setPalette] = useState<NodePalette | null>(null);
   const [quickNodeHotkeys, setQuickNodeHotkeysState] = useState<QuickNodeHotkey[]>(DEFAULT_QUICK_NODE_HOTKEYS);
   const [assetLibraries, setAssetLibrariesState] = useState<AssetLibrariesSettings>(DEFAULT_ASSET_LIBRARIES);
+  const [actionHotkeys, setActionHotkeysState] = useState<ActionHotkeys>(DEFAULT_ACTION_HOTKEYS);
   const idCounter = useRef(0);
   const [viewPath, setViewPath] = useState<string[]>([]); // breadcrumb of nested groups
   const viewPathRef = useRef(viewPath);
   useLayoutEffect(() => { viewPathRef.current = viewPath; }, [viewPath]);
   const [graphName, setGraphName] = useState<string>("UntitledGraph");
+  const getGraphLabelKey = useCallback((): string => {
+    const trimmed = (graphName || "").trim();
+    return trimmed.length ? trimmed : "UntitledGraph";
+  }, [graphName]);
   const [examples, setExamples] = useState<Array<{ key: string; label: string }>>([]);
   const [languages, setLanguages] = useState<Array<{ key: string; name: string; path: string }>>([]);
   const fileHandleRef = useRef<any | null>(null);
@@ -245,7 +274,22 @@ export function App() {
   const docsStartW = useRef(0);
   const [isDocsResizing, setIsDocsResizing] = useState(false);
   const clipboardStatusTimerRef = useRef<number | null>(null);
+  const [quickExportLanguage, setQuickExportLanguage] = useState<string | null>(null);
+  const [canQuickExport, setCanQuickExport] = useState(false);
+  const quickExportHandleRef = useRef<FileSystemFileHandle | null>(null);
+  const quickExportLanguageRef = useRef<string | null>(null);
+  const setQuickExportState = useCallback(
+    (handle: FileSystemFileHandle | null, language: string | null) => {
+      quickExportHandleRef.current = handle;
+      quickExportLanguageRef.current = language;
+      setQuickExportLanguage(language);
+      setCanQuickExport(Boolean(handle && language));
+    },
+    []
+  );
   const quickHotkeysPersistReadyRef = useRef(false);
+  const fileSystemAccessSupported =
+    typeof window !== "undefined" && typeof (window as any).showSaveFilePicker === "function";
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -331,6 +375,22 @@ export function App() {
     void persistSet("ui.assetLibraries", assetLibraries);
   }, [assetLibraries]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<ActionHotkeys>("ui.actionHotkeys");
+      if (cancelled || !stored) return;
+      setActionHotkeysState(normalizeActionHotkeys(stored));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    void persistSet("ui.actionHotkeys", actionHotkeys);
+  }, [actionHotkeys]);
+
   const setQuickNodeHotkeys = useCallback(
     (next: QuickNodeHotkey[] | ((prev: QuickNodeHotkey[]) => QuickNodeHotkey[])) => {
       setQuickNodeHotkeysState((prev) => {
@@ -348,6 +408,20 @@ export function App() {
             );
           })
         ) {
+          return prev;
+        }
+        return normalized;
+      });
+    },
+    []
+  );
+
+  const setActionHotkeys = useCallback(
+    (next: ActionHotkeys | ((prev: ActionHotkeys) => ActionHotkeys)) => {
+      setActionHotkeysState((prev) => {
+        const updated = typeof next === "function" ? (next as (prev: ActionHotkeys) => ActionHotkeys)(prev) : next;
+        const normalized = normalizeActionHotkeys(updated);
+        if (normalized.quickExportCode === prev.quickExportCode) {
           return prev;
         }
         return normalized;
@@ -583,6 +657,10 @@ export function App() {
   }, [paletteByType, quickNodeHotkeys]);
 
   const quickHotkeyMap = useMemo(() => buildQuickHotkeyMap(quickNodeHotkeys), [quickNodeHotkeys]);
+  const quickExportReservedCodes = useMemo(
+    () => (actionHotkeys.quickExportCode ? [actionHotkeys.quickExportCode] : []),
+    [actionHotkeys.quickExportCode]
+  );
 
   const enabledLibraryProviders = useMemo(() => {
     const list: string[] = [];
@@ -607,10 +685,23 @@ export function App() {
       setCurveMode,
       quickHotkeys: quickHotkeysForSettings,
       setQuickHotkeys: setQuickNodeHotkeys,
+      actionHotkeys,
+      setActionHotkeys,
       assetLibraries,
       setAssetLibraries,
     }),
-    [assetLibraries, curveMode, quickHotkeysForSettings, setAssetLibraries, setCurveMode, setQuickNodeHotkeys, setTheme, theme]
+    [
+      actionHotkeys,
+      assetLibraries,
+      curveMode,
+      quickHotkeysForSettings,
+      setActionHotkeys,
+      setAssetLibraries,
+      setCurveMode,
+      setQuickNodeHotkeys,
+      setTheme,
+      theme,
+    ]
   );
 
   const templateCacheRef = useRef<TemplateCache | null>(null);
@@ -1856,12 +1947,9 @@ export function App() {
     [openGraphFromContents, setRecentGraphs]
   );
 
-  const handleExportLanguage = useCallback(async (languageKey: string) => {
-    try {
-      const label = (() => {
-        const trimmed = (graphName || "UntitledGraph").trim();
-        return trimmed.length ? trimmed : "UntitledGraph";
-      })();
+  const compileToLanguage = useCallback(
+    async (languageKey: string): Promise<{ code: string; ext: string; label: string }> => {
+      const label = getGraphLabelKey();
       const deepGraph = JSON.parse(JSON.stringify(graphData));
       const res = await fetch(resolveApiUrl("/api/compile"), {
         method: "POST",
@@ -1871,7 +1959,6 @@ export function App() {
       if (!res.ok) throw new Error(`Compile failed: ${res.status}`);
       const data = await res.json();
       const code: string = String(data.code ?? "");
-      // Determine extension by looking up language pack file for extensions via /api/language
       let ext = "txt";
       try {
         const params = new URLSearchParams({ name: languageKey });
@@ -1882,14 +1969,170 @@ export function App() {
           if (exts.length && typeof exts[0] === "string") ext = exts[0];
         }
       } catch (_err) {
-        // fallback ext stays 'txt'
+        // keep default extension
       }
-      const file = `${label.replace(/\s+/g, "_")}.${ext}`;
-      triggerTextDownload(file, code, "text/plain");
-    } catch (err) {
-      console.warn("Export failed", err);
+      return { code, ext, label };
+    },
+    [graphData, getGraphLabelKey]
+  );
+
+  const handleExportLanguage = useCallback(
+    async (languageKey: string) => {
+      try {
+        const { code, ext, label } = await compileToLanguage(languageKey);
+        const safeLabel = label.replace(/\s+/g, "_") || "UntitledGraph";
+        triggerTextDownload(`${safeLabel}.${ext}`, code, "text/plain");
+      } catch (err) {
+        console.warn("Export failed", err);
+      }
+    },
+    [compileToLanguage]
+  );
+
+  const handleExportToDisk = useCallback(
+    async (languageKey: string) => {
+      const graphKey = getGraphLabelKey();
+      if (!fileSystemAccessSupported) {
+        await handleExportLanguage(languageKey);
+        try {
+          await setLastExportLanguage(graphKey, languageKey);
+        } catch (_err) {
+          // ignore persistence failures in fallback mode
+        }
+        return;
+      }
+      try {
+        const { code, ext, label } = await compileToLanguage(languageKey);
+        const picker = (window as any).showSaveFilePicker;
+        if (typeof picker !== "function") {
+          await handleExportLanguage(languageKey);
+          await setLastExportLanguage(graphKey, languageKey);
+          return;
+        }
+        const suggestedName = `${(label.replace(/\s+/g, "_") || "UntitledGraph")}.${ext}`;
+        const handle = await picker({
+          suggestedName,
+          types: [
+            {
+              description: `${languageKey} shader`,
+              accept: { "text/plain": [`.${ext}`] },
+            },
+          ],
+        });
+        if (!handle) return;
+        await writeFileHandle(handle, code);
+        setQuickExportState(handle, languageKey);
+        await Promise.all([
+          saveExportHandle(graphKey, languageKey, handle),
+          setLastExportLanguage(graphKey, languageKey),
+        ]);
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.warn("Export to disk failed", err);
+      }
+    },
+    [
+      compileToLanguage,
+      fileSystemAccessSupported,
+      getGraphLabelKey,
+      handleExportLanguage,
+      setQuickExportState,
+      writeFileHandle,
+    ]
+  );
+
+  const handleQuickExport = useCallback(async () => {
+    if (!fileSystemAccessSupported) return;
+    const language = quickExportLanguageRef.current;
+    const handle = quickExportHandleRef.current;
+    if (!language || !handle) return;
+    const graphKey = getGraphLabelKey();
+    try {
+      const permitted = await ensureReadWritePermission(handle);
+      if (!permitted) {
+        setQuickExportState(null, null);
+        try {
+          await Promise.all([
+            removeExportHandle(graphKey, language),
+            setLastExportLanguage(graphKey, ""),
+          ]);
+        } catch (_err) {
+          // ignore cleanup failures
+        }
+        return;
+      }
+      const { code } = await compileToLanguage(language);
+      await writeFileHandle(handle, code);
+      try {
+        await setLastExportLanguage(graphKey, language);
+      } catch (_err) {
+        // ignore persistence failures
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
+      console.warn("Quick export failed", err);
     }
-  }, [graphData, graphName]);
+  }, [
+    compileToLanguage,
+    ensureReadWritePermission,
+    fileSystemAccessSupported,
+    getGraphLabelKey,
+    setQuickExportState,
+    writeFileHandle,
+  ]);
+
+  useEffect(() => {
+    if (!fileSystemAccessSupported) {
+      setQuickExportState(null, null);
+      return;
+    }
+    let cancelled = false;
+    const graphKey = getGraphLabelKey();
+    (async () => {
+      try {
+        const lastLanguage = await getLastExportLanguage(graphKey);
+        if (cancelled) return;
+        if (!lastLanguage) {
+          setQuickExportState(null, null);
+          return;
+        }
+        const handle = await loadExportHandle(graphKey, lastLanguage);
+        if (cancelled) return;
+        if (!handle) {
+          setQuickExportState(null, null);
+          try {
+            await setLastExportLanguage(graphKey, "");
+          } catch (_err) {
+            // ignore
+          }
+          return;
+        }
+        const permitted = await ensureReadWritePermission(handle);
+        if (cancelled) return;
+        if (!permitted) {
+          setQuickExportState(null, null);
+          try {
+            await Promise.all([
+              removeExportHandle(graphKey, lastLanguage),
+              setLastExportLanguage(graphKey, ""),
+            ]);
+          } catch (_err) {
+            // ignore cleanup failures
+          }
+          return;
+        }
+        setQuickExportState(handle, lastLanguage);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn("Failed to rehydrate export handle", err);
+          setQuickExportState(null, null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureReadWritePermission, fileSystemAccessSupported, getGraphLabelKey, setQuickExportState]);
 
   const handleClearRecent = useCallback(() => {
     for (const entry of recentGraphs) {
@@ -2125,6 +2368,7 @@ export function App() {
     addNodeAt,
     paletteByType,
     quickHotkeys: quickHotkeyMap,
+    reservedCodes: quickExportReservedCodes,
   });
 
   useEffect(() => {
@@ -2147,6 +2391,20 @@ export function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [redoHistory, undoHistory]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      if (isEditableHotkeyTarget(event.target)) return;
+      const isMod = event.metaKey || event.ctrlKey;
+      if (!isMod || !event.shiftKey || event.altKey) return;
+      if (event.code !== actionHotkeys.quickExportCode) return;
+      event.preventDefault();
+      void handleQuickExport();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [actionHotkeys.quickExportCode, handleQuickExport]);
 
   const openAddNodeMenuAt = useCallback((x: number, y: number, override: NodePalette | null) => {
     setMenuPaletteOverride(override);
@@ -2771,6 +3029,16 @@ export function App() {
     APP_VERSION_INFO.deploy ? ` (${APP_VERSION_INFO.deploy})` : ""
   }`;
 
+  const quickExportHotkeyLabel = useMemo(
+    () => formatQuickHotkeyDisplay(actionHotkeys.quickExportCode),
+    [actionHotkeys.quickExportCode]
+  );
+  const quickExportLanguageName = useMemo(() => {
+    if (!quickExportLanguage) return null;
+    const match = languages.find((lang) => lang.key === quickExportLanguage);
+    return match ? match.name : null;
+  }, [languages, quickExportLanguage]);
+
   const Header = (
     <div className="w-full flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs">
@@ -2805,16 +3073,28 @@ export function App() {
               <MenubarItem onClick={() => void handleSave()}>Save</MenubarItem>
               <MenubarItem onClick={() => void handleSaveAs()}>Save As…</MenubarItem>
             <MenubarSeparator />
-            <MenubarSub>
-              <MenubarSubTrigger>Export</MenubarSubTrigger>
-              <MenubarSubContent>
-                {languages.map((lang) => (
-                  <MenubarItem key={lang.key} onClick={() => void handleExportLanguage(lang.key)}>
-                    {lang.name}
-                  </MenubarItem>
-                ))}
-              </MenubarSubContent>
-            </MenubarSub>
+              <MenubarSub>
+                <MenubarSubTrigger>Export</MenubarSubTrigger>
+                <MenubarSubContent>
+                  {languages.map((lang) => (
+                    <MenubarItem key={lang.key} onClick={() => void handleExportLanguage(lang.key)}>
+                      {lang.name}
+                    </MenubarItem>
+                  ))}
+                </MenubarSubContent>
+              </MenubarSub>
+              {fileSystemAccessSupported ? (
+                <MenubarSub>
+                  <MenubarSubTrigger>Export to Disk</MenubarSubTrigger>
+                  <MenubarSubContent>
+                    {languages.map((lang) => (
+                      <MenubarItem key={`${lang.key}-disk`} onClick={() => void handleExportToDisk(lang.key)}>
+                        {lang.name}
+                      </MenubarItem>
+                    ))}
+                  </MenubarSubContent>
+                </MenubarSub>
+              ) : null}
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
@@ -2937,6 +3217,18 @@ export function App() {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {fileSystemAccessSupported && canQuickExport ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleQuickExport()}
+            className="inline-flex items-center gap-2"
+            title={`Quick Export${quickExportLanguageName ? ` (${quickExportLanguageName})` : ""} – ${quickExportHotkeyLabel}`}
+          >
+            <span>Quick Export</span>
+            <span className="text-[10px] uppercase text-muted-foreground">{quickExportHotkeyLabel}</span>
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant={showDocsPanel ? "default" : "secondary"}
@@ -3075,6 +3367,8 @@ export function App() {
               onThemeChange={setTheme}
               quickHotkeys={quickHotkeysForSettings}
               onQuickHotkeysChange={handleQuickHotkeysChange}
+              actionHotkeys={actionHotkeys}
+              onActionHotkeysChange={setActionHotkeys}
               palette={palette}
               assetLibraries={assetLibraries}
               onAssetLibrariesChange={setAssetLibraries}
