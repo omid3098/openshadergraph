@@ -186,8 +186,8 @@ export function alignSelectedNodes(nodes: Node[], selectedIds: Set<string>, alig
   return { nodes: changed ? nextNodes : nodes, changed };
 }
 
-const VERTICAL_STACK_GAP = 1;
-const HORIZONTAL_STACK_GAP = 15;
+const VERTICAL_STACK_GAP = 5;
+const HORIZONTAL_STACK_GAP = 25;
 
 function resolveStackSize(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
