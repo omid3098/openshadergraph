@@ -150,22 +150,27 @@ export const ZLanguagePack = z.object({
     vectorCtorScalarSplat: z.boolean().optional(),
   }).optional(),
   nodes: z.record(ZLanguageNodeTemplate),
-  coordinates: z
-    .object({
-      up: z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]),
-      right: z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]),
-      forward: z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]),
-      handedness: z.enum(["right", "left"]).optional(),
-    })
-    .superRefine((coords, ctx) => {
-      const axes = [coords.up, coords.right, coords.forward] as string[];
+  coordinates: (() => {
+    const axisEnum = z.enum(["x", "+x", "-x", "y", "+y", "-y", "z", "+z", "-z"]);
+    const handednessEnum = z.enum(["right", "left"]);
+    const refine = (coords: { up: string; right: string; forward: string }, ctx: z.RefinementCtx) => {
+      const axes = [coords.up, coords.right, coords.forward];
       const abs = axes.map((a) => (a.startsWith("-") || a.startsWith("+") ? a.slice(1) : a));
       const set = new Set(abs);
       if (set.size !== 3) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "coordinates must be a signed permutation of x,y,z with distinct absolute axes" });
       }
-    })
-    .optional(),
+    };
+    const ZCoordBase = z.object({
+      up: axisEnum,
+      right: axisEnum,
+      forward: axisEnum,
+      handedness: handednessEnum.optional(),
+    });
+    const ZCoord = ZCoordBase.superRefine(refine);
+    const spaceEnum = z.enum(["world", "object", "view", "tangent", "absolute_world", "screen"]);
+    return ZCoordBase.extend({ spaces: z.record(spaceEnum, ZCoord).optional() }).superRefine(refine).optional();
+  })(),
   meta: z.record(z.object({ template: z.union([z.string(), z.array(z.string())]) })).optional(),
 });
 

@@ -127,6 +127,49 @@ describe("buildProbeGraph", () => {
     expect((shadingModel as any)?.value).toBe("unlit");
   });
 
+  it("injects builtin UVs for procedural noise nodes", () => {
+    const valueNoise: GraphNode = {
+      id: 40,
+      type: "value_noise",
+      name: "Value Noise",
+      nodes: [],
+      inputs: [
+        { id: 0, name: "uv", type: "float2", value: [0, 0] },
+        { id: 1, name: "scale", type: "float", value: [500] },
+      ],
+      outputs: [{ id: 0, name: "out", type: "float" }],
+      properties: [],
+    } as unknown as GraphNode;
+
+    const probeNode: GraphNode = {
+      id: 50,
+      type: "editor_probe",
+      name: "Probe",
+      meta: ["editor_node", "editor_widget:probe"],
+      nodes: [],
+      inputs: [{ id: 0, name: "input", type: ["float"], value: "../40/0" }],
+      outputs: [],
+      properties: [],
+    } as unknown as GraphNode;
+
+    const fragmentOutput = makeFragmentOutput(60);
+    const emissionInput = fragmentOutput.inputs?.find((pin) => pin.id === 3);
+    if (emissionInput) emissionInput.value = "../40/0";
+
+    const graph = makeSurfaceGraph([valueNoise, fragmentOutput, probeNode]);
+
+    const result = buildProbeGraph(graph, 50);
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") return;
+
+    const fragmentPass = result.graph.nodes?.[0]?.nodes?.find((n) => n.type === "fragment_pass");
+    const nodes = fragmentPass?.nodes ?? [];
+    const noiseClone = nodes.find((n) => n.type === "value_noise");
+    expect(noiseClone).toBeTruthy();
+    const uvInput = noiseClone?.inputs?.find((pin) => pin.id === 0);
+    expect(uvInput?.value).toBe("builtin:uv");
+  });
+
   it("handles literal inputs when no connections exist", () => {
     const probeNode: GraphNode = {
       id: 20,

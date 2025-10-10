@@ -1,7 +1,12 @@
 // Canonical schema types used across core and server
 
 import type { Graph, GraphNode, InputPin, LanguagePack, OutputPin } from "../graph/types";
-import { getCoordinateSystem, swizzleDirectionRefToTarget } from "../types/coordinates";
+import type { CoordinateSpace } from "../schema/types";
+import {
+  getCoordinateSystem,
+  swizzleDirectionRefToTarget,
+  swizzleDirectionTargetToRef,
+} from "../types/coordinates";
 import { getNodeTemplate } from "../schema/registry";
 import {
   chooseDominantPinType,
@@ -601,6 +606,73 @@ export class GraphCompiler {
     state.prepared = true;
   }
 
+  private getNodePropertyValue(node: GraphNode, propId: string): unknown {
+    const props = Array.isArray(node.properties) ? node.properties : [];
+    const prop = props.find((p: any) => p && (p as any).id === propId);
+    if (prop && typeof prop === "object") {
+      if ((prop as any).value !== undefined) return (prop as any).value;
+      if ((prop as any).default !== undefined) return (prop as any).default;
+    }
+    try {
+      const tpl = getNodeTemplate(node.type);
+      const tplProps = Array.isArray((tpl as any)?.properties) ? ((tpl as any).properties as any[]) : [];
+      const tplProp = tplProps.find((p) => p && p.id === propId);
+      if (tplProp && tplProp.default !== undefined) {
+        return tplProp.default;
+      }
+    } catch (_err) {
+      /* ignore missing template */
+    }
+    return undefined;
+  }
+
+  private resolveCoordinateSpace(space: string | undefined): CoordinateSpace | undefined {
+    if (!space) return undefined;
+    const normalized = space.trim().toLowerCase();
+    switch (normalized) {
+      case "world":
+        return "world";
+      case "object":
+        return "object";
+      case "view":
+        return "view";
+      case "tangent":
+        return "tangent";
+      case "screen":
+        return "screen";
+      case "absolute_world":
+      case "absolute-world":
+        return "absolute_world";
+      default:
+        return undefined;
+    }
+  }
+
+  private parseTransformConversion(node: GraphNode): { from?: CoordinateSpace; to?: CoordinateSpace } {
+    const raw = this.getNodePropertyValue(node, "conversion");
+    const value = typeof raw === "string" ? raw : "object_to_world";
+    const parts = value.split("_to_");
+    if (parts.length !== 2) {
+      return {};
+    }
+    const [fromRaw, toRaw] = parts as [string, string];
+    return {
+      from: this.resolveCoordinateSpace(fromRaw),
+      to: this.resolveCoordinateSpace(toRaw),
+    };
+  }
+
+  private applyInputSpaceSwizzle(node: GraphNode, inputIndex: number, expr: string): string {
+    if (node.type !== "transform" || inputIndex !== 0) return expr;
+    const vectorType = this.getNodePropertyValue(node, "vector_type");
+    const kind = typeof vectorType === "string" ? vectorType : "direction";
+    if (kind !== "direction" && kind !== "position") return expr;
+    const { from } = this.parseTransformConversion(node);
+    if (!from) return expr;
+    const cs = getCoordinateSystem(this.lang_def, from);
+    return swizzleDirectionRefToTarget(expr, cs);
+  }
+
   private prepare_node_inputs(node: GraphNode, unifyType: boolean) {
     if (!Array.isArray(node.inputs)) return;
     const nodeState = this.getNodeState(node);
@@ -733,6 +805,7 @@ export class GraphCompiler {
       if (fromType || expected) {
         code = this.convert_type(code, fromType, expected);
       }
+      code = this.applyInputSpaceSwizzle(node, index, code);
       pinState.code = code;
       return code;
     });
@@ -747,8 +820,46 @@ export class GraphCompiler {
       template = undefined;
     }
     if (!template) return code;
-    const isThree = (this.lang_def?.name ?? "").includes("ThreeJS");
+    const langName = this.lang_def?.name ?? "";
+    const lowerLang = langName.toLowerCase();
+    const isThree = lowerLang.includes("three");
+    const isGodot = lowerLang.includes("godot");
     const isVertexOut = node.type === "vertex_output";
+    const preserveOutputDefaults = node.type === "fragment_output" || node.type === "vertex_output";
+    let outputPinPolicies: Map<number, boolean> | undefined;
+    if (preserveOutputDefaults) {
+      const props = Array.isArray(node.properties) ? node.properties : [];
+      const getPropertyValue = (propId: string): unknown => {
+        const prop = props.find((p: any) => p && (p as any).id === propId);
+        if (!prop) return undefined;
+        if ((prop as any).value !== undefined) return (prop as any).value;
+        return (prop as any).default;
+      };
+      const metaEntries = Array.isArray(node.meta) ? node.meta : [];
+      const pinGroups: Array<{ pins?: unknown; enabledBy?: unknown }> = [];
+      for (const entry of metaEntries) {
+        if (!entry || typeof entry !== "object") continue;
+        const groups = (entry as any).uiPinGroups;
+        if (Array.isArray(groups)) {
+          for (const group of groups) {
+            if (group && typeof group === "object") pinGroups.push(group as any);
+          }
+        }
+      }
+      const map = new Map<number, boolean>();
+      for (const group of pinGroups) {
+        const pins = Array.isArray(group.pins) ? (group.pins as any[]) : [];
+        if (!pins.length) continue;
+        const propId = typeof group.enabledBy === "string" ? group.enabledBy : undefined;
+        const enabled = propId ? Boolean(getPropertyValue(propId)) : false;
+        for (const pin of pins) {
+          if (typeof pin !== "number") continue;
+          const prev = map.get(pin) ?? false;
+          map.set(pin, prev || enabled);
+        }
+      }
+      outputPinPolicies = map;
+    }
 
     const normalizeKey = (s: string) =>
       s
@@ -780,37 +891,82 @@ export class GraphCompiler {
         continue;
       }
       const value = input_pin.value;
+      let lineToEmit = line;
+      if (isGodot && node.type === "fragment_output" && propKey === "NORMAL") {
+        const normMatchesDefault = Array.isArray(defVal)
+          && Array.isArray(value)
+          && defVal.length === value.length
+          && defVal.every((d, i) => Number(d) === Number(value[i]));
+        if (normMatchesDefault) {
+          lineToEmit = line.replace(/vec3\s*\(\s*0\.0\s*,\s*0\.0\s*,\s*1\.0\s*\)/g, "vec3(NORMAL)");
+        }
+      }
+
+      if (preserveOutputDefaults) {
+        const pinId = typeof input_pin.id === "number" ? input_pin.id : undefined;
+        if (pinId !== undefined) {
+          const policy = outputPinPolicies?.get(pinId);
+          if (policy === undefined || policy) {
+            out.push(lineToEmit);
+            continue;
+          }
+        } else {
+          out.push(lineToEmit);
+          continue;
+        }
+      }
       if (typeof value === "string" && value.includes("../")) {
-        out.push(line);
+        out.push(lineToEmit);
         continue;
       }
       if (isThree && isVertexOut) {
         if (propKey === "VERTEX" || propKey === "COLOR") {
-          out.push(line);
+          out.push(lineToEmit);
           continue;
         }
         if (propKey === "NORMAL") {
           const vv = JSON.stringify(value);
           const dd = JSON.stringify(defVal);
           if (vv !== dd) {
-            out.push(line);
+            out.push(lineToEmit);
           }
           continue;
         }
       }
       const vv = JSON.stringify(value);
       const dd = JSON.stringify(defVal);
-      if (vv !== dd) out.push(line);
+      if (vv !== dd) out.push(lineToEmit);
     }
     return out.join("\n");
   }
 
   private applyDirectionSwizzle(node: GraphNode, code: string): string {
-    if (node.type !== "normal_vector" && node.type !== "view_direction") return code;
-    const cs = getCoordinateSystem(this.lang_def);
+    if (!code) return code;
+    let space: CoordinateSpace | undefined;
+    let shouldApply = false;
+    if (node.type === "normal_vector") {
+      const spaceProp = this.getNodePropertyValue(node, "space");
+      space = this.resolveCoordinateSpace(typeof spaceProp === "string" ? spaceProp : "world") ?? "world";
+      shouldApply = true;
+    } else if (node.type === "view_direction") {
+      space = "view";
+      shouldApply = true;
+    } else if (node.type === "transform") {
+      const vectorType = this.getNodePropertyValue(node, "vector_type");
+      const kind = typeof vectorType === "string" ? vectorType : "direction";
+      if (kind === "direction" || kind === "position") {
+        const { to } = this.parseTransformConversion(node);
+        if (to) {
+          space = to;
+          shouldApply = true;
+        }
+      }
+    }
+    if (!shouldApply || !space) return code;
     const name = getUniqueNodeName(node);
-    const swizzled = swizzleDirectionRefToTarget(name, cs);
-    if (swizzled === name || !code) return code;
+    const cs = getCoordinateSystem(this.lang_def, space);
+    const swizzled = swizzleDirectionTargetToRef(name, cs);
+    if (swizzled === name) return code;
     const lines = code.split("\n");
     if (!lines.length) return code;
     lines.push(`${name} = ${swizzled};`);

@@ -86,6 +86,19 @@ export type LanguageNodeTemplate = {
   outputs?: Record<string, string>;
 };
 
+export type CoordinateSpace = "world" | "object" | "view" | "tangent" | "absolute_world" | "screen";
+
+type LanguageCoordinateSystem = {
+  up: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
+  right: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
+  forward: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
+  handedness?: "right" | "left";
+};
+
+export type LanguageCoordinates = LanguageCoordinateSystem & {
+  spaces?: Partial<Record<CoordinateSpace, LanguageCoordinateSystem>>;
+};
+
 export type LanguagePack = {
   name: string;
   version: string;
@@ -96,12 +109,7 @@ export type LanguagePack = {
     vectorCtorScalarSplat?: boolean;
   };
   nodes: Record<string, LanguageNodeTemplate>;
-  coordinates?: {
-    up: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
-    right: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
-    forward: "x" | "+x" | "-x" | "y" | "+y" | "-y" | "z" | "+z" | "-z";
-    handedness?: "right" | "left";
-  };
+  coordinates?: LanguageCoordinates;
   meta?: Record<string, { template: string }>;
 };
 

@@ -226,6 +226,8 @@ function interpretBatchResult(entries: ShaderBatchEntry[], result: GodotRunResul
   const unknown: string[] = [];
 
   const checkOrder: string[] = [];
+  let activeFile: string | null = null;
+  let lastErrorFile: string | null = null;
 
   const stdoutLines = result.stdout.split(/\r?\n/);
   for (const rawLine of stdoutLines) {
@@ -234,7 +236,9 @@ function interpretBatchResult(entries: ShaderBatchEntry[], result: GodotRunResul
 
     const checkMatch = line.match(/^CHECK::(.+)$/);
     if (checkMatch) {
-      checkOrder.push(checkMatch[1]);
+      const file = checkMatch[1];
+      checkOrder.push(file);
+      activeFile = file;
       continue;
     }
 
@@ -247,6 +251,9 @@ function interpretBatchResult(entries: ShaderBatchEntry[], result: GodotRunResul
       } else {
         unknown.push(`[godot] Reported success for unknown file '${file}'.`);
       }
+      const idx = checkOrder.indexOf(file);
+      if (idx !== -1) checkOrder.splice(idx, 1);
+      if (activeFile === file) activeFile = null;
       continue;
     }
 
@@ -257,9 +264,13 @@ function interpretBatchResult(entries: ShaderBatchEntry[], result: GodotRunResul
       const key = fileToKey.get(file);
       if (key) {
         failureMap.set(key, message || "Unknown error");
+        lastErrorFile = file;
       } else {
         unknown.push(`[godot] Reported error for unknown file '${file}': ${message}`);
       }
+      const idx = checkOrder.indexOf(file);
+      if (idx !== -1) checkOrder.splice(idx, 1);
+      activeFile = file;
     }
   }
 
@@ -279,7 +290,15 @@ function interpretBatchResult(entries: ShaderBatchEntry[], result: GodotRunResul
 
     if (/Shader compilation failed/i.test(line)) {
       currentErrorLines.push(line);
-      const file = checkOrder.shift();
+      let file: string | undefined | null = null;
+      if (lastErrorFile) {
+        file = lastErrorFile;
+        lastErrorFile = null;
+      } else if (activeFile) {
+        file = activeFile;
+      } else {
+        file = checkOrder.shift();
+      }
       if (!file) {
         unknown.push(`[godot] Shader compilation failed without matching file: ${currentErrorLines.join("\n")}`);
         currentErrorLines = [];
@@ -298,6 +317,7 @@ function interpretBatchResult(entries: ShaderBatchEntry[], result: GodotRunResul
       failureDetails.set(key, details);
       currentErrorLines = [];
       activeFailureKey = key;
+      if (activeFile === file) activeFile = null;
       continue;
     }
 

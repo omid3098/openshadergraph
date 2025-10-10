@@ -15,13 +15,13 @@
       "id": 1,
       "name": "NORMAL",
       "type": "float3",
-      "value": [0.0, 0.0, 1.0]
+      "value": "NORMAL"
     },
     {
       "id": 2,
       "name": "COLOR",
       "type": "float4",
-      "value": [1.0, 1.0, 1.0, 1.0]
+      "value": "COLOR"
     }
   ],
   "outputs": []
