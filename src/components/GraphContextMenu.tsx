@@ -52,6 +52,7 @@ const DISTRIBUTION_OPTIONS: Array<{ kind: DistributionKind; label: string }> = [
   { kind: "horizontal", label: "Horizontal" },
   { kind: "vertical", label: "Vertical" },
   { kind: "vertical-stack", label: "Vertical Stack" },
+  { kind: "horizontal-stack", label: "Horizontal Stack" },
 ];
 
 export function GraphContextMenu(props: GraphContextMenuProps) {
@@ -84,7 +85,15 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
   const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
   const selectionSize = selectedCount ?? 0;
   const canAlign = selectionSize >= 2 && Boolean(onAlignSelected);
-  const canDistribute = selectionSize >= 3 && Boolean(onDistributeSelected);
+  const visibleDistributionOptions = useMemo(() => {
+    return DISTRIBUTION_OPTIONS.filter((option) => {
+      if (option.kind === "vertical-stack" || option.kind === "horizontal-stack") {
+        return selectionSize >= 2;
+      }
+      return selectionSize >= 3;
+    });
+  }, [selectionSize]);
+  const canDistribute = visibleDistributionOptions.length > 0 && Boolean(onDistributeSelected);
   const [arrangementOpen, setArrangementOpen] = useState(false);
   const [activeArrangementSubmenu, setActiveArrangementSubmenu] = useState<"align" | "distribute" | null>(null);
   const [submenuPosition, setSubmenuPosition] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
@@ -438,7 +447,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 </button>
                 {activeArrangementSubmenu === "distribute" && (
                   <div className="absolute left-full top-0 ml-1 rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[150px]">
-                    {DISTRIBUTION_OPTIONS.map((option) => (
+                    {visibleDistributionOptions.map((option) => (
                       <button
                         key={`distribute:${option.kind}`}
                         className="w-full px-3 py-1 text-sm text-left rounded-md transition-colors hover:bg-muted"

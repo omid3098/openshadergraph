@@ -121,6 +121,7 @@ const DISTRIBUTION_LABELS: Record<DistributionKind, string> = {
   horizontal: "Distribute Horizontally",
   vertical: "Distribute Vertically",
   "vertical-stack": "Stack Vertically",
+  "horizontal-stack": "Stack Horizontally",
 };
 
 const DUPLICATE_OFFSET = { x: 32, y: 32 };
@@ -2595,7 +2596,8 @@ export function App() {
     (distribution: DistributionKind) => {
       setNodes((prev) => {
         const selected = prev.filter((n) => n.selected);
-        if (selected.length <= 2) return prev;
+        const minSelection = distribution === "vertical-stack" || distribution === "horizontal-stack" ? 2 : 3;
+        if (selected.length < minSelection) return prev;
         const selectedIds = new Set(selected.map((n) => n.id));
         const { nodes: distributedNodes, changed } = distributeSelectedNodes(prev, selectedIds, distribution);
         if (!changed) return prev;

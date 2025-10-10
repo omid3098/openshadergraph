@@ -148,12 +148,32 @@ describe("distributeSelectedNodes", () => {
     const a = stacked.find((n) => n.id === "a")!;
     const b = stacked.find((n) => n.id === "b")!;
     const c = stacked.find((n) => n.id === "c")!;
+    const minX = Math.min(...nodes.map((n) => n.position.x));
     expect(b.position.y).toBeCloseTo(10, 4);
-    expect(a.position.y).toBeCloseTo((b.position.y + (b.height ?? 0) + 1), 4);
-    expect(c.position.y).toBeCloseTo((a.position.y + (a.height ?? 0) + 1), 4);
-    expect(a.position.x).toBe(0);
-    expect(b.position.x).toBe(40);
-    expect(c.position.x).toBe(-10);
+    expect(a.position.y).toBeCloseTo(b.position.y + (b.height ?? 0) + 1, 4);
+    expect(c.position.y).toBeCloseTo(a.position.y + (a.height ?? 0) + 1, 4);
+    expect(a.position.x).toBe(minX);
+    expect(b.position.x).toBe(minX);
+    expect(c.position.x).toBe(minX);
+  });
+
+  it("stacks nodes horizontally with a 1px gap", () => {
+    const nodes = [
+      makeNode("a", { x: 0, y: 0 }, { width: 40, height: 40 }),
+      makeNode("b", { x: 120, y: 20 }, { width: 60, height: 60 }),
+      makeNode("c", { x: 260, y: -10 }, { width: 30, height: 30 }),
+    ];
+    const selection = new Set(["a", "b", "c"]);
+    const { nodes: stacked } = distributeSelectedNodes(nodes, selection, "horizontal-stack");
+    const a = stacked.find((n) => n.id === "a")!;
+    const b = stacked.find((n) => n.id === "b")!;
+    const c = stacked.find((n) => n.id === "c")!;
+    const minY = Math.min(...nodes.map((n) => n.position.y));
+    expect(a.position.y).toBe(minY);
+    expect(b.position.y).toBe(minY);
+    expect(c.position.y).toBe(minY);
+    expect(b.position.x).toBeCloseTo(a.position.x + (a.width ?? 0) + 1, 4);
+    expect(c.position.x).toBeCloseTo(b.position.x + (b.width ?? 0) + 1, 4);
   });
 
   it("does nothing when fewer than three nodes are selected", () => {
@@ -165,6 +185,35 @@ describe("distributeSelectedNodes", () => {
     const result = distributeSelectedNodes(nodes, selection, "horizontal");
     expect(result.changed).toBe(false);
     expect(result.nodes).toBe(nodes);
+  });
+
+  it("stacks two nodes when only a pair is selected", () => {
+    const nodes = [
+      makeNode("1", { x: 0, y: 0 }, { width: 40, height: 40 }),
+      makeNode("2", { x: 100, y: 80 }, { width: 60, height: 50 }),
+    ];
+    const selection = new Set(["1", "2"]);
+    const { nodes: verticalStacked } = distributeSelectedNodes(nodes, selection, "vertical-stack");
+    expect(verticalStacked.find((n) => n.id === "1")?.position.x).toBeCloseTo(
+      verticalStacked.find((n) => n.id === "2")?.position.x ?? 0,
+      4
+    );
+    expect(
+      (verticalStacked.find((n) => n.id === "2")?.position.y ?? 0) -
+        (verticalStacked.find((n) => n.id === "1")?.position.y ?? 0) -
+        ((verticalStacked.find((n) => n.id === "1")?.height ?? 0))
+    ).toBeCloseTo(1, 4);
+
+    const { nodes: horizontalStacked } = distributeSelectedNodes(nodes, selection, "horizontal-stack");
+    expect(horizontalStacked.find((n) => n.id === "1")?.position.y).toBeCloseTo(
+      horizontalStacked.find((n) => n.id === "2")?.position.y ?? 0,
+      4
+    );
+    expect(
+      (horizontalStacked.find((n) => n.id === "2")?.position.x ?? 0) -
+        (horizontalStacked.find((n) => n.id === "1")?.position.x ?? 0) -
+        ((horizontalStacked.find((n) => n.id === "1")?.width ?? 0))
+    ).toBeCloseTo(1, 4);
   });
 
   it("distributes nodes with zero widths similar to measured ReactFlow nodes", () => {
