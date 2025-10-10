@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -83,6 +90,10 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
   const hasArrangementActions = Boolean(onAlignSelected || onDistributeSelected);
   const arrangementButtonRef = useRef<HTMLButtonElement | null>(null);
   const arrangementPortalRef = useRef<HTMLDivElement | null>(null);
+  const [menuWidth, setMenuWidth] = useState<number | null>(null);
+
+  const baseMenuButtonClasses =
+    "w-full px-2 py-1 text-sm rounded-md text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
   const formatCategory = (name: string): string => {
     if (!name) return name;
@@ -182,6 +193,12 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     };
   }, [arrangementOpen, closeArrangementMenus]);
 
+  useEffect(() => {
+    if (!open) {
+      setMenuWidth(null);
+    }
+  }, [open]);
+
   type VisibleItem =
     | { kind: "category"; key: string }
     | { kind: "node"; key: string; node: NodePaletteItem; parent?: string };
@@ -208,6 +225,22 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     }
     return items;
   }, [kind, palette, query, expanded]);
+
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+    const card = ref.current;
+    const previousWidth = card.style.width;
+    card.style.width = "auto";
+    const items = Array.from(card.querySelectorAll<HTMLElement>("[data-menu-item=\"true\"]"));
+    const widest = items.reduce((max, el) => Math.max(max, el.offsetWidth), 0);
+    const viewportMax = Math.min(260, window.innerWidth - 16);
+    if (widest > 0) {
+      setMenuWidth(Math.min(Math.ceil(widest * 1.15), viewportMax));
+    } else {
+      setMenuWidth(Math.min(180, viewportMax));
+    }
+    card.style.width = previousWidth;
+  }, [open, kind, visibleItems, selectionSize, canPaste, canUngroup, canAlign, canDistribute, hasArrangementActions]);
 
   // Keep highlight index in range when list changes
   useEffect(() => {
@@ -294,13 +327,12 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
 
   const renderArrangementSection = () => {
     if (!hasArrangementActions) return null;
-    const disabled = !canAlign && !canDistribute;
-    const firstSubmenu: "align" | "distribute" | null = !disabled
-      ? (!canAlign && canDistribute ? "distribute" : canAlign ? "align" : null)
-      : null;
+    const allowAlign = canAlign && Boolean(onAlignSelected);
+    const allowDistribute = canDistribute && Boolean(onDistributeSelected);
+    if (!allowAlign && !allowDistribute) return null;
+    const firstSubmenu: "align" | "distribute" | null = !allowAlign && allowDistribute ? "distribute" : allowAlign ? "align" : null;
 
     const openMenu = (autoSubmenu: boolean) => {
-      if (disabled) return;
       updateArrangementPosition();
       setArrangementOpen(true);
       setActiveArrangementSubmenu(autoSubmenu ? firstSubmenu : null);
@@ -308,22 +340,16 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     return (
       <button
         ref={arrangementButtonRef}
-        className={cn(
-          "w-full px-2 py-1.5 rounded-md text-sm flex items-center justify-between",
-          disabled && "bg-muted text-muted-foreground cursor-not-allowed",
-          !disabled && arrangementOpen && "bg-accent text-accent-foreground",
-          !disabled && !arrangementOpen && "bg-muted text-foreground hover:bg-accent/80 hover:text-accent-foreground"
-        )}
-        disabled={disabled}
+        className={cn(baseMenuButtonClasses, "flex items-center justify-between")}
+        data-menu-item="true"
         aria-haspopup="true"
-        aria-expanded={arrangementOpen && !disabled}
+        aria-expanded={arrangementOpen}
         onMouseEnter={() => openMenu(false)}
         onFocus={() => openMenu(true)}
         onBlur={closeArrangementIfFocusMoves}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (disabled) return;
           if (arrangementOpen) {
             closeArrangementMenus();
           } else {
@@ -345,7 +371,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
           style={{ position: "fixed", left: submenuPosition.left, top: submenuPosition.top, zIndex: 60 }}
         >
           <div className="rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[170px]">
-            {onAlignSelected && (
+            {canAlign && onAlignSelected && (
               <div
                 className="relative"
                 onMouseEnter={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
@@ -353,34 +379,29 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
               >
                 <button
                   className={cn(
-                    "w-full px-3 py-1.5 text-sm flex items-center justify-between",
-                    !canAlign && "text-muted-foreground cursor-not-allowed",
-                    canAlign && activeArrangementSubmenu === "align" && "bg-accent text-accent-foreground",
-                    canAlign && activeArrangementSubmenu !== "align" && "hover:bg-accent/70 hover:text-accent-foreground"
+                    "w-full px-3 py-1 text-sm flex items-center justify-between rounded-md transition-colors hover:bg-muted",
+                    activeArrangementSubmenu === "align" && "bg-muted"
                   )}
-                  disabled={!canAlign}
                   onMouseEnter={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
                   onFocus={() => { if (canAlign) setActiveArrangementSubmenu("align"); }}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!canAlign) return;
                     setActiveArrangementSubmenu("align");
                   }}
                 >
                   <span>Align</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
-                {canAlign && activeArrangementSubmenu === "align" && (
+                {activeArrangementSubmenu === "align" && (
                   <div className="absolute left-full top-0 ml-1 rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[150px]">
                     {ALIGNMENT_OPTIONS.map((option) => (
                       <button
                         key={`align:${option.kind}`}
-                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent/70 hover:text-accent-foreground"
+                        className="w-full px-3 py-1 text-sm text-left rounded-md transition-colors hover:bg-muted"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (!canAlign) return;
                           onAlignSelected(option.kind);
                           closeArrangementMenus();
                         }}
@@ -392,7 +413,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 )}
               </div>
             )}
-            {onDistributeSelected && (
+            {canDistribute && onDistributeSelected && (
               <div
                 className="relative"
                 onMouseEnter={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
@@ -400,34 +421,29 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
               >
                 <button
                   className={cn(
-                    "w-full px-3 py-1.5 text-sm flex items-center justify-between",
-                    !canDistribute && "text-muted-foreground cursor-not-allowed",
-                    canDistribute && activeArrangementSubmenu === "distribute" && "bg-accent text-accent-foreground",
-                    canDistribute && activeArrangementSubmenu !== "distribute" && "hover:bg-accent/70 hover:text-accent-foreground"
+                    "w-full px-3 py-1 text-sm flex items-center justify-between rounded-md transition-colors hover:bg-muted",
+                    activeArrangementSubmenu === "distribute" && "bg-muted"
                   )}
-                  disabled={!canDistribute}
                   onMouseEnter={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
                   onFocus={() => { if (canDistribute) setActiveArrangementSubmenu("distribute"); }}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!canDistribute) return;
                     setActiveArrangementSubmenu("distribute");
                   }}
                 >
                   <span>Distribute</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
-                {canDistribute && activeArrangementSubmenu === "distribute" && (
+                {activeArrangementSubmenu === "distribute" && (
                   <div className="absolute left-full top-0 ml-1 rounded-md border bg-popover text-popover-foreground shadow-lg py-1 min-w-[150px]">
                     {DISTRIBUTION_OPTIONS.map((option) => (
                       <button
                         key={`distribute:${option.kind}`}
-                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent/70 hover:text-accent-foreground"
+                        className="w-full px-3 py-1 text-sm text-left rounded-md transition-colors hover:bg-muted"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (!canDistribute) return;
                           onDistributeSelected(option.kind);
                           closeArrangementMenus();
                         }}
@@ -445,6 +461,107 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
       )
     : null;
 
+  const selectionActions: Array<{ key: string; label: string; onSelect: () => void }> = [];
+  if (selectionSize > 0 && onCopySelection) {
+    selectionActions.push({
+      key: "copy-selection",
+      label: `Copy Selection${selectionSize ? ` (${selectionSize})` : ""}`,
+      onSelect: () => onCopySelection(),
+    });
+  }
+  if (canPaste && onPasteFromClipboard) {
+    selectionActions.push({
+      key: "paste",
+      label: "Paste",
+      onSelect: () => onPasteFromClipboard(),
+    });
+  }
+  if (selectionSize > 0 && onDuplicateSelection) {
+    selectionActions.push({
+      key: "duplicate-selection",
+      label: `Duplicate Selection${selectionSize ? ` (${selectionSize})` : ""}`,
+      onSelect: () => onDuplicateSelection(),
+    });
+  }
+  if (selectionSize > 0 && onGroupSelected) {
+    selectionActions.push({
+      key: "group-selection",
+      label: `Group Selected${selectionSize ? ` (${selectionSize})` : ""}`,
+      onSelect: () => onGroupSelected(),
+    });
+  }
+
+  const nodeActions: Array<{ key: string; label: string; onSelect: () => void }> = [];
+  if (targetId && onCopySelection) {
+    nodeActions.push({
+      key: "copy-node",
+      label: "Copy Node",
+      onSelect: () => onCopySelection(targetId),
+    });
+  }
+  if (targetId && onDuplicateSelection) {
+    nodeActions.push({
+      key: "duplicate-node",
+      label: "Duplicate Node",
+      onSelect: () => onDuplicateSelection(targetId),
+    });
+  }
+  if (targetId && canUngroup && onUngroupNode) {
+    nodeActions.push({
+      key: "ungroup-node",
+      label: "Ungroup",
+      onSelect: () => onUngroupNode(targetId),
+    });
+  }
+  if (selectionSize > 0 && onGroupSelected) {
+    nodeActions.push({
+      key: "group-from-node",
+      label: `Group Selected${selectionSize ? ` (${selectionSize})` : ""}`,
+      onSelect: () => onGroupSelected(),
+    });
+  }
+  if (canPaste && onPasteFromClipboard) {
+    nodeActions.push({
+      key: "paste-node",
+      label: "Paste",
+      onSelect: () => onPasteFromClipboard(),
+    });
+  }
+  if (targetId && onDeleteNode) {
+    nodeActions.push({
+      key: "delete-node",
+      label: "Delete Node",
+      onSelect: () => onDeleteNode(targetId),
+    });
+  }
+
+  const edgeActions: Array<{ key: string; label: string; onSelect: () => void }> = [];
+  if (canPaste && onPasteFromClipboard) {
+    edgeActions.push({
+      key: "paste-edge",
+      label: "Paste",
+      onSelect: () => onPasteFromClipboard(),
+    });
+  }
+
+  const renderActionButtons = (actions: Array<{ key: string; label: string; onSelect: () => void }>) =>
+    actions.map((action) => (
+      <button
+        key={action.key}
+        className={baseMenuButtonClasses}
+        data-menu-item="true"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          action.onSelect();
+        }}
+      >
+        {action.label}
+      </button>
+    ));
+
+  const arrangementContent = renderArrangementSection();
+
   if (!open) return null;
 
   // Basic size & placement logic; clamp within viewport
@@ -452,7 +569,8 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
   const vh = window.innerHeight;
   const maxW = Math.min(260, vw - 16);
   const maxH = Math.min(420, vh - 16);
-  const posX = Math.min(x, vw - maxW - 8);
+  const desiredWidth = menuWidth ? Math.min(menuWidth, maxW) : Math.min(220, maxW);
+  const posX = Math.min(x, vw - desiredWidth - 8);
   const posY = Math.min(y, vh - maxH - 8);
 
   return (
@@ -464,12 +582,12 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
         <Card
           ref={ref}
           className="pointer-events-auto shadow-lg border bg-popover text-popover-foreground"
-          style={{ position: "fixed", left: posX, top: posY, width: maxW, maxHeight: maxH, overflow: "auto" }}
+          style={{ position: "fixed", left: posX, top: posY, width: desiredWidth, maxHeight: maxH, overflow: "auto" }}
           role="menu"
           aria-label="Graph context menu"
         >
           {kind !== "background" && (
-            <CardHeader className="py-2 px-3">
+            <CardHeader className="py-1.5 px-2">
               <CardTitle className="text-sm">
                 {kind === "selection" && `Selection • ${selectedCount ?? 0} nodes`}
                 {kind === "node" && `Node • ${targetId ?? "(unknown)"}`}
@@ -477,7 +595,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
               </CardTitle>
             </CardHeader>
           )}
-          <CardContent className="flex flex-col gap-1 p-3">
+          <CardContent className="flex flex-col gap-2 p-2">
             {kind === "background" ? (
               <>
                 <Input
@@ -485,13 +603,13 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   autoFocus
-                  className="h-8 text-sm"
+                  className="h-8 w-full text-sm"
                 />
                 <div className="flex flex-col gap-1">
                   {visibleItems.length === 0 && (
                     <div className="text-muted-foreground text-sm">No nodes found</div>
                   )}
-                  <ul className="flex flex-col">
+                  <ul className="flex flex-col gap-0.5">
                     {visibleItems.map((it, idx) => {
                     if (it.kind === "category") {
                       const isOpen = expanded.has(it.key);
@@ -500,11 +618,12 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                           key={`cat:${it.key}`}
                           ref={(el) => { itemRefs.current[idx] = el; }}
                           className={cn(
-                            "px-2 py-1 rounded-md cursor-pointer select-none flex items-center justify-between",
-                            idx === highlightIndex && "bg-accent text-accent-foreground"
+                            "px-2 py-1 rounded-md cursor-pointer select-none flex items-center justify-between transition-colors hover:bg-muted",
+                            idx === highlightIndex && "bg-muted"
                           )}
                           role="menuitem"
                           aria-selected={idx === highlightIndex}
+                          data-menu-item="true"
                           onMouseEnter={() => setHighlightIndex(idx)}
                           onClick={(e) => {
                             e.preventDefault();
@@ -517,7 +636,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                             });
                           }}
                         >
-                          <span className="text-sm font-semibold">{formatCategory(it.key)}</span>
+                          <span className="text-sm font-medium">{formatCategory(it.key)}</span>
                           {isOpen ? (
                             <ChevronDown className="h-4 w-4 opacity-70" />
                           ) : (
@@ -532,11 +651,12 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                         key={`node:${it.key}`}
                         ref={(el) => { itemRefs.current[idx] = el; }}
                         className={cn(
-                          "pl-6 pr-2 py-1 rounded-md cursor-pointer hover:bg-accent/80 hover:text-accent-foreground select-none",
-                          idx === highlightIndex && "bg-accent text-accent-foreground"
+                          "pl-6 pr-2 py-1 rounded-md cursor-pointer select-none transition-colors hover:bg-muted",
+                          idx === highlightIndex && "bg-muted"
                         )}
                         role="menuitem"
                         aria-selected={idx === highlightIndex}
+                        data-menu-item="true"
                         onMouseEnter={() => setHighlightIndex(idx)}
                         onClick={(e) => {
                           e.preventDefault();
@@ -555,180 +675,27 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                 </div>
               </>
             ) : kind === "selection" ? (
-              <div className="flex flex-col gap-3">
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    selectedCount && selectedCount > 0
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!selectedCount || selectedCount <= 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (selectedCount && selectedCount > 0 && onCopySelection) onCopySelection();
-                  }}
-                >
-                  Copy Selection{selectedCount ? ` (${selectedCount})` : ""}
-                </button>
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    canPaste
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!canPaste}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (canPaste && onPasteFromClipboard) onPasteFromClipboard();
-                  }}
-                >
-                  Paste
-                </button>
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    selectedCount && selectedCount > 0
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!selectedCount || selectedCount <= 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (selectedCount && selectedCount > 0 && onDuplicateSelection) onDuplicateSelection();
-                  }}
-                >
-                  Duplicate Selection{selectedCount ? ` (${selectedCount})` : ""}
-                </button>
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    selectedCount && selectedCount > 0
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!selectedCount || selectedCount <= 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
-                  }}
-                >
-                  Group Selected{selectedCount ? ` (${selectedCount})` : ""}
-                </button>
-                {renderArrangementSection()}
+              <div className="flex flex-col gap-1">
+                {renderActionButtons(selectionActions)}
+                {arrangementContent}
+                {!selectionActions.length && !arrangementContent && (
+                  <div className="text-sm text-muted-foreground">No actions available</div>
+                )}
               </div>
             ) : kind === "node" ? (
-              <div className="flex flex-col gap-2">
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    onCopySelection ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!onCopySelection}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (onCopySelection) onCopySelection(targetId);
-                  }}
-                >
-                  Copy Node
-                </button>
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    onDuplicateSelection ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!onDuplicateSelection}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (onDuplicateSelection && targetId) onDuplicateSelection(targetId);
-                  }}
-                >
-                  Duplicate Node
-                </button>
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    canUngroup
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!canUngroup}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (canUngroup && targetId && onUngroupNode) onUngroupNode(targetId);
-                  }}
-                >
-                  Ungroup
-                </button>
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    selectedCount && selectedCount > 0
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!selectedCount || selectedCount <= 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (selectedCount && selectedCount > 0 && onGroupSelected) onGroupSelected();
-                  }}
-                >
-                  Group Selected{selectedCount ? ` (${selectedCount})` : ""}
-                </button>
-                {renderArrangementSection()}
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    canPaste ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!canPaste}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (canPaste && onPasteFromClipboard) onPasteFromClipboard();
-                  }}
-                >
-                  Paste
-                </button>
-                <button
-                  className="px-2 py-1.5 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (targetId && onDeleteNode) onDeleteNode(targetId);
-                  }}
-                >
-                  Delete Node
-                </button>
+              <div className="flex flex-col gap-1">
+                {renderActionButtons(nodeActions)}
+                {arrangementContent}
+                {!nodeActions.length && !arrangementContent && (
+                  <div className="text-sm text-muted-foreground">No actions available</div>
+                )}
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <button
-                  className={cn(
-                    "px-2 py-1.5 rounded-md text-sm",
-                    onPasteFromClipboard && canPaste
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
-                  disabled={!onPasteFromClipboard || !canPaste}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (onPasteFromClipboard) onPasteFromClipboard();
-                  }}
-                >
-                  Paste
-                </button>
-                <div className="text-sm text-muted-foreground">Select nodes to enable more actions</div>
+              <div className="flex flex-col gap-1">
+                {renderActionButtons(edgeActions)}
+                {!edgeActions.length && (
+                  <div className="text-sm text-muted-foreground">Select nodes to enable more actions</div>
+                )}
               </div>
             )}
           </CardContent>
