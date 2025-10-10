@@ -1,4 +1,5 @@
 import type { Node, XYPosition } from "@xyflow/react";
+import { parseEditorSize } from "./nodeFactory";
 
 export type AlignmentKind = "left" | "center" | "right" | "top" | "middle" | "bottom";
 export type DistributionKind = "horizontal" | "vertical" | "vertical-stack" | "horizontal-stack";
@@ -38,10 +39,42 @@ function computeAbsoluteOffset(node: Node): XYPosition | undefined {
   return { x: abs.x - position.x, y: abs.y - position.y };
 }
 
+function readNumericDimension(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+function readNodeDimension(node: Node, key: "width" | "height", fallback?: number): number {
+  const anyNode = node as any;
+  const candidates: unknown[] = [
+    anyNode?.measured?.[key],
+    anyNode?.dimensions?.[key],
+    anyNode?.style?.[key],
+    anyNode?.[key],
+    fallback,
+  ];
+  for (const candidate of candidates) {
+    const numeric = readNumericDimension(candidate);
+    if (numeric !== null) return numeric;
+  }
+  return 0;
+}
+
 function collectMetrics(selected: Node[]): NodeMetric[] {
   return selected.map((node) => {
-    const width = Number.isFinite((node as any).width) ? Number((node as any).width) : 0;
-    const height = Number.isFinite((node as any).height) ? Number((node as any).height) : 0;
+    const meta = (() => {
+      const templateMeta = (node.data as any)?.template?.meta;
+      return Array.isArray(templateMeta) ? (templateMeta as string[]) : undefined;
+    })();
+    const { width: metaWidth, height: metaHeight } = parseEditorSize(meta);
+    const width = readNodeDimension(node, "width", metaWidth);
+    const height = readNodeDimension(node, "height", metaHeight);
     const position = node.position ?? { x: 0, y: 0 };
     const left = position.x;
     const top = position.y;

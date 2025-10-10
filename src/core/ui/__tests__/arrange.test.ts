@@ -14,6 +14,10 @@ function makeNode(id: string, position: { x: number; y: number }, options: {
   height?: number;
   parentId?: string;
   positionAbsolute?: { x: number; y: number };
+  style?: { width?: number; height?: number };
+  measured?: { width?: number; height?: number };
+  dimensions?: { width?: number; height?: number };
+  templateMeta?: string[];
 } = {}): TestNode {
   const base: TestNode = {
     id,
@@ -25,6 +29,18 @@ function makeNode(id: string, position: { x: number; y: number }, options: {
   };
   if (options.parentId) base.parentId = options.parentId;
   if (options.positionAbsolute) base.positionAbsolute = options.positionAbsolute as any;
+  if (options.style) base.style = options.style as any;
+  if (options.measured) (base as any).measured = options.measured;
+  if (options.dimensions) (base as any).dimensions = options.dimensions;
+  if (options.templateMeta) {
+    base.data = {
+      ...base.data,
+      template: {
+        ...(base.data?.template ?? {}),
+        meta: [...options.templateMeta],
+      },
+    } as any;
+  }
   return base;
 }
 
@@ -214,6 +230,46 @@ describe("distributeSelectedNodes", () => {
         (horizontalStacked.find((n) => n.id === "1")?.position.x ?? 0) -
         ((horizontalStacked.find((n) => n.id === "1")?.width ?? 0))
     ).toBeCloseTo(1, 4);
+  });
+
+  it("uses measured dimensions when stacking nodes without width/height", () => {
+    const nodes = [
+      makeNode("a", { x: 10, y: 0 }, { measured: { width: 80, height: 60 } }),
+      makeNode("b", { x: 40, y: 140 }, { measured: { width: 70, height: 50 } }),
+    ];
+    const selection = new Set(["a", "b"]);
+    const { nodes: verticalStacked } = distributeSelectedNodes(nodes, selection, "vertical-stack");
+    const a = verticalStacked.find((n) => n.id === "a")!;
+    const b = verticalStacked.find((n) => n.id === "b")!;
+    expect(a.position.x).toBeCloseTo(10, 4);
+    expect(b.position.x).toBeCloseTo(10, 4);
+    expect(b.position.y).toBeCloseTo(a.position.y + ((nodes[0] as any).measured.height ?? 0) + 1, 4);
+
+    const { nodes: horizontalStacked } = distributeSelectedNodes(nodes, selection, "horizontal-stack");
+    const first = horizontalStacked.find((n) => n.id === "a")!;
+    const second = horizontalStacked.find((n) => n.id === "b")!;
+    expect(first.position.y).toBeCloseTo(second.position.y, 4);
+    expect(second.position.x).toBeCloseTo(first.position.x + ((nodes[0] as any).measured.width ?? 0) + 1, 4);
+  });
+
+  it("falls back to editor size metadata when stacking editor panels", () => {
+    const nodes = [
+      makeNode("panel-1", { x: 0, y: 20 }, { templateMeta: ["editor_node", "editor_size:200x150"] }),
+      makeNode("panel-2", { x: 300, y: 200 }, { templateMeta: ["editor_node", "editor_size:180x120"] }),
+    ];
+    const selection = new Set(["panel-1", "panel-2"]);
+    const { nodes: horizontalStacked } = distributeSelectedNodes(nodes, selection, "horizontal-stack");
+    const first = horizontalStacked.find((n) => n.id === "panel-1")!;
+    const second = horizontalStacked.find((n) => n.id === "panel-2")!;
+    expect(first.position.y).toBeCloseTo(20, 4);
+    expect(second.position.y).toBeCloseTo(20, 4);
+    expect(second.position.x).toBeCloseTo(first.position.x + 200 + 1, 4);
+
+    const { nodes: verticalStacked } = distributeSelectedNodes(nodes, selection, "vertical-stack");
+    const top = verticalStacked.find((n) => n.id === "panel-1")!;
+    const bottom = verticalStacked.find((n) => n.id === "panel-2")!;
+    expect(top.position.x).toBeCloseTo(bottom.position.x, 4);
+    expect(bottom.position.y).toBeCloseTo(top.position.y + 150 + 1, 4);
   });
 
   it("distributes nodes with zero widths similar to measured ReactFlow nodes", () => {
