@@ -166,13 +166,13 @@ To use a texture in your shader you need to use the **Assets** editor node. then
 
     === "Exercise"
         1. Open the **Compile Output** editor node.
-        2. From the top menu select **File → Export** and choose a language from the list (menu entries show the language `name`, e.g. "ThreeJS GLSL" or "Godot").
-        3. The editor will compile the active graph using the selected language template and automatically download the generated shader using the language's primary file extension (for example `.glsl` or `.gdshader`).
-        4. Using a Chromium-based browser (Chrome, Edge, Arc, etc.) you can instead choose **File → Export to Disk → &lt;language&gt;** to pick a destination once. After saving, a **Quick Export** button appears in the header so you can overwrite the same file with a single click or the ⌘⇧E / Ctrl+Shift+E hotkey.
+        2. From the top menu select **File → Export → &lt;language&gt;** (menu entries show the language `name`, e.g. "ThreeJS GLSL" or "Godot").
+        3. The editor compiles the active graph using the selected language template. In Chromium-based browsers (Chrome, Edge, Arc, etc.) you'll be prompted once to choose a destination on disk; other browsers automatically download the generated shader using the language's primary file extension (for example `.glsl` or `.gdshader`).
+        4. After saving to disk in a Chromium browser, a **Quick Export** button appears in the header so you can overwrite the same file with a single click or the ⌘⇧E / Ctrl+Shift+E hotkey.
 
     === "Expected result"
 
-        - A file named like `UntitledPbr.glsl` or `UntitledPbr.gdshader` (based on your graph name and chosen language) is downloaded to your machine.
+        - A file named like `UntitledPbr.glsl` or `UntitledPbr.gdshader` (based on your graph name and chosen language) is written to the selected destination or downloaded to your machine.
         - The downloaded shader is produced from the active graph and should visually match the 3D Preview when equivalent lighting and uniform values are provided.
         - After exporting to disk once, the header shows a **Quick Export** button alongside the current hotkey. Clicking it (or pressing the shortcut) recompiles the active graph and overwrites the previously saved shader file. This workflow requires a Chromium browser because it relies on the File System Access API.
 

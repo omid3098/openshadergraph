@@ -1978,64 +1978,45 @@ export function App() {
 
   const handleExportLanguage = useCallback(
     async (languageKey: string) => {
+      const graphKey = getGraphLabelKey();
       try {
         const { code, ext, label } = await compileToLanguage(languageKey);
         const safeLabel = label.replace(/\s+/g, "_") || "UntitledGraph";
+        const picker = fileSystemAccessSupported ? (window as any).showSaveFilePicker : undefined;
+        if (typeof picker === "function") {
+          const handle = await picker({
+            suggestedName: `${safeLabel}.${ext}`,
+            types: [
+              {
+                description: `${languageKey} shader`,
+                accept: { "text/plain": [`.${ext}`] },
+              },
+            ],
+          });
+          if (!handle) return;
+          await writeFileHandle(handle, code);
+          setQuickExportState(handle, languageKey);
+          await Promise.all([
+            saveExportHandle(graphKey, languageKey, handle),
+            setLastExportLanguage(graphKey, languageKey),
+          ]);
+          return;
+        }
         triggerTextDownload(`${safeLabel}.${ext}`, code, "text/plain");
-      } catch (err) {
-        console.warn("Export failed", err);
-      }
-    },
-    [compileToLanguage]
-  );
-
-  const handleExportToDisk = useCallback(
-    async (languageKey: string) => {
-      const graphKey = getGraphLabelKey();
-      if (!fileSystemAccessSupported) {
-        await handleExportLanguage(languageKey);
         try {
           await setLastExportLanguage(graphKey, languageKey);
         } catch (_err) {
-          // ignore persistence failures in fallback mode
+          // ignore persistence failures when falling back to downloads
         }
-        return;
-      }
-      try {
-        const { code, ext, label } = await compileToLanguage(languageKey);
-        const picker = (window as any).showSaveFilePicker;
-        if (typeof picker !== "function") {
-          await handleExportLanguage(languageKey);
-          await setLastExportLanguage(graphKey, languageKey);
-          return;
-        }
-        const suggestedName = `${(label.replace(/\s+/g, "_") || "UntitledGraph")}.${ext}`;
-        const handle = await picker({
-          suggestedName,
-          types: [
-            {
-              description: `${languageKey} shader`,
-              accept: { "text/plain": [`.${ext}`] },
-            },
-          ],
-        });
-        if (!handle) return;
-        await writeFileHandle(handle, code);
-        setQuickExportState(handle, languageKey);
-        await Promise.all([
-          saveExportHandle(graphKey, languageKey, handle),
-          setLastExportLanguage(graphKey, languageKey),
-        ]);
       } catch (err: any) {
         if (err?.name === "AbortError") return;
-        console.warn("Export to disk failed", err);
+        console.warn("Export failed", err);
       }
     },
     [
       compileToLanguage,
       fileSystemAccessSupported,
       getGraphLabelKey,
-      handleExportLanguage,
       setQuickExportState,
       writeFileHandle,
     ]
@@ -3083,18 +3064,6 @@ export function App() {
                   ))}
                 </MenubarSubContent>
               </MenubarSub>
-              {fileSystemAccessSupported ? (
-                <MenubarSub>
-                  <MenubarSubTrigger>Export to Disk</MenubarSubTrigger>
-                  <MenubarSubContent>
-                    {languages.map((lang) => (
-                      <MenubarItem key={`${lang.key}-disk`} onClick={() => void handleExportToDisk(lang.key)}>
-                        {lang.name}
-                      </MenubarItem>
-                    ))}
-                  </MenubarSubContent>
-                </MenubarSub>
-              ) : null}
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
