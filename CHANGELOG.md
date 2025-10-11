@@ -1,3 +1,10 @@
+## [0.5.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.2...v0.5.0-beta.3) (2025-10-11)
+
+- Merge pull request #72 from omid3098/codex/evaluate-argument-in-issue#70
+### Bug Fixes
+
+- avoid clipboard prompt and improve save as fallback _(by Omid Saadat)_ ([12ac530]())
+
 ## [0.5.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.1...v0.5.0-beta.2) (2025-10-11)
 
 - Merge pull request #69 from omid3098/codex/explore-instant-shader-export-functionality
