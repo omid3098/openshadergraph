@@ -12,9 +12,17 @@ type GraphHotkeyContext = {
   addNodeAt: (opts: { item: NodePaletteItem; x: number; y: number }) => void | Promise<void>;
   paletteByType: Map<string, NodePaletteItem>;
   quickHotkeys: Record<string, QuickNodeHotkey>;
+  reservedCodes?: readonly string[];
 };
 
-export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt, paletteByType, quickHotkeys }: GraphHotkeyContext) {
+export function useGraphHotkeys({
+  getPointerClient,
+  toggleEditorNode,
+  addNodeAt,
+  paletteByType,
+  quickHotkeys,
+  reservedCodes = [],
+}: GraphHotkeyContext) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!event.metaKey || event.altKey || event.shiftKey || event.ctrlKey) return;
@@ -39,11 +47,13 @@ export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt,
   }, [getPointerClient, toggleEditorNode]);
 
   useEffect(() => {
+    const reserved = new Set(reservedCodes);
     const handler = (event: KeyboardEvent) => {
       const isMod = event.metaKey || event.ctrlKey;
       if (!isMod || !event.shiftKey || event.altKey) return;
       if (event.repeat) return;
       if (isEditableHotkeyTarget(event.target)) return;
+      if (reserved.has(event.code)) return;
 
       const quick = quickHotkeys[event.code];
       if (!quick) return;
@@ -58,5 +68,5 @@ export function useGraphHotkeys({ getPointerClient, toggleEditorNode, addNodeAt,
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [addNodeAt, getPointerClient, paletteByType, quickHotkeys]);
+  }, [addNodeAt, getPointerClient, paletteByType, quickHotkeys, reservedCodes]);
 }
