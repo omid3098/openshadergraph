@@ -1858,16 +1858,25 @@ export function App() {
         setGraphName(label);
         rememberRecentGraph(targetName, contents, handle);
       } else {
-        const label = (() => {
+        const baseLabel = (() => {
           const stripped = suggested.replace(/\.[^.]+$/, "").trim();
           return stripped.length ? stripped : (graphName.trim().length ? graphName : "UntitledGraph");
         })();
+        const defaultName = baseLabel.replace(/\s+/g, "_");
+        const promptValue = typeof window !== "undefined" ? window.prompt("Save graph as", defaultName) : defaultName;
+        if (promptValue === null) {
+          return;
+        }
+        const normalizedInput = (promptValue ?? defaultName).trim();
+        const sanitizedBase = (normalizedInput.length ? normalizedInput : defaultName).replace(/[\\/:*?"<>|]+/g, "_");
+        const filename = sanitizedBase.toLowerCase().endsWith(".osg") ? sanitizedBase : `${sanitizedBase}.osg`;
+        const label = filename.replace(/\.[^.]+$/, "");
         const contents = serializeGraph(label);
-        triggerDownload(suggested, contents);
+        triggerDownload(filename, contents);
         fileHandleRef.current = null;
-        setFileName(suggested);
+        setFileName(filename);
         setGraphName(label);
-        rememberRecentGraph(suggested, contents, null);
+        rememberRecentGraph(filename, contents, null);
       }
     } catch (_err) {
       // user cancel or error: ignore
@@ -2739,29 +2748,9 @@ export function App() {
       setCanPasteFromClipboard(false);
       return;
     }
-    if (typeof navigator === "undefined" || typeof navigator.clipboard?.readText !== "function") {
-      setCanPasteFromClipboard(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (cancelled) return;
-        if (!text) {
-          setCanPasteFromClipboard(false);
-          return;
-        }
-        parseClipboardPayload(text);
-        setCanPasteFromClipboard(true);
-      } catch (_err) {
-        if (!cancelled) setCanPasteFromClipboard(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [menu.open, menu.kind, menu.targetId]);
+    const readSupported = typeof navigator !== "undefined" && typeof navigator.clipboard?.readText === "function";
+    setCanPasteFromClipboard(readSupported);
+  }, [menu.open]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
