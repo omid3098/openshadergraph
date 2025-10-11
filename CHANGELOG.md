@@ -1,3 +1,13 @@
+## [0.5.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.1...v0.5.0-beta.2) (2025-10-11)
+
+- Merge pull request #69 from omid3098/codex/explore-instant-shader-export-functionality
+### Features
+
+- add quick export workflow _(by Omid Saadat)_ ([b7e088c]())
+### Bug Fixes
+
+- consolidate export menu _(by Omid Saadat)_ ([cd5637d]())
+
 ## [0.5.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.4.0...v0.5.0-beta.1) (2025-10-10)
 
 - Merge branch 'dev' into beta- Merge pull request #61 from omid3098/codex/update-shader-compiler-to-include-default-values- Merge pull request #62 from omid3098/codex/fix-reversed-matcap-textures-in-godot- Merge pull request #63 from omid3098/codex/implement-lighting-profiles-for-3d-preview- Merge pull request #64 from omid3098/codex/add-voronoi-and-simple-noise-nodes- Merge pull request #65 from omid3098/codex/fix-errors-in-generated-godot-shader- Merge pull request #66 from omid3098/codex/refactor-right-click-context-menu-design
