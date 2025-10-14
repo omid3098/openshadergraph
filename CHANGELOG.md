@@ -1,3 +1,16 @@
+## [0.6.0](https://github.com/omid3098/openshadergraph/compare/v0.5.0...v0.6.0) (2025-10-14)
+
+- Merge branch 'dev' into beta- Merge pull request #69 from omid3098/codex/explore-instant-shader-export-functionality- Merge pull request #72 from omid3098/codex/evaluate-argument-in-issue#70- Merge pull request #73 from omid3098/codex/fix-curve-type-for-dragged-connections- Merge pull request #74 from omid3098/beta
+### Chores
+
+- **release:** 0.5.0-beta.2 _(by semantic-release-bot)_ ([20d0d92]())- **release:** 0.5.0-beta.3 _(by semantic-release-bot)_ ([cb718f4]())- **release:** 0.5.0-beta.4 _(by semantic-release-bot)_ ([1c923d8]())- **release:** 0.6.0-beta.1 _(by semantic-release-bot)_ ([0314b6d]())
+### Features
+
+- add quick export workflow _(by Omid Saadat)_ ([b7e088c]())
+### Bug Fixes
+
+- avoid clipboard prompt and improve save as fallback _(by Omid Saadat)_ ([12ac530]())- consolidate export menu _(by Omid Saadat)_ ([cd5637d]())- **ui:** align connection preview curve _(by Omid Saadat)_ ([fdd1357]())
+
 ## [0.6.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.5.0...v0.6.0-beta.1) (2025-10-14)
 
 - Merge branch 'dev' into beta- Merge pull request #69 from omid3098/codex/explore-instant-shader-export-functionality- Merge pull request #72 from omid3098/codex/evaluate-argument-in-issue#70- Merge pull request #73 from omid3098/codex/fix-curve-type-for-dragged-connections
