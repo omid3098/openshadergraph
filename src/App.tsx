@@ -3439,7 +3439,7 @@ export function App() {
                   setMenuPaletteOverride(null);
                   setMenu({ open: true, kind: "edge", x: e.clientX, y: e.clientY, targetId: edge.id });
                 }}
-                connectionLineType={curveMode === "default" ? "smoothstep" : curveMode as any}
+                connectionLineType={curveMode === "default" ? "default" : (curveMode as any)}
                 fitView
               >
                 <Background />
