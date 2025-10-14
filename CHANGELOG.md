@@ -1,3 +1,10 @@
+## [0.5.0-beta.4](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.3...v0.5.0-beta.4) (2025-10-14)
+
+- Merge pull request #73 from omid3098/codex/fix-curve-type-for-dragged-connections
+### Bug Fixes
+
+- **ui:** align connection preview curve _(by Omid Saadat)_ ([fdd1357]())
+
 ## [0.5.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.2...v0.5.0-beta.3) (2025-10-11)
 
 - Merge pull request #72 from omid3098/codex/evaluate-argument-in-issue#70
