@@ -1,18 +1,39 @@
-## [0.5.0](https://github.com/omid3098/openshadergraph/compare/v0.4.0...v0.5.0) (2025-10-10)
+## [0.6.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.5.0...v0.6.0-beta.1) (2025-10-14)
 
-- Merge branch 'dev' into beta- Merge pull request #61 from omid3098/codex/update-shader-compiler-to-include-default-values- Merge pull request #62 from omid3098/codex/fix-reversed-matcap-textures-in-godot- Merge pull request #63 from omid3098/codex/implement-lighting-profiles-for-3d-preview- Merge pull request #64 from omid3098/codex/add-voronoi-and-simple-noise-nodes- Merge pull request #65 from omid3098/codex/fix-errors-in-generated-godot-shader- Merge pull request #66 from omid3098/codex/refactor-right-click-context-menu-design- Merge pull request #67 from omid3098/beta
+- Merge branch 'dev' into beta- Merge pull request #69 from omid3098/codex/explore-instant-shader-export-functionality- Merge pull request #72 from omid3098/codex/evaluate-argument-in-issue#70- Merge pull request #73 from omid3098/codex/fix-curve-type-for-dragged-connections
 ### Chores
 
-- **release:** 0.4.0 _(by semantic-release-bot)_ ([7c01411]())- **release:** 0.4.0-beta.2 _(by semantic-release-bot)_ ([725255e]())- **release:** 0.4.0-beta.3 _(by semantic-release-bot)_ ([e5d67a6]())- **release:** 0.4.0-beta.4 _(by semantic-release-bot)_ ([6ed37bb]())- **release:** 0.4.0-beta.5 _(by semantic-release-bot)_ ([6037131]())- **release:** 0.4.0-beta.6 _(by semantic-release-bot)_ ([aee0339]())- **release:** 0.4.0-beta.7 _(by semantic-release-bot)_ ([8d80984]())- **release:** 0.4.0-beta.8 _(by semantic-release-bot)_ ([a324f4a]())- **release:** 0.5.0-beta.1 _(by semantic-release-bot)_ ([1e1f341]())
+- **release:** 0.5.0-beta.2 _(by semantic-release-bot)_ ([20d0d92]())- **release:** 0.5.0-beta.3 _(by semantic-release-bot)_ ([cb718f4]())- **release:** 0.5.0-beta.4 _(by semantic-release-bot)_ ([1c923d8]())
 ### Features
 
-- add clipboard-aware paste and vertical stack arrange _(by Omid Saadat)_ ([0f40202]())- add noise graph examples _(by Omid Saadat)_ ([18fc433]())- **arrange:** add horizontal stack distribution _(by Omid Saadat)_ ([75af74a]())- **preview:** add lighting profiles to 3d preview _(by Omid Saadat)_ ([c2ffb8d]())
+- add quick export workflow _(by Omid Saadat)_ ([b7e088c]())
 ### Bug Fixes
 
-- **compiler:** include output defaults when features enabled _(by Omid Saadat)_ ([e67943a]())- **coordinates:** synchronize view orientation across languages _(by Omid Saadat)_ ([3a21b2b]())- **godot:** derive view-space orientation from coordinates metadata _(by Omid Saadat)_ ([1ab4fbf]())- **godot:** mirror view transforms for matcap consistency _(by Omid Saadat)_ ([0de5271]())- **godot:** repair voronoi noise shader generation _(by Omid Saadat)_ ([26da787]())- restore vertex defaults for shader outputs _(by Omid Saadat)_ ([044381c]())- reuse engine fragment normal defaults _(by Omid Saadat)_ ([308e033]())- stabilize procedural noise uv wiring _(by Omid Saadat)_ ([5b49160]())- stop clobbering vertex output normals _(by Omid Saadat)_ ([c6f06ff]())- streamline graph context menu _(by Omid Saadat)_ ([c6a0a52]())- **ui:** increase vertical and horizontal stack gaps for better node alignment _(by Omid Saadat)_ ([8ca91bb]())- **ui:** space stacked nodes using measured sizes _(by Omid Saadat)_ ([dfef971]())- **ui:** update vertical and horizontal stack gaps to 5px and 25px for improved node distribution _(by Omid Saadat)_ ([7432136]())- widen horizontal stack spacing _(by Omid Saadat)_ ([bd57ef0]())
-### Documentation
+- avoid clipboard prompt and improve save as fallback _(by Omid Saadat)_ ([12ac530]())- consolidate export menu _(by Omid Saadat)_ ([cd5637d]())- **ui:** align connection preview curve _(by Omid Saadat)_ ([fdd1357]())
 
-- require bun run gates umbrella validation _(by Omid Saadat)_ ([4788177]())
+## [0.5.0-beta.4](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.3...v0.5.0-beta.4) (2025-10-14)
+
+- Merge pull request #73 from omid3098/codex/fix-curve-type-for-dragged-connections
+### Bug Fixes
+
+- **ui:** align connection preview curve _(by Omid Saadat)_ ([fdd1357]())
+
+## [0.5.0-beta.3](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.2...v0.5.0-beta.3) (2025-10-11)
+
+- Merge pull request #72 from omid3098/codex/evaluate-argument-in-issue#70
+### Bug Fixes
+
+- avoid clipboard prompt and improve save as fallback _(by Omid Saadat)_ ([12ac530]())
+
+## [0.5.0-beta.2](https://github.com/omid3098/openshadergraph/compare/v0.5.0-beta.1...v0.5.0-beta.2) (2025-10-11)
+
+- Merge pull request #69 from omid3098/codex/explore-instant-shader-export-functionality
+### Features
+
+- add quick export workflow _(by Omid Saadat)_ ([b7e088c]())
+### Bug Fixes
+
+- consolidate export menu _(by Omid Saadat)_ ([cd5637d]())
 
 ## [0.5.0-beta.1](https://github.com/omid3098/openshadergraph/compare/v0.4.0...v0.5.0-beta.1) (2025-10-10)
 

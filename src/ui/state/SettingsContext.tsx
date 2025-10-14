@@ -1,6 +1,10 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { QuickNodeHotkey } from "@/core/ui/hotkeys";
 
+export type ActionHotkeys = {
+  quickExportCode: string;
+};
+
 export type ThemeName = "dark" | "light";
 
 export type CurveMode = "default" | "smoothstep" | "step" | "straight" | "simplebezier";
@@ -18,6 +22,8 @@ type SettingsContextValue = {
   setCurveMode: (next: CurveMode) => void;
   quickHotkeys: QuickNodeHotkey[];
   setQuickHotkeys: (next: QuickNodeHotkey[]) => void;
+  actionHotkeys: ActionHotkeys;
+  setActionHotkeys: (next: ActionHotkeys) => void;
   assetLibraries: AssetLibrariesSettings;
   setAssetLibraries: (next: AssetLibrariesSettings) => void;
 };

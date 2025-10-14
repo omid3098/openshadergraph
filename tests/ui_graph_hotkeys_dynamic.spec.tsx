@@ -10,11 +10,12 @@ type HarnessProps = {
   hotkeys: QuickNodeHotkey[];
   paletteItems?: NodePaletteItem[];
   onAdd: ReturnType<typeof vi.fn>;
+  reservedCodes?: string[];
 };
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
-function Harness({ hotkeys, paletteItems = [], onAdd }: HarnessProps) {
+function Harness({ hotkeys, paletteItems = [], onAdd, reservedCodes = [] }: HarnessProps) {
   const paletteByType = useMemo(() => {
     const map = new Map<string, NodePaletteItem>();
     for (const entry of paletteItems) {
@@ -29,6 +30,7 @@ function Harness({ hotkeys, paletteItems = [], onAdd }: HarnessProps) {
     addNodeAt: onAdd,
     paletteByType,
     quickHotkeys: buildQuickHotkeyMap(hotkeys),
+    reservedCodes,
   });
 
   return null;
@@ -90,6 +92,24 @@ describe("useGraphHotkeys with custom quick hotkeys", () => {
     await flush();
 
     const evt = new KeyboardEvent("keydown", { code: "KeyY", metaKey: true, ctrlKey: true, shiftKey: true, bubbles: true });
+    window.dispatchEvent(evt);
+
+    expect(onAdd).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("skips quick node insertion when code is reserved", async () => {
+    const onAdd = vi.fn();
+    const hotkeys: QuickNodeHotkey[] = [{ code: "KeyX", type: "custom", label: "Custom" }];
+    const paletteItems: NodePaletteItem[] = [
+      { type: "custom", name: "Custom", path: "custom.json", category: "root" },
+    ];
+
+    const { cleanup, flush } = renderHarness({ hotkeys, paletteItems, onAdd, reservedCodes: ["KeyX"] });
+
+    await flush();
+
+    const evt = new KeyboardEvent("keydown", { code: "KeyX", metaKey: true, ctrlKey: true, shiftKey: true, bubbles: true });
     window.dispatchEvent(evt);
 
     expect(onAdd).not.toHaveBeenCalled();

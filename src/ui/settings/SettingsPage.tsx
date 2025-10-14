@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatQuickHotkeyDisplay, type QuickNodeHotkey } from "@/core/ui/hotkeys";
 import type { AssetItem, NodePalette, NodePaletteItem } from "@/core/schema/types";
-import type { AssetLibrariesSettings, CurveMode, ThemeName } from "@/ui/state/SettingsContext";
+import type { ActionHotkeys, AssetLibrariesSettings, CurveMode, ThemeName } from "@/ui/state/SettingsContext";
 import { Plus, Trash2 } from "lucide-react";
 import {
   appendUserAsset,
@@ -26,6 +26,8 @@ type SettingsPageProps = {
   onThemeChange: (value: ThemeName) => void;
   quickHotkeys: QuickNodeHotkey[];
   onQuickHotkeysChange: (next: QuickNodeHotkey[]) => void;
+  actionHotkeys: ActionHotkeys;
+  onActionHotkeysChange: (next: ActionHotkeys) => void;
   palette: NodePalette | null;
   assetLibraries: AssetLibrariesSettings;
   onAssetLibrariesChange: (
@@ -53,6 +55,8 @@ export function SettingsPage({
   onThemeChange,
   quickHotkeys,
   onQuickHotkeysChange,
+  actionHotkeys,
+  onActionHotkeysChange,
   palette,
   assetLibraries,
   onAssetLibrariesChange,
@@ -110,6 +114,11 @@ export function SettingsPage({
         </Card>
 
         <AssetLibrariesCard assetLibraries={assetLibraries} onChange={onAssetLibrariesChange} />
+
+        <ActionHotkeyCard
+          quickExportCode={actionHotkeys.quickExportCode}
+          onChange={(code) => onActionHotkeysChange({ quickExportCode: code })}
+        />
 
         <HotkeySettingsCard hotkeys={quickHotkeys} onChange={onQuickHotkeysChange} palette={palette} />
 
@@ -410,6 +419,78 @@ function AssetLibrariesCard({ assetLibraries, onChange }: AssetLibrariesCardProp
   );
 }
 
+type ActionHotkeyCardProps = {
+  quickExportCode: string;
+  onChange: (code: string) => void;
+};
+
+function ActionHotkeyCard({ quickExportCode, onChange }: ActionHotkeyCardProps) {
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isCapturing) return;
+    const handler = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat) return;
+      if (event.key === "Escape") {
+        setIsCapturing(false);
+        setCaptureError(null);
+        return;
+      }
+      const code = event.code;
+      if (!isSupportedQuickHotkeyCode(code)) {
+        setCaptureError("Use letter, digit, numpad, arrow, Space, or Enter keys.");
+        return;
+      }
+      setIsCapturing(false);
+      setCaptureError(null);
+      onChange(code);
+    };
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
+  }, [isCapturing, onChange]);
+
+  const display = formatQuickHotkeyDisplay(quickExportCode);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Action Hotkeys</CardTitle>
+        <CardDescription>Configure global editor actions triggered with ⌘⇧ (or Ctrl+⇧).</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="quick-export-hotkey">Quick Export</Label>
+          <Button
+            id="quick-export-hotkey"
+            type="button"
+            variant="outline"
+            className="w-full justify-between"
+            onClick={() => {
+              setIsCapturing((prev) => !prev);
+              setCaptureError(null);
+            }}
+            aria-pressed={isCapturing}
+          >
+            <div className="flex flex-col items-start gap-0.5">
+              <span className="text-sm font-medium leading-none">{display}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {isCapturing ? "Press a key (Esc to cancel)" : "Click to change"}
+              </span>
+            </div>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Hold ⌘⇧ or Ctrl+⇧ with this key to overwrite the last exported shader file.
+        </p>
+        {captureError && <p className="text-xs text-destructive">{captureError}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 type HotkeySettingsCardProps = {
   hotkeys: QuickNodeHotkey[];
   onChange: (next: QuickNodeHotkey[]) => void;
@@ -699,7 +780,7 @@ function CurveModePreview({ curveMode }: { curveMode: CurveMode }) {
             edges={edges}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={{ type: "colored" as any }}
-            connectionLineType={curveMode === "default" ? "smoothstep" : curveMode as any}
+            connectionLineType={curveMode === "default" ? "default" : (curveMode as any)}
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}
