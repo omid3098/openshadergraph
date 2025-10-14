@@ -780,7 +780,7 @@ function CurveModePreview({ curveMode }: { curveMode: CurveMode }) {
             edges={edges}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={{ type: "colored" as any }}
-            connectionLineType={curveMode === "default" ? "smoothstep" : curveMode as any}
+            connectionLineType={curveMode === "default" ? "default" : (curveMode as any)}
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}
