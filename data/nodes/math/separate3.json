@@ -2,7 +2,16 @@
   "id": -1,
   "type": "separate3",
   "name": "Separate 3",
-  "meta": [],
+  "meta": [
+    {
+      "aliases": [
+        "split",
+        "split vector3",
+        "decompose",
+        "separate xyz"
+      ]
+    }
+  ],
   "position": [
     0,
     0

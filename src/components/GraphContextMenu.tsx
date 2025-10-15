@@ -219,7 +219,10 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     // When searching, show flat node list with category labels
     if (q) {
       const matches = palette.flat
-        .filter((n) => [n.name, n.type, n.category].some((s) => s.toLowerCase().includes(q)))
+        .filter((n) => {
+          const tokens = [n.name, n.type, n.category, ...(n.aliases ?? [])];
+          return tokens.some((s) => s.toLowerCase().includes(q));
+        })
         .sort((a, b) => a.name.localeCompare(b.name) || a.category.localeCompare(b.category));
       return matches.map((n) => ({ kind: "node", key: `${n.category}/${n.type}`, node: n }));
     }

@@ -2,7 +2,16 @@
   "id": -1,
   "type": "combine2",
   "name": "Combine 2",
-  "meta": [],
+  "meta": [
+    {
+      "aliases": [
+        "merge",
+        "combine vector2",
+        "compose",
+        "join"
+      ]
+    }
+  ],
   "position": [
     0,
     0

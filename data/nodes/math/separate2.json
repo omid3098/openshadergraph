@@ -2,7 +2,16 @@
   "id": -1,
   "type": "separate2",
   "name": "Separate 2",
-  "meta": [],
+  "meta": [
+    {
+      "aliases": [
+        "split",
+        "split vector2",
+        "decompose",
+        "separate xy"
+      ]
+    }
+  ],
   "position": [
     0,
     0

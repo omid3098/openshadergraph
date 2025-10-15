@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { extractNodeAliases } from "../core/schema/nodeMeta";
 
 export async function nodesListHandler(): Promise<Response> {
   try {
@@ -13,7 +14,7 @@ export async function nodesListHandler(): Promise<Response> {
       return Response.json({ error: "OSG data missing: 'data/nodes' directory not found" }, { status: 500 });
     }
 
-    const items: Array<{ type: string; name: string; path: string; category: string }> = [];
+    const items: Array<{ type: string; name: string; path: string; category: string; aliases?: string[] }> = [];
     async function walk(dir: string, prefix = ""): Promise<void> {
       const entries = await fs.readdir(dir, { withFileTypes: true } as any);
       for (const e of entries as any[]) {
@@ -31,7 +32,16 @@ export async function nodesListHandler(): Promise<Response> {
             // Determine category from directory segment, not filename
             const dirPart = prefix ? prefix.split(path.sep)[0] : "";
             const category = dirPart || "root";
-            items.push({ type, name, path: rel, category });
+            const aliases = extractNodeAliases(json.meta);
+            const item = { type, name, path: rel, category } as {
+              type: string;
+              name: string;
+              path: string;
+              category: string;
+              aliases?: string[];
+            };
+            if (aliases.length > 0) item.aliases = aliases;
+            items.push(item);
           } catch (err) {
             console.warn("Failed parsing node template:", rel, err);
           }
@@ -40,8 +50,10 @@ export async function nodesListHandler(): Promise<Response> {
     }
     await walk(root);
 
-    const categories: Record<string, typeof items> = {};
-    for (const it of items) {
+    const enriched = items;
+
+    const categories: Record<string, typeof enriched> = {};
+    for (const it of enriched) {
       const key = it.category ?? "root";
       (categories[key] ??= []).push(it);
     }
@@ -57,7 +69,7 @@ export async function nodesListHandler(): Promise<Response> {
 
     return Response.json({
       categories: orderedCategories,
-      flat: items.sort((a, b) => a.name.localeCompare(b.name)),
+      flat: enriched.sort((a, b) => a.name.localeCompare(b.name)),
     });
   } catch (err) {
     console.error("/api/nodes failed:", err);
