@@ -35,10 +35,7 @@ function resolveContributor(commit) {
 }
 
 export default {
-  branches: [
-    { name: "dev" },
-    { name: "beta", prerelease: "beta" },
-  ],
+  branches: [{ name: "dev" }],
   repositoryUrl: "https://github.com/omid3098/openshadergraph",
   plugins: [
     ["@semantic-release/commit-analyzer", { preset: "conventionalcommits" }],
