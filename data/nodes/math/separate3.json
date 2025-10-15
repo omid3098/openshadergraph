@@ -6,7 +6,6 @@
     {
       "aliases": [
         "split",
-        "split vector3",
         "decompose",
         "separate xyz"
       ]
