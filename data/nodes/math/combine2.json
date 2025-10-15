@@ -2,7 +2,15 @@
   "id": -1,
   "type": "combine2",
   "name": "Combine 2",
-  "meta": [],
+  "meta": [
+    {
+      "aliases": [
+        "merge",
+        "compose",
+        "join"
+      ]
+    }
+  ],
   "position": [
     0,
     0
