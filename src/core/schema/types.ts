@@ -55,6 +55,7 @@ export type NodePaletteItem = {
   name: string;
   path: string; // relative to data/nodes
   category: string; // folder name or 'root'
+  aliases?: string[];
 };
 
 export type NodePalette = {

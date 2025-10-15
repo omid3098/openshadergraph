@@ -2,7 +2,13 @@
   "id": -1,
   "type": "float2",
   "name": "Float2",
-  "meta": [],
+  "meta": [
+    {
+      "aliases": [
+        "vector2"
+      ]
+    }
+  ],
   "position": [
     0,
     0

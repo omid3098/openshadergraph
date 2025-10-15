@@ -6,6 +6,7 @@ import { rm, cp, mkdir, writeFile, readdir, readFile, stat } from "fs/promises";
 import path from "path";
 import { gzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { validateLanguagePack, validateNodeTemplate } from "./src/core/schema/validators";
+import { extractNodeAliases } from "./src/core/schema/nodeMeta";
 import { getDeployLabel } from "./src/core/env/getDeployLabel";
 
 // Print help text if requested
@@ -280,7 +281,7 @@ async function* walk(dir: string, prefix = ""): AsyncGenerator<{ rel: string; ab
 async function generateNodesIndex() {
   const root = path.resolve(process.cwd(), "data", "nodes");
   if (!existsSync(root)) return;
-  const items: Array<{ type: string; name: string; path: string; category: string }> = [];
+  const items: Array<{ type: string; name: string; path: string; category: string; aliases?: string[] }> = [];
   for await (const entry of walk(root)) {
     if (entry.isDir) continue;
     if (!entry.rel.endsWith(".json")) continue;
@@ -292,18 +293,28 @@ async function generateNodesIndex() {
       const name = String(json.name ?? type);
       const rel = entry.rel;
       const category = rel.includes(path.sep) ? (rel.split(path.sep)[0] ?? "root") : "root";
-      items.push({ type, name, path: rel, category });
+      const aliases = extractNodeAliases(json.meta);
+      const item = { type, name, path: rel, category } as {
+        type: string;
+        name: string;
+        path: string;
+        category: string;
+        aliases?: string[];
+      };
+      if (aliases.length > 0) item.aliases = aliases;
+      items.push(item);
     } catch (_err) { /* ignore invalid node template */ }
   }
-  const categories: Record<string, typeof items> = {};
-  for (const it of items) (categories[it.category] ??= []).push(it);
+  const enriched = items;
+  const categories: Record<string, typeof enriched> = {};
+  for (const it of enriched) (categories[it.category] ??= []).push(it);
   const orderedCategories = Object.keys(categories)
     .sort((a, b) => a.localeCompare(b))
     .map((name) => ({
       name,
       nodes: (categories[name] ?? []).map((n) => ({ ...n, path: n.path })).sort((a, b) => a.name.localeCompare(b.name)),
     }));
-  const out = { categories: orderedCategories, flat: items.sort((a, b) => a.name.localeCompare(b.name)) };
+  const out = { categories: orderedCategories, flat: enriched.sort((a, b) => a.name.localeCompare(b.name)) };
   const outDir = path.join(outdir, "data");
   if (!existsSync(outDir)) await mkdir(outDir, { recursive: true });
   await writeFile(path.join(outDir, "nodes.index.json"), JSON.stringify(out, null, 2), "utf8");
