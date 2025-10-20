@@ -33,6 +33,11 @@ import {
 } from "./core/ui/nodeUpdaters";
 import { GraphStateProvider } from "./core/ui/GraphStateContext";
 import {
+  EditorPanelLayoutProvider,
+  type EditorPanelLayout,
+  type EditorPanelLayoutPatch,
+} from "./core/ui/EditorPanelLayoutContext";
+import {
   SettingsProvider,
   type CurveMode,
   type ThemeName,
@@ -130,6 +135,33 @@ function normalizeActionHotkeys(value?: ActionHotkeys | null): ActionHotkeys {
   const code = typeof value?.quickExportCode === "string" ? value.quickExportCode.trim() : "";
   const normalized = code.length ? code : DEFAULT_ACTION_HOTKEYS.quickExportCode;
   return { quickExportCode: normalized };
+}
+
+const EDITOR_PANEL_LAYOUT_STORAGE_KEY = "ui.editorPanels";
+
+function sanitizeEditorPanelLayouts(
+  value: unknown
+): Partial<Record<EditorPanelKey, EditorPanelLayout>> {
+  if (!value || typeof value !== "object") return {};
+  const result: Partial<Record<EditorPanelKey, EditorPanelLayout>> = {};
+  const entries = Object.keys(EDITOR_PANEL_TYPES) as EditorPanelKey[];
+  const parseCoordinate = (coord: unknown): number => {
+    if (typeof coord === "number" && Number.isFinite(coord)) return coord;
+    if (typeof coord === "string") {
+      const parsed = Number.parseFloat(coord);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  };
+  for (const key of entries) {
+    const raw = (value as Record<string, unknown>)[key];
+    if (!raw || typeof raw !== "object") continue;
+    const pinned = Boolean((raw as any).pinned);
+    const viewportX = parseCoordinate((raw as any).viewportX);
+    const viewportY = parseCoordinate((raw as any).viewportY);
+    result[key] = { pinned, viewportX, viewportY };
+  }
+  return result;
 }
 
 const ALIGNMENT_LABELS: Record<AlignmentKind, string> = {
@@ -278,6 +310,9 @@ export function App() {
   const [canQuickExport, setCanQuickExport] = useState(false);
   const quickExportHandleRef = useRef<FileSystemFileHandle | null>(null);
   const quickExportLanguageRef = useRef<string | null>(null);
+  const [editorPanelLayouts, setEditorPanelLayouts] = useState<
+    Partial<Record<EditorPanelKey, EditorPanelLayout>>
+  >({});
   const setQuickExportState = useCallback(
     (handle: FileSystemFileHandle | null, language: string | null) => {
       quickExportHandleRef.current = handle;
@@ -358,6 +393,68 @@ export function App() {
     if (!quickHotkeysPersistReadyRef.current) return;
     void persistSet("ui.quickNodeHotkeys", quickNodeHotkeys);
   }, [quickNodeHotkeys]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await persistGet<Partial<Record<EditorPanelKey, EditorPanelLayout>>>(
+        EDITOR_PANEL_LAYOUT_STORAGE_KEY
+      );
+      if (cancelled) return;
+      if (stored && typeof stored === "object") {
+        const sanitized = sanitizeEditorPanelLayouts(stored);
+        if (Object.keys(sanitized).length) {
+          setEditorPanelLayouts((prev) => ({ ...sanitized, ...prev }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const updateEditorPanelLayout = useCallback(
+    (panel: EditorPanelKey, patch: EditorPanelLayoutPatch | null) => {
+      if (!panel) return;
+      setEditorPanelLayouts((prev) => {
+        const previous = prev[panel];
+        if (patch === null) {
+          if (!(panel in prev)) return prev;
+          const { [panel]: _removed, ...rest } = prev;
+          const next = rest as Partial<Record<EditorPanelKey, EditorPanelLayout>>;
+          void persistSet(EDITOR_PANEL_LAYOUT_STORAGE_KEY, next);
+          return next;
+        }
+        const resolved = typeof patch === "function" ? patch(previous) : patch;
+        if (!resolved) return prev;
+        const coerce = (value: unknown, fallback: number): number => {
+          if (typeof value === "number" && Number.isFinite(value)) return value;
+          if (typeof value === "string") {
+            const parsed = Number.parseFloat(value);
+            if (Number.isFinite(parsed)) return parsed;
+          }
+          return fallback;
+        };
+        const nextLayout: EditorPanelLayout = {
+          pinned: resolved.pinned ?? previous?.pinned ?? false,
+          viewportX: coerce(resolved.viewportX, previous?.viewportX ?? 0),
+          viewportY: coerce(resolved.viewportY, previous?.viewportY ?? 0),
+        };
+        if (
+          previous &&
+          previous.pinned === nextLayout.pinned &&
+          previous.viewportX === nextLayout.viewportX &&
+          previous.viewportY === nextLayout.viewportY
+        ) {
+          return prev;
+        }
+        const next = { ...prev, [panel]: nextLayout } as Partial<Record<EditorPanelKey, EditorPanelLayout>>;
+        void persistSet(EDITOR_PANEL_LAYOUT_STORAGE_KEY, next);
+        return next;
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1413,6 +1510,14 @@ export function App() {
   }, [nodes]);
 
   const selectedCount = useMemo(() => nodes.filter((node) => node.selected).length, [nodes]);
+
+  const editorPanelLayoutValue = useMemo(
+    () => ({
+      layouts: editorPanelLayouts,
+      updateLayout: updateEditorPanelLayout,
+    }),
+    [editorPanelLayouts, updateEditorPanelLayout]
+  );
 
   const graphStateValue = useMemo(
     () => ({
@@ -3310,12 +3415,13 @@ export function App() {
 
   return (
     <SettingsProvider value={settingsValue}>
-      <GraphStateProvider value={graphStateValue}>
-        <AppShell
-          header={Header}
-          sidebarContent={renderSidebar}
-          theme={theme}
-          onToggleTheme={toggleTheme}
+      <EditorPanelLayoutProvider value={editorPanelLayoutValue}>
+        <GraphStateProvider value={graphStateValue}>
+          <AppShell
+            header={Header}
+            sidebarContent={renderSidebar}
+            theme={theme}
+            onToggleTheme={toggleTheme}
         >
           {activeView === "settings" ? (
             <SettingsPage
@@ -3577,7 +3683,8 @@ export function App() {
             </div>
           )}
         </AppShell>
-      </GraphStateProvider>
+        </GraphStateProvider>
+      </EditorPanelLayoutProvider>
     </SettingsProvider>
   );
 }

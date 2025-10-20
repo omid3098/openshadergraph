@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, type CSSProperties } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, NodeResizer, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -22,9 +22,19 @@ const PreviewPanel = React.lazy(() => import("./PreviewPanel").then(m => ({ defa
 import { AssetsPanel } from "./AssetsPanel";
 import { ProbePreview } from "./ProbePreview";
 import { getBuiltinDisplayLabel, isBuiltinToken } from "@/core/types/builtinInputs";
-import { Paperclip, ArrowDownLeft, ArrowUpRight, SlidersHorizontal, PanelsTopLeft } from "lucide-react";
+import {
+  Paperclip,
+  ArrowDownLeft,
+  ArrowUpRight,
+  SlidersHorizontal,
+  PanelsTopLeft,
+  Pin as PinIcon,
+  PinOff,
+} from "lucide-react";
 import { parseEditorSize } from "@/core/ui/nodeFactory";
 import { ASSET_DRAG_MIME } from "@/core/assets/kind";
+import { useEditorPanelLayout } from "@/core/ui/EditorPanelLayoutContext";
+import type { EditorPanelKey } from "@/core/ui/editorNodes";
 
 type Pin = {
   id?: number;
@@ -82,7 +92,18 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const nodeId = useNodeId();
   // Subscribe to edges so this node re-renders when connections change
   const edges = useStore((s) => s.edges);
-  const { nodeUpdaterApi, graph } = useGraphState();
+  const { nodeUpdaterApi, graph, nodesById } = useGraphState();
+  const nodePosition = useMemo(() => {
+    if (!nodeId) return { x: 0, y: 0 };
+    const entry = nodesById.get(nodeId);
+    if (!entry) return { x: 0, y: 0 };
+    const pos = entry.position ?? { x: 0, y: 0 };
+    const px = typeof pos?.x === "number" && Number.isFinite(pos.x) ? pos.x : 0;
+    const py = typeof pos?.y === "number" && Number.isFinite(pos.y) ? pos.y : 0;
+    return { x: px, y: py };
+  }, [nodeId, nodesById]);
+  const positionX = nodePosition.x;
+  const positionY = nodePosition.y;
   const meta: string[] = Array.isArray((data as any)?.template?.meta) ? (((data as any).template.meta as unknown) as string[]) : [];
   const editorPanel = meta.find((m) => typeof m === "string" && m.startsWith("editor_panel:"));
   const editorPanelKey = editorPanel ? editorPanel.split(":")[1] ?? "" : "";
@@ -90,6 +111,73 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
   const editorWidgetKey = editorWidget ? editorWidget.split(":")[1] ?? "" : "";
   const isProbeWidget = editorWidgetKey.toLowerCase() === "probe";
   const isEditor = !isProbeWidget && meta.includes("editor_node");
+  const normalizedEditorPanelKey = useMemo(() => {
+    if (!isEditor) return undefined;
+    if (!editorPanelKey) return undefined;
+    return editorPanelKey as EditorPanelKey;
+  }, [isEditor, editorPanelKey]);
+  const { layout: editorLayout, updateLayout: updateEditorLayout } = useEditorPanelLayout(normalizedEditorPanelKey);
+  const transformState = useStore((state) => state.transform);
+  const viewportX = Array.isArray(transformState) && Number.isFinite(transformState[0]) ? transformState[0]! : 0;
+  const viewportY = Array.isArray(transformState) && Number.isFinite(transformState[1]) ? transformState[1]! : 0;
+  const viewportZoom = Array.isArray(transformState) && Number.isFinite(transformState[2]) && transformState[2]! > 0
+    ? transformState[2]!
+    : 1;
+  const isPinned = Boolean(isEditor && editorLayout?.pinned);
+  const canPin = Boolean(normalizedEditorPanelKey);
+  const pinnedStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!isPinned || !isEditor) return undefined;
+    const targetX = Number.isFinite(editorLayout?.viewportX)
+      ? (editorLayout?.viewportX as number)
+      : viewportX + viewportZoom * positionX;
+    const targetY = Number.isFinite(editorLayout?.viewportY)
+      ? (editorLayout?.viewportY as number)
+      : viewportY + viewportZoom * positionY;
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY) || !Number.isFinite(viewportZoom) || viewportZoom <= 0) {
+      return undefined;
+    }
+    const invZoom = 1 / viewportZoom;
+    const translateX = (targetX - viewportZoom * positionX - viewportX) / viewportZoom;
+    const translateY = (targetY - viewportZoom * positionY - viewportY) / viewportZoom;
+    return {
+      transform: `matrix(${invZoom},0,0,${invZoom},${translateX},${translateY})`,
+      transformOrigin: "0 0",
+    } satisfies CSSProperties;
+  }, [
+    isEditor,
+    isPinned,
+    editorLayout?.viewportX,
+    editorLayout?.viewportY,
+    viewportX,
+    viewportY,
+    viewportZoom,
+    positionX,
+    positionY,
+  ]);
+
+  const handleTogglePin = useCallback(
+    (nextPinned: boolean) => {
+      if (!isEditor || !normalizedEditorPanelKey) return;
+      if (!nextPinned) {
+        updateEditorLayout({ pinned: false });
+        return;
+      }
+      const targetX = viewportX + viewportZoom * positionX;
+      const targetY = viewportY + viewportZoom * positionY;
+      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) return;
+      updateEditorLayout({ pinned: true, viewportX: targetX, viewportY: targetY });
+    },
+    [
+      isEditor,
+      normalizedEditorPanelKey,
+      updateEditorLayout,
+      viewportX,
+      viewportY,
+      viewportZoom,
+      positionX,
+      positionY,
+    ]
+  );
   const preferredSize = isProbeWidget ? parseEditorSize(meta) : {};
   const preferredWidth = preferredSize.width;
   const preferredHeight = preferredSize.height;
@@ -452,7 +540,11 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
 
   if (isEditor) {
     return (
-      <div className="relative w-full h-full">
+      <div
+        className="relative w-full h-full"
+        style={pinnedStyle}
+        data-editor-pinned={isPinned ? "true" : undefined}
+      >
         <NodeResizer
           color={THEME.selectionColor}
           isVisible={selected}
@@ -463,23 +555,53 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           className={cn("h-full flex flex-col", ringBaseClass, ringClass)}
           style={cardRingVars}
           onPointerDownCapture={(event) => {
+            if (isPinned) {
+              const targetEl = event.target instanceof Element ? event.target : null;
+              if (targetEl && targetEl.closest(".node-drag-handle")) {
+                event.stopPropagation();
+                event.preventDefault();
+                return;
+              }
+            }
             if (shouldBlockNodePointer(event.target)) {
               event.stopPropagation();
             }
           }}
         >
           <CardHeader
-            className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center"
+            className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center justify-between"
             style={{
               ...headerStyle,
               borderTopLeftRadius: "inherit",
               borderTopRightRadius: "inherit",
+            }}
+            onPointerDownCapture={(event) => {
+              if (isPinned) {
+                event.stopPropagation();
+                event.preventDefault();
+              }
             }}
           >
             <div className="flex items-center gap-2">
               <PanelsTopLeft className="h-3.5 w-3.5 text-white/90" />
               <CardTitle className="text-sm text-white">{name}</CardTitle>
             </div>
+            <button
+              type="button"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-white/20 bg-white/10 text-white/90 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={isPinned ? "Unpin panel" : "Pin panel"}
+              aria-pressed={isPinned}
+              disabled={!canPin}
+              title={isPinned ? "Unpin panel" : "Pin panel to viewport"}
+              onClick={(event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                if (!canPin) return;
+                handleTogglePin(!isPinned);
+              }}
+            >
+              {isPinned ? <PinIcon className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+            </button>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-hidden">
             {renderEditorContent()}
