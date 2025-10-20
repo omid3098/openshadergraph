@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { Node as RFNode, NodeProps } from "@xyflow/react";
 import { Handle, NodeResizer, Position, useNodeId, useStore } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -125,8 +125,15 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     : 1;
   const isPinned = Boolean(isEditor && editorLayout?.pinned);
   const canPin = Boolean(normalizedEditorPanelKey);
+  const nodeInternal = useStore((state) =>
+    nodeId ? state.nodeLookup.get(nodeId) : undefined
+  );
+  const isDragging = Boolean(nodeInternal?.dragging);
+  const isResizing = Boolean(nodeInternal?.resizing);
+  const isPinnedInteracting = Boolean(isPinned && (isDragging || isResizing));
+
   const pinnedStyle = useMemo<CSSProperties | undefined>(() => {
-    if (!isPinned || !isEditor) return undefined;
+    if (!isPinned || !isEditor || isPinnedInteracting) return undefined;
     const targetX = Number.isFinite(editorLayout?.viewportX)
       ? (editorLayout?.viewportX as number)
       : viewportX + viewportZoom * positionX;
@@ -153,6 +160,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     viewportZoom,
     positionX,
     positionY,
+    isPinnedInteracting,
   ]);
 
   const handleTogglePin = useCallback(
@@ -178,6 +186,33 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
       positionY,
     ]
   );
+
+  const wasInteractingRef = useRef(false);
+  useEffect(() => {
+    if (!isPinned || !normalizedEditorPanelKey) {
+      wasInteractingRef.current = false;
+      return;
+    }
+    const wasInteracting = wasInteractingRef.current;
+    if (wasInteracting && !isPinnedInteracting) {
+      const nextViewportX = viewportX + viewportZoom * positionX;
+      const nextViewportY = viewportY + viewportZoom * positionY;
+      if (Number.isFinite(nextViewportX) && Number.isFinite(nextViewportY)) {
+        updateEditorLayout({ pinned: true, viewportX: nextViewportX, viewportY: nextViewportY });
+      }
+    }
+    wasInteractingRef.current = isPinnedInteracting;
+  }, [
+    isPinned,
+    isPinnedInteracting,
+    normalizedEditorPanelKey,
+    positionX,
+    positionY,
+    updateEditorLayout,
+    viewportX,
+    viewportY,
+    viewportZoom,
+  ]);
   const preferredSize = isProbeWidget ? parseEditorSize(meta) : {};
   const preferredWidth = preferredSize.width;
   const preferredHeight = preferredSize.height;
@@ -555,31 +590,17 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
           className={cn("h-full flex flex-col", ringBaseClass, ringClass)}
           style={cardRingVars}
           onPointerDownCapture={(event) => {
-            if (isPinned) {
-              const targetEl = event.target instanceof Element ? event.target : null;
-              if (targetEl && targetEl.closest(".node-drag-handle")) {
-                event.stopPropagation();
-                event.preventDefault();
-                return;
-              }
-            }
             if (shouldBlockNodePointer(event.target)) {
               event.stopPropagation();
             }
           }}
         >
           <CardHeader
-            className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center justify-between"
+            className="py-2 px-3 node-drag-handle cursor-grab active:cursor-grabbing flex items-center gap-2"
             style={{
               ...headerStyle,
               borderTopLeftRadius: "inherit",
               borderTopRightRadius: "inherit",
-            }}
-            onPointerDownCapture={(event) => {
-              if (isPinned) {
-                event.stopPropagation();
-                event.preventDefault();
-              }
             }}
           >
             <div className="flex items-center gap-2">
@@ -588,7 +609,7 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
             </div>
             <button
               type="button"
-              className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-white/20 bg-white/10 text-white/90 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-sm border border-white/20 bg-white/10 text-white/90 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label={isPinned ? "Unpin panel" : "Pin panel"}
               aria-pressed={isPinned}
               disabled={!canPin}
