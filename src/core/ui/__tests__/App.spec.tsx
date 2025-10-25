@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { OverlayProvider } from "@/core/ui/overlayState";
 
 vi.mock("@/core/schema/nodes", () => ({
   fetchNodePalette: vi.fn(async () => ({ categories: [], flat: [] })),
@@ -107,7 +108,9 @@ describe("App", () => {
     const renderApp = () =>
       render(
         <ReactFlowProvider>
-          <App />
+          <OverlayProvider>
+            <App />
+          </OverlayProvider>
         </ReactFlowProvider>
       );
 

@@ -187,6 +187,59 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     window.addEventListener("mouseup", onMouseUp);
   };
 
+  const overlayToolbar = (
+    <div className="px-3 py-2 border-b flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <div className="min-w-[160px]">
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger aria-label="Language">
+              <SelectValue placeholder="Language" />
+            </SelectTrigger>
+            <SelectContent>
+              {languages.map((l) => (
+                <SelectItem key={l.key} value={l.key}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[140px]">
+          <Select value={engine} onValueChange={setEngine}>
+            <SelectTrigger aria-label="Compiler">
+              <SelectValue placeholder="Compiler" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => copyToClipboard(code)} disabled={!code}>
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} Copy
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setCollapsed((v) => !v)}>
+          {collapsed ? "Expand" : "Collapse"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const overlayBody = !collapsed ? (
+    <div className="flex-1 min-h-0 relative">
+      <div
+        role="separator"
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize z-10"
+        onMouseDown={onHandleMouseDown}
+        aria-orientation="vertical"
+      />
+      <div className="absolute left-0 top-0 right-0 bottom-0 overflow-auto">
+        <CodeBlock language={getPrismLang(language)} code={code} className="h-full" />
+      </div>
+    </div>
+  ) : null;
+
   if (variant === "node") {
     const display = working ? "Compiling…" : (error || code);
     const lang = error ? "text" : getPrismLang(language);
@@ -232,57 +285,22 @@ export function CompilePanel({ graph, className, variant = "overlay" }: CompileP
     );
   }
 
+  if (variant === "overlay") {
+    return (
+      <div
+        className={cn("h-full flex flex-col", className)}
+        onWheel={(event) => event.stopPropagation()}
+      >
+        {overlayToolbar}
+        {overlayBody}
+      </div>
+    );
+  }
+
   return (
     <Card className={cn("h-full flex flex-col", className)}>
-      <div className="px-3 py-2 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="min-w-[160px]">
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger aria-label="Language">
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((l) => (
-                  <SelectItem key={l.key} value={l.key}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[140px]">
-            <Select value={engine} onValueChange={setEngine}>
-              <SelectTrigger aria-label="Compiler">
-                <SelectValue placeholder="Compiler" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => copyToClipboard(code)} disabled={!code}>
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} Copy
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setCollapsed((v) => !v)}>
-            {collapsed ? "Expand" : "Collapse"}
-          </Button>
-        </div>
-      </div>
-      {!collapsed && (
-        <div className="flex-1 min-h-0 relative">
-          <div
-            role="separator"
-            className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize z-10"
-            onMouseDown={onHandleMouseDown}
-            aria-orientation="vertical"
-          />
-          <div className="absolute left-0 top-0 right-0 bottom-0 overflow-auto">
-            <CodeBlock language={getPrismLang(language)} code={code} className="h-full" />
-          </div>
-        </div>
-      )}
+      {overlayToolbar}
+      {overlayBody}
     </Card>
   );
 }

@@ -454,3 +454,8 @@ openspec archive [change] [--yes|-y]  # Mark complete (add --yes for automation)
 ```
 
 Remember: Specs are truth. Changes are proposals. Keep them in sync.
+
+## Overlay Panels vs Graph Nodes
+
+- Treat Preview, Compile, Graph Data, Assets, and Properties as floating overlays. Toggle them from the View menu or the background context menu; they are not graph nodes and should never be serialized into a graph.
+- Only the Value Probe remains a true editor node on the canvas. Any new editor tooling must follow the overlay pattern instead of adding nodes to React Flow.

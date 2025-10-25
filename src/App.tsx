@@ -73,7 +73,7 @@ import { Button } from "./components/ui/button";
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarSub, MenubarSubTrigger, MenubarSubContent } from "./components/ui/menubar";
 import { SettingsPage } from "./ui/settings/SettingsPage";
 import type { Graph } from "@/core/graph/types";
-import { collectEditorNodes, computeEditorSpawnPosition, EDITOR_PANEL_TYPES, type EditorPanelKey } from "./core/ui/editorNodes";
+import { type EditorPanelKey, isOverlayTemplateType } from "./core/ui/editorNodes";
 import { Check, Github, BookOpen, Layers, Settings as SettingsIcon } from "lucide-react";
 import { groupSelected as utilGroupSelected, ungroupGroup as utilUngroupGroup } from "./core/graph/grouping";
 import { duplicateNodes, type DuplicateNodesResult } from "./core/graph/duplicate";
@@ -96,6 +96,12 @@ import { applyDuplicateSelection } from "./core/ui/duplicateSelection";
 import { createClipboardPayload, parseClipboardPayload, remapClipboardNodes, type ClipboardPayload } from "./core/ui/clipboard";
 import { makeInHandle, makeOutHandle } from "./core/ui/handles";
 import { apiFetch, resolveApiUrl } from "@/lib/api";
+import { PreviewOverlay } from "./components/overlays/PreviewOverlay";
+import { CompileOverlay } from "./components/overlays/CompileOverlay";
+import { GraphDataOverlay } from "./components/overlays/GraphDataOverlay";
+import { AssetsOverlay } from "./components/overlays/AssetsOverlay";
+import { PropertiesOverlay } from "./components/overlays/PropertiesOverlay";
+import { useOverlayManager } from "./core/ui/overlayState";
 
 const IS_TEST_ENV =
   (typeof process !== "undefined" && process.env?.VITEST === "true") ||
@@ -641,6 +647,7 @@ export function App() {
     const map = new Map<string, NodePaletteItem>();
     if (palette) {
       for (const item of palette.flat ?? []) {
+        if (isOverlayTemplateType(item.type)) continue;
         map.set(item.type, item);
       }
     }
@@ -1181,18 +1188,16 @@ export function App() {
     fitView: fitViewToNodeIds,
   });
 
+  const overlayManager = useOverlayManager();
+  const { overlays, toggleOverlay } = overlayManager;
   const activeEditorPanels = useMemo(() => {
     const set = new Set<EditorPanelKey>();
-    const parent = currentParentId ?? undefined;
-    for (const item of VIEW_MENU_ITEMS) {
-      const type = EDITOR_PANEL_TYPES[item.key];
-      if (!type) continue;
-      if (collectEditorNodes(nodes, type, parent).length) {
-        set.add(item.key);
-      }
+    const keys = Object.keys(overlays) as EditorPanelKey[];
+    for (const key of keys) {
+      if (overlays[key]?.visible) set.add(key);
     }
     return set;
-  }, [nodes, currentParentId]);
+  }, [overlays]);
 
   const beginHistoryActionRef = useRef<GraphHistoryApi["beginAction"]>(() => ({ cancel: () => {}, updateMeta: () => {} }));
   const commitGraphMutationRef = useRef<CommitGraphMutation>(() => {});
@@ -1352,7 +1357,6 @@ export function App() {
     }),
     [updateInputValue, updateNodePropertyValue, updateNodeLabel, addNodeMeta, removeNodeMeta, updateNodeAsset]
   );
-
   const {
     beginAction: beginHistoryAction,
     undo: undoHistory,
@@ -1495,95 +1499,13 @@ export function App() {
   const edgeTypes = useMemo(() => ({ colored: ColoredEdge as any }), []);
   const isValidConnectionCb = useCallback((conn: any) => isConnectionCompatible(nodesRef.current as any, conn as any), []);
 
-  const toggleEditorNode = useCallback(
-    async (
-      panel: EditorPanelKey,
-      origin?: { kind: "hotkey"; client: { x: number; y: number } } | { kind: "menu" }
-    ) => {
-      const type = EDITOR_PANEL_TYPES[panel];
-      if (!type) return;
-      const parent = currentParentId ?? undefined;
-      const existing = collectEditorNodes(nodesRef.current, type, parent);
-      if (existing.length) {
-        const removeIds = new Set(existing.map((node) => node.id));
-        const labels = existing.map((node) => ((node.data as any)?.label ?? (node.data as any)?.type ?? node.id) as string);
-        const summaryBase = labels.length === 1 ? labels[0] : `${labels.length} nodes`;
-        beginHistoryActionRef.current({ type: "delete-node", summary: `${summaryBase} • Remove` });
-        for (const id of removeIds) {
-          resizingEditorIdsRef.current.delete(id);
-        }
-        setNodes((prev) => prev.filter((node) => !removeIds.has(node.id)));
-        setEdges((prev) => prev.filter((edge) => !removeIds.has(edge.source) && !removeIds.has(edge.target)));
-        return;
-      }
-
-      const item = paletteByType.get(type);
-      if (!item) {
-        console.warn("Editor panel template missing for", type);
-        return;
-      }
-
-      let template: NodeTemplate | undefined;
-      try {
-        template = await fetchNodeTemplate(item.path);
-      } catch (err) {
-        console.warn("Failed to load editor panel template", type, err);
-      }
-
-      if (template) templateCacheRef.current?.prime(type, template);
-
-      const nextIdNum = idCounter.current + 1;
-      const nextId = String(nextIdNum);
-      const parentNode = currentParentId ? rf.getNode(currentParentId) : undefined;
-      const parentPosition = (() => {
-        const rel = parentNode?.position;
-        if (rel && Number.isFinite(rel.x) && Number.isFinite(rel.y)) return rel;
-        return { x: 0, y: 0 };
-      })();
-
-      let spawnPosition: { x: number; y: number } | null = null;
-      let clientPoint: { x: number; y: number } | null = null;
-
-      if (origin?.kind === "hotkey") {
-        clientPoint = origin.client;
-      } else if (origin?.kind === "menu") {
-        clientPoint = getFlowCenterClient();
-      }
-
-      if (!clientPoint) {
-        clientPoint = getFlowCenterClient();
-      }
-
-      if (clientPoint) {
-        const projected = rf.screenToFlowPosition(clientPoint);
-        spawnPosition = parent
-          ? {
-              x: projected.x - parentPosition.x,
-              y: projected.y - parentPosition.y,
-            }
-          : projected;
-      }
-
-      if (!spawnPosition) {
-        spawnPosition = computeEditorSpawnPosition(nodesRef.current, parent);
-      }
-
-      const rfArgs: any = {
-        id: nextId,
-        item,
-        position: spawnPosition,
-        nodeDefaults,
-      };
-      if (template) rfArgs.template = template;
-      if (parent) rfArgs.parentId = parent;
-      const rfNode = buildRFNodeFromTemplate(rfArgs);
-      const decoratedNode = attachNodeUpdateApi(rfNode as any, nodeUpdaterApi);
-      const displayName = ((decoratedNode.data as any)?.label ?? (decoratedNode.data as any)?.type ?? item.name ?? type) as string;
-      beginHistoryActionRef.current({ type: "add-node", summary: `${displayName} • Add` });
-      idCounter.current = nextIdNum;
-      setNodes((prev) => [...prev, decoratedNode as any]);
+  const toggleOverlayPanel = useCallback(
+    (panel: EditorPanelKey) => {
+      const overlay = overlays[panel];
+      if (!overlay) return;
+      toggleOverlay(panel, !overlay.visible);
     },
-    [currentParentId, paletteByType, setNodes, setEdges, nodeUpdaterApi, rf, getFlowCenterClient]
+    [overlays, toggleOverlay]
   );
 
   const inflateAndLoadGraph = useCallback(
@@ -2354,7 +2276,7 @@ export function App() {
 
   useGraphHotkeys({
     getPointerClient: getHotkeyPointer,
-    toggleEditorNode,
+    toggleOverlayPanel,
     addNodeAt,
     paletteByType,
     quickHotkeys: quickHotkeyMap,
@@ -3115,7 +3037,7 @@ export function App() {
                   <MenubarItem
                     key={key}
                     data-state={active ? "checked" : "unchecked"}
-                    onClick={() => void toggleEditorNode(key, { kind: "menu" })}
+                    onClick={() => toggleOverlayPanel(key)}
                   >
                     <div className="flex w-full items-center justify-between gap-2">
                       <span className="flex items-center gap-2">
@@ -3463,6 +3385,13 @@ export function App() {
                   }}
                 />
               </ReactFlow>
+              <div className="pointer-events-none absolute inset-0 z-40">
+                <PreviewOverlay />
+                <CompileOverlay />
+                <GraphDataOverlay />
+                <AssetsOverlay />
+                <PropertiesOverlay />
+              </div>
               <GraphContextMenu
                 open={menu.open}
                 kind={menu.kind}

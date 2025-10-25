@@ -71,3 +71,32 @@ export const EDITOR_PANEL_TYPES = {
 } as const;
 
 export type EditorPanelKey = keyof typeof EDITOR_PANEL_TYPES;
+
+const OVERLAY_PANEL_META_PREFIX = "editor_panel:";
+const OVERLAY_PANEL_KEYS = new Set<EditorPanelKey>(Object.keys(EDITOR_PANEL_TYPES) as EditorPanelKey[]);
+const OVERLAY_TEMPLATE_TYPES = new Set<string>(Object.values(EDITOR_PANEL_TYPES));
+
+export function parseOverlayPanelMeta(token: string): EditorPanelKey | null {
+  if (typeof token !== "string" || !token.startsWith(OVERLAY_PANEL_META_PREFIX)) return null;
+  const key = token.slice(OVERLAY_PANEL_META_PREFIX.length).trim().toLowerCase() as EditorPanelKey;
+  return OVERLAY_PANEL_KEYS.has(key) ? key : null;
+}
+
+export function isOverlayTemplateType(templateType: string | undefined | null): boolean {
+  if (!templateType) return false;
+  return OVERLAY_TEMPLATE_TYPES.has(templateType);
+}
+
+export function hasOverlayPanelMeta(meta: unknown): boolean {
+  if (typeof meta === "string") return parseOverlayPanelMeta(meta) !== null;
+  if (Array.isArray(meta)) {
+    return meta.some((entry) => typeof entry === "string" && parseOverlayPanelMeta(entry) !== null);
+  }
+  return false;
+}
+
+export function isOverlayEditorNode(candidate: { type?: string; meta?: unknown }): boolean {
+  const type = typeof candidate.type === "string" ? candidate.type : undefined;
+  const meta = Array.isArray(candidate.meta) ? candidate.meta : undefined;
+  return isOverlayTemplateType(type) || hasOverlayPanelMeta(meta);
+}

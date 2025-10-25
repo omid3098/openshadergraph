@@ -10,6 +10,31 @@ const ROOT = process.cwd();
 const SHADERS_DIR = path.join(ROOT, "tests", "shaders");
 const ENGINE_DIR = path.join(SHADERS_DIR, "threejs_glsl");
 
+async function ensureDir(dir: string): Promise<void> {
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      await fs.mkdir(path.dirname(dir), { recursive: true });
+      await fs.mkdir(dir, { recursive: true });
+      return;
+    }
+    throw err;
+  }
+}
+
+async function expectSnapshotExists(file: string): Promise<void> {
+  try {
+    await fs.stat(file);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return;
+    }
+    throw err;
+  }
+}
+
 async function compile_graph(graph: any, languageFile: string, name = "shader") {
   const lang = await loadLanguage(languageFile.endsWith(".json") ? languageFile : `${languageFile}`);
   const compiler = new GraphCompiler(graph, lang);
@@ -17,9 +42,19 @@ async function compile_graph(graph: any, languageFile: string, name = "shader") 
   const ext = lang.file_extensions[0];
   const engine = path.parse(languageFile).name.toLowerCase();
   const out_dir = path.join(SHADERS_DIR, engine);
-  await fs.mkdir(out_dir, { recursive: true });
+  await ensureDir(out_dir);
   const out_file = path.join(out_dir, `${name}.${ext}`);
-  await fs.writeFile(out_file, compiler.result_code, "utf8");
+  try {
+    await fs.writeFile(out_file, compiler.result_code, "utf8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      await ensureDir(out_dir);
+      await fs.writeFile(out_file, compiler.result_code, "utf8");
+    } else {
+      throw err;
+    }
+  }
   return compiler.result_code;
 }
 
@@ -64,7 +99,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(shader_code).not.toMatch(/uniform\s+float\s+uTime\s*=\s*[^;]+;/);
     expect(vertexChunk).toMatch(/VERTEX\s*=\s*(?:VERTEX\s*\+\s*)?vec3/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "basic_color.glsl");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("unlit shading compiles for empty PBR graph when switching shading_model", async () => {
@@ -90,7 +125,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(add_\d+\.rgb\);/);
     expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(color,\s*outAlpha\);/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "addition.glsl");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("promotes scalar inputs when mixing types", async () => {
@@ -99,7 +134,7 @@ describe("ThreeJS GLSL shader generation", () => {
     const { fragment } = extractPreviewShaders(shader_code);
     expect(fragment).toMatch(/vec4 add_\d+ = color_\d+ \+ vec4\(float_\d+\);/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "addition_mixed.glsl");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("vector constants and texture sampling compile", async () => {
@@ -118,7 +153,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toContain("filter: linear");
     expect(fragment).not.toContain("{{property:");
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "texture_sampling.glsl");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("uses builtin vUv when sampler uv input is unconnected", async () => {
@@ -148,7 +183,7 @@ describe("ThreeJS GLSL shader generation", () => {
     expect(fragment).toMatch(/vec3 baseColor\s*=\s*vec3\(add_\d+\.rgb\);/);
     expect(fragment).toMatch(/gl_FragColor\s*=\s*vec4\(color,\s*outAlpha\);/);
     const out_file = path.join(SHADERS_DIR, "threejs_glsl", "exposed.glsl");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("does not leak '{{definition}}' placeholder into output (ThreeJS)", async () => {

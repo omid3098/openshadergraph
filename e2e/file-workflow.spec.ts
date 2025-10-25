@@ -120,15 +120,31 @@ test.describe("File workflows", () => {
       store.openQueue.push({ name, contents });
     });
 
-    const compileAfterOpen = page.waitForResponse((response) => {
-      return response.url().includes("/api/compile") && response.request().method() === "POST";
-    });
-
     await page.getByRole("menuitem", { name: /^File$/i }).hover();
     await page.getByRole("menuitem", { name: /^File$/i }).click();
     await page.getByRole("menuitem", { name: /^Open…$/i }).click();
+    await setViewMenuItemState(page, /^Preview(?!-)/i, true);
+    await expect(page.locator('[role="dialog"]:has-text("Preview")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[role="dialog"]:has-text("Preview") canvas')).toBeVisible({ timeout: 10000 });
 
-    const compileResponse = await compileAfterOpen;
+    await setViewMenuItemState(page, /^Compile(?!-)/i, true);
+    const compilePanel = page.locator('[role="dialog"]:has-text("Compile")');
+    await expect(compilePanel).toBeVisible({ timeout: 10000 });
+    await expect(compilePanel.getByLabel("Language")).toBeVisible({ timeout: 10000 });
+
+    const compileResponse = await page.waitForResponse((response) => {
+      if (!response.url().includes("/api/compile")) return false;
+      if (response.request().method() !== "POST") return false;
+      const body = response.request().postData();
+      if (typeof body !== "string") return false;
+      try {
+        const parsed = JSON.parse(body);
+        if (!parsed || typeof parsed !== "object") return false;
+        return parsed.graph && parsed.graph.nodes && Array.isArray(parsed.graph.nodes);
+      } catch {
+        return false;
+      }
+    });
     expect(compileResponse.ok()).toBeTruthy();
     const compilePayload = await compileResponse.json();
     expect(String(compilePayload?.code ?? "").trim().length).toBeGreaterThan(0);
@@ -141,3 +157,29 @@ test.describe("File workflows", () => {
     await page.keyboard.press("Escape");
   });
 });
+
+async function setViewMenuItemState(page: Page, pattern: RegExp, shouldBeChecked: boolean) {
+  const trigger = page.getByRole("menuitem", { name: /^View$/i }).first();
+  await trigger.hover();
+  await trigger.click();
+  const menu = page.getByRole("menu", { name: /^View$/i }).first();
+  await expect(menu).toBeVisible({ timeout: 5000 });
+  const items = menu.getByRole("menuitem");
+  const count = await items.count();
+  let target = null;
+  for (let i = 0; i < count; i++) {
+    const candidate = items.nth(i);
+    const text = (await candidate.innerText()).trim();
+    if (pattern.test(text)) {
+      target = candidate;
+      break;
+    }
+  }
+  expect(target, `Failed to find View menu item matching ${pattern}`).not.toBeNull();
+  const state = await target!.getAttribute("data-state");
+  const isChecked = state === "checked";
+  if (isChecked !== shouldBeChecked) {
+    await target!.click();
+  }
+  await page.keyboard.press("Escape");
+}

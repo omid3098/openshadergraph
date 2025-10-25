@@ -13,7 +13,7 @@ import { ensureSurface, readExampleGraphs } from "./exampleGraphs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const GODOT_REPO_LATEST = "https://api.github.com/repos/godotengine/godot/releases/latest";
+const GODOT_REPO_RELEASES = "https://api.github.com/repos/godotengine/godot/releases";
 const CACHE_ROOT = path.join(os.homedir(), ".cache", "openshadergraph");
 const GODOT_CACHE_ROOT = path.join(CACHE_ROOT, "godot");
 const PROJECT_ROOT = path.resolve(__dirname, "godot");
@@ -28,7 +28,7 @@ function warn(msg: string) {
 }
 
 type PlatformTarget = {
-  assetSuffix: string;
+  assetSuffixes: string[];
   resolveBinaryPath: (extractDir: string, assetName: string) => string;
 };
 
@@ -36,13 +36,13 @@ function resolvePlatformTarget(): PlatformTarget {
   const platform = process.platform;
   if (platform === "darwin") {
     return {
-      assetSuffix: "macos.universal.zip",
+      assetSuffixes: ["macos.universal.zip", "osx.universal.zip"],
       resolveBinaryPath: (extractDir) => path.join(extractDir, "Godot.app", "Contents", "MacOS", "Godot"),
     };
   }
   if (platform === "linux") {
     return {
-      assetSuffix: "linux.x86_64.zip",
+      assetSuffixes: ["linux.x86_64.zip"],
       resolveBinaryPath: (extractDir, assetName) => {
         const base = assetName.replace(/\.zip$/i, "");
         return path.join(extractDir, base);
@@ -58,31 +58,88 @@ type ReleaseAsset = {
 };
 
 type ReleaseResponse = {
+  name?: string;
   tag_name?: string;
+  draft?: boolean;
+  prerelease?: boolean;
   assets?: ReleaseAsset[];
 };
 
-async function fetchLatestRelease(): Promise<ReleaseAsset & { version: string }> {
-  const target = resolvePlatformTarget();
-  const res = await fetch(GODOT_REPO_LATEST, {
+const DEFAULT_PREFERRED_MAJORS = ["4", "3"];
+
+function preferredMajors(): string[] {
+  const value = process.env.GODOT_VALIDATION_PREFERRED_MAJORS;
+  if (!value) return DEFAULT_PREFERRED_MAJORS;
+  const majors = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return majors.length ? majors : DEFAULT_PREFERRED_MAJORS;
+}
+
+function matchesMajor(version: string | undefined, major: string): boolean {
+  if (!version) return false;
+  const normalized = version.toLowerCase();
+  const normalizedMajor = major.trim().toLowerCase();
+  // Match variants such as "4.4.1-stable" or "Godot_v4.4.1-stable"
+  return normalized.startsWith(`${normalizedMajor}.`) || normalized.includes(`_v${normalizedMajor}.`);
+}
+
+async function fetchReleases(): Promise<ReleaseResponse[]> {
+  const res = await fetch(`${GODOT_REPO_RELEASES}?per_page=30`, {
     headers: {
       Accept: "application/vnd.github+json",
       "User-Agent": "openshadergraph-validator",
     },
   });
   if (!res.ok) {
-    throw new Error(`Failed to query Godot release info: ${res.status} ${res.statusText}`);
+    throw new Error(`Failed to query Godot release list: ${res.status} ${res.statusText}`);
   }
-  const json = (await res.json()) as ReleaseResponse;
-  if (!Array.isArray(json.assets) || json.assets.length === 0) {
-    throw new Error("Latest Godot release does not expose downloadable assets.");
+  const data = (await res.json()) as ReleaseResponse[];
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("Godot release list is empty.");
   }
-  const asset = json.assets.find((a) => a.name.endsWith(target.assetSuffix) && !a.name.includes("mono"));
-  if (!asset) {
-    throw new Error(`No matching Godot asset found for suffix '${target.assetSuffix}'.`);
+  return data;
+}
+
+function pickAsset(release: ReleaseResponse, suffixes: string[]): ReleaseAsset | undefined {
+  if (!Array.isArray(release.assets)) return undefined;
+  return release.assets.find(
+    (asset) => suffixes.some((suffix) => asset.name.endsWith(suffix)) && !asset.name.includes("mono"),
+  );
+}
+
+async function fetchLatestRelease(): Promise<ReleaseAsset & { version: string }> {
+  const target = resolvePlatformTarget();
+  const releases = await fetchReleases();
+  const majors = preferredMajors();
+
+  for (const major of majors) {
+    const matchingRelease = releases.find(
+      (release) =>
+        !release.draft &&
+        !release.prerelease &&
+        (matchesMajor(release.tag_name, major) || matchesMajor(release.name, major)),
+    );
+    if (!matchingRelease) continue;
+    const asset = pickAsset(matchingRelease, target.assetSuffixes);
+    if (asset) {
+      const version = matchingRelease.tag_name ?? asset.name;
+      return { ...asset, version };
+    }
   }
-  const version = json.tag_name ?? asset.name;
-  return { ...asset, version };
+
+  // Fallback: choose the first release (descending order) that has a usable asset.
+  const fallbackRelease = releases.find((release) => !release.draft && !release.prerelease && pickAsset(release, target.assetSuffixes));
+  if (fallbackRelease) {
+    const asset = pickAsset(fallbackRelease, target.assetSuffixes);
+    if (asset) {
+      const version = fallbackRelease.tag_name ?? asset.name;
+      return { ...asset, version };
+    }
+  }
+
+  throw new Error(`No matching Godot asset found for suffix '${target.assetSuffixes.join("' or '")}'.`);
 }
 
 async function streamDownload(url: string, destPath: string): Promise<void> {

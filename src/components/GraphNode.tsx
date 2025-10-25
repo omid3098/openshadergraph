@@ -14,12 +14,6 @@ import { THEME } from "@/styles/theme";
 import type { NodeProperty } from "@/core/schema/types";
 import { useGraphState } from "@/core/ui/GraphStateContext";
 import type { NodeAssetPayload } from "@/core/ui/nodeUpdaters";
-import { PropertiesPanel } from "./PropertiesPanel";
-import { CompilePanel } from "./CompilePanel";
-import { GraphDataPanel } from "./GraphDataPanel";
-import React from "react";
-const PreviewPanel = React.lazy(() => import("./PreviewPanel").then(m => ({ default: m.PreviewPanel })));
-import { AssetsPanel } from "./AssetsPanel";
 import { ProbePreview } from "./ProbePreview";
 import { getBuiltinDisplayLabel, isBuiltinToken } from "@/core/types/builtinInputs";
 import { Paperclip, ArrowDownLeft, ArrowUpRight, SlidersHorizontal, PanelsTopLeft } from "lucide-react";
@@ -222,21 +216,6 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     [nodeId, data, nodeUpdaterApi]
   );
 
-  const updateNodeAsset = useCallback(
-    (asset: NodeAssetPayload | null) => {
-      if (!nodeId) return;
-      const external = (data as any)?.updateNodeAsset as
-        | ((id: string, asset: NodeAssetPayload | null) => void)
-        | undefined;
-      if (typeof external === "function") {
-        external(nodeId, asset);
-        return;
-      }
-      nodeUpdaterApi.updateNodeAsset(nodeId, asset);
-    },
-    [nodeId, data, nodeUpdaterApi]
-  );
-
   // Color picker state moved into ColorInput component
 
   const isConnected = useCallback(
@@ -285,42 +264,6 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
         </div>
       );
     }
-    if (key === "properties") {
-      return <PropertiesPanel variant="node" className="h-full overflow-auto" />;
-    }
-    if (key === "compile") {
-      return <CompilePanel variant="node" graph={graph} className="h-full" />;
-    }
-    if (key === "graphdata" || key === "graph_data") {
-      return <GraphDataPanel variant="node" data={graph} className="h-full" />;
-    }
-    if (key === "preview") {
-      return (
-        <React.Suspense fallback={<div className="p-3 text-xs text-muted-foreground">Loading preview…</div>}>
-          <PreviewPanel
-            variant="node"
-            graph={graph}
-            className="h-full"
-            asset={currentAsset ?? null}
-            getProperty={(propId: string) => {
-              const props: any[] = Array.isArray((data as any)?.template?.properties)
-                ? ((data as any).template.properties as any[])
-                : [];
-              const found = props.find((p) => p && typeof p === "object" && p.id === propId);
-              return found?.value ?? found?.default;
-            }}
-            setProperty={(propId: string, next: unknown) => {
-              if (!nodeId || !propId) return;
-              updatePropertyValue(propId, next);
-            }}
-            setAsset={(next) => updateNodeAsset(next as any)}
-          />
-        </React.Suspense>
-      );
-    }
-    if (key === "assets") {
-      return <AssetsPanel variant="node" className="h-full" />;
-    }
     return <div className="p-3 text-xs text-muted-foreground">Editor panel unavailable.</div>;
   }, [
     editorWidgetKey,
@@ -329,8 +272,6 @@ export function GraphNode({ data, selected }: NodeProps<RFNode<GraphNodeData>>) 
     data,
     nodeId,
     updatePropertyValue,
-    updateNodeAsset,
-    currentAsset,
     scheduleSelectionRestore,
   ]);
 

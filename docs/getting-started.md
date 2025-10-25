@@ -16,13 +16,14 @@ Welcome to OpenShaderGraph! This guide will help you create your first shader ma
 
         1. From the menu bar select **File → New → PBR** to create a new PBR material graph.
         2. Notice the breadcrumb at the top of the app. It should show **`Untitled Pbr > Surface > FragmentPass`**.
-        3. You should see a **FragmentOutput** node with a **3D Preview** node.
-        4. Try to add a **Compile Output** editor node right click on the canvas and type **Compile Output**.
+        3. Open the Preview overlay from the menu bar (**View → Preview**).
+        4. Use **View → Compile** to pop out the compile overlay.
 
     === "Expected result"
 
         - The breadcrumb displays **`Untitled Pbr > Surface > FragmentPass`**.
-        - You should have 3 nodes on the canvas: **FragmentOutput**, **3D Preview**, and **Compile Output**.
+        - You should have a **FragmentOutput** node on the canvas.
+        - Floating Preview and Compile overlays appear above the canvas; you can drag them wherever you like.
 
 ### 2. Understanding Graph Structure
 
@@ -130,27 +131,26 @@ To connect nodes, simply drag and drop the output pin of one node to the input p
     - Delete a connection by selecting the connction line and pressing **Delete** or **Backspace**
     - You can double click on a connection line to create a re-route node.
 
-## Editor Nodes
+## Editor Panels & Overlays
 
-Editor Nodes provide tools and information but **don't affect generated shader code**. Add them via the context menu:
+Editor tools now live in floating overlays that **don't affect generated shader code**. Toggle them from the menu bar (**View**) or the background context menu (**View → ...**). Overlays remember their size and position across graphs.
 
-<button onclick="window.parent.postMessage({ type: 'LOAD_EXAMPLE_GRAPH', key: 'doc/editor_nodes' }, window.location.origin)" class="md-button md-button--secondary">Load Editor Nodes Graph</button>
-
-- **3D Preview**: Real-time material preview with lighting
-- **Assets**: Manage textures and models
-- **Compile Output**: View generated shader code
+- **Preview**: Real-time material preview with lighting
+- **Compile**: View generated shader code
 - **Graph Data**: Inspect graph structure (JSON)
-- **Properties**: Quick access to selected node properties
-- **Value Probe**: Debug pin values in real-time
+- **Assets**: Manage textures and models
+- **Properties**: Quick access to the selected node's properties
+
+The **Value Probe** remains a graph node. Add it from the context menu to sample pin values in real-time.
 
 ## Working with Textures
 
-To use a texture in your shader you need to use the **Assets** editor node. then drag and drop the texture into the graph.
+To use a texture in your shader, open the **Assets** overlay and drag textures from there into the graph.
 
 !!! example "Try this"
 
     === "Exercise"
-        1. Add the **Assets** editor node to the graph.
+        1. Toggle the **Assets** overlay from the View menu.
         2. Drag and drop the texture into the graph.
         3. Create a **TextureSampler** node.tex
         4. Connect the **Texture.texture** pin to the **TextureSampler.texture** pin.
@@ -158,14 +158,14 @@ To use a texture in your shader you need to use the **Assets** editor node. then
 
     === "Expected result"
 
-        - You should be able to see the texture in the 3D Preview node applied on the object.
+        - You should be able to see the texture applied in the Preview overlay.
 
 ## Using the shader in your project
 
 !!! example "Try this"
 
     === "Exercise"
-        1. Open the **Compile Output** editor node.
+        1. Open the **Compile** overlay from the View menu.
         2. From the top menu select **File → Export → &lt;language&gt;** (menu entries show the language `name`, e.g. "ThreeJS GLSL" or "Godot").
         3. The editor compiles the active graph using the selected language template. In Chromium-based browsers (Chrome, Edge, Arc, etc.) you'll be prompted once to choose a destination on disk; other browsers automatically download the generated shader using the language's primary file extension (for example `.glsl` or `.gdshader`).
         4. After saving to disk in a Chromium browser, a **Quick Export** button appears in the header so you can overwrite the same file with a single click or the ⌘⇧E / Ctrl+Shift+E hotkey.

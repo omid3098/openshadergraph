@@ -12,7 +12,10 @@ import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
 import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
 import type { AlignmentKind, DistributionKind } from "@/core/ui/arrange";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { VIEW_MENU_ITEMS } from "@/core/ui/hotkeys";
+import { isOverlayTemplateType, type EditorPanelKey } from "@/core/ui/editorNodes";
+import { useOverlayManager } from "@/core/ui/overlayState";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 
 export type ContextKind = "background" | "node" | "edge" | "selection";
 
@@ -213,6 +216,19 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
     | { kind: "category"; key: string }
     | { kind: "node"; key: string; node: NodePaletteItem; parent?: string };
 
+  const { overlays: overlayStates, toggleOverlay } = useOverlayManager();
+  const overlayToggleItems = useMemo(() => {
+    return VIEW_MENU_ITEMS.map(({ key, label, hotkey }) => {
+      const overlay = overlayStates[key as EditorPanelKey];
+      return {
+        key: key as EditorPanelKey,
+        label,
+        hotkey,
+        active: overlay?.visible ?? false,
+      };
+    });
+  }, [overlayStates]);
+
   const visibleItems: VisibleItem[] = useMemo(() => {
     if (kind !== "background" || !palette) return [];
     const q = query.trim().toLowerCase();
@@ -221,7 +237,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
       const matches = palette.flat
         .filter((n) => {
           const tokens = [n.name, n.type, n.category, ...(n.aliases ?? [])];
-          return tokens.some((s) => s.toLowerCase().includes(q));
+          return !isOverlayTemplateType(n.type) && tokens.some((s) => s.toLowerCase().includes(q));
         })
         .sort((a, b) => a.name.localeCompare(b.name) || a.category.localeCompare(b.category));
       return matches.map((n) => ({ kind: "node", key: `${n.category}/${n.type}`, node: n }));
@@ -232,6 +248,7 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
       items.push({ kind: "category", key: c.name });
       if (expanded.has(c.name)) {
         for (const n of [...c.nodes].sort((a, b) => a.name.localeCompare(b.name))) {
+          if (isOverlayTemplateType(n.type)) continue;
           items.push({ kind: "node", key: `${c.name}/${n.type}`, node: n, parent: c.name });
         }
       }
@@ -618,6 +635,39 @@ export function GraphContextMenu(props: GraphContextMenuProps) {
                   autoFocus
                   className="h-8 w-full text-sm"
                 />
+                <div className="flex flex-col gap-1">
+                  <div className="px-1 text-[11px] uppercase tracking-wide text-muted-foreground">View Panels</div>
+                  {overlayToggleItems.map((panel) => (
+                    <button
+                      key={`overlay:${panel.key}`}
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-muted",
+                        panel.active && "bg-muted/80"
+                      )}
+                      data-menu-item="true"
+                      role="menuitemcheckbox"
+                      aria-checked={panel.active}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleOverlay(panel.key, !panel.active);
+                        onClose();
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        {panel.active ? (
+                          <Check aria-hidden="true" className="h-3 w-3" />
+                        ) : (
+                          <span aria-hidden="true" className="inline-block h-3 w-3" />
+                        )}
+                        <span>{panel.label}</span>
+                      </span>
+                      <span className="text-[10px] uppercase text-muted-foreground">{panel.hotkey}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="h-px bg-border" />
                 <div className="flex flex-col gap-1">
                   {visibleItems.length === 0 && (
                     <div className="text-muted-foreground text-sm">No nodes found</div>

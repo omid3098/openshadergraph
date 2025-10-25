@@ -3,6 +3,7 @@ import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { GraphContextMenu } from "@/components/GraphContextMenu";
+import { OverlayProvider } from "@/core/ui/overlayState";
 import type { NodePalette, NodePaletteItem } from "@/core/schema/types";
 
 beforeEach(() => {
@@ -31,14 +32,16 @@ describe("GraphContextMenu search", () => {
 
   it("matches nodes by alias when searching", () => {
     render(
-      <GraphContextMenu
-        open
-        kind="background"
-        x={100}
-        y={100}
-        palette={palette}
-        onClose={() => {}}
-      />
+      <OverlayProvider>
+        <GraphContextMenu
+          open
+          kind="background"
+          x={100}
+          y={100}
+          palette={palette}
+          onClose={() => {}}
+        />
+      </OverlayProvider>
     );
 
     const input = screen.getByPlaceholderText("Search nodes…");
