@@ -1,3 +1,13 @@
+## [0.7.0](https://github.com/omid3098/openshadergraph/compare/v0.6.1...v0.7.0) (2025-10-25)
+
+- Merge branch 'dev' into editor-nodes-to-cards- Merge pull request #79 from omid3098/editor-nodes-to-cards
+### Features
+
+- implement floating overlays for Preview, Compile, Graph Data, Assets, and Properties _(by Omid Saadat)_ ([4be9a6b]())
+### Documentation
+
+- plan for add-floating-ui-overlays _(by Omid Saadat)_ ([b95b1e1]())- update OpenSpec instructions for AI assistants _(by Omid Saadat)_ ([ed54856]())
+
 ## Unreleased
 
 ### Features
