@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "@xyflow/react";
 import { shallow } from "zustand/shallow";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -317,14 +317,6 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
     </div>
   );
 
-  if (variant === "docked") {
-    return (
-      <Card className={cn("h-full flex flex-col", className)}>
-        <CardContent className="px-4 pb-4 flex-1 overflow-auto">{body}</CardContent>
-      </Card>
-    );
-  }
-
   if (variant === "node") {
     return (
       <div className={cn("h-full overflow-auto px-4 pb-4", className)}>
@@ -333,15 +325,18 @@ export function PropertiesPanel({ className, variant = "docked" }: PropertiesPan
     );
   }
 
+  if (variant === "overlay") {
+    return (
+      <div className={cn("h-full overflow-auto px-4 pb-4", className)}>
+        {body}
+      </div>
+    );
+  }
+
   return (
-    <div className={cn("fixed bottom-2 right-2 z-40 pointer-events-none", className)}>
-      <Card className="pointer-events-auto">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-sm">Properties</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">{body}</CardContent>
-      </Card>
-    </div>
+    <Card className={cn("h-full flex flex-col", className)}>
+      <CardContent className="px-4 pb-4 flex-1 overflow-auto">{body}</CardContent>
+    </Card>
   );
 }
 

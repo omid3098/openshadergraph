@@ -686,6 +686,19 @@ export function AssetsPanel({ className, variant = "docked" }: AssetsPanelProps)
     );
   }
 
+  if (variant === "overlay") {
+    return (
+      <div
+        className={cn("h-full flex flex-col overflow-hidden", className)}
+        data-node-interactive
+        onPointerDownCapture={(event) => event.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
+      >
+        {body}
+      </div>
+    );
+  }
+
   if (variant === "docked") {
     return (
       <Card

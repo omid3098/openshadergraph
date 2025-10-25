@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "@/lib/utils";
 import { isAbortError } from "@/lib/errors";
@@ -114,14 +113,6 @@ function disposeMaterial(
 }
 
 export function PreviewPanel({ graph, className, variant = "overlay", getProperty, setProperty, asset, setAsset }: PreviewPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [width, setWidth] = useState<number>(() => {
-    const stored = typeof localStorage !== "undefined" ? Number(localStorage.getItem("previewPanel.width")) : 0;
-    return Number.isFinite(stored) && stored > 240 ? stored : 520;
-  });
-  const resizing = useRef(false);
-  const startX = useRef(0);
-  const startW = useRef(0);
 
   const [primitive, setPrimitive] = useState<Primitive>(() => {
     const prop = getProperty?.("primitive");
@@ -160,7 +151,6 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
   const lightingDescription = lightingProfile.description.trim();
   const hasLightingDescription = lightingDescription.length > 0;
 
-  useEffect(() => { if (typeof localStorage !== "undefined") localStorage.setItem("previewPanel.width", String(width)); }, [width]);
   // Keep latest setProperty in a ref to avoid effect dependency loops
   const setPropertyRef = useRef<typeof setProperty>(setProperty);
   useEffect(() => { setPropertyRef.current = setProperty; }, [setProperty]);
@@ -575,7 +565,7 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
       }
     }
     return observeElementSize(container, updateRendererSize);
-  }, [updateRendererSize, variant, collapsed, getProperty, asset, loadModelAsset]);
+  }, [updateRendererSize, variant, getProperty, asset, loadModelAsset]);
 
   useEffect(() => {
     if (!asset || !asset.source) return;
@@ -837,28 +827,6 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     onDrop: handleCanvasDrop,
   };
 
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!resizing.current) return;
-    const dx = startX.current - e.clientX; // dragging left handle; increasing dx widens panel
-    const next = Math.min(Math.max(startW.current + dx, 320), Math.max(window.innerWidth - 120, 320));
-    setWidth(next);
-  }, []);
-
-  const onMouseUp = useCallback(() => {
-    resizing.current = false;
-    window.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
-  }, [onMouseMove]);
-
-  const onHandleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    resizing.current = true;
-    startX.current = e.clientX;
-    startW.current = width;
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-  };
-
   if (variant === "node") {
     return (
       <div className={cn("h-full flex flex-col", className)}>
@@ -998,98 +966,107 @@ export function PreviewPanel({ graph, className, variant = "overlay", getPropert
     );
   }
 
-  if (collapsed) {
-    return (
-      <div className={cn("absolute right-2 top-1/2 -translate-y-1/2 z-40", className)}>
-        <Button size="sm" variant="outline" onClick={() => setCollapsed(false)} aria-label="Open 3D Preview">
-          Preview
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className={cn("fixed top-1/2 right-2 -translate-y-1/2 z-40 pointer-events-none", className)}
-      style={{ width: width + 4 /* handle thickness */ }}
-    >
-      {/* Resize Handle (left edge) */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        title="Drag to resize"
-        onMouseDown={onHandleMouseDown}
-        className="absolute left-[-4px] top-0 h-full w-2 cursor-col-resize bg-transparent pointer-events-auto"
-      />
-      <Card className="pointer-events-auto">
-        <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">3D Preview</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="min-w-[120px]">
-              <Select value={primitive} onValueChange={(v) => { const next = v as Primitive; setPrimitive(next); setProperty?.("primitive", next); }}>
-                <SelectTrigger aria-label="Primitive">
-                  <SelectValue placeholder="Primitive" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sphere">Sphere</SelectItem>
-                  <SelectItem value="cube">Cube</SelectItem>
-                  <SelectItem value="cylinder">Cylinder</SelectItem>
-                  {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="min-w-[160px]">
-              <Select value={lightingProfile.id} onValueChange={(value) => { setLightingProfileId(value); setProperty?.("lighting_profile", value); }}>
-                <SelectTrigger aria-label="Lighting profile" title={hasLightingDescription ? lightingDescription : undefined}>
-                  <SelectValue placeholder="Lighting" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lightingProfiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate</label>
-            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe</label>
-            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnv} onChange={(e) => setUseEnv(e.target.checked)} /> env</label>
-            <label className="text-xs inline-flex items-center gap-1 select-none cursor-pointer"><input type="checkbox" checked={useEnvBg} onChange={(e) => setUseEnvBg(e.target.checked)} disabled={!useEnv} /> bg</label>
-            <Button size="icon" variant="ghost" aria-label="Collapse" onClick={() => setCollapsed(true)}>▸</Button>
+    <div className={cn("flex h-full flex-col", className)}>
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-muted/30 px-3 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3D Preview</span>
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="min-w-[120px] shrink-0">
+            <Select
+              value={primitive}
+              onValueChange={(v) => {
+                const next = v as Primitive;
+                setPrimitive(next);
+                setProperty?.("primitive", next);
+              }}
+            >
+              <SelectTrigger aria-label="Primitive" className="w-full">
+                <SelectValue placeholder="Primitive" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sphere">Sphere</SelectItem>
+                <SelectItem value="cube">Cube</SelectItem>
+                <SelectItem value="cylinder">Cylinder</SelectItem>
+                {customModel ? <SelectItem value="custom">Model ({customModel.label})</SelectItem> : null}
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div
-            {...canvasDropProps}
-            className={cn(
-              "osg-three-preview rounded-md overflow-hidden transition-colors nodrag nowheel nopan",
-              modelDropActive ? "bg-primary/10 border border-dashed border-primary" : "bg-muted"
-            )}
-            style={{ width: "100%", height: 320, touchAction: "none" }}
-            data-node-interactive
-            onMouseDown={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            onWheel={(e) => e.stopPropagation()}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          >
-            <canvas
-              ref={canvasRef}
-              className="nodrag nowheel nopan"
-              data-testid="preview-canvas"
-              style={{ display: "block", width: "100%", height: "100%", touchAction: "none" }}
-            />
+          <div className="min-w-[160px] shrink-0">
+            <Select
+              value={lightingProfile.id}
+              onValueChange={(value) => {
+                setLightingProfileId(value);
+                setProperty?.("lighting_profile", value);
+              }}
+            >
+              <SelectTrigger
+                aria-label="Lighting profile"
+                title={hasLightingDescription ? lightingDescription : undefined}
+                className="w-full"
+              >
+                <SelectValue placeholder="Lighting" />
+              </SelectTrigger>
+              <SelectContent>
+                {lightingProfiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          {working ? (
-            <div className="mt-2 text-[11px] text-muted-foreground">Compiling…</div>
-          ) : compileError ? (
-            <div className="mt-2 text-[11px] text-red-500">{compileError}</div>
-          ) : modelStatus ? (
-            <div className="mt-2 text-[11px] text-muted-foreground">{modelStatus}</div>
-          ) : null}
-        </CardContent>
-      </Card>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <label className="inline-flex items-center gap-1 select-none cursor-pointer">
+            <input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> rotate
+          </label>
+          <label className="inline-flex items-center gap-1 select-none cursor-pointer">
+            <input type="checkbox" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} /> wireframe
+          </label>
+          <label className="inline-flex items-center gap-1 select-none cursor-pointer">
+            <input type="checkbox" checked={useEnv} onChange={(e) => setUseEnv(e.target.checked)} /> env
+          </label>
+          <label className="inline-flex items-center gap-1 select-none cursor-pointer">
+            <input type="checkbox" checked={useEnvBg} onChange={(e) => setUseEnvBg(e.target.checked)} disabled={!useEnv} /> bg
+          </label>
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-3 pt-3">
+        <div
+          {...canvasDropProps}
+          className={cn(
+            "osg-three-preview relative flex-1 rounded-md border border-border/40 bg-muted transition-colors nodrag nowheel nopan",
+            modelDropActive ? "border-dashed border-primary bg-primary/10" : null
+          )}
+          style={{ minHeight: 240, touchAction: "none" }}
+          data-node-interactive
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDragStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="h-full w-full nodrag nowheel nopan"
+            data-testid="preview-canvas"
+            style={{ display: "block", touchAction: "none" }}
+          />
+        </div>
+        {working ? (
+          <div className="text-[11px] text-muted-foreground">Compiling…</div>
+        ) : compileError ? (
+          <div className="text-[11px] text-red-500">{compileError}</div>
+        ) : modelStatus ? (
+          <div className="text-[11px] text-muted-foreground">{modelStatus}</div>
+        ) : null}
+      </div>
     </div>
   );
 }

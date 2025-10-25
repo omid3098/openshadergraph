@@ -5,10 +5,7 @@ import type { NodePaletteItem } from "@/core/schema/types";
 
 type GraphHotkeyContext = {
   getPointerClient: () => { x: number; y: number };
-  toggleEditorNode: (
-    panel: EditorPanelKey,
-    origin?: { kind: "hotkey"; client: { x: number; y: number } }
-  ) => void | Promise<void>;
+  toggleOverlayPanel: (panel: EditorPanelKey) => void | Promise<void>;
   addNodeAt: (opts: { item: NodePaletteItem; x: number; y: number }) => void | Promise<void>;
   paletteByType: Map<string, NodePaletteItem>;
   quickHotkeys: Record<string, QuickNodeHotkey>;
@@ -17,7 +14,7 @@ type GraphHotkeyContext = {
 
 export function useGraphHotkeys({
   getPointerClient,
-  toggleEditorNode,
+  toggleOverlayPanel,
   addNodeAt,
   paletteByType,
   quickHotkeys,
@@ -38,13 +35,12 @@ export function useGraphHotkeys({
       if (!panel) return;
 
       event.preventDefault();
-      const pointer = getPointerClient();
-      void toggleEditorNode(panel, { kind: "hotkey", client: pointer });
+      void toggleOverlayPanel(panel);
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [getPointerClient, toggleEditorNode]);
+  }, [toggleOverlayPanel]);
 
   useEffect(() => {
     const reserved = new Set(reservedCodes);

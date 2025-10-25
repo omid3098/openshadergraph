@@ -15,6 +15,8 @@ export default [
       ".venv/**",
       ".vite/**",
       ".tmp-build/**",
+      ".tmp/**",
+      ".playwright/**",
       "python_backup/**",
     ],
   },
@@ -71,4 +73,3 @@ export default [
     },
   },
 ];
-

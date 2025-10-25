@@ -26,7 +26,7 @@ function Harness({ hotkeys, paletteItems = [], onAdd, reservedCodes = [] }: Harn
 
   useGraphHotkeys({
     getPointerClient: () => ({ x: 10, y: 20 }),
-    toggleEditorNode: vi.fn(),
+    toggleOverlayPanel: vi.fn(),
     addNodeAt: onAdd,
     paletteByType,
     quickHotkeys: buildQuickHotkeyMap(hotkeys),

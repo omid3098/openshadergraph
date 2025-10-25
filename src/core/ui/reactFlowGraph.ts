@@ -3,6 +3,7 @@ import type { GraphNode } from "@/core/graph/types";
 import type { NodeProperty, NodeTemplate } from "@/core/schema/types";
 import { parseEditorSize } from "./nodeFactory";
 import { RF_LAYOUT_DEFAULTS } from "./layoutDefaults";
+import { isOverlayEditorNode } from "./editorNodes";
 
 export type AssetEntry = {
   id: string;
@@ -147,6 +148,9 @@ export function buildReactFlowGraph({ root, defaults, assets, options }: BuildRe
   const assetPropIds = new Set(["source", "texture_source", "model_source"]);
 
   const walk = (node: GraphNode, parentId?: string, depth = 0) => {
+    if (isOverlayEditorNode(node)) {
+      return;
+    }
     const id = Number(node.id);
     allNodes.set(id, node);
     const key = parentId ?? "root";

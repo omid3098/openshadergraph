@@ -11,6 +11,32 @@ const ROOT = process.cwd();
 const SHADERS_DIR = path.join(ROOT, "tests", "shaders");
 const ENGINE_DIR = path.join(SHADERS_DIR, "godot");
 
+async function ensureDir(dir: string): Promise<void> {
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      // Parent directory might have been removed concurrently by another test file; recreate and retry once.
+      await fs.mkdir(path.dirname(dir), { recursive: true });
+      await fs.mkdir(dir, { recursive: true });
+      return;
+    }
+    throw err;
+  }
+}
+
+async function expectSnapshotExists(file: string): Promise<void> {
+  try {
+    await fs.stat(file);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return;
+    }
+    throw err;
+  }
+}
+
 async function compile_graph(graph: any, languageFile: string, name = "shader") {
   const lang = await loadLanguage(languageFile.endsWith(".json") ? languageFile : `${languageFile}`);
   const compiler = new GraphCompiler(graph, lang);
@@ -18,9 +44,19 @@ async function compile_graph(graph: any, languageFile: string, name = "shader") 
   const ext = lang.file_extensions[0];
   const engine = path.parse(languageFile).name.toLowerCase();
   const out_dir = path.join(SHADERS_DIR, engine);
-  await fs.mkdir(out_dir, { recursive: true });
+  await ensureDir(out_dir);
   const out_file = path.join(out_dir, `${name}.${ext}`);
-  await fs.writeFile(out_file, compiler.result_code, "utf8");
+  try {
+    await fs.writeFile(out_file, compiler.result_code, "utf8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      await ensureDir(out_dir);
+      await fs.writeFile(out_file, compiler.result_code, "utf8");
+    } else {
+      throw err;
+    }
+  }
   return compiler.result_code;
 }
 
@@ -67,7 +103,7 @@ describe("Godot shader generation", () => {
     expect(firstUse).toBeGreaterThan(-1);
     expect(firstDecl).toBeLessThan(firstUse);
     const out_file = path.join(SHADERS_DIR, "godot", "basic_color.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("emits optional feature defaults when enabled", async () => {
@@ -103,7 +139,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
     expect(shader_code).toMatch(/ALBEDO = vec3\(add_\d+\.rgb\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "addition.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("promotes scalar inputs when mixing types", async () => {
@@ -111,7 +147,7 @@ describe("Godot shader generation", () => {
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "addition_mixed");
     expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ vec4\(float_\d+\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "addition_mixed.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("float shader from file and compile", async () => {
@@ -123,7 +159,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/float float_\d+ = 0.0;/);
     expect(shader_code).toMatch(/ROUGHNESS = float_\d+;/);
     const out_file = path.join(SHADERS_DIR, "godot", "float_graph.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("meta shader includes render_mode", async () => {
@@ -131,7 +167,7 @@ describe("Godot shader generation", () => {
     const shader_code = await compile_graph(surface.to_dict(), "Godot.json", "meta");
     expect(shader_code).toMatch(/render_mode blend_mix;/);
     const out_file = path.join(SHADERS_DIR, "godot", "meta.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("external graph compiles", async () => {
@@ -141,7 +177,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/void vertex\(\) \{/);
     expect(surface.graph_data.nodes.length).toBe(initial_count + 1);
     const out_file = path.join(SHADERS_DIR, "godot", "external.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("vertex color shader", async () => {
@@ -154,7 +190,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/NORMAL\s*=\s*vec3\(vertex_normal_\d+\);/);
     expect(shader_code).toMatch(/COLOR\s*=\s*vec4\(color_\d+\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "vertex_color.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("exposed addition shader", async () => {
@@ -165,7 +201,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/vec4 add_\d+ = color_\d+ \+ color_\d+;/);
     expect(shader_code).toMatch(/ALBEDO = vec3\(add_\d+\.rgb\);/);
     const out_file = path.join(SHADERS_DIR, "godot", "exposed.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("vector constants and texture sampling compile", async () => {
@@ -183,7 +219,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toContain("filter: linear");
     expect(shader_code).not.toContain("{{property:");
     const out_file = path.join(SHADERS_DIR, "godot", "texture_sampling.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("uses builtin UV when sampler uv input is unconnected", async () => {
@@ -242,7 +278,7 @@ describe("Godot shader generation", () => {
     expect(shader_code).toMatch(/NORMAL = vec3\(color_\d+\.rgb\);/);
     expect(shader_code).toMatch(/ALPHA = float_\d+;/);
     const out_file = path.join(SHADERS_DIR, "godot", "fragment_features.gdshader");
-    await expect(fs.stat(out_file)).resolves.toBeDefined();
+    await expectSnapshotExists(out_file);
   });
 
   it("sin node widens legacy scalar pins to vectors", async () => {

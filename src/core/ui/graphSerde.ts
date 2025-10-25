@@ -2,6 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 import type { Graph, GraphNode, InputPin, OutputPin } from "@/core/graph/types";
 import type { NodeProperty, NodeTemplate } from "@/core/schema/types";
 import { buildGraphData } from "./graphData";
+import { hasOverlayPanelMeta, isOverlayEditorNode, isOverlayTemplateType } from "./editorNodes";
 
 export type SerializedGraphNode = {
   id: number;
@@ -25,6 +26,28 @@ type TemplateById = Map<number, NodeTemplate>;
 type AssetByNodeId = Map<number, { id?: string; source?: string; type?: string; label?: string; builtin?: boolean }>;
 
 const REF_PREFIX = "../";
+function isOverlayReactFlowNode(node: Node): boolean {
+  const data: any = node?.data ?? {};
+  const template: any = data.template ?? {};
+  const templateType = typeof template.type === "string" ? template.type : typeof data.type === "string" ? data.type : undefined;
+  if (isOverlayTemplateType(templateType)) return true;
+  const meta = template.meta ?? data.meta;
+  return hasOverlayPanelMeta(meta);
+}
+
+function pruneOverlayGraphNodes(nodes: GraphNode[] | undefined): GraphNode[] {
+  if (!Array.isArray(nodes) || nodes.length === 0) return [];
+  const result: GraphNode[] = [];
+  for (const node of nodes) {
+    if (!node || isOverlayEditorNode(node)) continue;
+    const clone: GraphNode = { ...(node as any) };
+    if (Array.isArray(node.nodes) && node.nodes.length) {
+      clone.nodes = pruneOverlayGraphNodes(node.nodes);
+    }
+    result.push(clone);
+  }
+  return result;
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -233,13 +256,17 @@ function diffNode(node: GraphNode, defaultsById: TemplateById, assets: AssetByNo
 }
 
 export function serializeGraph(nodes: Node[], edges: Edge[], graphName: string): SerializedGraph {
-  const defaults = collectDefaults(nodes);
-  const assets = collectAssets(nodes);
-  const root = buildGraphData(nodes, edges, graphName);
+  const filteredNodes = nodes.filter((node) => !isOverlayReactFlowNode(node));
+  const allowedIds = new Set(filteredNodes.map((node) => String(node.id)));
+  const filteredEdges = edges.filter((edge) => allowedIds.has(String(edge.source)) && allowedIds.has(String(edge.target)));
+  const defaults = collectDefaults(filteredNodes);
+  const assets = collectAssets(filteredNodes);
+  const root = buildGraphData(filteredNodes, filteredEdges, graphName);
+  const sanitizedNodes = pruneOverlayGraphNodes(root.nodes as GraphNode[] | undefined);
   const serialized: SerializedGraph = {
     type: root.type,
     name: root.name,
-    nodes: Array.isArray(root.nodes) ? root.nodes.map((node: GraphNode) => diffNode(node, defaults, assets)) : [],
+    nodes: sanitizedNodes.map((node: GraphNode) => diffNode(node, defaults, assets)),
   };
   if (!serialized.nodes || serialized.nodes.length === 0) delete serialized.nodes;
   if (!serialized.type) delete serialized.type;
@@ -344,7 +371,9 @@ async function inflateNode(raw: any, loadTemplate: LoadTemplateFn, defaults: Tem
   const childNodes: GraphNode[] = [];
   const rawChildren = Array.isArray(raw?.nodes) ? raw.nodes : [];
   for (const child of rawChildren) {
+    if (child && isOverlayEditorNode(child)) continue;
     const inflated = await inflateNode(child, loadTemplate, defaults);
+    if (inflated && isOverlayEditorNode(inflated)) continue;
     childNodes.push(inflated);
   }
   base.nodes = childNodes as any;
@@ -377,7 +406,9 @@ export async function inflateGraph(rawGraph: any, loadTemplate: LoadTemplateFn):
 
   const children = Array.isArray(wrapper.nodes) ? wrapper.nodes : [];
   for (const child of children) {
+    if (child && isOverlayEditorNode(child)) continue;
     const inflated = await inflateNode(child, loadTemplate, defaults);
+    if (inflated && isOverlayEditorNode(inflated)) continue;
     graph.nodes!.push(inflated);
   }
 

@@ -1,3 +1,8 @@
+## Unreleased
+
+### Features
+
+- restore Preview, Compile, Graph Data, Assets, and Properties as floating overlays toggled from the View menu; legacy overlay nodes are filtered when saving and loading graphs.
 ## [0.6.1](https://github.com/omid3098/openshadergraph/compare/v0.6.0...v0.6.1) (2025-10-15)
 
 - Merge branch 'dev' into beta- Merge pull request #75 from omid3098/codex/add-common-aliases-for-node-names- Merge pull request #76 from omid3098/codex/refactor-versioning-strategy-for-branches- Merge pull request #77 from omid3098/beta

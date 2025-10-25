@@ -8,6 +8,20 @@ import { basic_color_graph, addition_graph, float_graph, full_fragment_graph, ex
 const ROOT = process.cwd();
 const SHADERS_DIR = path.join(ROOT, "tests", "shaders");
 
+async function ensureDir(dir: string): Promise<void> {
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      await fs.mkdir(path.dirname(dir), { recursive: true });
+      await fs.mkdir(dir, { recursive: true });
+      return;
+    }
+    throw err;
+  }
+}
+
 async function compile_graph(graph: any, languageFile: string, name = "shader") {
   const lang = await loadLanguage(languageFile.endsWith(".json") ? languageFile : `${languageFile}`);
   const compiler = new GraphCompiler(graph, lang);
@@ -15,7 +29,7 @@ async function compile_graph(graph: any, languageFile: string, name = "shader") 
   const ext = lang.file_extensions[0];
   const engine = path.parse(languageFile).name.toLowerCase();
   const out_dir = path.join(SHADERS_DIR, engine);
-  await fs.mkdir(out_dir, { recursive: true });
+  await ensureDir(out_dir);
   const out_file = path.join(out_dir, `${name}.${ext}`);
   await fs.writeFile(out_file, compiler.result_code, "utf8");
   return compiler.result_code;
@@ -112,4 +126,3 @@ describe("Shader formatting: indentation hygiene", () => {
     expectCleanIndentation(code);
   });
 });
-
