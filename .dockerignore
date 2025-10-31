@@ -1,0 +1,22 @@
+# Local / transient files that should not be sent to the Docker build context
+.DS_Store
+.venv
+.tmp
+.cursor
+.git
+.github
+
+# Dependency + build artifacts are recreated inside the container
+node_modules
+dist
+coverage
+playwright-report
+test-results
+.vite
+
+# Workbench + IDE metadata
+artifacts
+plan.md
+tests
+e2e
+docs/site
